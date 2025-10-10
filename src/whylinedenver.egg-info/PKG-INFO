@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: whylinedenver
+Version: 0.0.0
+Summary: WhyLine Denver
+Requires-Python: >=3.11
+License-File: LICENSE
+Requires-Dist: pandas>=2.2.0
+Requires-Dist: pyarrow>=16.1.0
+Dynamic: license-file

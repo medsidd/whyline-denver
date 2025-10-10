@@ -5,6 +5,11 @@ __pycache__/
 dbt/target/
 dbt/.dbt/
 data/warehouse.duckdb
+data/raw
 .env
 *.json
 .DS_Store
+dbt/seeds/ingest_samples/
+tests/fixtures/
+dbt/logs/
+dbt/seeds/
