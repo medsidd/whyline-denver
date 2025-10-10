@@ -1,0 +1,8 @@
+name: 'whylinedenver_dbt'
+version: '1.0'
+profile: 'whylinedenver'
+model-paths: ['models']
+target-path: 'target'
+clean-targets: ['target']
+models:
+  +materialized: view

@@ -1,0 +1,17 @@
+streamlit==1.37.0
+pandas==2.2.2
+pyarrow==16.1.0
+duckdb==1.4.1
+dbt-core==1.8.5
+dbt-bigquery==1.8.2
+dbt-duckdb==1.8.0
+google-cloud-storage==2.18.2
+google-cloud-bigquery==3.25.0
+protobuf==4.25.3
+gtfs-realtime-bindings==1.0.0
+pyproj==3.6.1
+python-dotenv==1.0.1
+ruff==0.6.3
+black==24.8.0
+pytest==8.2.0
+python-dotenv

@@ -1,1 +1,10 @@
 sa-key.json
+.venv/
+__pycache__/
+*.pyc
+dbt/target/
+dbt/.dbt/
+data/warehouse.duckdb
+.env
+*.json
+.DS_Store
