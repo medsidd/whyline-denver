@@ -342,9 +342,9 @@ def _derive_severity(
     seriously_injured: Any | None,
     fatalities: Any | None,
 ) -> tuple[str, int]:
-    if fatalities and int(fatalities) > 0:
+    if fatalities is not None and int(fatalities) > 0:
         return "fatal", 4
-    if seriously_injured and int(seriously_injured) > 0:
+    if seriously_injured is not None and int(seriously_injured) > 0:
         return "serious_injury", 3
     label = (severity_text_raw or "").strip().lower()
     if "sbi" in label:
