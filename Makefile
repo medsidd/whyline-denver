@@ -21,10 +21,10 @@ run:
 	streamlit run app/streamlit_app.py
 
 demo:
-# minimal dbt compile/docs on demo target
 	cd dbt && dbt --no-use-colors deps || true
-	cd dbt && dbt --no-use-colors parse --target demo
-	cd dbt && dbt --no-use-colors docs generate --target demo
+	cd dbt && DBT_PROFILES_DIR=$$(pwd)/profiles dbt --no-use-colors parse --target demo
+	cd dbt && DBT_PROFILES_DIR=$$(pwd)/profiles dbt --no-use-colors docs generate --target demo
+
 
 ci-help:
 	@echo "Targets: install | lint | format | test | run | demo"
