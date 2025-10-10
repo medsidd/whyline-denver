@@ -1,0 +1,8 @@
+year: 2023
+vars:
+  no_vehicle_households: B08201_002E
+  total_households: B08201_001E
+  transit_commuters: B08301_010E
+  total_commuters: B08301_001E
+  persons_below_poverty: B17001_002E
+  total_population: B01003_001E

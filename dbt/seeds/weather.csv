@@ -1,0 +1,3 @@
+date,station,snow_mm,precip_mm,tmin_c,tmax_c,tavg_c,snow_day,precip_bin
+2025-01-01,USW00023062,5.0,10.0,-5.0,2.0,-1.5,1,light
+2025-01-02,USW00023062,0.0,0.0,-6.0,1.5,-2.0,0,none

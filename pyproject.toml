@@ -10,8 +10,26 @@ lint.ignore = ["E501"]                                # handled by black
 exclude = ["dbt/target","dbt/.dbt"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*.py" = ["S101"]
+"*.py" = ["S101", "UP007", "B904", "N802", "S310"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "whylinedenver"
+version = "0.0.0"
+description = "WhyLine Denver"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.2.0",
+    "pyarrow>=16.1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

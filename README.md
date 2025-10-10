@@ -11,6 +11,14 @@ WhyLine Denver turns raw public transit feeds into a governed, dual-engine analy
 3. `cp .env.example .env` and populate credentials/secrets
 4. `make run`
 
+## Credentials & Secrets
+
+- **NEVER** commit `.env` or any tokens to git. `.env.example` lists the variables the app expects; copy it locally and keep credentials in your environment.
+- `NOAA_CDO_TOKEN` (optional) unlocks the live NOAA daily summaries endpoint. If it is unset the ingestor falls back to reading a local CSV (`data/external/noaa_raw.csv`).
+- `CENSUS_API_KEY` (optional) raises Census API rate limits. Without it the ACS ingestor still works against the public throttle.
+- For GCS writes, ingestion modules rely on Google Application Default Credentials. Locally run `gcloud auth application-default login`, or point `GOOGLE_APPLICATION_CREDENTIALS` at a service-account JSON. In CI we inject the key through GitHub secrets—no keys ever live in the repo.
+- Set `WLD_LOG_LEVEL` (default `INFO`) to `DEBUG` when diagnosing ingestion runs; logging remains structured across all scripts.
+
 ## Architecture Diagrams
 
 - [Pipeline Architecture](docs/pipeline_architecture.drawio) (coming soon)
