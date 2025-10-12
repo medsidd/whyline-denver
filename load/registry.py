@@ -155,7 +155,7 @@ JOBS: tuple[JobSpec, ...] = (
             ("ped_involved", "INT64"),
         ),
         partition=Partitioning(field="event_ts_utc"),
-        clustering=Clustering(fields=("on_route", "off_route")),
+        clustering=Clustering(fields=("severity",)),
     ),
     JobSpec(
         name="denver_sidewalks",
@@ -209,6 +209,7 @@ JOBS: tuple[JobSpec, ...] = (
             ("route_text_color", "STRING"),
             ("network_id", "STRING"),
         ),
+        clustering=Clustering(fields=("route_id",)),
     ),
     JobSpec(
         name="gtfs_stops",
@@ -228,6 +229,7 @@ JOBS: tuple[JobSpec, ...] = (
             ("stop_timezone", "STRING"),
             ("wheelchair_boarding", "INT64"),
         ),
+        clustering=Clustering(fields=("stop_id",)),
     ),
     JobSpec(
         name="gtfs_trips",
@@ -318,7 +320,7 @@ JOBS: tuple[JobSpec, ...] = (
             ("start_time", "STRING"),
         ),
         partition=Partitioning(field="feed_ts_utc"),
-        clustering=Clustering(fields=("route_id", "trip_id", "stop_id")),
+        clustering=Clustering(fields=("route_id", "trip_id")),
     ),
     JobSpec(
         name="gtfsrt_vehicle_positions",
@@ -338,6 +340,6 @@ JOBS: tuple[JobSpec, ...] = (
             ("event_ts_utc", "TIMESTAMP"),
         ),
         partition=Partitioning(field="feed_ts_utc"),
-        clustering=Clustering(fields=("route_id", "trip_id", "vehicle_id")),
+        clustering=Clustering(fields=("route_id", "trip_id")),
     ),
 )
