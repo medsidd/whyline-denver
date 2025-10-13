@@ -1,3 +1,0 @@
-geoid,name,year,hh_no_vehicle,hh_total,workers_transit,workers_total,persons_poverty,pop_total,pct_hh_no_vehicle,pct_transit_commute,pct_poverty
-14000US08031000100,Tract 1,2023,100,1000,200,800,150,2000,0.1,0.25,0.075
-14000US08031000200,Tract 2,2023,50,900,150,700,120,1800,0.0556,0.2143,0.0667

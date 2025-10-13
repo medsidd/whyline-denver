@@ -14,3 +14,5 @@ tests/fixtures/
 dbt/logs/
 dbt/seeds/
 *.egg-info
+logs/
+*.logs

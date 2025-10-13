@@ -1,4 +1,4 @@
-.PHONY: install lint format test test-ingest run demo ingest-all ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ci-help
+.PHONY: install lint format test test-ingest run demo ingest-all ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs bq-load bq-load-local dbt-source-freshness ci-help
 
 PY=python
 PIP=pip
@@ -7,6 +7,8 @@ install:
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt
 	pre-commit install
+
+GCS_BUCKET ?= whylinedenver-raw
 
 lint:
 	ruff check . && black --check .
@@ -24,9 +26,9 @@ run:
 	streamlit run app/streamlit_app.py
 
 demo:
-	cd dbt && dbt --no-use-colors deps || true
-	cd dbt && DBT_PROFILES_DIR=$$(pwd)/profiles dbt --no-use-colors parse --target demo
-	cd dbt && DBT_PROFILES_DIR=$$(pwd)/profiles dbt --no-use-colors docs generate --target demo
+	DBT_PROFILES_DIR=$$PWD/dbt/profiles python -m scripts.dbt_with_env deps --project-dir dbt --no-use-colors || true
+	DBT_PROFILES_DIR=$$PWD/dbt/profiles python -m scripts.dbt_with_env parse --project-dir dbt --no-use-colors --target demo
+	DBT_PROFILES_DIR=$$PWD/dbt/profiles python -m scripts.dbt_with_env docs generate --project-dir dbt --no-use-colors --target demo
 
 ingest-all:
 	python -m whylinedenver.ingest.gtfs_static --local
@@ -49,10 +51,19 @@ ingest-sidewalks:
 	python -m whylinedenver.ingest.denver_sidewalks --local
 
 ingest-noaa:
-	python -m whylinedenver.ingest.noaa_daily --local --start 2024-11-01 --end 2024-11-30
+	python -m whylinedenver.ingest.noaa_daily --local --start 2025-10-01 --end 2025-10-12
 
 ingest-acs:
 	python -m whylinedenver.ingest.acs --local --year 2023 --geo tract
+
+bq-load:
+	python -m load.bq_load --src gcs --bucket $(GCS_BUCKET) --since 2025-01-01
+
+bq-load-local:
+	python -m load.bq_load --src local --bucket $(GCS_BUCKET) --since 2025-01-01
+
+dbt-source-freshness:
+	DBT_PROFILES_DIR=$$PWD/dbt/profiles python -m scripts.dbt_with_env source freshness --project-dir dbt --target prod --select source:raw
 
 
 ci-help:

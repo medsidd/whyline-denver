@@ -1,3 +1,0 @@
-sidewalk_id,class,status,material,year_built,lon_start,lat_start,lon_end,lat_end,length_m,centroid_lon,centroid_lat
-sw1,sidewalk,existing,concrete,2012.0,-104.99,39.74,-104.98,39.741,120.5,-104.985,39.7405
-sw2,trail,existing,asphalt,,-104.97,39.75,-104.96,39.751,98.2,-104.965,39.7505
