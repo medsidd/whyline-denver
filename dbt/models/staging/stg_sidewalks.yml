@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: stg_sidewalks
+    columns:
+      - name: sidewalk_id
+        data_tests:
+          - not_null
+      - name: geom
+        data_tests:
+          - not_null
+      - name: length_m
+        data_tests:
+          - accepted_range:
+              min_value: 0
+              exclusive_min: true
