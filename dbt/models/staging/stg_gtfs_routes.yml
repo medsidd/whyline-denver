@@ -1,0 +1,9 @@
+version: 2
+
+models:
+  - name: stg_gtfs_routes
+    columns:
+      - name: route_id
+        data_tests:
+          - not_null
+          - unique

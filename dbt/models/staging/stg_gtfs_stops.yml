@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: stg_gtfs_stops
+    columns:
+      - name: stop_id
+        data_tests:
+          - not_null
+          - unique
+      - name: geom
+        data_tests:
+          - not_null

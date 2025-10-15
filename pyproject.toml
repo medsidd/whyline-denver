@@ -11,7 +11,7 @@ exclude = ["dbt/target","dbt/.dbt"]
 
 # S608 (Possible SQL injection) is ignored because all SQL queries are parameterized and inputs are sanitized elsewhere.
 [tool.ruff.lint.per-file-ignores]
-"*.py" = ["S101", "UP007", "B904", "N802", "S310", "S608"]
+"*.py" = ["S101", "UP007", "UP035", "UP006", "B904", "N802", "S310", "S608"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
