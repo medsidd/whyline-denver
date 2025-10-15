@@ -1,0 +1,13 @@
+version: 2
+
+models:
+  - name: stg_gtfs_trips
+    columns:
+      - name: trip_id
+        data_tests:
+          - not_null
+      - name: route_id
+        data_tests:
+          - relationships:
+              to: ref('stg_gtfs_routes')
+              field: route_id

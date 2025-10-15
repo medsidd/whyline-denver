@@ -1,0 +1,11 @@
+version: 2
+
+models:
+  - name: stg_gtfs_stop_times
+    columns:
+      - name: trip_id
+        data_tests:
+          - not_null
+      - name: stop_id
+        data_tests:
+          - not_null
