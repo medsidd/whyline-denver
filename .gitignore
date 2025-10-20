@@ -1,4 +1,3 @@
-sa-key.json
 .venv/
 __pycache__/
 *.pyc
@@ -7,9 +6,15 @@ dbt/.dbt/
 data/warehouse.duckdb
 data/raw
 .env
-*.json
+/*.json
 .DS_Store
 dbt/seeds/ingest_samples/
-tests/fixtures/
 dbt/logs/
 dbt/seeds/
+*.egg-info
+logs/
+*.logs
+.pytest_cache/
+.ruff_cache/
+src/whylinedenver/__pycache__/
+.vscode/

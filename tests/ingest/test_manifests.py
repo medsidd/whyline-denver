@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-FIXTURES_ROOT = (Path(__file__).resolve().parent / "../fixtures").resolve()
+FIXTURES_ROOT = Path(__file__).resolve().parent.parent / "fixtures"
 
 
 def _latest_partition(*paths: Path) -> Path:

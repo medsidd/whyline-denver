@@ -1,3 +1,0 @@
-feed_ts_utc,entity_id,trip_id,route_id,vehicle_id,vehicle_label,lon,lat,bearing,speed_mps,event_ts_utc
-2025-01-01T00:00:00Z,entity_1,trip_1,route_1,veh_1,bus 1,-104.99,39.74,90.0,,2025-01-01T00:00:10Z
-2025-01-01T00:00:00Z,entity_2,trip_2,route_2,veh_2,bus 2,-104.98,39.75,180.0,,2025-01-01T00:00:20Z

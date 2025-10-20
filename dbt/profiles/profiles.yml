@@ -2,7 +2,7 @@ whylinedenver:
   outputs:
     demo:
       type: duckdb
-      path: ../data/warehouse.duckdb
+      path: "{{ env_var('DUCKDB_PATH', 'data/warehouse.duckdb') }}"
     prod:
       type: bigquery
       method: service-account

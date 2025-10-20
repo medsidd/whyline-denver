@@ -67,7 +67,7 @@ These contracts describe the CSV outputs produced by the ingestion CLIs in `src/
 | class | STRING | – | NO | Normalized sidewalk class/type. |
 | status | STRING | – | NO | Normalized segment status. |
 | material | STRING | – | NO | Surface material. |
-| year_built | INT64 | year | YES | Construction year. |
+| year_built | STRING | year | YES | Construction year; may include trailing `.0`. |
 | lon_start | FLOAT64 | degrees (EPSG:4326) | NO | Start vertex longitude. |
 | lat_start | FLOAT64 | degrees (EPSG:4326) | NO | Start vertex latitude. |
 | lon_end | FLOAT64 | degrees (EPSG:4326) | NO | End vertex longitude. |

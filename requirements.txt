@@ -18,3 +18,4 @@ google-cloud-bigquery-storage
 requests==2.32.3
 certifi
 pre-commit
+-e .

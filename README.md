@@ -38,6 +38,15 @@ WhyLine Denver turns raw public transit feeds into a governed, dual-engine analy
 - Set `GCP_PROJECT_ID`, dataset names, and bucket values in your `.env`
 - Point `ENGINE=bigquery` once the environment is configured
 
+## dbt Usage
+
+- Install dependencies in the repo virtualenv (`pip install -r requirements.txt`) so the bundled `dbt-core`, `dbt-bigquery`, and `dbt-duckdb` adapters are on the Python path.
+- `.env.example` now includes `DBT_PROFILES_DIR=dbt/profiles`; the helper resolves it to an absolute path so both dbt CLI and IDE tooling can locate the profile.
+- Export (or add to `.env`) `GOOGLE_APPLICATION_CREDENTIALS=/path/to/whyline-dbt-*.json`, `GCP_PROJECT_ID`, and `BQ_DATASET_MART` before running dbt commands.
+- Invoke dbt through the helper script: `python -m scripts.dbt_with_env <command> --project-dir dbt ...`. Example: `make dbt-source-freshness` or `python -m scripts.dbt_with_env source freshness --project-dir dbt --target prod`.
+- Remove any legacy `dbt`/`dbt-fusion` binaries from your shell (`brew uninstall dbt` or `pipx uninstall dbt-fusion`) so the Homebrew CLI cannot shadow the project-managed dbt core.
+- In editors (VS Code/Pylance), be sure to select the repo’s `.venv` interpreter so Python import resolution picks up `python-dotenv`, `dbt-core`, and friends.
+
 ## Freshness Badges
 
 - Planned: surface dbt source and model freshness badges alongside the Streamlit experience

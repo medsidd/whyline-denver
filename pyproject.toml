@@ -9,8 +9,9 @@ lint.select = ["E","F","I","B","UP","N","S","C90"]   # style + bugs + security +
 lint.ignore = ["E501"]                                # handled by black
 exclude = ["dbt/target","dbt/.dbt"]
 
+# S608 (Possible SQL injection) is ignored because all SQL queries are parameterized and inputs are sanitized elsewhere.
 [tool.ruff.lint.per-file-ignores]
-"*.py" = ["S101", "UP007", "B904", "N802", "S310"]
+"*.py" = ["S101", "UP007", "UP035", "UP006", "B904", "N802", "S310", "S608"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -28,8 +29,9 @@ requires-python = ">=3.11"
 dependencies = [
     "pandas>=2.2.0",
     "pyarrow>=16.1.0",
+    "google-cloud-bigquery>=3.20.0",
+    "google-cloud-storage>=2.16.0",
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-

@@ -1,0 +1,9 @@
+{
+  "files": {
+    "weather.csv.gz": {
+      "row_count": 2,
+      "bytes": 155,
+      "hash_md5": "fixture"
+    }
+  }
+}

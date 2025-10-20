@@ -1,3 +1,0 @@
-crash_id,event_ts_utc,severity,severity_text,lat,lon,roadway_name,on_route,off_route,bike_involved,ped_involved
-crash1,2025-01-01T01:00:00Z,injury,Injury,39.74,-104.99,colfax & broadway,colfax,broadway,1,0
-crash2,2025-01-02T02:00:00Z,fatal,Fatal,39.75,-105.0,arapahoe & 16th,arapahoe,16th,0,1

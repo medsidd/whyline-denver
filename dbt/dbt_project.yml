@@ -5,4 +5,7 @@ model-paths: ['models']
 target-path: 'target'
 clean-targets: ['target']
 models:
-  +materialized: view
+  whylinedenver_dbt:
+    +materialized: view
+    staging:
+      +schema: "{{ env_var('BQ_DATASET_STG', 'stg_denver') }}"

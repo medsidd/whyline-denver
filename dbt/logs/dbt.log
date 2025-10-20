@@ -1,7 +1,0 @@
-dbt-fusion 2.0.0-preview.44
-warning: dbt1700: --use-colors is no longer supported
-   Loading profiles/profiles.yml
-error: dbt1005: Failed to parse profiles.yml: unknown variant `duckdb`, expected one of `redshift`, `snowflake`, `postgres`, `bigquery`, `trino`, `datafusion`, `databricks`, `salesforce`
-
-==================== Execution Summary =====================
-Finished 'parse' with 1 warning and 1 error for target 'demo' [173ms]
