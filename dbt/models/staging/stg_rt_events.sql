@@ -54,6 +54,15 @@ j as (
         on tu.feed_ts_utc = vp.feed_ts_utc
         and tu.trip_id = vp.trip_id
         and tu.route_id = vp.route_id
+),
+ranked as (
+    select
+        *,
+        row_number() over (
+            partition by feed_ts_utc, trip_id
+            order by event_ts_utc desc, tu_entity_id desc, vp_entity_id desc
+        ) as trip_rank
+    from j
 )
 select
     feed_ts_utc,
@@ -76,4 +85,5 @@ select
     event_ts_utc,
     {{ date_mst('event_ts_utc') }} as event_date_mst,
     {{ hour_mst('event_ts_utc') }} as event_hour_mst
-from j
+from ranked
+where trip_rank = 1

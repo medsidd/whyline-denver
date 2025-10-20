@@ -1,0 +1,120 @@
+version: 2
+
+models:
+  - name: stg_gtfs_routes
+    tests:
+      - unique_combination:
+          column_names: ['route_id']
+    columns:
+      - name: route_id
+        tests:
+          - not_null
+
+  - name: stg_gtfs_stops
+    columns:
+      - name: stop_id
+        tests:
+          - not_null
+          - unique
+      - name: geom
+        tests:
+          - not_null
+
+  - name: stg_gtfs_trips
+    columns:
+      - name: trip_id
+        tests:
+          - not_null
+      - name: route_id
+        tests:
+          - relationships:
+              to: ref('stg_gtfs_routes')
+              field: route_id
+
+  - name: stg_gtfs_stop_times
+    columns:
+      - name: trip_id
+        tests:
+          - not_null
+      - name: stop_id
+        tests:
+          - not_null
+
+  - name: stg_rt_events
+    columns:
+      - name: feed_ts_utc
+        tests:
+          - not_null
+      - name: route_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_gtfs_routes')
+              field: route_id
+      - name: trip_id
+        tests:
+          - not_null
+      - name: event_ts_utc
+        tests:
+          - not_null
+
+  - name: stg_denver_crashes
+    columns:
+      - name: crash_id
+        tests:
+          - not_null
+          - unique
+      - name: event_ts_utc
+        tests:
+          - not_null
+      - name: geom
+        tests:
+          - not_null
+
+  - name: stg_sidewalks
+    columns:
+      - name: sidewalk_id
+        tests:
+          - not_null
+      - name: geom
+        tests:
+          - not_null
+      - name: length_m
+        tests:
+          - accepted_range:
+              min_value: 0
+              exclusive_min: true
+
+  - name: stg_weather
+    tests:
+      - unique_combination:
+          column_names: ['date', 'station']
+    columns:
+      - name: date
+        tests:
+          - not_null
+      - name: station
+        tests:
+          - not_null
+
+  - name: stg_acs_geo
+    columns:
+      - name: geoid
+        tests:
+          - not_null
+          - unique
+      - name: pct_hh_no_vehicle
+        tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1
+      - name: pct_transit_commute
+        tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1
+      - name: pct_poverty
+        tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1
