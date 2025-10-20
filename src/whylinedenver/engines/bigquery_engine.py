@@ -7,7 +7,7 @@ client = bigquery.Client(project=os.getenv("GCP_PROJECT_ID"))
 
 
 def execute(sql: str) -> tuple[dict, pd.DataFrame]:
-    job = client.query(sql, job_config=bigquery.QueryJobConfig(dry_run=True))
+    job = client.query(sql, job_config=bigquery.QueryJobConfig(dry_run=True, use_query_cache=True))
     est_bytes = job.total_bytes_processed
     job = client.query(
         sql,

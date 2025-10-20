@@ -4,9 +4,9 @@
     from {{ model }}
     where 1 = 1
     {%- if min_value is not none %}
-        and {{ column_name }} {{ '<=' if exclusive_min else '<' }} {{ min_value }}
+        and {{ column_name }} {{ '<' if exclusive_min else '<=' }} {{ min_value }}
     {%- endif %}
     {%- if max_value is not none %}
-        and {{ column_name }} {{ '>=' if exclusive_max else '>' }} {{ max_value }}
+        and {{ column_name }} {{ '>' if exclusive_max else '>=' }} {{ max_value }}
     {%- endif %}
 {% endtest %}

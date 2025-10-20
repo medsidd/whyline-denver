@@ -10,10 +10,10 @@ import json
 import logging
 import sys
 import uuid
-from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
+from typing import Iterable, Iterator, Sequence
 
 from google.api_core.exceptions import NotFound
 from google.cloud import bigquery, storage
@@ -335,10 +335,6 @@ def hash_from_gcs_manifest(blob: storage.Blob, storage_client: storage.Client | 
 
 
 def md5_file(path: Path) -> str:
-    """
-    Compute the MD5 hash of a file using hashlib.md5 with usedforsecurity=False.
-    This is intended for data integrity checking only, not for cryptographic security purposes.
-    """
     hasher = hashlib.md5(usedforsecurity=False)
     with path.open("rb") as fp:
         for chunk in iter(lambda: fp.read(1024 * 1024), b""):
@@ -555,9 +551,16 @@ def insert_rows_into_destination(
     extract_date: date,
     hash_md5: str,
 ) -> None:
-    all_columns = [col.name for col in job.columns] + [meta.name for meta in META_COLUMNS]
-    column_list = ", ".join(f"`{name}`" for name in all_columns)
-    select_columns = ", ".join(f"`{col.name}`" for col in job.columns)
+    def safe_column(name: str) -> str:
+        if not name.replace("_", "").isalnum():
+            raise ValueError(f"Unsafe column name: {name}")
+        return f"`{name}`"
+
+    select_columns = ", ".join(safe_column(col.name) for col in job.columns)
+    column_list = ", ".join(
+        [safe_column(col.name) for col in job.columns]
+        + [safe_column(meta.name) for meta in META_COLUMNS]
+    )
     query = (
         f"INSERT INTO `{dest_table_id}` ({column_list}) "
         f"SELECT {select_columns}, @ingested_at, @source_path, @extract_date, @hash_md5 "
