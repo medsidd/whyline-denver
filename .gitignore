@@ -9,7 +9,6 @@ data/raw
 *.json
 .DS_Store
 dbt/seeds/ingest_samples/
-tests/fixtures/
 dbt/logs/
 dbt/seeds/
 *.egg-info
