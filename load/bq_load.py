@@ -469,7 +469,8 @@ def load_file(
         raise RuntimeError("Cannot load file without hash.")
     ensure_destination_table(bq_client, item.job)
     load_config = build_load_config(item.job)
-    temp_table_name = f"__tmp_{item.job.name}_{uuid.uuid4().hex[:8]}"
+    timestamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
+    temp_table_name = f"__tmp_{item.job.name}_{timestamp}_{uuid.uuid4().hex[:8]}"
     temp_table_id = f"{settings.GCP_PROJECT_ID}.{settings.BQ_DATASET_RAW}.{temp_table_name}"
     temp_table = bigquery.Table(temp_table_id, schema=item.job.source_schema())
     bq_client.create_table(temp_table)
