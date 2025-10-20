@@ -33,10 +33,13 @@ test-ingest:
 run:
 	$(PY) -m streamlit run app/streamlit_app.py
 
+DEMO_ENV := GCP_PROJECT_ID=demo-project BQ_DATASET_RAW=raw_local BQ_DATASET_STG=stg_local BQ_DATASET_MART=mart_local DUCKDB_PATH=data/warehouse.duckdb
+
 demo:
+	mkdir -p data
 	$(DBT_CMD) deps --project-dir dbt --no-use-colors || true
-	$(DBT_CMD) parse --project-dir dbt --no-use-colors --target demo
-	$(DBT_CMD) docs generate --project-dir dbt --no-use-colors --target demo
+	$(DEMO_ENV) $(DBT_CMD) parse --project-dir dbt --no-use-colors --target demo
+	$(DEMO_ENV) $(DBT_CMD) docs generate --project-dir dbt --no-use-colors --target demo
 
 # Ingest ----------------------------------------------------------------------
 ingest-all: ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs
