@@ -1,0 +1,9 @@
+{
+  "files": {
+    "crashes.csv.gz": {
+      "row_count": 2,
+      "bytes": 223,
+      "hash_md5": "fixture"
+    }
+  }
+}

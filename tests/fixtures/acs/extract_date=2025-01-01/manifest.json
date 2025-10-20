@@ -1,0 +1,9 @@
+{
+  "files": {
+    "acs_tract.csv.gz": {
+      "row_count": 2,
+      "bytes": 207,
+      "hash_md5": "fixture"
+    }
+  }
+}

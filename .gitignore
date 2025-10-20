@@ -6,7 +6,7 @@ dbt/.dbt/
 data/warehouse.duckdb
 data/raw
 .env
-*.json
+/*.json
 .DS_Store
 dbt/seeds/ingest_samples/
 dbt/logs/
@@ -17,3 +17,4 @@ logs/
 .pytest_cache/
 .ruff_cache/
 src/whylinedenver/__pycache__/
+.vscode/

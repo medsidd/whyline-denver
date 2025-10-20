@@ -1,0 +1,9 @@
+{
+  "files": {
+    "sidewalks.csv.gz": {
+      "row_count": 2,
+      "bytes": 204,
+      "hash_md5": "fixture"
+    }
+  }
+}

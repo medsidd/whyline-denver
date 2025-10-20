@@ -1,0 +1,14 @@
+{
+  "files": {
+    "trip_updates.csv.gz": {
+      "row_count": 2,
+      "bytes": 225,
+      "hash_md5": "fixture"
+    },
+    "vehicle_positions.csv.gz": {
+      "row_count": 2,
+      "bytes": 203,
+      "hash_md5": "fixture"
+    }
+  }
+}
