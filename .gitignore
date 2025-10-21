@@ -11,6 +11,8 @@ data/raw
 dbt/seeds/ingest_samples/
 dbt/logs/
 dbt/seeds/
+dbt/dbt_packages/
+dbt/package-lock.yml
 *.egg-info
 logs/
 *.logs

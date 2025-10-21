@@ -37,9 +37,12 @@ def _ensure_runtime_env() -> None:
     if profiles_dir:
         profiles_path = Path(profiles_dir)
         if not profiles_path.is_absolute():
-            os.environ["DBT_PROFILES_DIR"] = str((PROJECT_ROOT / profiles_path).resolve())
+            profiles_path = (PROJECT_ROOT / profiles_path).resolve()
+        if not profiles_path.exists():
+            profiles_path = DBT_PROFILES_PATH.resolve()
+        os.environ["DBT_PROFILES_DIR"] = str(profiles_path)
     else:
-        os.environ["DBT_PROFILES_DIR"] = str(DBT_PROFILES_PATH)
+        os.environ["DBT_PROFILES_DIR"] = str(DBT_PROFILES_PATH.resolve())
 
     creds = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
     if creds:

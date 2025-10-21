@@ -4,8 +4,20 @@ profile: 'whylinedenver'
 model-paths: ['models']
 target-path: 'target'
 clean-targets: ['target']
+vars:
+  late_threshold_sec: 300
+  headway_tolerance: 0.5
+  crash_window_months: 12
+  access_buffer_m: 200
+  crash_buffers_m: [100, 250]
+  vuln_buffer_m: 805
 models:
+  +on_schema_change: append_new_columns
   whylinedenver_dbt:
     +materialized: view
     staging:
       +schema: "{{ env_var('BQ_DATASET_STG', 'stg_denver') }}"
+    marts:
+      +schema: "{{ env_var('BQ_DATASET_MART', 'mart_denver') }}"
+      +materialized: incremental
+      +labels: {whylinedenver: "true"}
