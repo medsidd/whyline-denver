@@ -9,3 +9,11 @@ models:
     +materialized: view
     staging:
       +schema: "{{ env_var('BQ_DATASET_STG', 'stg_denver') }}"
+    marts:
+      +schema: "{{ env_var('BQ_DATASET_MART', 'mart_denver') }}"
+      +tags: ["marts"]
+vars:
+  on_time_sec: 300
+  headway_tol_ratio: 0.5
+  sched_match_tol_sec: 1800
+  weather_station: "USW00023062"

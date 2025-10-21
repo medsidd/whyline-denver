@@ -118,3 +118,13 @@ models:
           - accepted_range:
               min_value: 0
               max_value: 1
+
+  - name: stg_denver_tracts
+    columns:
+      - name: geoid
+        tests:
+          - not_null
+          - unique
+      - name: geom
+        tests:
+          - not_null

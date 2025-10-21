@@ -19,3 +19,4 @@ exposures:
       - ref('stg_sidewalks')
       - ref('stg_weather')
       - ref('stg_acs_geo')
+      - ref('stg_denver_tracts')
