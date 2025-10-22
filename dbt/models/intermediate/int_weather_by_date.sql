@@ -8,7 +8,7 @@ with base as (
         precip_bin,
         precip_mm
     from {{ ref('stg_weather') }}
-    {% if var('weather_station') is not none %}
+    {% if var('weather_station', none) is not none %}
         where station = '{{ var("weather_station") }}'
     {% endif %}
 ),
