@@ -1,8 +1,0 @@
-version: 2
-
-sources:
-  - name: public_geo
-    database: bigquery-public-data
-    schema: geo_us_boundaries
-    tables:
-      - name: census_tracts

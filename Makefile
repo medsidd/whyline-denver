@@ -1,4 +1,4 @@
-.PHONY: install lint format test test-ingest run demo ingest-all ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dev-loop ci-help
+.PHONY: install lint format test test-ingest run demo ingest-all ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-run-preflight dev-loop ci-help
 
 # Shared command helpers ------------------------------------------------------
 PYTHON        := python
@@ -42,7 +42,7 @@ demo:
 	$(DEMO_ENV) $(DBT_CMD) docs generate --project-dir dbt --no-use-colors --target demo
 
 # Ingest ----------------------------------------------------------------------
-ingest-all: ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs
+ingest-all: ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts
 
 ingest-gtfs-static:
 	$(PY) -m whylinedenver.ingest.gtfs_static --local
@@ -61,6 +61,9 @@ ingest-noaa:
 
 ingest-acs:
 	$(PY) -m whylinedenver.ingest.acs --local --year 2023 --geo tract
+
+ingest-tracts:
+	$(PY) -m whylinedenver.ingest.denver_tracts --local
 
 bq-load:
 	$(PY) -m load.bq_load --src gcs --bucket $(GCS_BUCKET) --since 2025-01-01
@@ -85,9 +88,10 @@ dbt-run-staging:
 dev-loop:
 	$(MAKE) ingest-all
 	$(MAKE) bq-load-local
-	$(MAKE) dbt-parse
-	$(MAKE) dbt-run-staging
-	$(MAKE) dbt-test-staging
+	DBT_TARGET=prod $(MAKE) dbt-parse
+	DBT_TARGET=prod $(MAKE) dbt-run-staging
+	DBT_TARGET=prod $(MAKE) dbt-test-staging
+	DBT_TARGET=prod $(MAKE) dbt-source-freshness
 
 ci-help:
 	@echo "Targets: install | lint | format | test | run | demo | ingest-* | bq-load(-local) | dbt-* | dev-loop"

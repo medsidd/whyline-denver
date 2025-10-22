@@ -107,6 +107,16 @@ These contracts describe the CSV outputs produced by the ingestion CLIs in `src/
 | pct_transit_commute | FLOAT64 | ratio (0–1) | YES | `workers_transit / workers_total`. |
 | pct_poverty | FLOAT64 | ratio (0–1) | YES | `persons_poverty / pop_total`. |
 
+## Denver Census Tracts (`tracts.csv.gz`)
+
+| Column | Type | Units | Null? | Description |
+| --- | --- | --- | --- | --- |
+| geoid | STRING | – | NO | Census tract GEOID (without 14000US prefix). |
+| name | STRING | – | YES | Tract name/label from TIGERweb. |
+| aland_m2 | NUMERIC | square meters | YES | Land area (ALAND) attribute. |
+| awater_m2 | NUMERIC | square meters | YES | Water area (AWATER) attribute. |
+| geometry_geojson | STRING | GeoJSON | NO | Polygon or multipolygon geometry serialized as GeoJSON. |
+
 ## Breaking Change Policy
 
 - Schema version `v1` is immutable: do not drop or rename columns, or change column types, without a version bump.

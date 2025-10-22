@@ -125,6 +125,12 @@ models:
         tests:
           - not_null
           - unique
+      - name: name
+        tests:
+          - not_null
+      - name: aland_m2
+        tests:
+          - not_null
       - name: geom
         tests:
           - not_null

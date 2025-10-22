@@ -24,6 +24,8 @@ select
     trip_id,
     stop_id,
     stop_sequence,
+    arrival_time,
+    departure_time,
     cast(a_h as int64) as arr_hour_gtfs,
     cast(d_h as int64) as dep_hour_gtfs,
     case

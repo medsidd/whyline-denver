@@ -11,18 +11,23 @@
 {% endmacro %}
 
 {% macro gtfs_time_to_ts(service_date, hhmmss, tz="America/Denver") %}
-(
-  with parts as (
-    select
-      cast(split({{ hhmmss }}, ':')[offset(0)] as int64) as h,
-      cast(split({{ hhmmss }}, ':')[offset(1)] as int64) as m,
-      cast(split({{ hhmmss }}, ':')[offset(2)] as int64) as s
-  )
-  select
-    timestamp(datetime(
-      date_add({{ service_date }}, interval floor(h/24) day),
-      time(mod(h,24), m, s)
-    ), "{{ tz }}")
-  from parts
+timestamp(
+    datetime(
+        date_add(
+            {{ service_date }},
+            interval cast(floor(
+                safe_cast(split({{ hhmmss }}, ':')[offset(0)] as int64) / 24
+            ) as int64) day
+        ),
+        time(
+            mod(
+                safe_cast(split({{ hhmmss }}, ':')[offset(0)] as int64),
+                24
+            ),
+            safe_cast(split({{ hhmmss }}, ':')[offset(1)] as int64),
+            safe_cast(split({{ hhmmss }}, ':')[offset(2)] as int64)
+        )
+    ),
+    "{{ tz }}"
 )
 {% endmacro %}
