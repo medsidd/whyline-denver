@@ -1,6 +1,13 @@
 {{ config(materialized='view') }}
 
-with tu as (
+with trips as (
+    select
+        trip_id,
+        direction_id,
+        trip_headsign
+    from {{ ref('stg_gtfs_trips') }}
+),
+tu as (
     select
         feed_ts_utc,
         entity_id as tu_entity_id,
@@ -65,25 +72,29 @@ ranked as (
     from j
 )
 select
-    feed_ts_utc,
-    trip_id,
-    route_id,
-    tu_entity_id,
-    vp_entity_id,
-    stop_id,
-    stop_sequence,
-    arrival_delay_sec,
-    departure_delay_sec,
-    schedule_relationship,
-    vehicle_id,
-    vehicle_label,
-    lon,
-    lat,
-    bearing,
-    speed_mps,
-    geom,
-    event_ts_utc,
-    {{ date_mst('event_ts_utc') }} as event_date_mst,
-    {{ hour_mst('event_ts_utc') }} as event_hour_mst
-from ranked
-where trip_rank = 1
+    r.feed_ts_utc,
+    r.trip_id,
+    r.route_id,
+    r.tu_entity_id,
+    r.vp_entity_id,
+    r.stop_id,
+    r.stop_sequence,
+    r.arrival_delay_sec,
+    r.departure_delay_sec,
+    r.schedule_relationship,
+    r.vehicle_id,
+    r.vehicle_label,
+    r.lon,
+    r.lat,
+    r.bearing,
+    r.speed_mps,
+    r.geom,
+    r.event_ts_utc,
+    t.direction_id,
+    t.trip_headsign,
+    {{ date_mst('r.event_ts_utc') }} as event_date_mst,
+    {{ hour_mst('r.event_ts_utc') }} as event_hour_mst
+from ranked as r
+left join trips as t
+    on r.trip_id = t.trip_id
+where r.trip_rank = 1

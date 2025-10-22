@@ -177,6 +177,18 @@ JOBS: tuple[JobSpec, ...] = (
         ),
     ),
     JobSpec(
+        name="denver_tracts",
+        patterns=("denver_tracts/extract_date=*/tracts.csv.gz",),
+        table="raw_denver_tracts",
+        columns=_cols(
+            ("geoid", "STRING"),
+            ("name", "STRING"),
+            ("aland_m2", "NUMERIC"),
+            ("awater_m2", "NUMERIC"),
+            ("geometry_geojson", "STRING"),
+        ),
+    ),
+    JobSpec(
         name="noaa_daily",
         patterns=("noaa_daily/extract_date=*/weather.csv.gz",),
         table="raw_weather_daily",

@@ -17,6 +17,7 @@ src/whylinedenver/ingest/acs.py
 src/whylinedenver/ingest/common.py
 src/whylinedenver/ingest/denver_crashes.py
 src/whylinedenver/ingest/denver_sidewalks.py
+src/whylinedenver/ingest/denver_tracts.py
 src/whylinedenver/ingest/gtfs_realtime.py
 src/whylinedenver/ingest/gtfs_static.py
 src/whylinedenver/ingest/noaa_daily.py

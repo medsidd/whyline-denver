@@ -11,8 +11,17 @@ def _latest_partition(*paths: Path) -> Path:
         if not base.exists():
             continue
         partitions = sorted([p for p in base.iterdir() if p.is_dir()])
-        if partitions:
-            return partitions[-1]
+        for partition in reversed(partitions):
+            files = [
+                child
+                for child in partition.iterdir()
+                if child.is_file() and child.suffix in {".csv", ".gz", ".csv.gz"}
+            ]
+            for file in files:
+                if file.stat().st_size == 0:
+                    continue
+                if _file_has_records(file):
+                    return partition
     raise FileNotFoundError(f"No partitions found in {[str(p) for p in paths]}")
 
 
@@ -26,6 +35,19 @@ def _assert_no_all_null(df: pd.DataFrame, *, allow: set[str] | None = None) -> N
     all_null = df.isna().all()
     offenders = [col for col, is_null in all_null.items() if is_null and col not in allow]
     assert not offenders, f"Columns entirely null: {offenders}"
+
+
+def _file_has_records(path: Path) -> bool:
+    try:
+        if path.suffix == ".gz":
+            with gzip.open(path, "rt", encoding="utf-8") as handle:
+                handle.readline()
+                return bool(handle.readline())
+        with path.open("r", encoding="utf-8") as handle:
+            handle.readline()
+            return bool(handle.readline())
+    except OSError:
+        return False
 
 
 def test_gtfs_realtime_contracts(tmp_path: Path):
@@ -170,3 +192,20 @@ def test_acs_contract():
     assert df.columns.is_unique
     _assert_no_all_null(df)
     assert pd.api.types.is_float_dtype(df["pct_hh_no_vehicle"].dropna())
+
+
+def test_denver_tracts_contract():
+    base = Path("data/raw/denver_tracts")
+    fixture = FIXTURES_ROOT / "denver_tracts"
+    latest = _latest_partition(base, fixture)
+    df = _load_csv_gz(latest / "tracts.csv.gz")
+    expected = {
+        "geoid",
+        "name",
+        "aland_m2",
+        "awater_m2",
+        "geometry_geojson",
+    }
+    assert set(df.columns) == expected
+    assert df.columns.is_unique
+    _assert_no_all_null(df, allow={"awater_m2"})

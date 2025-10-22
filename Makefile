@@ -1,4 +1,4 @@
-.PHONY: install lint format test test-ingest run demo ingest-all ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dev-loop ci-help
+.PHONY: install lint format test test-ingest run demo ingest-all ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dev-loop ci-help
 
 # Shared command helpers ------------------------------------------------------
 PYTHON        := python
@@ -42,13 +42,13 @@ demo:
 	$(DEMO_ENV) $(DBT_CMD) docs generate --project-dir dbt --no-use-colors --target demo
 
 # Ingest ----------------------------------------------------------------------
-ingest-all: ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs
+ingest-all: ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts
 
 ingest-gtfs-static:
 	$(PY) -m whylinedenver.ingest.gtfs_static --local
 
 ingest-gtfs-rt:
-	$(PY) -m whylinedenver.ingest.gtfs_realtime --local --snapshots 2 --interval-sec 10
+	$(PY) -m whylinedenver.ingest.gtfs_realtime --local --snapshots 2 --interval-sec 90
 
 ingest-crashes:
 	$(PY) -m whylinedenver.ingest.denver_crashes --local
@@ -57,10 +57,13 @@ ingest-sidewalks:
 	$(PY) -m whylinedenver.ingest.denver_sidewalks --local
 
 ingest-noaa:
-	$(PY) -m whylinedenver.ingest.noaa_daily --local --start 2025-10-10 --end 2025-10-20
+	$(PY) -m whylinedenver.ingest.noaa_daily --local --start 2025-10-10 --end 2025-10-30
 
 ingest-acs:
 	$(PY) -m whylinedenver.ingest.acs --local --year 2023 --geo tract
+
+ingest-tracts:
+	$(PY) -m whylinedenver.ingest.denver_tracts --local
 
 bq-load:
 	$(PY) -m load.bq_load --src gcs --bucket $(GCS_BUCKET) --since 2025-01-01
@@ -75,19 +78,36 @@ dbt-source-freshness:
 dbt-parse:
 	$(DBT_CMD) parse --project-dir dbt --target $(DBT_TARGET)
 
+dbt-run-staging:
+	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select 'staging.*'
+
+dbt-run-intermediate:
+	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select 'intermediate.*'
+
+dbt-run-marts:
+	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select 'marts.*'
+
 dbt-test-staging:
 	$(DBT_CMD) test --project-dir dbt --target $(DBT_TARGET) --select 'staging.*'
 
-dbt-run-staging:
-	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select 'staging.*'
+dbt-test-marts:
+	$(DBT_CMD) test --project-dir dbt --target $(DBT_TARGET) --select marts
+
+dbt-docs:
+	$(DBT_CMD) docs generate --project-dir dbt --target $(DBT_TARGET)
 
 # Workflows -------------------------------------------------------------------
 dev-loop:
 	$(MAKE) ingest-all
 	$(MAKE) bq-load-local
-	$(MAKE) dbt-parse
-	$(MAKE) dbt-run-staging
-	$(MAKE) dbt-test-staging
+	DBT_TARGET=prod $(MAKE) dbt-parse
+	DBT_TARGET=prod $(MAKE) dbt-run-staging
+	DBT_TARGET=prod $(MAKE) dbt-run-intermediate
+	DBT_TARGET=prod $(MAKE) dbt-run-marts
+	DBT_TARGET=prod $(MAKE) dbt-test-staging
+	DBT_TARGET=prod $(MAKE) dbt-test-marts
+	DBT_TARGET=prod $(MAKE) dbt-source-freshness
+	DBT_TARGET=prod $(MAKE) dbt-docs
 
 ci-help:
 	@echo "Targets: install | lint | format | test | run | demo | ingest-* | bq-load(-local) | dbt-* | dev-loop"

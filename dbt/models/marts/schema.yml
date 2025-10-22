@@ -1,0 +1,174 @@
+version: 2
+
+models:
+  - name: mart_reliability_by_route_day
+    description: "Daily reliability metrics per GTFS route with precipitation context; one row per (route_id, service date, precip_bin)."
+    columns:
+      - name: route_id
+        description: "GTFS route identifier; joins to stg_gtfs_routes.route_id."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_gtfs_routes')
+              field: route_id
+      - name: service_date_mst
+        description: "Service date in Mountain Time (America/Denver)."
+        tests:
+          - not_null
+      - name: precip_bin
+        description: "Precipitation bucket for the service day (e.g., none, rain, snow)."
+        tests:
+          - not_null
+      - name: pct_on_time
+        description: "Share of realtime events for the route/day that are within the configured on-time threshold (0–1)."
+        tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1
+  - name: mart_reliability_by_stop_hour
+    description: "Hourly reliability metrics per stop (one row per stop_id, service date, hour) including headway adherence summaries."
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier; joins to stg_gtfs_stops.stop_id."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_gtfs_stops')
+              field: stop_id
+      - name: service_date_mst
+        description: "Service date in Mountain Time (America/Denver)."
+        tests:
+          - not_null
+      - name: event_hour_mst
+        description: "Service hour (0–23) in Mountain Time."
+        tests:
+          - not_null
+      - name: pct_on_time
+        description: "Share of realtime events in the stop/hour that are on time (0–1)."
+        tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1
+  - name: mart_crash_proximity_by_stop
+    description: "Crash counts within 100 m and 250 m buffers for each stop (one row per stop)."
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier; joins to stg_gtfs_stops.stop_id."
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              to: ref('stg_gtfs_stops')
+              field: stop_id
+      - name: crash_100m_cnt
+        description: "Number of police-reported crashes within 100 meters of the stop during the snapshot window."
+        tests:
+          - accepted_range:
+              min_value: 0
+      - name: crash_250m_cnt
+        description: "Number of crashes within 250 meters of the stop during the snapshot window."
+        tests:
+          - accepted_range:
+              min_value: 0
+  - name: mart_access_score_by_stop
+    description: "Sidewalk length and normalized access score using a 200 m buffer per stop (one row per stop)."
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier; joins to stg_gtfs_stops.stop_id."
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              to: ref('stg_gtfs_stops')
+              field: stop_id
+      - name: sidewalk_len_m_within_200m
+        description: "Total length (meters) of sidewalks intersecting the 200 m stop buffer."
+        tests:
+          - accepted_range:
+              min_value: 0
+      - name: access_score_0_100
+        description: "Min–max normalized sidewalk length score for the stop (0 = least, 100 = most sidewalk coverage)."
+        tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 100
+  - name: mart_vulnerability_by_stop
+    description: "Population-weighted ACS vulnerability indicators near each stop using tracts within ~0.5 miles."
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier; joins to stg_gtfs_stops.stop_id."
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              to: ref('stg_gtfs_stops')
+              field: stop_id
+      - name: pct_hh_no_vehicle_w
+        description: "Population-weighted share of households without a vehicle within the catchment (0–1)."
+        tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1
+              severity: warn
+      - name: pct_transit_commute_w
+        description: "Population-weighted share of workers commuting by transit within the catchment (0–1)."
+        tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1
+              severity: warn
+      - name: pct_poverty_w
+        description: "Population-weighted share of residents below poverty within the catchment (0–1)."
+        tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1
+              severity: warn
+      - name: vuln_score_0_100
+        description: "Composite vulnerability index (0–100) averaging the weighted indicators."
+        tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 100
+  - name: mart_priority_hotspots
+    description: "Composite priority ranking per stop that blends vulnerability, crash exposure, and reliability problems."
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier; joins to stg_gtfs_stops.stop_id."
+        tests:
+          - not_null
+          - unique
+          - relationships:
+              to: ref('stg_gtfs_stops')
+              field: stop_id
+      - name: priority_score
+        description: "Weighted priority score (0+), computed as 0.5*vulnerability + 0.3*crash + 0.2*reliability."
+        tests:
+          - accepted_range:
+              min_value: 0
+  - name: mart_weather_impacts
+    description: "Average on-time performance by precipitation bin with deltas against dry days (one row per route/bin)."
+    columns:
+      - name: route_id
+        description: "GTFS route identifier; joins to stg_gtfs_routes.route_id."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_gtfs_routes')
+              field: route_id
+      - name: precip_bin
+        description: "Precipitation bucket (e.g., none, rain, snow)."
+        tests:
+          - not_null
+      - name: pct_on_time_avg
+        description: "Average on-time share for the route within the precipitation bin (0–1)."
+        tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1
+      - name: pct_on_time_normal
+        description: "Average on-time share on dry days (precip_bin = 'none') for the same route (0–1)."
+        tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1
