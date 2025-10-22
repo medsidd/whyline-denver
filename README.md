@@ -47,6 +47,22 @@ WhyLine Denver turns raw public transit feeds into a governed, dual-engine analy
 - Remove any legacy `dbt`/`dbt-fusion` binaries from your shell (`brew uninstall dbt` or `pipx uninstall dbt-fusion`) so the Homebrew CLI cannot shadow the project-managed dbt core.
 - In editors (VS Code/Pylance), be sure to select the repo’s `.venv` interpreter so Python import resolution picks up `python-dotenv`, `dbt-core`, and friends.
 
+### dbt Run Order (BigQuery)
+
+The Makefile bundles the recommended sequence for refreshing staging → intermediate → marts, plus validation and docs. From the repo root:
+
+```bash
+export DBT_PROFILES_DIR=$PWD/dbt/profiles   # if not already exported
+make dbt-run-staging        # builds stg_denver views
+make dbt-run-intermediate   # materialises dependency views in stg_denver
+make dbt-run-marts          # builds mart_denver tables (pulls deps automatically)
+make dbt-test-staging       # optional: run staging tests
+make dbt-test-marts         # validates mart layer
+make dbt-docs               # regenerates catalog/manifest for docs site
+```
+
+`make dbt-marts` (and the tests) automatically include upstream models, but the explicit intermediate target is useful during local development to spot issues early.
+
 ## Freshness Badges
 
 - Planned: surface dbt source and model freshness badges alongside the Streamlit experience

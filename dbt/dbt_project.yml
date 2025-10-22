@@ -9,6 +9,8 @@ models:
     +materialized: view
     staging:
       +schema: "{{ env_var('BQ_DATASET_STG', 'stg_denver') }}"
+    intermediate:
+      +schema: "{{ env_var('BQ_DATASET_STG', 'stg_denver') }}"
     marts:
       +schema: "{{ env_var('BQ_DATASET_MART', 'mart_denver') }}"
       +tags: ["marts"]
