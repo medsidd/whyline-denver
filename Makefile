@@ -85,7 +85,7 @@ dbt-run-intermediate:
 	$(DBT_CMD) run --project-dir dbt --target prod --select 'intermediate.*'
 
 dbt-run-marts:
-	$(DBT_CMD) run --project-dir dbt --target prod --select 'marts.*'
+	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select 'marts.*'
 
 dbt-test-staging:
 	$(DBT_CMD) test --project-dir dbt --target $(DBT_TARGET) --select 'staging.*'
