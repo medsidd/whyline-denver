@@ -12,7 +12,8 @@ WhyLine Denver turns raw public transit feeds into a governed, dual-engine analy
 1. `python -m venv .venv && source .venv/bin/activate`
 2. `pip install -r requirements.txt`
 3. `cp .env.example .env` and populate credentials/secrets
-4. `make run`
+4. `make app`
+> Tip: `make sync-duckdb` will pull the latest Parquet exports into the local DuckDB cache.
 
 ## Credentials & Secrets
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 import re
 import sys
@@ -64,6 +65,17 @@ def load_weather_bins() -> list[str]:
         return df["precip_bin"].astype(str).tolist()
     except Exception:
         return ["none", "rain", "snow"]
+
+
+def human_readable_bytes(value: int | None) -> str:
+    if value is None:
+        return "unknown"
+    units = ["B", "KB", "MB", "GB", "TB", "PB"]
+    size = float(value)
+    for unit in units:
+        if size < 1024 or unit == units[-1]:
+            return f"{size:.2f} {unit}"
+        size /= 1024
 
 
 @st.cache_data
@@ -318,8 +330,11 @@ if generate_clicked:
                 sanitized_sql = sanitize_sql(candidate_sql, config)
                 sanitized_sql = adapt_sql_for_engine(sanitized_sql, engine, models)
                 st.session_state["generated_sql"] = sanitized_sql
+                st.session_state["edited_sql"] = sanitized_sql
+                st.session_state["sanitized_sql"] = sanitized_sql
                 st.session_state["explanation"] = llm_output.get("explanation", "")
                 st.session_state["model_names"] = sorted(models.keys())
+                st.session_state["bq_est_bytes_preview"] = None
             except SqlValidationError as exc:
                 st.session_state["sql_error"] = str(exc)
 
@@ -328,44 +343,85 @@ if st.session_state.get("sql_error"):
 
 if st.session_state.get("generated_sql"):
     st.subheader("Generated SQL")
-    st.code(st.session_state["generated_sql"], language="sql")
+    default_sql = st.session_state.get("edited_sql", st.session_state["generated_sql"])
+    edited_sql = st.text_area(
+        "SQL (editable)",
+        value=default_sql,
+        height=240,
+    )
+    st.session_state["edited_sql"] = edited_sql
+    try:
+        config_preview = GuardrailConfig(allowed_models=allowlist, engine=engine)
+        sanitized = sanitize_sql(edited_sql, config_preview)
+        sanitized = adapt_sql_for_engine(sanitized, engine, models)
+        st.session_state["sanitized_sql"] = sanitized
+        st.session_state["sql_error"] = None
+        if engine == "bigquery":
+            try:
+                estimate_stats = bigquery_engine.estimate(sanitized)
+                st.session_state["bq_est_bytes_preview"] = estimate_stats["bq_est_bytes"]
+            except Exception as exc:  # pragma: no cover - interactive warning
+                st.session_state["bq_est_bytes_preview"] = None
+                st.warning(f"Dry-run estimate unavailable: {exc}")
+        else:
+            st.session_state["bq_est_bytes_preview"] = None
+    except SqlValidationError as exc:
+        st.session_state["sanitized_sql"] = None
+        st.session_state["bq_est_bytes_preview"] = None
+        st.session_state["sql_error"] = str(exc)
     if st.session_state.get("explanation"):
         st.info(st.session_state["explanation"])
+    if engine == "bigquery" and st.session_state.get("bq_est_bytes_preview") is not None:
+        st.caption(
+            f"Estimated BigQuery bytes processed: {human_readable_bytes(st.session_state['bq_est_bytes_preview'])} (MAX {human_readable_bytes(int(os.getenv('MAX_BYTES_BILLED', '2000000000')))})."
+        )
 
-run_disabled = not st.session_state.get("generated_sql")
-run_clicked = st.button("Run", disabled=run_disabled)
+run_clicked = st.button("Run")
 
 if run_clicked and st.session_state.get("generated_sql"):
-    engine_module = duckdb_engine if engine == "duckdb" else bigquery_engine
-    cached = query_cache.get(engine, st.session_state["generated_sql"])
+    sql_to_run = st.session_state.get("edited_sql", st.session_state["generated_sql"])
     try:
-        cache_hit = False
-        latency_ms = 0.0
-        if cached:
-            stats, df = cached
-            cache_hit = True
-        else:
-            start_time = time.monotonic()
-            stats, df = engine_module.execute(st.session_state["generated_sql"])
-            latency_ms = (time.monotonic() - start_time) * 1000
-            query_cache.set(engine, st.session_state["generated_sql"], (stats, df))
-        log_query(
-            engine=engine,
-            rows=len(df),
-            latency_ms=latency_ms,
-            models=st.session_state.get("model_names", allowlist),
-            sql=st.session_state["generated_sql"],
-            question=question,
-            cache_hit=cache_hit,
-            bq_est_bytes=stats.get("bq_est_bytes") if isinstance(stats, dict) else None,
-        )
-        st.session_state["results_df"] = df
-        st.session_state["results_stats"] = stats
-        st.session_state["run_error"] = None
-    except Exception as exc:
+        config_preview = GuardrailConfig(allowed_models=allowlist, engine=engine)
+        sanitized_sql = sanitize_sql(sql_to_run, config_preview)
+        sanitized_sql = adapt_sql_for_engine(sanitized_sql, engine, models)
+        st.session_state["sanitized_sql"] = sanitized_sql
+    except SqlValidationError as exc:
         st.session_state["run_error"] = str(exc)
         st.session_state["results_df"] = None
         st.session_state["results_stats"] = None
+    else:
+        engine_module = duckdb_engine if engine == "duckdb" else bigquery_engine
+        cached = query_cache.get(engine, sanitized_sql)
+        try:
+            cache_hit = False
+            latency_ms = 0.0
+            if cached:
+                stats, df = cached
+                cache_hit = True
+            else:
+                start_time = time.monotonic()
+                stats, df = engine_module.execute(sanitized_sql)
+                latency_ms = (time.monotonic() - start_time) * 1000
+                query_cache.set(engine, sanitized_sql, (stats, df))
+            log_query(
+                engine=engine,
+                rows=len(df),
+                latency_ms=latency_ms,
+                models=st.session_state.get("model_names", allowlist),
+                sql=sanitized_sql,
+                question=question,
+                cache_hit=cache_hit,
+                bq_est_bytes=stats.get("bq_est_bytes") if isinstance(stats, dict) else None,
+            )
+            st.session_state["results_df"] = df
+            st.session_state["results_stats"] = stats
+            st.session_state["run_error"] = None
+        except Exception as exc:
+            st.session_state["run_error"] = str(exc)
+            st.session_state["results_df"] = None
+            st.session_state["results_stats"] = None
+elif run_clicked:
+    st.session_state["run_error"] = "SQL did not pass validation; adjust your query and try again."
 
 if st.session_state.get("run_error"):
     st.error(f"Query failed: {st.session_state['run_error']}")

@@ -22,9 +22,16 @@ DENYLIST_KEYWORDS = {
     "COPY",
 }
 
-TABLE_PATTERN = re.compile(r"\b(?:FROM|JOIN)\s+([`\w.]+)", re.IGNORECASE)
+TABLE_PATTERN = re.compile(
+    r"\b(?:FROM|JOIN)\s+(" r"(?:`[^`]+`|[\w-]+)" r"(?:\.(?:`[^`]+`|[\w-]+)){0,2}" r")",
+    re.IGNORECASE,
+)
+
 LIMIT_PATTERN = re.compile(r"\bLIMIT\s+(\d+)", re.IGNORECASE)
-CTE_PATTERN = re.compile(r"\bWITH\s+([a-zA-Z_][\w]*)\s+AS\s*\(", re.IGNORECASE)
+CTE_PATTERN = re.compile(
+    r"\bWITH\s+(`[^`]+`|[a-zA-Z_][\w-]*)\s+AS\s*\(",
+    re.IGNORECASE,
+)
 
 
 class SqlValidationError(ValueError):
@@ -81,11 +88,22 @@ def _ensure_read_only(sql: str) -> None:
 
 
 def _validate_tables(sql: str, allowed_models: Iterable[str]) -> None:
-    allowed = {model.lower() for model in allowed_models}
-    referenced = {match.group(1).strip("`").lower() for match in TABLE_PATTERN.finditer(sql)}
-    ctes = {name.lower() for name in CTE_PATTERN.findall(sql)}
-    referenced -= ctes
-    unauthorized = referenced - allowed
+    allowed_base = {m.strip("`").lower().split(".")[-1] for m in allowed_models}
+
+    referenced_base = set()
+    for match in TABLE_PATTERN.finditer(sql):
+        token = match.group(1).strip()
+        if not token:
+            continue
+        parts = [p.strip("`") for p in token.split(".") if p]
+        if not parts:
+            continue
+        referenced_base.add(parts[-1].lower())
+
+    ctes = {name.strip("`").lower() for name in CTE_PATTERN.findall(sql)}
+    referenced_base -= ctes
+
+    unauthorized = referenced_base - allowed_base
     if unauthorized:
         raise SqlValidationError(
             f"Query references unauthorized tables: {', '.join(sorted(unauthorized))}. "

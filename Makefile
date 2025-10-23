@@ -1,6 +1,6 @@
 .SHELLFLAGS := -o pipefail -c
 SHELL := /bin/bash
-.PHONY: install lint format test test-ingest run demo ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb
+.PHONY: install lint format test test-ingest run app demo ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb
 .PHONY: sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb
 
 # Shared command helpers ------------------------------------------------------
@@ -43,7 +43,9 @@ dbt-artifacts:
 test-ingest:
 	pytest -k ingest
 
-run:
+run: app
+
+app:
 	$(PY) -m streamlit run app/streamlit_app.py
 
 DEMO_ENV := GCP_PROJECT_ID=demo-project BQ_DATASET_RAW=raw_local BQ_DATASET_STG=stg_local BQ_DATASET_MART=mart_local DUCKDB_PATH=data/warehouse.duckdb
@@ -52,6 +54,7 @@ demo:
 	mkdir -p data
 	$(DBT_CMD) deps --project-dir dbt --no-use-colors || true
 	$(DEMO_ENV) $(DBT_CMD) parse --project-dir dbt --no-use-colors --target demo
+	$(DEMO_ENV) $(DBT_CMD) run --project-dir dbt --no-use-colors --target demo --select 'staging marts'
 	$(DEMO_ENV) $(DBT_CMD) docs generate --project-dir dbt --no-use-colors --target demo
 
 # Ingest ----------------------------------------------------------------------
