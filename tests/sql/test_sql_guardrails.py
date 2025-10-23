@@ -64,3 +64,13 @@ def test_cte_select_passes():
     config = GuardrailConfig(allowed_models={"mart_access_score_by_stop"}, engine="duckdb")
     sanitized = sanitize_sql(sql, config)
     assert sanitized.startswith("WITH base")
+
+
+def test_bigquery_quotes_hyphenated_table_identifier():
+    sql = "SELECT * FROM whyline-denver.mart_reliability_by_route_day"
+    config = GuardrailConfig(
+        allowed_models={"mart_reliability_by_route_day"},
+        engine="bigquery",
+    )
+    sanitized = sanitize_sql(sql, config)
+    assert "FROM `whyline-denver.mart_reliability_by_route_day`" in sanitized

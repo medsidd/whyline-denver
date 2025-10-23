@@ -53,6 +53,7 @@ def sanitize_sql(sql: str, config: GuardrailConfig) -> str:
     _validate_tables(parsed, config.allowed_models)
     sanitized = _ensure_limit(parsed, config.enforce_limit)
     if config.engine == "bigquery":
+        sanitized = _quote_hyphenated_tables(sanitized)
         _suggest_partition_filter(sanitized, config.partition_columns)
     return sanitized
 
@@ -115,6 +116,19 @@ def _ensure_limit(sql: str, max_rows: int) -> str:
     if LIMIT_PATTERN.search(sql):
         return sql
     return f"{sql}\nLIMIT {max_rows}"
+
+
+def _quote_hyphenated_tables(sql: str) -> str:
+    def replacer(match: re.Match[str]) -> str:
+        token = match.group(1)
+        if token.startswith("`") and token.endswith("`"):
+            return match.group(0)
+        if "-" not in token:
+            return match.group(0)
+        quoted = f"`{token}`"
+        return match.group(0).replace(token, quoted, 1)
+
+    return TABLE_PATTERN.sub(replacer, sql)
 
 
 def _suggest_partition_filter(sql: str, partition_columns: Sequence[str]) -> None:

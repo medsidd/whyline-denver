@@ -102,7 +102,9 @@ DATE_SUB_PATTERN = re.compile(
     r"DATE_SUB\(\s*(.+?)\s*,\s*INTERVAL\s+(\d+)\s+DAY\s*\)", re.IGNORECASE
 )
 TABLE_PATTERN = re.compile(
-    r"\b(?P<clause>FROM|JOIN)\s+(?P<table>[`\w.]+)(?P<alias>\s+AS\s+\w+|\s+\w+)?",
+    r"\b(?P<clause>FROM|JOIN)\s+"
+    r"(?P<table>(?:`[^`]+`|[\w-]+)(?:\.(?:`[^`]+`|[\w-]+)){0,2})"
+    r"(?P<alias>\s+AS\s+\w+|\s+\w+)?",
     re.IGNORECASE,
 )
 
