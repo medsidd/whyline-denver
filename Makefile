@@ -1,5 +1,5 @@
-.PHONY: install lint format test test-ingest run demo ingest-all ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dev-loop ci-help sync-export sync-refresh sync-duckdb
-.PHONY: sync-export sync-refresh sync-duckdb
+.PHONY: install lint format test test-ingest run demo ingest-all ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-bq nightly-duckdb
+.PHONY: sync-export sync-refresh sync-duckdb nightly-bq nightly-duckdb
 
 # Shared command helpers ------------------------------------------------------
 PYTHON        := python
@@ -103,6 +103,15 @@ sync-refresh:
 	$(PY) -m whylinedenver.sync.refresh_duckdb $$ARGS
 
 sync-duckdb: sync-export sync-refresh
+
+nightly-bq:
+	@set -euo pipefail; \
+	DBT_TARGET=prod $(DBT_CMD) run --project-dir dbt --target prod --select 'staging marts'; \
+	DBT_TARGET=prod $(DBT_CMD) test --project-dir dbt --target prod --select 'marts'; \
+	$(MAKE) sync-export
+
+nightly-duckdb:
+	$(MAKE) sync-refresh
 
 # dbt -------------------------------------------------------------------------
 dbt-source-freshness:

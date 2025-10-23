@@ -1,0 +1,38 @@
+name: Nightly DuckDB
+
+on:
+  schedule:
+    - cron: "30 9 * * *"
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Refresh DuckDB warehouse
+        env:
+          GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
+        run: make nightly-duckdb
+
+      - name: Upload DuckDB artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: duckdb-warehouse
+          path: |
+            data/warehouse.duckdb
+            data/sync_state.json

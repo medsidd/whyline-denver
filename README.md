@@ -1,7 +1,7 @@
 # WhyLine Denver
-
-![CI Passing](https://img.shields.io/badge/CI-passing-brightgreen.svg)
-
+![CI](https://github.com/medsidd/whyline-denver/actions/workflows/ci.yml/badge.svg)
+![Nightly BQ](https://github.com/medsidd/whyline-denver/actions/workflows/nightly-bq.yml/badge.svg)
+![Nightly DuckDB](https://github.com/medsidd/whyline-denver/actions/workflows/nightly-duckdb.yml/badge.svg)
 WhyLine Denver turns raw public transit feeds into a governed, dual-engine analytics experience where anyone can ask questions in natural language and receive cost-capped SQL answers, visualizations, and downloadable datasets—powered by a dbt semantic layer with switchable DuckDB and BigQuery backends.
 
 ## Quickstart (Local · DuckDB)
