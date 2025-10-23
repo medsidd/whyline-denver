@@ -1,11 +1,16 @@
-.PHONY: install lint format test test-ingest run demo ingest-all ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-bq nightly-duckdb
-.PHONY: sync-export sync-refresh sync-duckdb nightly-bq nightly-duckdb
+.SHELLFLAGS := -o pipefail -c
+SHELL := /bin/bash
+.PHONY: install lint format test test-ingest run demo ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb
+.PHONY: sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb
 
 # Shared command helpers ------------------------------------------------------
 PYTHON        := python
 PIP           := pip
 PY_ENV        := PYTHONPATH=$$PWD/src
 PY            := $(PY_ENV) $(PYTHON)
+
+INGEST_DEST   ?= local
+INGEST_MODE_ARGS := $(if $(filter $(INGEST_DEST),gcs),--gcs --bucket $(GCS_BUCKET),--local)
 
 DBT_PROFILES  := DBT_PROFILES_DIR=$$PWD/dbt/profiles
 DBT_CMD       := $(DBT_PROFILES) $(PY) -m scripts.dbt_with_env
@@ -25,8 +30,15 @@ lint:
 format:
 	ruff check . --fix && black .
 
-test:
+test: dbt-artifacts
 	pytest
+
+dbt-artifacts:
+	@if [ ! -f dbt/target/manifest.json ] || [ ! -f dbt/target/catalog.json ]; then \
+		DBT_TARGET=demo $(DBT_CMD) parse --project-dir dbt --target demo; \
+		DBT_TARGET=demo $(DBT_CMD) docs generate --project-dir dbt --target demo; \
+	fi
+
 
 test-ingest:
 	pytest -k ingest
@@ -46,25 +58,31 @@ demo:
 ingest-all: ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts
 
 ingest-gtfs-static:
-	$(PY) -m whylinedenver.ingest.gtfs_static --local
+	$(PY) -m whylinedenver.ingest.gtfs_static $(INGEST_MODE_ARGS)
 
 ingest-gtfs-rt:
-	$(PY) -m whylinedenver.ingest.gtfs_realtime --local --snapshots 2 --interval-sec 90
+	$(PY) -m whylinedenver.ingest.gtfs_realtime $(INGEST_MODE_ARGS) --snapshots 2 --interval-sec 90
 
 ingest-crashes:
-	$(PY) -m whylinedenver.ingest.denver_crashes --local
+	$(PY) -m whylinedenver.ingest.denver_crashes $(INGEST_MODE_ARGS)
 
 ingest-sidewalks:
-	$(PY) -m whylinedenver.ingest.denver_sidewalks --local
+	$(PY) -m whylinedenver.ingest.denver_sidewalks $(INGEST_MODE_ARGS)
 
 ingest-noaa:
-	$(PY) -m whylinedenver.ingest.noaa_daily --local --start 2025-10-10 --end 2025-10-30
+	$(PY) -m whylinedenver.ingest.noaa_daily $(INGEST_MODE_ARGS) --start 2025-10-10 --end 2025-10-30
 
 ingest-acs:
-	$(PY) -m whylinedenver.ingest.acs --local --year 2023 --geo tract
+	$(PY) -m whylinedenver.ingest.acs $(INGEST_MODE_ARGS) --year 2023 --geo tract
 
 ingest-tracts:
-	$(PY) -m whylinedenver.ingest.denver_tracts --local
+	$(PY) -m whylinedenver.ingest.denver_tracts $(INGEST_MODE_ARGS)
+
+ingest-all-local:
+	@$(MAKE) INGEST_DEST=local ingest-all
+
+ingest-all-gcs:
+	@$(MAKE) INGEST_DEST=gcs ingest-all
 
 bq-load:
 	$(PY) -m load.bq_load --src gcs --bucket $(GCS_BUCKET) --since 2025-01-01
@@ -104,6 +122,10 @@ sync-refresh:
 
 sync-duckdb: sync-export sync-refresh
 
+nightly-ingest-bq:
+	@$(MAKE) INGEST_DEST=gcs ingest-all
+	$(MAKE) bq-load
+
 nightly-bq:
 	@set -euo pipefail; \
 	DBT_TARGET=prod $(DBT_CMD) run --project-dir dbt --target prod --select 'staging marts'; \
@@ -140,7 +162,7 @@ dbt-docs:
 
 # Workflows -------------------------------------------------------------------
 dev-loop:
-	$(MAKE) ingest-all
+	$(MAKE) ingest-all-local
 	$(MAKE) bq-load-local
 	DBT_TARGET=prod $(MAKE) dbt-parse
 	DBT_TARGET=prod $(MAKE) dbt-run-staging
@@ -154,3 +176,5 @@ dev-loop:
 
 ci-help:
 	@echo "Targets: install | lint | format | test | run | demo | ingest-* | bq-load(-local) | dbt-* | dev-loop"
+.SHELLFLAGS := -o pipefail -c
+SHELL := /bin/bash

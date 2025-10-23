@@ -1,12 +1,12 @@
-name: Nightly DuckDB
+name: Nightly Ingest
 
 on:
   schedule:
-    - cron: "30 9 * * *"
+    - cron: "0 8 * * *"
   workflow_dispatch:
 
 jobs:
-  refresh:
+  ingest:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -31,15 +31,9 @@ jobs:
           echo "$GCP_SERVICE_ACCOUNT" > ${{ github.workspace }}/gcp-key.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=${{ github.workspace }}/gcp-key.json" >> $GITHUB_ENV
 
-      - name: Refresh DuckDB warehouse
+      - name: Ingest datasets and load to BigQuery
         env:
           GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
-        run: make nightly-duckdb
-
-      - name: Upload DuckDB artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: duckdb-warehouse
-          path: |
-            data/warehouse.duckdb
-            data/sync_state.json
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          BQ_DATASET_RAW: ${{ secrets.BQ_DATASET_RAW }}
+        run: make nightly-ingest-bq
