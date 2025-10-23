@@ -24,6 +24,7 @@ DENYLIST_KEYWORDS = {
 
 TABLE_PATTERN = re.compile(r"\b(?:FROM|JOIN)\s+([`\w.]+)", re.IGNORECASE)
 LIMIT_PATTERN = re.compile(r"\bLIMIT\s+(\d+)", re.IGNORECASE)
+CTE_PATTERN = re.compile(r"\bWITH\s+([a-zA-Z_][\w]*)\s+AS\s*\(", re.IGNORECASE)
 
 
 class SqlValidationError(ValueError):
@@ -66,8 +67,12 @@ def _ensure_single_statement(sql: str) -> None:
 
 
 def _ensure_read_only(sql: str) -> None:
-    upper_sql = sql.upper()
-    if not upper_sql.startswith("SELECT"):
+    stripped = sql.lstrip()
+    upper_sql = stripped.upper()
+    if upper_sql.startswith("WITH"):
+        if "SELECT" not in upper_sql:
+            raise SqlValidationError("CTE detected without a SELECT statement.")
+    elif not upper_sql.startswith("SELECT"):
         raise SqlValidationError("Only SELECT statements are allowed.")
     for keyword in DENYLIST_KEYWORDS:
         pattern = rf"\b{keyword}\b"
@@ -78,6 +83,8 @@ def _ensure_read_only(sql: str) -> None:
 def _validate_tables(sql: str, allowed_models: Iterable[str]) -> None:
     allowed = {model.lower() for model in allowed_models}
     referenced = {match.group(1).strip("`").lower() for match in TABLE_PATTERN.finditer(sql)}
+    ctes = {name.lower() for name in CTE_PATTERN.findall(sql)}
+    referenced -= ctes
     unauthorized = referenced - allowed
     if unauthorized:
         raise SqlValidationError(

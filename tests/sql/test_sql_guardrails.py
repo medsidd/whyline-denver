@@ -52,3 +52,15 @@ def test_bigquery_requires_where_when_partition_column_present():
     with pytest.raises(SqlValidationError) as exc:
         sanitize_sql(sql, config)
     assert "service_date_mst" in str(exc.value)
+
+
+def test_cte_select_passes():
+    sql = (
+        "WITH base AS (\n"
+        "    SELECT stop_id FROM mart_access_score_by_stop\n"
+        ")\n"
+        "SELECT * FROM base"
+    )
+    config = GuardrailConfig(allowed_models={"mart_access_score_by_stop"}, engine="duckdb")
+    sanitized = sanitize_sql(sql, config)
+    assert sanitized.startswith("WITH base")
