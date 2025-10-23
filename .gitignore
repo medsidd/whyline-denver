@@ -1,10 +1,12 @@
 .venv/
 __pycache__/
 *.pyc
-dbt/target/
+dbt/target/compiled/
+dbt/target/run/
 dbt/.dbt/
 data/warehouse.duckdb
 data/raw
+data/marts_cache/
 .env
 /*.json
 .DS_Store

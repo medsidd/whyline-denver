@@ -1,7 +1,7 @@
 # WhyLine Denver
-
-![CI Passing](https://img.shields.io/badge/CI-passing-brightgreen.svg)
-
+![CI](https://github.com/medsidd/whyline-denver/actions/workflows/ci.yml/badge.svg)
+![Nightly BQ](https://github.com/medsidd/whyline-denver/actions/workflows/nightly-bq.yml/badge.svg)
+![Nightly DuckDB](https://github.com/medsidd/whyline-denver/actions/workflows/nightly-duckdb.yml/badge.svg)
 WhyLine Denver turns raw public transit feeds into a governed, dual-engine analytics experience where anyone can ask questions in natural language and receive cost-capped SQL answers, visualizations, and downloadable datasets—powered by a dbt semantic layer with switchable DuckDB and BigQuery backends.
 
 ## Quickstart (Local · DuckDB)
@@ -37,6 +37,15 @@ WhyLine Denver turns raw public transit feeds into a governed, dual-engine analy
 - `gcloud auth application-default login`
 - Set `GCP_PROJECT_ID`, dataset names, and bucket values in your `.env`
 - Point `ENGINE=bigquery` once the environment is configured
+
+## Mart Sync
+
+- Ensure the configured bucket (default `whylinedenver-raw`) exists and your ADC/service account has `storage.objects.*` permissions.
+- End-to-end mart sync: `make sync-duckdb` (chained export + refresh; accepts the same env overrides such as `SINCE`, `MARTS`, `LOCAL_PARQUET_ROOT`, `CACHE_ROOT`). Requires network access to BigQuery/GCS.
+- Export only: `make sync-export` (optionally `SINCE=2025-01-01` or `MARTS="mart_reliability_by_route_day"`). The SQL guardrails module reads the dbt artifacts to keep this allow list in sync.
+- Hydrate only: `make sync-refresh` (optionally `LOCAL_PARQUET_ROOT=./data/marts` when working from a locally synced mirror). Tables are materialized for hot marts and views reference the colder marts directly.
+- Progress is tracked in BigQuery `mart_denver.__export_state`, mirrored to `gs://$GCS_BUCKET/marts/<mart>/last_export.json`, and recorded locally in `data/sync_state.json` after each refresh.
+- Use `gcloud storage ls gs://$GCS_BUCKET/marts/` to confirm new `run_date=YYYY-MM-DD/` folders and `duckdb data/warehouse.duckdb -c "SELECT COUNT(*) FROM mart_reliability_by_route_day;"` to sanity-check the refreshed local tables.
 
 ## dbt Usage
 

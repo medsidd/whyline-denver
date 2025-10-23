@@ -1,0 +1,12 @@
+{
+  "marts": {
+    "mart_access_score_by_stop": "2025-10-23",
+    "mart_crash_proximity_by_stop": "2025-10-23",
+    "mart_priority_hotspots": "2025-10-23",
+    "mart_reliability_by_route_day": "2025-10-22",
+    "mart_reliability_by_stop_hour": "2025-10-22",
+    "mart_vulnerability_by_stop": "2025-10-23",
+    "mart_weather_impacts": "2025-10-23"
+  },
+  "refreshed_at_utc": "2025-10-23T04:46:04.786010+00:00"
+}
