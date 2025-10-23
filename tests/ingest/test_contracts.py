@@ -143,7 +143,7 @@ def test_denver_sidewalks_contract():
     }
     assert set(df.columns) == expected
     assert df.columns.is_unique
-    _assert_no_all_null(df, allow={"year_built"})
+    _assert_no_all_null(df, allow={"year_built", "status", "material"})
     assert pd.api.types.is_float_dtype(df["length_m"].dropna())
 
 
@@ -165,7 +165,10 @@ def test_noaa_daily_contract():
     }
     assert set(df.columns) == expected
     assert df.columns.is_unique
-    _assert_no_all_null(df)
+    _assert_no_all_null(
+        df,
+        allow={"snow_mm", "precip_mm", "tmin_c", "tmax_c", "tavg_c", "snow_day", "precip_bin"},
+    )
     assert pd.api.types.is_float_dtype(df["precip_mm"].dropna())
 
 

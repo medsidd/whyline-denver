@@ -1,5 +1,5 @@
-.PHONY: install lint format test test-ingest run demo ingest-all ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dev-loop ci-help sync-export sync-refresh
-.PHONY: sync-export
+.PHONY: install lint format test test-ingest run demo ingest-all ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dev-loop ci-help sync-export sync-refresh sync-duckdb
+.PHONY: sync-export sync-refresh sync-duckdb
 
 # Shared command helpers ------------------------------------------------------
 PYTHON        := python
@@ -102,6 +102,8 @@ sync-refresh:
 	fi; \
 	$(PY) -m whylinedenver.sync.refresh_duckdb $$ARGS
 
+sync-duckdb: sync-export sync-refresh
+
 # dbt -------------------------------------------------------------------------
 dbt-source-freshness:
 	$(DBT_CMD) source freshness --project-dir dbt --target $(DBT_TARGET) --select source:raw
@@ -139,6 +141,7 @@ dev-loop:
 	DBT_TARGET=prod $(MAKE) dbt-test-marts
 	DBT_TARGET=prod $(MAKE) dbt-source-freshness
 	DBT_TARGET=prod $(MAKE) dbt-docs
+	$(MAKE) sync-duckdb
 
 ci-help:
 	@echo "Targets: install | lint | format | test | run | demo | ingest-* | bq-load(-local) | dbt-* | dev-loop"

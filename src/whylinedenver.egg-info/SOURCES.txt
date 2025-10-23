@@ -22,4 +22,9 @@ src/whylinedenver/ingest/gtfs_realtime.py
 src/whylinedenver/ingest/gtfs_static.py
 src/whylinedenver/ingest/noaa_daily.py
 src/whylinedenver/semantics/__init__.py
+src/whylinedenver/semantics/dbt_artifacts.py
+src/whylinedenver/sync/__init__.py
+src/whylinedenver/sync/export_bq_marts.py
+src/whylinedenver/sync/refresh_duckdb.py
+src/whylinedenver/sync/state.py
 tests/test_smoke.py
