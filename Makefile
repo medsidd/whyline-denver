@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 .PHONY: install lint format test test-ingest run demo ingest-all ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-bq nightly-duckdb
 .PHONY: sync-export sync-refresh sync-duckdb nightly-bq nightly-duckdb
 
@@ -25,8 +26,15 @@ lint:
 format:
 	ruff check . --fix && black .
 
-test:
+test: dbt-artifacts
 	pytest
+
+dbt-artifacts:
+	@if [ ! -f dbt/target/manifest.json ] || [ ! -f dbt/target/catalog.json ]; then \
+		DBT_TARGET=demo $(DBT_CMD) parse --project-dir dbt --target demo; \
+		DBT_TARGET=demo $(DBT_CMD) docs generate --project-dir dbt --target demo; \
+	fi
+
 
 test-ingest:
 	pytest -k ingest
@@ -154,3 +162,5 @@ dev-loop:
 
 ci-help:
 	@echo "Targets: install | lint | format | test | run | demo | ingest-* | bq-load(-local) | dbt-* | dev-loop"
+.SHELLFLAGS := -o pipefail -c
+SHELL := /bin/bash
