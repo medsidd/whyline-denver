@@ -38,6 +38,14 @@ WhyLine Denver turns raw public transit feeds into a governed, dual-engine analy
 - Set `GCP_PROJECT_ID`, dataset names, and bucket values in your `.env`
 - Point `ENGINE=bigquery` once the environment is configured
 
+-## Mart Sync
+
+- Ensure the configured bucket (default `whylinedenver-raw`) exists and your ADC/service account has `storage.objects.*` permissions.
+- Export refreshed marts to partitioned Parquet in GCS: `make sync-export` (optionally `SINCE=2025-01-01` or `MARTS="mart_reliability_by_route_day"`).
+- Hydrate the local DuckDB marts: `make sync-refresh` (optionally `LOCAL_PARQUET_ROOT=./data/marts` when working from a locally synced mirror). Tables are materialized for hot marts and views reference the colder marts directly.
+- Progress is tracked in BigQuery `mart_denver.__export_state`, mirrored to `gs://$GCS_BUCKET/marts/<mart>/last_export.json`, and recorded locally in `data/sync_state.json` after each refresh.
+- Use `gcloud storage ls gs://$GCS_BUCKET/marts/` to confirm new `run_date=YYYY-MM-DD/` folders and `duckdb data/warehouse.duckdb -c "SELECT COUNT(*) FROM mart_reliability_by_route_day;"` to sanity-check the refreshed local tables.
+
 ## dbt Usage
 
 - Install dependencies in the repo virtualenv (`pip install -r requirements.txt`) so the bundled `dbt-core`, `dbt-bigquery`, and `dbt-duckdb` adapters are on the Python path.

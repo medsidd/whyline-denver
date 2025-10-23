@@ -5,6 +5,7 @@ dbt/target/
 dbt/.dbt/
 data/warehouse.duckdb
 data/raw
+data/marts_cache/
 .env
 /*.json
 .DS_Store

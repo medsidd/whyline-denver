@@ -1,4 +1,5 @@
-.PHONY: install lint format test test-ingest run demo ingest-all ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dev-loop ci-help
+.PHONY: install lint format test test-ingest run demo ingest-all ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dev-loop ci-help sync-export sync-refresh
+.PHONY: sync-export
 
 # Shared command helpers ------------------------------------------------------
 PYTHON        := python
@@ -70,6 +71,36 @@ bq-load:
 
 bq-load-local:
 	$(PY) -m load.bq_load --src local --bucket $(GCS_BUCKET) --since 2025-01-01
+
+sync-export:
+	@set -euo pipefail; \
+	ARGS=""; \
+	if [ -n "$${SINCE:-}" ]; then \
+		ARGS="$$ARGS --since $${SINCE}"; \
+	fi; \
+	if [ -n "$${MARTS:-}" ]; then \
+		for MART in $$MARTS; do \
+			ARGS="$$ARGS --mart $$MART"; \
+		done; \
+	fi; \
+	$(PY) -m whylinedenver.sync.export_bq_marts $$ARGS
+
+sync-refresh:
+	@set -euo pipefail; \
+	ARGS=""; \
+	if [ -n "$${LOCAL_PARQUET_ROOT:-}" ]; then \
+		ARGS="$$ARGS --local-parquet-root $${LOCAL_PARQUET_ROOT}"; \
+	fi; \
+	if [ -n "$${DUCKDB_PATH:-}" ]; then \
+		ARGS="$$ARGS --duckdb-path $${DUCKDB_PATH}"; \
+	fi; \
+	if [ -n "$${LOG_LEVEL:-}" ]; then \
+		ARGS="$$ARGS --log-level $${LOG_LEVEL}"; \
+	fi; \
+	if [ -n "$${DRY_RUN:-}" ]; then \
+		ARGS="$$ARGS --dry-run"; \
+	fi; \
+	$(PY) -m whylinedenver.sync.refresh_duckdb $$ARGS
 
 # dbt -------------------------------------------------------------------------
 dbt-source-freshness:
