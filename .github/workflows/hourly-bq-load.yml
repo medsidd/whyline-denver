@@ -1,0 +1,55 @@
+name: Hourly BigQuery Load
+
+on:
+  schedule:
+    # Run every hour at :30 past the hour (30 min after snapshots complete)
+    # Covers 12:30pm-2:30am UTC (5:30am-7:30pm MST)
+    - cron: "30 12 * * *"  # Load 5am MST data
+    - cron: "30 13 * * *"  # Load 6am MST data
+    - cron: "30 14 * * *"  # Load 7am MST data
+    - cron: "30 15 * * *"  # Load 8am MST data
+    - cron: "30 16 * * *"  # Load 9am MST data
+    - cron: "30 17 * * *"  # Load 10am MST data
+    - cron: "30 18 * * *"  # Load 11am MST data
+    - cron: "30 19 * * *"  # Load 12pm MST data
+    - cron: "30 20 * * *"  # Load 1pm MST data
+    - cron: "30 21 * * *"  # Load 2pm MST data
+    - cron: "30 22 * * *"  # Load 3pm MST data
+    - cron: "30 23 * * *"  # Load 4pm MST data
+    - cron: "30 0 * * *"   # Load 5pm MST data
+    - cron: "30 1 * * *"   # Load 6pm MST data
+    - cron: "30 2 * * *"   # Load 7pm MST data
+  workflow_dispatch:
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Configure gcloud credentials
+        env:
+          GCP_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+        run: |
+          echo "$GCP_SERVICE_ACCOUNT" > ${{ github.workspace }}/gcp-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${{ github.workspace }}/gcp-key.json" >> $GITHUB_ENV
+
+      - name: Load GTFS-RT snapshots to BigQuery
+        env:
+          GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          BQ_DATASET_RAW: ${{ secrets.BQ_DATASET_RAW }}
+        run: make bq-load
