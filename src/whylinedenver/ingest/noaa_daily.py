@@ -261,7 +261,10 @@ def build_dataframe(
     df = pd.DataFrame(rows)
     df = _normalize_units(df)
     df["tavg_c"] = df["tavg_c"].combine_first((df["tmin_c"] + df["tmax_c"]) / 2)
-    df["snow_day"] = df["snow_mm"].apply(lambda x: None if pd.isna(x) else int(x >= 1.0))
+    # Use Int64 (nullable integer) to preserve integer format even with NULLs
+    df["snow_day"] = (
+        df["snow_mm"].apply(lambda x: None if pd.isna(x) else int(x >= 1.0)).astype("Int64")
+    )
     df["precip_bin"] = df["precip_mm"].apply(_precip_category)
     for column in ["snow_mm", "precip_mm", "tmin_c", "tmax_c", "tavg_c"]:
         if column in df:

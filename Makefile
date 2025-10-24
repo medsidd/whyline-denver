@@ -51,6 +51,9 @@ app:
 # Ingest ----------------------------------------------------------------------
 ingest-all: ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts
 
+# Ingest without realtime (realtime handled by hourly workflow)
+ingest-static: ingest-gtfs-static ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts
+
 ingest-gtfs-static:
 	$(PY) -m whylinedenver.ingest.gtfs_static $(INGEST_MODE_ARGS)
 
@@ -64,7 +67,10 @@ ingest-sidewalks:
 	$(PY) -m whylinedenver.ingest.denver_sidewalks $(INGEST_MODE_ARGS)
 
 ingest-noaa:
-	$(PY) -m whylinedenver.ingest.noaa_daily $(INGEST_MODE_ARGS) --start 2025-10-10 --end 2025-10-30
+	@set -euo pipefail; \
+	START_DATE=$$(date -u -v-30d +%Y-%m-%d 2>/dev/null || date -u -d '30 days ago' +%Y-%m-%d); \
+	END_DATE=$$(date -u -v-1d +%Y-%m-%d 2>/dev/null || date -u -d 'yesterday' +%Y-%m-%d); \
+	$(PY) -m whylinedenver.ingest.noaa_daily $(INGEST_MODE_ARGS) --start $$START_DATE --end $$END_DATE
 
 ingest-acs:
 	$(PY) -m whylinedenver.ingest.acs $(INGEST_MODE_ARGS) --year 2023 --geo tract
@@ -117,6 +123,10 @@ sync-refresh:
 sync-duckdb: sync-export sync-refresh
 
 nightly-ingest-bq:
+	@$(MAKE) INGEST_DEST=gcs ingest-static
+	$(MAKE) bq-load
+
+nightly-ingest-bq-full:
 	@$(MAKE) INGEST_DEST=gcs ingest-all
 	$(MAKE) bq-load
 
