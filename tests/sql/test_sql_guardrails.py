@@ -67,10 +67,37 @@ def test_cte_select_passes():
 
 
 def test_bigquery_quotes_hyphenated_table_identifier():
-    sql = "SELECT * FROM whyline-denver.mart_reliability_by_route_day"
+    sql = "SELECT * FROM whyline-denver.mart_denver.mart_reliability_by_route_day"
     config = GuardrailConfig(
         allowed_models={"mart_reliability_by_route_day"},
         engine="bigquery",
+        allowed_projects={"whyline-denver"},
+        allowed_datasets={"mart_denver"},
     )
     sanitized = sanitize_sql(sql, config)
-    assert "FROM `whyline-denver.mart_reliability_by_route_day`" in sanitized
+    assert "FROM `whyline-denver.mart_denver.mart_reliability_by_route_day`" in sanitized
+
+
+def test_bigquery_rejects_cross_dataset_reference():
+    sql = "SELECT * FROM some_other_project.some_dataset.mart_access_score_by_stop"
+    config = GuardrailConfig(
+        allowed_models={"mart_access_score_by_stop"},
+        engine="bigquery",
+        allowed_projects={"whyline-denver"},
+        allowed_datasets={"mart_denver"},
+    )
+    with pytest.raises(SqlValidationError) as exc:
+        sanitize_sql(sql, config)
+    assert "some_other_project.some_dataset.mart_access_score_by_stop" in str(exc.value)
+
+
+def test_bigquery_allows_configured_namespace():
+    sql = "SELECT * FROM whyline-denver.mart_denver.mart_access_score_by_stop"
+    config = GuardrailConfig(
+        allowed_models={"mart_access_score_by_stop"},
+        engine="bigquery",
+        allowed_projects={"whyline-denver"},
+        allowed_datasets={"mart_denver"},
+    )
+    sanitized = sanitize_sql(sql, config)
+    assert "mart_access_score_by_stop" in sanitized

@@ -251,6 +251,28 @@ def initialize_session_state() -> None:
 
 models = load_allowed_models()
 allowlist = set(models.keys())
+_allowed_projects: set[str] = set()
+_allowed_datasets: set[str] = set()
+for info in models.values():
+    parts = [segment.strip("`") for segment in info.fq_name.split(".") if segment]
+    if len(parts) >= 3:
+        _allowed_projects.add(parts[-3])
+    if len(parts) >= 2:
+        _allowed_datasets.add(parts[-2])
+if not _allowed_projects and settings.GCP_PROJECT_ID:
+    _allowed_projects.add(settings.GCP_PROJECT_ID)
+if not _allowed_datasets and settings.BQ_DATASET_MART:
+    _allowed_datasets.add(settings.BQ_DATASET_MART)
+
+
+def build_guardrail_config(engine_name: str) -> GuardrailConfig:
+    extra: dict[str, set[str]] = {}
+    if engine_name == "bigquery":
+        extra["allowed_projects"] = _allowed_projects
+        extra["allowed_datasets"] = _allowed_datasets
+    return GuardrailConfig(allowed_models=allowlist, engine=engine_name, **extra)
+
+
 schema_brief = build_schema_brief(models)
 
 initialize_session_state()
@@ -326,7 +348,7 @@ if generate_clicked:
             candidate_sql = llm_output.get("sql", "")
             candidate_sql = add_filter_clauses(candidate_sql, filters)
             try:
-                config = GuardrailConfig(allowed_models=allowlist, engine=engine)
+                config = build_guardrail_config(engine)
                 sanitized_sql = sanitize_sql(candidate_sql, config)
                 sanitized_sql = adapt_sql_for_engine(sanitized_sql, engine, models)
                 st.session_state["generated_sql"] = sanitized_sql
@@ -351,7 +373,7 @@ if st.session_state.get("generated_sql"):
     )
     st.session_state["edited_sql"] = edited_sql
     try:
-        config_preview = GuardrailConfig(allowed_models=allowlist, engine=engine)
+        config_preview = build_guardrail_config(engine)
         sanitized = sanitize_sql(edited_sql, config_preview)
         sanitized = adapt_sql_for_engine(sanitized, engine, models)
         st.session_state["sanitized_sql"] = sanitized
@@ -381,7 +403,7 @@ run_clicked = st.button("Run")
 if run_clicked and st.session_state.get("generated_sql"):
     sql_to_run = st.session_state.get("edited_sql", st.session_state["generated_sql"])
     try:
-        config_preview = GuardrailConfig(allowed_models=allowlist, engine=engine)
+        config_preview = build_guardrail_config(engine)
         sanitized_sql = sanitize_sql(sql_to_run, config_preview)
         sanitized_sql = adapt_sql_for_engine(sanitized_sql, engine, models)
         st.session_state["sanitized_sql"] = sanitized_sql

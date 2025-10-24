@@ -93,7 +93,23 @@ def ask(
     sql = raw_response.get("sql", "")
     explanation = raw_response.get("explanation", "")
     sql = adapt_sql_for_engine(sql, engine, models)
-    config = GuardrailConfig(allowed_models=allowlist, engine=engine)
+    guardrail_kwargs: dict[str, set[str]] = {}
+    if engine == "bigquery":
+        projects: set[str] = set()
+        datasets: set[str] = set()
+        for info in models.values():
+            parts = [segment.strip("`") for segment in info.fq_name.split(".") if segment]
+            if len(parts) >= 3:
+                projects.add(parts[-3])
+            if len(parts) >= 2:
+                datasets.add(parts[-2])
+        if not projects and settings.GCP_PROJECT_ID:
+            projects.add(settings.GCP_PROJECT_ID)
+        if not datasets and settings.BQ_DATASET_MART:
+            datasets.add(settings.BQ_DATASET_MART)
+        guardrail_kwargs["allowed_projects"] = projects
+        guardrail_kwargs["allowed_datasets"] = datasets
+    config = GuardrailConfig(allowed_models=allowlist, engine=engine, **guardrail_kwargs)
     sanitized_sql = sanitize_sql(sql, config)
     return LlmResponse(sql=sanitized_sql, explanation=explanation)
 

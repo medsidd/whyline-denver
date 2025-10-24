@@ -22,6 +22,22 @@ DENYLIST_KEYWORDS = {
     "COPY",
 }
 
+
+def _split_identifier(identifier: str) -> tuple[str | None, str | None, str | None]:
+    token = identifier.strip()
+    if not token:
+        return (None, None, None)
+    parts = [segment.strip("`").lower() for segment in token.split(".") if segment]
+    if not parts:
+        return (None, None, None)
+    if len(parts) == 1:
+        return (None, None, parts[0])
+    if len(parts) == 2:
+        return (None, parts[0], parts[1])
+    # Normalize longer identifiers by taking the trailing project.dataset.table
+    return (parts[-3], parts[-2], parts[-1])
+
+
 TABLE_PATTERN = re.compile(
     r"\b(?:FROM|JOIN)\s+(" r"(?:`[^`]+`|[\w-]+)" r"(?:\.(?:`[^`]+`|[\w-]+)){0,2}" r")",
     re.IGNORECASE,
@@ -44,13 +60,20 @@ class GuardrailConfig:
     engine: str  # 'duckdb' | 'bigquery'
     partition_columns: Sequence[str] = ("service_date_mst",)
     enforce_limit: int = SAFE_LIMIT
+    allowed_datasets: Sequence[str] | None = None
+    allowed_projects: Sequence[str] | None = None
 
 
 def sanitize_sql(sql: str, config: GuardrailConfig) -> str:
     parsed = _normalize(sql)
     _ensure_single_statement(parsed)
     _ensure_read_only(parsed)
-    _validate_tables(parsed, config.allowed_models)
+    _validate_tables(
+        parsed,
+        config.allowed_models,
+        allowed_projects=config.allowed_projects,
+        allowed_datasets=config.allowed_datasets,
+    )
     sanitized = _ensure_limit(parsed, config.enforce_limit)
     if config.engine == "bigquery":
         sanitized = _quote_hyphenated_tables(sanitized)
@@ -88,27 +111,105 @@ def _ensure_read_only(sql: str) -> None:
             raise SqlValidationError(f"Disallowed keyword detected: {keyword}.")
 
 
-def _validate_tables(sql: str, allowed_models: Iterable[str]) -> None:
-    allowed_base = {m.strip("`").lower().split(".")[-1] for m in allowed_models}
+def _validate_tables(
+    sql: str,
+    allowed_models: Iterable[str],
+    allowed_projects: Iterable[str] | None = None,
+    allowed_datasets: Iterable[str] | None = None,
+) -> None:
+    allowed_base, allowed_project_set, allowed_dataset_set = _compile_allowed_sets(
+        allowed_models, allowed_projects, allowed_datasets
+    )
+    references = _extract_referenced_identifiers(sql)
+    _ensure_tables_are_allowlisted(references, allowed_base)
+    _ensure_authorized_namespaces(references, allowed_project_set, allowed_dataset_set)
 
-    referenced_base = set()
+
+def _compile_allowed_sets(
+    allowed_models: Iterable[str],
+    explicit_projects: Iterable[str] | None,
+    explicit_datasets: Iterable[str] | None,
+) -> tuple[set[str], set[str], set[str]]:
+    allowed_base: set[str] = set()
+    derived_projects: set[str] = set()
+    derived_datasets: set[str] = set()
+    for model in allowed_models:
+        project, dataset, table = _split_identifier(model)
+        if table:
+            allowed_base.add(table)
+        if project:
+            derived_projects.add(project)
+        if dataset:
+            derived_datasets.add(dataset)
+
+    allowed_projects = {
+        project.strip("`").lower() for project in explicit_projects or () if project
+    }
+    allowed_datasets = {
+        dataset.strip("`").lower() for dataset in explicit_datasets or () if dataset
+    }
+
+    return (
+        allowed_base,
+        allowed_projects or derived_projects,
+        allowed_datasets or derived_datasets,
+    )
+
+
+def _extract_referenced_identifiers(
+    sql: str,
+) -> list[tuple[str | None, str | None, str, str]]:
+    identifiers: list[tuple[str | None, str | None, str, str]] = []
     for match in TABLE_PATTERN.finditer(sql):
         token = match.group(1).strip()
         if not token:
             continue
-        parts = [p.strip("`") for p in token.split(".") if p]
-        if not parts:
+        project, dataset, table = _split_identifier(token)
+        if table is None:
             continue
-        referenced_base.add(parts[-1].lower())
+        identifiers.append((project, dataset, table, token))
 
     ctes = {name.strip("`").lower() for name in CTE_PATTERN.findall(sql)}
-    referenced_base -= ctes
+    return [ref for ref in identifiers if ref[2] not in ctes]
 
-    unauthorized = referenced_base - allowed_base
+
+def _ensure_tables_are_allowlisted(
+    references: Sequence[tuple[str | None, str | None, str, str]],
+    allowed_tables: set[str],
+) -> None:
+    unauthorized = {table for _, _, table, _ in references if table not in allowed_tables}
     if unauthorized:
         raise SqlValidationError(
             f"Query references unauthorized tables: {', '.join(sorted(unauthorized))}. "
             "Only app-approved marts may be queried."
+        )
+
+
+def _ensure_authorized_namespaces(
+    references: Sequence[tuple[str | None, str | None, str, str]],
+    allowed_projects: set[str],
+    allowed_datasets: set[str],
+) -> None:
+    if not allowed_projects and not allowed_datasets:
+        return
+
+    invalid_projects: set[str] = set()
+    invalid_datasets: set[str] = set()
+    for project, dataset, _table, token in references:
+        if project and allowed_projects and project not in allowed_projects:
+            invalid_projects.add(token)
+        if dataset and allowed_datasets and dataset not in allowed_datasets:
+            invalid_datasets.add(token)
+
+    if invalid_projects:
+        raise SqlValidationError(
+            "Query references unauthorized project(s): "
+            f"{', '.join(sorted(invalid_projects))}. Only app-approved marts may be queried."
+        )
+    if invalid_datasets:
+        raise SqlValidationError(
+            "Query references unauthorized dataset(s): "
+            f"{', '.join(sorted(invalid_datasets))}. Only app-approved marts may be queried."
         )
 
 
