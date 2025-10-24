@@ -53,7 +53,7 @@ WhyLine Denver turns raw public transit feeds into a governed, dual-engine analy
 
 ## dbt Usage
 
-- Install dependencies in the repo virtualenv (`pip install -r requirements.txt`) so the bundled `dbt-core`, `dbt-bigquery`, and `dbt-duckdb` adapters are on the Python path.
+- Install dependencies in the repo virtualenv (`pip install -r requirements.txt`) so the bundled `dbt-core` and `dbt-bigquery` adapter are on the Python path.
 - `.env.example` now includes `DBT_PROFILES_DIR=dbt/profiles`; the helper resolves it to an absolute path so both dbt CLI and IDE tooling can locate the profile.
 - Export (or add to `.env`) `GOOGLE_APPLICATION_CREDENTIALS=/path/to/whyline-dbt-*.json`, `GCP_PROJECT_ID`, and `BQ_DATASET_MART` before running dbt commands.
 - Invoke dbt through the helper script: `python -m scripts.dbt_with_env <command> --project-dir dbt ...`. Example: `make dbt-source-freshness` or `python -m scripts.dbt_with_env source freshness --project-dir dbt --target prod`.

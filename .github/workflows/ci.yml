@@ -35,6 +35,3 @@ jobs:
 
       - name: Ingestion smoke tests
         run: make test-ingest
-
-      - name: dbt demo docs
-        run: make demo
