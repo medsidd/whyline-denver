@@ -36,4 +36,5 @@ jobs:
           GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
           BQ_DATASET_RAW: ${{ secrets.BQ_DATASET_RAW }}
+          NOAA_CDO_TOKEN: ${{ secrets.NOAA_CDO_TOKEN }}
         run: make nightly-ingest-bq
