@@ -3,7 +3,9 @@ README.md
 pyproject.toml
 src/whylinedenver/__init__.py
 src/whylinedenver/config.py
+src/whylinedenver/llm.py
 src/whylinedenver/logs.py
+src/whylinedenver/sql_guardrails.py
 src/whylinedenver.egg-info/PKG-INFO
 src/whylinedenver.egg-info/SOURCES.txt
 src/whylinedenver.egg-info/dependency_links.txt

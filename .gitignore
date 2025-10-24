@@ -6,7 +6,7 @@ dbt/target/run/
 dbt/.dbt/
 data/warehouse.duckdb
 data/raw
-data/marts_cache/
+data/marts/
 .env
 /*.json
 .DS_Store
@@ -20,3 +20,4 @@ logs/
 .ruff_cache/
 src/whylinedenver/__pycache__/
 .vscode/
+ex.py

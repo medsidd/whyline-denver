@@ -153,7 +153,7 @@
 
 ## Phase 7 — CI schedules
 
-- [ ] **PR CI** — Lint, tests, dbt parse/docs for `demo` target.  
+- [ ] **PR CI** — Lint, tests, dbt parse/docs for `prod` target.  
   _Owner: @owner • Labels: phase:7, area:ci, type:chore_
 
 - [ ] **Nightly BigQuery build** — `dbt run/test --target prod` + publish docs artifacts + export Parquet.  

@@ -19,7 +19,7 @@ from whylinedenver.sync.export_bq_marts import ALLOWLISTED_MARTS
 LOGGER = logging.getLogger(__name__)
 
 DEFAULT_DUCKDB_PATH = Path("data/warehouse.duckdb")
-DEFAULT_CACHE_ROOT = Path("data/marts_cache")
+DEFAULT_CACHE_ROOT = Path("data/marts")
 SYNC_STATE_PATH = Path("data/sync_state.json")
 
 # Materialize hot tables; keep colder marts as views.

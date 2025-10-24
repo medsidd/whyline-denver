@@ -1,6 +1,6 @@
 .SHELLFLAGS := -o pipefail -c
 SHELL := /bin/bash
-.PHONY: install lint format test test-ingest run demo ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb
+.PHONY: install lint format test test-ingest run app ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb
 .PHONY: sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb
 
 # Shared command helpers ------------------------------------------------------
@@ -35,24 +35,18 @@ test: dbt-artifacts
 
 dbt-artifacts:
 	@if [ ! -f dbt/target/manifest.json ] || [ ! -f dbt/target/catalog.json ]; then \
-		DBT_TARGET=demo $(DBT_CMD) parse --project-dir dbt --target demo; \
-		DBT_TARGET=demo $(DBT_CMD) docs generate --project-dir dbt --target demo; \
+		$(DBT_CMD) parse --project-dir dbt --target $(DBT_TARGET); \
+		$(DBT_CMD) docs generate --project-dir dbt --target $(DBT_TARGET); \
 	fi
 
 
 test-ingest:
 	pytest -k ingest
 
-run:
+run: app
+
+app:
 	$(PY) -m streamlit run app/streamlit_app.py
-
-DEMO_ENV := GCP_PROJECT_ID=demo-project BQ_DATASET_RAW=raw_local BQ_DATASET_STG=stg_local BQ_DATASET_MART=mart_local DUCKDB_PATH=data/warehouse.duckdb
-
-demo:
-	mkdir -p data
-	$(DBT_CMD) deps --project-dir dbt --no-use-colors || true
-	$(DEMO_ENV) $(DBT_CMD) parse --project-dir dbt --no-use-colors --target demo
-	$(DEMO_ENV) $(DBT_CMD) docs generate --project-dir dbt --no-use-colors --target demo
 
 # Ingest ----------------------------------------------------------------------
 ingest-all: ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts
@@ -163,7 +157,9 @@ dbt-docs:
 # Workflows -------------------------------------------------------------------
 dev-loop:
 	$(MAKE) ingest-all-local
+	$(MAKE) ingest-all-gcs
 	$(MAKE) bq-load-local
+	$(MAKE) bq-load
 	DBT_TARGET=prod $(MAKE) dbt-parse
 	DBT_TARGET=prod $(MAKE) dbt-run-staging
 	DBT_TARGET=prod $(MAKE) dbt-run-intermediate
@@ -173,8 +169,9 @@ dev-loop:
 	DBT_TARGET=prod $(MAKE) dbt-source-freshness
 	DBT_TARGET=prod $(MAKE) dbt-docs
 	$(MAKE) sync-duckdb
+	$(MAKE) run
 
 ci-help:
-	@echo "Targets: install | lint | format | test | run | demo | ingest-* | bq-load(-local) | dbt-* | dev-loop"
+	@echo "Targets: install | lint | format | test | run | ingest-* | bq-load(-local) | dbt-* | dev-loop"
 .SHELLFLAGS := -o pipefail -c
 SHELL := /bin/bash
