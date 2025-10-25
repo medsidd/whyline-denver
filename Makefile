@@ -165,7 +165,7 @@ dbt-docs:
 	$(DBT_CMD) docs generate --project-dir dbt --target $(DBT_TARGET)
 
 # Workflows -------------------------------------------------------------------
-dev-loop:
+dev-loop-local:
 	$(MAKE) ingest-all-local
 	$(MAKE) ingest-all-gcs
 	$(MAKE) bq-load-local
@@ -180,6 +180,19 @@ dev-loop:
 	DBT_TARGET=prod $(MAKE) dbt-docs
 	$(MAKE) sync-duckdb
 	$(MAKE) run
+
+dev-loop-gcs:
+	$(MAKE) ingest-all-gcs
+	$(MAKE) bq-load
+	DBT_TARGET=prod $(MAKE) dbt-parse
+	DBT_TARGET=prod $(MAKE) dbt-run-staging
+	DBT_TARGET=prod $(MAKE) dbt-run-intermediate
+	DBT_TARGET=prod $(MAKE) dbt-run-marts
+	DBT_TARGET=prod $(MAKE) dbt-test-staging
+	DBT_TARGET=prod $(MAKE) dbt-test-marts
+	DBT_TARGET=prod $(MAKE) dbt-source-freshness
+	DBT_TARGET=prod $(MAKE) dbt-docs
+	$(MAKE) sync-duckdb
 
 ci-help:
 	@echo "Targets: install | lint | format | test | run | ingest-* | bq-load(-local) | dbt-* | dev-loop"

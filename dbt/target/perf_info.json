@@ -5,8 +5,8 @@
     "static_analysis_parsed_path_count": 0,
     "is_partial_parse_enabled": true,
     "is_static_analysis_enabled": true,
-    "read_files_elapsed": 0.03913637500954792,
-    "load_all_elapsed": 0.1272344999597408,
+    "read_files_elapsed": 0.034508584009017795,
+    "load_all_elapsed": 0.11908670904813334,
     "projects": [
         {
             "project_name": "whylinedenver_dbt",

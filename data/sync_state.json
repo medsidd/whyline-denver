@@ -1,12 +1,12 @@
 {
   "marts": {
-    "mart_access_score_by_stop": "2025-10-24",
-    "mart_crash_proximity_by_stop": "2025-10-24",
-    "mart_priority_hotspots": "2025-10-24",
-    "mart_reliability_by_route_day": "2025-10-23",
-    "mart_reliability_by_stop_hour": "2025-10-23",
-    "mart_vulnerability_by_stop": "2025-10-24",
-    "mart_weather_impacts": "2025-10-24"
+    "mart_access_score_by_stop": "2025-10-25",
+    "mart_crash_proximity_by_stop": "2025-10-25",
+    "mart_priority_hotspots": "2025-10-25",
+    "mart_reliability_by_route_day": "2025-10-24",
+    "mart_reliability_by_stop_hour": "2025-10-24",
+    "mart_vulnerability_by_stop": "2025-10-25",
+    "mart_weather_impacts": "2025-10-25"
   },
-  "refreshed_at_utc": "2025-10-24T00:13:50.762854+00:00"
+  "refreshed_at_utc": "2025-10-25T03:16:29.626064+00:00"
 }
