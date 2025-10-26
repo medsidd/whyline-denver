@@ -125,3 +125,19 @@ These contracts describe the CSV outputs produced by the ingestion CLIs in `src/
   2. Update this contract document with a new section documenting the changes.
   3. Adjust ingestion scripts, dbt sources, and documentation to match the new schema.
 - Non-breaking additions (new nullable columns) are permitted but must be documented here and communicated to downstream consumers.
+
+---
+
+## Additional Resources
+
+- **[Root README](../../README.md)** – Project overview, quickstart, FAQ, medallion architecture, data lineage
+- **[dbt Models Documentation](../../dbt/models/README.md)** – How these contracts feed staging models and downstream transformations
+- **[GitHub Workflows Documentation](../../.github/workflows/README.md)** – How ingestion workflows produce these CSV outputs
+- **[Pipeline Architecture](../ARCHITECTURE.md)** – Deep dive into bronze layer ingestion and loading processes
+- **[QA Validation Guide](../QA_Validation_Guide.md)** – How to validate data quality against these contracts
+
+---
+
+**Last Updated**: October 25, 2025
+**Schema Version**: v1 (frozen; all changes require v2 bump)
+**Maintained By**: WhyLine Denver Data Team

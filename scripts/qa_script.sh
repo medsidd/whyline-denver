@@ -845,10 +845,9 @@ if [ "$TRANSIT_DAYS" -lt 30 ]; then
 fi
 
 echo -e "${BOLD}For detailed documentation:${NC}"
-echo "  • Complete validation guide: docs/QA_VALIDATION_GUIDE.md"
-echo "  • Quick queries: docs/QA_CHEATSHEET.md"
-echo "  • GTFS-RT strategy: docs/GTFS_RT_STRATEGY.md"
-echo "  • NOAA strategy: docs/NOAA_DATA_STRATEGY.md"
+echo "  • Complete validation guide: docs/QA_Validation_Guide.md"
+echo "  • GTFS-RT strategy: docs/guides/GTFS_RT_Strategy.md"
+echo "  • NOAA strategy: docs/guides/NOAA_Backfill_Strategy.md"
 echo ""
 
 if [ "$FAILED_CHECKS" -gt 0 ]; then
