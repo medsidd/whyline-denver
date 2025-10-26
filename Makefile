@@ -1,7 +1,7 @@
 .SHELLFLAGS := -o pipefail -c
 SHELL := /bin/bash
-.PHONY: install lint format test test-ingest run app ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb
-.PHONY: sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb
+.PHONY: install lint format test test-ingest run app ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build deploy-hf
+.PHONY: sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build deploy-hf
 
 # Shared command helpers ------------------------------------------------------
 PYTHON        := python
@@ -165,7 +165,7 @@ dbt-docs:
 	$(DBT_CMD) docs generate --project-dir dbt --target $(DBT_TARGET)
 
 # Workflows -------------------------------------------------------------------
-dev-loop:
+dev-loop-local:
 	$(MAKE) ingest-all-local
 	$(MAKE) ingest-all-gcs
 	$(MAKE) bq-load-local
@@ -181,7 +181,33 @@ dev-loop:
 	$(MAKE) sync-duckdb
 	$(MAKE) run
 
+dev-loop-gcs:
+	$(MAKE) ingest-all-gcs
+	$(MAKE) bq-load
+	DBT_TARGET=prod $(MAKE) dbt-parse
+	DBT_TARGET=prod $(MAKE) dbt-run-staging
+	DBT_TARGET=prod $(MAKE) dbt-run-intermediate
+	DBT_TARGET=prod $(MAKE) dbt-run-marts
+	DBT_TARGET=prod $(MAKE) dbt-test-staging
+	DBT_TARGET=prod $(MAKE) dbt-test-marts
+	DBT_TARGET=prod $(MAKE) dbt-source-freshness
+	DBT_TARGET=prod $(MAKE) dbt-docs
+	$(MAKE) sync-duckdb
+
+pages-build:
+	@echo "Building dbt documentation for GitHub Pages..."
+	$(MAKE) dbt-docs
+	@echo "Preparing site directory..."
+	@mkdir -p site
+	@echo "Copying documentation artifacts..."
+	@cp -r dbt/target/* site/
+	@echo "✓ Documentation build complete!"
+
+deploy-hf:
+	python scripts/deploy_hf.py
+
 ci-help:
 	@echo "Targets: install | lint | format | test | run | ingest-* | bq-load(-local) | dbt-* | dev-loop"
+
 .SHELLFLAGS := -o pipefail -c
 SHELL := /bin/bash
