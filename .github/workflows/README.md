@@ -141,7 +141,7 @@ schedule:
 1. **Checkout code** (`actions/checkout@v4`)
 2. **Setup Python 3.11** (`actions/setup-python@v4`)
 3. **Install dependencies** (`pip install -r requirements.txt`)
-4. **Configure GCP credentials** (from `GCP_SA_KEY` secret)
+4. **Configure GCP credentials** (from `GOOGLE_APPLICATION_CREDENTIALS` secret)
 5. **Run ingestion**:
    ```bash
    python -m whylinedenver.ingest.gtfs_realtime \
@@ -389,8 +389,8 @@ After the `build` job passes, two additional jobs run sequentially:
 2. **Setup Python 3.11**
 3. **Cache pip dependencies**
 4. **Install requirements**
-5. **Configure GCP credentials** (from `GCP_SA_KEY` secret)
-6. **Set environment variables** (GCP_PROJECT_ID, dataset names)
+5. **Configure GCP credentials** (from `GOOGLE_APPLICATION_CREDENTIALS` secret)
+6. **Set environment variables** (GCP_PROJECT_ID, dataset names from secrets)
 7. **Build dbt docs** (`make pages-build`)
    - Runs `make dbt-docs` (uses existing `dbt_with_env.py` infrastructure)
    - Copies artifacts to `./site/`
@@ -403,7 +403,7 @@ After the `build` job passes, two additional jobs run sequentially:
 **Why integrated with CI?**
 - dbt models only change when code is pushed
 - CI already validates models compile successfully
-- Reuses existing secrets (GCP_PROJECT_ID, GCP_SA_KEY)
+- Reuses existing secrets (same as nightly workflows)
 - Simpler: one workflow instead of two
 - Documentation automatically updates when tests pass
 
@@ -454,16 +454,19 @@ nightly-duckdb (9:30am UTC)
 
 | Secret Name | Purpose | Format |
 |-------------|---------|--------|
-| `GCP_SA_KEY` | Service account JSON for GCS/BigQuery access | Base64-encoded JSON |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Service account JSON for GCS/BigQuery access | Plain JSON (not base64-encoded) |
 | `GCP_PROJECT_ID` | Google Cloud project ID | String (e.g., `whyline-denver`) |
 | `GCS_BUCKET` | GCS bucket name for raw data | String (e.g., `whylinedenver-raw`) |
+| `BQ_DATASET_RAW` | BigQuery raw dataset name | String (e.g., `raw_denver`) |
+| `BQ_DATASET_STG` | BigQuery staging dataset name | String (e.g., `stg_denver`) |
+| `BQ_DATASET_MART` | BigQuery mart dataset name | String (e.g., `mart_denver`) |
 | `NOAA_CDO_TOKEN` | NOAA Climate Data Online API key | String |
 | `CENSUS_API_KEY` | U.S. Census Bureau API key (optional) | String |
 
 **How to Add Secrets**:
 1. Go to repo → Settings → Secrets and variables → Actions
 2. Click "New repository secret"
-3. Paste value (for `GCP_SA_KEY`, base64-encode the JSON first)
+3. Paste value (for `GOOGLE_APPLICATION_CREDENTIALS`, paste the raw JSON from your service account key file)
 
 ### Environment Variables in Workflows
 
@@ -473,13 +476,13 @@ env:
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
   NOAA_CDO_TOKEN: ${{ secrets.NOAA_CDO_TOKEN }}
-  BQ_DATASET_RAW: raw_denver
-  BQ_DATASET_STG: stg_denver
-  BQ_DATASET_MART: mart_denver
+  BQ_DATASET_RAW: ${{ secrets.BQ_DATASET_RAW }}
+  BQ_DATASET_STG: ${{ secrets.BQ_DATASET_STG }}
+  BQ_DATASET_MART: ${{ secrets.BQ_DATASET_MART }}
   ENGINE: bigquery
 ```
 
-These are injected into the Python process when scripts run.
+These are injected into the Python process when scripts run. Dataset names are stored as secrets to support multiple environments (dev/prod).
 
 ---
 

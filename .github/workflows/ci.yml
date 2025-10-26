@@ -63,16 +63,25 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Configure GCP credentials
+        env:
+          GCP_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
         run: |
-          echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > ${HOME}/gcp-key.json
-          echo "GOOGLE_APPLICATION_CREDENTIALS=${HOME}/gcp-key.json" >> $GITHUB_ENV
+          echo "$GCP_SERVICE_ACCOUNT" > ${{ github.workspace }}/gcp-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${{ github.workspace }}/gcp-key.json" >> $GITHUB_ENV
 
       - name: Set environment variables
+        env:
+          DBT_PROFILES_DIR: ${{ github.workspace }}/dbt/profiles
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          BQ_DATASET_RAW: ${{ secrets.BQ_DATASET_RAW }}
+          BQ_DATASET_STG: ${{ secrets.BQ_DATASET_STG }}
+          BQ_DATASET_MART: ${{ secrets.BQ_DATASET_MART }}
         run: |
-          echo "GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}" >> $GITHUB_ENV
-          echo "BQ_DATASET_RAW=raw_denver" >> $GITHUB_ENV
-          echo "BQ_DATASET_STG=stg_denver" >> $GITHUB_ENV
-          echo "BQ_DATASET_MART=mart_denver" >> $GITHUB_ENV
+          echo "DBT_PROFILES_DIR=$DBT_PROFILES_DIR" >> $GITHUB_ENV
+          echo "GCP_PROJECT_ID=$GCP_PROJECT_ID" >> $GITHUB_ENV
+          echo "BQ_DATASET_RAW=$BQ_DATASET_RAW" >> $GITHUB_ENV
+          echo "BQ_DATASET_STG=$BQ_DATASET_STG" >> $GITHUB_ENV
+          echo "BQ_DATASET_MART=$BQ_DATASET_MART" >> $GITHUB_ENV
 
       - name: Build dbt docs
         run: make pages-build
