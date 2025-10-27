@@ -69,7 +69,7 @@ WhyLine Denver is a **dual-engine transit analytics platform** built on modern c
          ↕ ingestion → loading
 ┌─ ORCHESTRATION ────────────────────────┐
 │ GitHub Actions (6 workflows)           │
-│ • Hourly: GTFS-RT (15x/day)            │
+│ • Micro-batch: GTFS-RT (every 5 min)   │
 │ • Nightly: Static data (1x/day)        │
 │ • Nightly: dbt build + test            │
 │ • CI: Lint + test on PR                │
@@ -244,7 +244,7 @@ stg_gtfs_routes:
 | Module | Frequency | Output Size | API | Notes |
 |--------|-----------|-------------|-----|-------|
 | `gtfs_static.py` | Monthly | ~1-2MB | RTD GTFS ZIP | 6 TXT files extracted |
-| `gtfs_realtime.py` | Hourly (15x/day) | ~500KB trip updates, ~50KB positions per snapshot | RTD GTFS-RT Protobuf | 3 snapshots, 2 min apart |
+| `gtfs_realtime.py` | Every 5 min (24/7) | ~500KB trip updates, ~50KB positions per snapshot | RTD GTFS-RT Protobuf | Single snapshot per run; workflow triggers every 5 min |
 | `noaa_daily.py` | Nightly | ~10KB per day | NOAA CDO JSON | Rolling 30-day window |
 | `denver_crashes.py` | Nightly | ~5MB (5 years) | ArcGIS REST | Paginated, 1000 records/page |
 | `denver_sidewalks.py` | Nightly | ~2MB | ArcGIS REST | ~35K segments with geometry |
@@ -522,7 +522,7 @@ WhyLine Denver includes comprehensive visual diagrams documenting the complete d
 
 ### Pipeline Architecture Diagram
 
-![Pipeline Architecture](diagrams/exports/pipeline.png)
+![Pipeline Architecture](diagrams/exports/pipeline.svg)
 
 **[View source: pipeline.drawio](diagrams/pipeline.drawio)** | **[Edit in draw.io](https://app.diagrams.net)**
 
@@ -669,45 +669,44 @@ All diagrams use vibrant Material Design colors and include detailed annotations
 └────────────────────┘
 ```
 
-### GTFS-RT Hourly Cycle (Detailed)
+### GTFS-RT Micro-Batch Cycle (Detailed)
 
 ```
-12:00 UTC (5am MST)
+Every 5 minutes (00, 05, 10, ...)
   ↓
-┌─ GitHub Actions: hourly-gtfs-rt.yml ─┐
+┌─ GitHub Actions: realtime-gtfs-rt.yml ─┐
 │                                      │
-│ [Minute 0] Snapshot 1                │
+│ [Minute 0] Capture snapshot          │
 │   RTD API: /TripUpdate.pb → CSV      │
 │   RTD API: /VehiclePosition.pb → CSV │
-│   Upload to GCS                      │
+│   Upload to GCS (gzip)               │
 │                                      │
-│ [Minute 2] Snapshot 2 (repeat)       │
-│                                      │
-│ [Minute 4] Snapshot 3 (repeat)       │
-│                                      │
-│ Workflow exits (~5 min total)        │
+│ Workflow exits (~2 min total)        │
 └──────────────────────────────────────┘
   ↓
 GCS: gs://whylinedenver-raw/raw/rtd_gtfsrt/snapshot_at=2025-10-24T12:00/
   ├─ trip_updates.csv.gz (500KB, 5-10K rows)
   └─ vehicle_positions.csv.gz (50KB, 400-500 rows)
 
-12:30 UTC (5:30am MST) [+30 min offset]
+~2 minutes later (02, 07, 12, ...)
   ↓
-┌─ GitHub Actions: hourly-bq-load.yml ──┐
+┌─ GitHub Actions: realtime-bq-load.yml ─┐
 │                                       │
-│ Scan GCS for new files since 12:00    │
+│ Detect new snapshot prefix            │
 │ Load trip_updates → raw_gtfsrt_trip...│
 │ Load vehicle_positions → raw_gtfsrt...│
 │ Record MD5 in __ingestion_log         │
-│                                       │
-│ Workflow exits (~2 min)               │
+│ Run `make dbt-run-realtime`           │
+│   ↳ mart_reliability_by_stop_hour     │
+│   ↳ mart_reliability_by_route_day     │
+│   ↳ mart_weather_impacts              │
+│ Workflow exits (~3 min)               │
 └───────────────────────────────────────┘
   ↓
 BigQuery: raw_gtfsrt_trip_updates (partitioned by feed_ts_utc)
-  New rows appended with _ingested_at = 2025-10-24T12:32:00Z
+  New rows appended with _ingested_at = 2025-10-24T12:03:00Z
 
-... Process repeats 14 more times through 7pm MST (02:00 UTC)
+... Process repeats 288 times per day
 ```
 
 ---
@@ -843,7 +842,7 @@ BigQuery: raw_gtfsrt_trip_updates (partitioned by feed_ts_utc)
 
 | Component | Current Limit | Observed Load | Headroom |
 |-----------|---------------|---------------|----------|
-| **GTFS-RT API** | ~1000 req/min | 45 req/day (3 per hour × 15 hours) | 30,000x |
+| **GTFS-RT API** | ~1000 req/min | 288 req/day (1 every 5 minutes) | 5,000x |
 | **BigQuery Slots** | Auto-scaling | ~10 queries/day | Virtually unlimited |
 | **GCS Bandwidth** | 5 Gbps egress | ~50 MB/day uploads | 10,000x |
 | **GitHub Actions** | 2,000 min/month | ~800 min/month | 2.5x |
@@ -937,22 +936,22 @@ def validate_schema(df, required_columns):
 
 #### Level 3: QA Script
 
-- Validates freshness (GTFS-RT <2 hours, weather <7 days)
-- Validates row counts (40+ snapshots/day)
+- Validates freshness (GTFS-RT <10 minutes, weather <7 days)
+- Validates row counts (≥250 snapshots/day)
 - Validates cross-platform consistency (BigQuery vs. DuckDB mart counts within 5%)
 
 ### Failure Recovery Procedures
 
-#### Scenario: Hourly GTFS-RT workflow fails (503 from RTD API)
+#### Scenario: Micro-batch GTFS-RT workflow fails (503 from RTD API)
 
-**Detection**: Status badge turns red; QA script shows <40 snapshots/day
+**Detection**: Status badge turns red; QA script shows <250 snapshots/day or freshness >10 minutes
 
 **Recovery**:
 1. Check RTD API status (external issue?)
-2. If transient, wait for next hourly run (auto-retry)
-3. If persistent, manually trigger workflow: `gh workflow run hourly-gtfs-rt.yml`
+2. If transient, the next 5-minute run usually recovers (auto-retry)
+3. If persistent, manually trigger workflow: `gh workflow run realtime-gtfs-rt.yml`
 
-**Prevention**: Already implemented (3-snapshot redundancy per hour)
+**Prevention**: Retries with exponential backoff; tight cadence limits data loss to <5 minutes.
 
 ---
 

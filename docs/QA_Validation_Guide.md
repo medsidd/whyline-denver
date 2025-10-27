@@ -132,15 +132,15 @@ Overall Results:
 
 **Workflows validated**:
 - `nightly-ingest.yml` - Static GTFS, weather, crash data (8am UTC daily)
-- `hourly-gtfs-rt.yml` - Realtime snapshots (5am-7pm MST, every 20 min)
-- `hourly-bq-load.yml` - BigQuery loads (5am-7pm MST, offset 30 min)
+- `realtime-gtfs-rt.yml` - Realtime snapshots (every 5 minutes)
+- `realtime-bq-load.yml` - BigQuery loads + dbt micro-batch (offset ~2 min)
 
 **Queries used**:
 ```bash
 # Get recent workflow runs
 gh run list --workflow=nightly-ingest.yml --limit 1 --json conclusion
-gh run list --workflow=hourly-gtfs-rt.yml --limit 10 --json conclusion
-gh run list --workflow=hourly-bq-load.yml --limit 10 --json conclusion
+gh run list --workflow=realtime-gtfs-rt.yml --limit 10 --json conclusion
+gh run list --workflow=realtime-bq-load.yml --limit 10 --json conclusion
 ```
 
 **Success criteria**:
@@ -174,12 +174,12 @@ gsutil ls "gs://${BUCKET}/raw/noaa_weather/date=${TODAY}/"
 
 **Success criteria**:
 - ✅ PASS: Weather file exists for today
-- ⚠️ WARN: <45 GTFS-RT snapshots (normal on Day 1)
+- ⚠️ WARN: <200 GTFS-RT snapshots (normal on Day 1)
 - ❌ FAIL: No snapshots or no weather file
 
 **Expected results**:
-- **Day 1**: 2-20 snapshots (workflows started mid-day)
-- **Steady state**: 45 snapshots/day (15 hours × 3 snapshots/hour)
+- **Day 1**: 10-150 snapshots (micro-batch started mid-day)
+- **Steady state**: ~288 snapshots/day (every 5 minutes)
 
 ---
 
@@ -201,9 +201,9 @@ WHERE feed_ts_utc >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 HOUR);
 ```
 
 **Success criteria**:
-- ✅ PASS: Latest snapshot <120 minutes old
-- ⚠️ WARN: Outside operating hours (5am-7pm MST)
-- ❌ FAIL: >120 minutes old during operating hours
+- ✅ PASS: Latest snapshot <10 minutes old
+- ⚠️ WARN: 10-30 minutes old (temporary backlog)
+- ❌ FAIL: >30 minutes old (outside maintenance window)
 
 #### 3.2 Daily Snapshot Coverage
 
@@ -226,7 +226,7 @@ GROUP BY snapshot_date;
 
 **Expected results**:
 - **Day 1**: 2-20 snapshots, 50K-200K trip updates
-- **Steady state**: 45 snapshots, ~360K trip updates/day
+- **Steady state**: ~288 snapshots, ~600K trip updates/day
 
 #### 3.3 Missing Hours Check
 
@@ -558,8 +558,8 @@ make sync-duckdb
 | **1. GitHub Actions** | ✅ 100% success | 2-5 hourly runs completed |
 | **2. GCS Files** | ⚠️ 5-20 snapshots | Workflows started mid-day |
 | **3.1 RT Freshness** | ✅ <120 min old | Latest snapshot recent |
-| **3.2 Daily Coverage** | ⚠️ 5-20 snapshots | Accumulating throughout day |
-| **3.3 Missing Hours** | ⚠️ 8-13 missing | Workflows didn't exist in morning |
+| **3.2 Daily Coverage** | ⚠️ 50-150 snapshots | Accumulating throughout day |
+| **3.3 Missing Hours** | ⚠️ Gaps outside launch window | Micro-batch flow only recently enabled |
 | **3.4 Weather Freshness** | ✅ 1-7 days behind | NOAA lag is normal |
 | **3.5 Weather Quality** | ✅ 70%+ complete | Historical data is good |
 | **3.6 Precip Bins** | ⚠️ 1-2 bins | Limited recent data |
@@ -569,7 +569,7 @@ make sync-duckdb
 | **6. DuckDB** | ✅ Synced | If you ran `make sync-duckdb` |
 
 **Key Day 1 warnings** (all normal):
-- Missing hours (workflows created mid-day)
+- Missing hours (micro-batch enabled mid-day)
 - Limited snapshots (first partial day)
 - Only 1-2 days in marts (just started)
 - Weather impacts showing 'none' only (need more days)
@@ -579,9 +579,9 @@ make sync-duckdb
 **Typical success rate**: **85-90%** (fewer warnings)
 
 **Improvements**:
-- ✅ 45 snapshots/day
-- ✅ Zero missing hours (5am-7pm covered)
-- ✅ ~360K trip updates/day
+- ✅ ~288 snapshots/day
+- ✅ Zero missing hours (24h coverage)
+- ✅ ~600K trip updates/day
 - ⚠️ Still only 2 days in marts (need 30+)
 
 ### After 30 Days (Steady State)
@@ -589,7 +589,7 @@ make sync-duckdb
 **Typical success rate**: **90-95%** (mostly passes)
 
 **Full operation**:
-- ✅ 45 snapshots/day consistently
+- ✅ ~288 snapshots/day consistently
 - ✅ 30+ days of transit data
 - ✅ Weather impacts showing multiple precipitation bins
 - ✅ Meaningful correlation analysis possible
@@ -605,13 +605,13 @@ make sync-duckdb
 
 **Symptoms**:
 ```
-❌ FAIL: Hourly GTFS-RT: Only 3/10 runs succeeded (30%)
+❌ FAIL: Realtime GTFS-RT: Only 3/10 runs succeeded (30%)
 ```
 
 **Diagnosis**:
 ```bash
 # View recent runs
-gh run list --workflow=hourly-gtfs-rt.yml --limit 10
+gh run list --workflow=realtime-gtfs-rt.yml --limit 10
 
 # View failed run logs
 gh run view <run-id> --log
@@ -638,10 +638,10 @@ gh run view <run-id> --log
 **Diagnosis**:
 ```bash
 # Check workflow schedule
-cat .github/workflows/hourly-gtfs-rt.yml | grep schedule
+cat .github/workflows/realtime-gtfs-rt.yml | grep schedule
 
 # Check recent runs
-gh run list --workflow=hourly-gtfs-rt.yml --limit 30
+gh run list --workflow=realtime-gtfs-rt.yml --limit 30
 ```
 
 **Common causes**:
@@ -809,12 +809,12 @@ FROM mart_reliability_by_route_day;
 
 #### Check Workflow Success Rates
 ```bash
-# Hourly GTFS-RT workflow
-gh run list --workflow=hourly-gtfs-rt.yml --limit 10 --json conclusion | \
+# Realtime GTFS-RT workflow
+gh run list --workflow=realtime-gtfs-rt.yml --limit 10 --json conclusion | \
   jq '[.[] | .conclusion] | group_by(.) | map({status: .[0], count: length})'
 
-# Hourly BQ load workflow
-gh run list --workflow=hourly-bq-load.yml --limit 10 --json conclusion | \
+# Realtime BQ load workflow
+gh run list --workflow=realtime-bq-load.yml --limit 10 --json conclusion | \
   jq '[.[] | .conclusion] | group_by(.) | map({status: .[0], count: length})'
 ```
 

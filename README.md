@@ -64,7 +64,7 @@ WhyLine Denver follows a **medallion architecture** to progressively refine raw 
 ┌─── BRONZE LAYER ────────────────────────────────────────────┐
 │  Raw ingestion: Python CLIs fetch data from public APIs     │
 │  • GTFS Static (monthly): routes, stops, schedules          │
-│  • GTFS Realtime (hourly, 15x/day): trip delays, positions  │
+│  • GTFS Realtime (micro-batch, every 5 min): trip delays, positions  │
 │  • Weather (daily): NOAA temperature, precipitation, snow   │
 │  • Crashes (nightly): Denver 5-year traffic accident data   │
 │  • Sidewalks (nightly): pedestrian infrastructure segments  │
@@ -119,7 +119,7 @@ WhyLine Denver follows a **medallion architecture** to progressively refine raw 
 
 ### Pipeline Architecture Diagram
 
-![WhyLine Denver Pipeline Architecture](docs/diagrams/exports/pipeline.png)
+![WhyLine Denver Pipeline Architecture](docs/diagrams/exports/pipeline.svg)
 
 **[View full diagram](docs/diagrams/pipeline.drawio)** | **[Edit in draw.io](https://app.diagrams.net)**
 
@@ -173,11 +173,25 @@ This diagram visualizes all 29 models across the medallion architecture:
 
 For domain-specific lineage diagrams and additional architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+### App Guardrails & Allow-List
+
+![WhyLine Denver App Guardrails](docs/diagrams/exports/app_guardrails.png)
+
+**[View full diagram](docs/diagrams/app_guardrails.drawio)** | **[Edit in draw.io](https://app.diagrams.net)**
+
+The app uses layered guardrails to keep LLM-generated SQL safe and predictable:
+- **Allow-listed marts only**: Queries are restricted to curated analytical tables that mirror dbt contracts.
+- **SQL sanitizer**: Blocks disallowed statements (DDL/DML), enforces `SELECT`-only semantics, and validates identifiers.
+- **Cost checks**: BigQuery runs require dry-run estimates below `MAX_BYTES_BILLED`; DuckDB requests stay local.
+- **Audit logging**: Every query is logged with latency, row counts, models touched, and cache hits for post-run review.
+
+These guardrails ensure that natural-language querying stays within compliance boundaries while preserving fast exploration.
+
 ## Freshness & Automation
 
 All pipelines run on GitHub Actions:
 
-- **Hourly (5am-7pm MST, 15x/day):** GTFS Realtime snapshots capture trip delays and vehicle positions. Each hour takes 3 snapshots, 2 minutes apart, to smooth over API jitter.
+- **Every 5 minutes (24/7):** GTFS Realtime micro-batches capture trip delays and vehicle positions continuously. Each run snapshots the feed and pushes it to BigQuery within ~2 minutes of publish.
 - **Nightly (8am UTC / 1-2am MST):** Static data refreshes (GTFS schedules, crashes, sidewalks, weather, demographics).
 - **Nightly (9am UTC / 2-3am MST):** dbt runs all staging → intermediate → marts, validates data quality with 40+ tests, then exports marts to GCS as Parquet.
 - **Nightly (9:30am UTC):** DuckDB sync downloads Parquet exports and materializes hot marts locally.
@@ -232,7 +246,7 @@ WhyLine Denver ingests zero personally identifiable information. All datasets ar
 ### How fresh is the data?
 
 - **GTFS Static**: Updated monthly when RTD publishes new schedules
-- **GTFS Realtime**: 2-minute lag from API publish to BigQuery (hourly snapshots during service hours)
+- **GTFS Realtime**: ~2-minute lag from API publish to BigQuery (micro-batches every 5 minutes around the clock)
 - **Weather**: 3-7 day lag (NOAA finalization period)
 - **Crashes**: 24-hour lag (nightly ingest of Denver Open Data)
 - **Demographics**: Annual (ACS 5-year estimates)

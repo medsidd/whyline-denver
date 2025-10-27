@@ -1,7 +1,7 @@
 .SHELLFLAGS := -o pipefail -c
 SHELL := /bin/bash
-.PHONY: install lint format test test-ingest run app ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build deploy-hf export-diagrams
-.PHONY: sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build deploy-hf export-diagrams
+.PHONY: install lint format test test-ingest run app ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dbt-run-realtime dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams
+.PHONY: sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams dbt-run-realtime
 
 # Shared command helpers ------------------------------------------------------
 PYTHON        := python
@@ -164,6 +164,9 @@ dbt-test-marts:
 dbt-docs:
 	$(DBT_CMD) docs generate --project-dir dbt --target $(DBT_TARGET)
 
+dbt-run-realtime:
+	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select +mart_reliability_by_stop_hour +mart_reliability_by_route_day +mart_weather_impacts
+
 # Workflows -------------------------------------------------------------------
 dev-loop-local:
 	$(MAKE) ingest-all-local
@@ -202,9 +205,6 @@ pages-build:
 	@echo "Copying documentation artifacts..."
 	@cp -r dbt/target/* site/
 	@echo "✓ Documentation build complete!"
-
-deploy-hf:
-	python scripts/deploy_hf.py
 
 export-diagrams:
 	@echo "Exporting draw.io diagrams to SVG/PNG..."

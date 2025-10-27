@@ -111,12 +111,12 @@ if command -v gh &> /dev/null; then
             --jq '.[] | "  \(.createdAt | split("T")[0]) - \(.conclusion)"' 2>/dev/null || echo "  (unable to fetch)"
     fi
 
-    subsection_header "1.2 Hourly GTFS-RT Snapshots"
+    subsection_header "1.2 Realtime GTFS-RT Snapshots"
 
-    HOURLY_RT_RUNS=$(gh run list --workflow=hourly-gtfs-rt.yml --limit 10 --json conclusion,status 2>/dev/null || echo "")
+    HOURLY_RT_RUNS=$(gh run list --workflow=realtime-gtfs-rt.yml --limit 10 --json conclusion,status 2>/dev/null || echo "")
 
     if [ -z "$HOURLY_RT_RUNS" ] || [ "$HOURLY_RT_RUNS" = "[]" ]; then
-        check_warning "Hourly GTFS-RT: No runs found yet (may not have triggered)"
+        check_warning "Realtime GTFS-RT: No runs found yet (may not have triggered)"
     else
         # Count successes in last 10 runs
         SUCCESS_COUNT=$(echo "$HOURLY_RT_RUNS" | jq '[.[] | select(.conclusion == "success")] | length' 2>/dev/null || echo "0")
@@ -130,24 +130,24 @@ if command -v gh &> /dev/null; then
         fi
 
         if [ "$SUCCESS_RATE" -ge 80 ]; then
-            check_passed "Hourly GTFS-RT: ${SUCCESS_COUNT}/${TOTAL_COUNT} runs succeeded (${SUCCESS_RATE}%)"
+            check_passed "Realtime GTFS-RT: ${SUCCESS_COUNT}/${TOTAL_COUNT} runs succeeded (${SUCCESS_RATE}%)"
         elif [ "$SUCCESS_RATE" -ge 50 ]; then
-            check_warning "Hourly GTFS-RT: ${SUCCESS_COUNT}/${TOTAL_COUNT} runs succeeded (${SUCCESS_RATE}%, some failures)"
+            check_warning "Realtime GTFS-RT: ${SUCCESS_COUNT}/${TOTAL_COUNT} runs succeeded (${SUCCESS_RATE}%, some failures)"
         else
-            check_failed "Hourly GTFS-RT: Only ${SUCCESS_COUNT}/${TOTAL_COUNT} runs succeeded (${SUCCESS_RATE}%)"
+            check_failed "Realtime GTFS-RT: Only ${SUCCESS_COUNT}/${TOTAL_COUNT} runs succeeded (${SUCCESS_RATE}%)"
         fi
 
         echo "Recent runs:"
-        gh run list --workflow=hourly-gtfs-rt.yml --limit 5 --json conclusion,createdAt \
+        gh run list --workflow=realtime-gtfs-rt.yml --limit 5 --json conclusion,createdAt \
             --jq '.[] | "  \(.createdAt | split("T")[1] | split(".")[0]) - \(.conclusion)"' 2>/dev/null || echo "  (unable to fetch)"
     fi
 
-    subsection_header "1.3 Hourly BigQuery Loads"
+    subsection_header "1.3 Realtime BigQuery Loads"
 
-    HOURLY_BQ_RUNS=$(gh run list --workflow=hourly-bq-load.yml --limit 10 --json conclusion,status 2>/dev/null || echo "")
+    HOURLY_BQ_RUNS=$(gh run list --workflow=realtime-bq-load.yml --limit 10 --json conclusion,status 2>/dev/null || echo "")
 
     if [ -z "$HOURLY_BQ_RUNS" ] || [ "$HOURLY_BQ_RUNS" = "[]" ]; then
-        check_warning "Hourly BQ load: No runs found yet (may not have triggered)"
+        check_warning "Realtime BQ load: No runs found yet (may not have triggered)"
     else
         SUCCESS_COUNT=$(echo "$HOURLY_BQ_RUNS" | jq '[.[] | select(.conclusion == "success")] | length' 2>/dev/null || echo "0")
         TOTAL_COUNT=$(echo "$HOURLY_BQ_RUNS" | jq 'length' 2>/dev/null || echo "0")
@@ -160,15 +160,15 @@ if command -v gh &> /dev/null; then
         fi
 
         if [ "$SUCCESS_RATE" -ge 80 ]; then
-            check_passed "Hourly BQ load: ${SUCCESS_COUNT}/${TOTAL_COUNT} runs succeeded (${SUCCESS_RATE}%)"
+            check_passed "Realtime BQ load: ${SUCCESS_COUNT}/${TOTAL_COUNT} runs succeeded (${SUCCESS_RATE}%)"
         elif [ "$SUCCESS_RATE" -ge 50 ]; then
-            check_warning "Hourly BQ load: ${SUCCESS_COUNT}/${TOTAL_COUNT} runs succeeded (${SUCCESS_RATE}%, some failures)"
+            check_warning "Realtime BQ load: ${SUCCESS_COUNT}/${TOTAL_COUNT} runs succeeded (${SUCCESS_RATE}%, some failures)"
         else
-            check_failed "Hourly BQ load: Only ${SUCCESS_COUNT}/${TOTAL_COUNT} runs succeeded (${SUCCESS_RATE}%)"
+            check_failed "Realtime BQ load: Only ${SUCCESS_COUNT}/${TOTAL_COUNT} runs succeeded (${SUCCESS_RATE}%)"
         fi
 
         echo "Recent runs:"
-        gh run list --workflow=hourly-bq-load.yml --limit 5 --json conclusion,createdAt \
+        gh run list --workflow=realtime-bq-load.yml --limit 5 --json conclusion,createdAt \
             --jq '.[] | "  \(.createdAt | split("T")[1] | split(".")[0]) - \(.conclusion)"' 2>/dev/null || echo "  (unable to fetch)"
     fi
 else
@@ -198,14 +198,14 @@ if [ "$SKIP_GCS" = false ]; then
 
         if [ "$RT_SNAPSHOTS" -eq 0 ]; then
             check_warning "GTFS-RT snapshots: No snapshot directories found for today (${TODAY_ISO})"
-        elif [ "$RT_SNAPSHOTS" -ge 40 ]; then
-            check_passed "GTFS-RT snapshots: ${RT_SNAPSHOTS} snapshot directories for today (expected ~45)"
-        elif [ "$RT_SNAPSHOTS" -ge 20 ]; then
-            check_warning "GTFS-RT snapshots: ${RT_SNAPSHOTS} directories (expected 45, day may not be complete)"
-        elif [ "$RT_SNAPSHOTS" -ge 2 ]; then
-            check_warning "GTFS-RT snapshots: ${RT_SNAPSHOTS} directories (hourly workflows started recently)"
+        elif [ "$RT_SNAPSHOTS" -ge 200 ]; then
+            check_passed "GTFS-RT snapshots: ${RT_SNAPSHOTS} snapshot directories for today (expected ~288)"
+        elif [ "$RT_SNAPSHOTS" -ge 100 ]; then
+            check_warning "GTFS-RT snapshots: ${RT_SNAPSHOTS} directories (expected ~288, day may still be in progress)"
+        elif [ "$RT_SNAPSHOTS" -ge 10 ]; then
+            check_warning "GTFS-RT snapshots: ${RT_SNAPSHOTS} directories (micro-batch flow may have started recently)"
         else
-            check_failed "GTFS-RT snapshots: Only ${RT_SNAPSHOTS} directories (expected at least 2)"
+            check_failed "GTFS-RT snapshots: Only ${RT_SNAPSHOTS} directories (expected at least double digits)"
         fi
 
         # Show recent snapshots
@@ -259,14 +259,14 @@ TOTAL_UPDATES=$(echo "$SNAPSHOT_RESULT" | tail -1 | cut -d',' -f2)
 echo "Snapshots today: ${NUM_SNAPSHOTS}"
 echo "Trip updates today: ${TOTAL_UPDATES}"
 
-if [ "$NUM_SNAPSHOTS" -ge 40 ]; then
-    check_passed "Snapshot count: ${NUM_SNAPSHOTS} (target: 45)"
+if [ "$NUM_SNAPSHOTS" -ge 250 ]; then
+    check_passed "Snapshot count: ${NUM_SNAPSHOTS} (target: ~288)"
+elif [ "$NUM_SNAPSHOTS" -ge 150 ]; then
+    check_warning "Snapshot count: ${NUM_SNAPSHOTS} (target: ~288, day may not be complete)"
 elif [ "$NUM_SNAPSHOTS" -ge 20 ]; then
-    check_warning "Snapshot count: ${NUM_SNAPSHOTS} (target: 45, day may not be complete)"
-elif [ "$NUM_SNAPSHOTS" -ge 2 ]; then
-    check_warning "Snapshot count: ${NUM_SNAPSHOTS} (hourly workflows may not have started yet)"
+    check_warning "Snapshot count: ${NUM_SNAPSHOTS} (realtime workflows may have started recently)"
 else
-    check_failed "Snapshot count: ${NUM_SNAPSHOTS} (expected at least 2)"
+    check_failed "Snapshot count: ${NUM_SNAPSHOTS} (expected at least 20)"
 fi
 
 subsection_header "3.2 GTFS-RT Trip Updates: 7-Day Trend"
@@ -303,7 +303,7 @@ subsection_header "3.3 GTFS-RT: Missing Hours Check"
 
 MISSING_HOURS=$(bq query --nouse_legacy_sql --format=csv << EOF
 WITH expected_hours AS (
-  SELECT hour FROM UNNEST(GENERATE_ARRAY(5, 19)) AS hour
+  SELECT hour FROM UNNEST(GENERATE_ARRAY(0, 23)) AS hour
 ),
 actual_hours AS (
   SELECT DISTINCT EXTRACT(HOUR FROM DATETIME(feed_ts_utc, 'America/Denver')) AS hour
@@ -321,9 +321,9 @@ EOF
 MISSING_COUNT=$(echo "$MISSING_HOURS" | tail -n +2 | wc -l)
 
 if [ "$MISSING_COUNT" -eq 0 ]; then
-    check_passed "Hourly coverage: All hours captured (5am-7pm MST)"
+    check_passed "Realtime coverage: All hours captured (24h span)"
 else
-    check_warning "Hourly coverage: ${MISSING_COUNT} hours missing"
+    check_warning "Realtime coverage: ${MISSING_COUNT} hours missing"
     echo "Missing hours:"
     echo "$MISSING_HOURS" | tail -n +2
 fi
@@ -348,12 +348,12 @@ echo "Vehicle positions today: ${VP_COUNT}"
 echo "Unique vehicles: ${VP_VEHICLES}"
 echo "Snapshots: ${VP_SNAPSHOTS}"
 
-if [ "$VP_COUNT" -gt 10000 ]; then
-    check_passed "Vehicle positions: ${VP_COUNT} records (expected ~20,000/day)"
-elif [ "$VP_COUNT" -gt 1000 ]; then
+if [ "$VP_COUNT" -gt 100000 ]; then
+    check_passed "Vehicle positions: ${VP_COUNT} records (expected ~110,000/day)"
+elif [ "$VP_COUNT" -gt 30000 ]; then
     check_warning "Vehicle positions: ${VP_COUNT} records (day may not be complete)"
 else
-    check_warning "Vehicle positions: ${VP_COUNT} records (hourly workflows may not have started)"
+    check_warning "Vehicle positions: ${VP_COUNT} records (realtime workflows may not have ramped yet)"
 fi
 
 subsection_header "3.5 NOAA Weather Data"
@@ -817,16 +817,16 @@ fi
 
 echo ""
 echo -e "${BOLD}Expected State:${NC}"
-echo "  • After hourly workflows start (Day 1):"
-echo "    - 2-14 snapshots captured (as workflows trigger throughout the day)"
-echo "    - Missing hours are NORMAL on Day 1 (workflows didn't exist in morning)"
-echo "    - By tomorrow evening: full 45 snapshots/day"
+echo "  • After realtime workflows launch (Day 1):"
+echo "    - Double-digit snapshots captured as cadence ramps up"
+echo "    - Missing hours are NORMAL on Day 1 (micro-batch only active post-launch)"
+echo "    - By tomorrow evening: ~288 snapshots/day"
 echo ""
 echo "  • Steady state (Day 2+):"
-echo "    - 45 snapshots/day (15 hours × 3 snapshots)"
-echo "    - ~360,000 trip updates/day"
-echo "    - ~20,000 vehicle positions/day"
-echo "    - Zero missing hours (5am-7pm MST)"
+echo "    - ~288 snapshots/day (every 5 minutes)"
+echo "    - ~600,000 trip updates/day"
+echo "    - ~110,000 vehicle positions/day"
+echo "    - Zero missing hours (24-hour coverage)"
 echo ""
 echo "  • Weather data lag: 3-7 days (normal due to NOAA finalization)"
 echo "  • Weather impact analysis: Needs 30+ days of transit data"

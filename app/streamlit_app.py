@@ -44,27 +44,45 @@ def load_allowed_models() -> dict[str, ModelInfo]:
 
 
 @st.cache_data
-def load_route_options() -> list[str]:
+def load_route_options(engine_name: str) -> tuple[list[str], str | None]:
+    """Load route options from the selected engine. Returns (routes, error_message)."""
     try:
-        _, df = duckdb_engine.execute(
-            "SELECT DISTINCT route_id FROM mart_reliability_by_route_day "
+        engine_module = duckdb_engine if engine_name == "duckdb" else bigquery_engine
+
+        # Qualify table name for BigQuery
+        if engine_name == "bigquery":
+            table_name = f"`{settings.GCP_PROJECT_ID}.{settings.BQ_DATASET_MART}.mart_reliability_by_route_day`"
+        else:
+            table_name = "mart_reliability_by_route_day"
+
+        _, df = engine_module.execute(
+            f"SELECT DISTINCT route_id FROM {table_name} "
             "WHERE route_id IS NOT NULL ORDER BY route_id LIMIT 200"
         )
-        return df["route_id"].astype(str).tolist()
-    except Exception:
-        return []
+        return df["route_id"].astype(str).tolist(), None
+    except Exception as exc:
+        return [], str(exc)
 
 
 @st.cache_data
-def load_weather_bins() -> list[str]:
+def load_weather_bins(engine_name: str) -> tuple[list[str], str | None]:
+    """Load weather bins from the selected engine. Returns (bins, error_message)."""
     try:
-        _, df = duckdb_engine.execute(
-            "SELECT DISTINCT precip_bin FROM mart_reliability_by_route_day "
+        engine_module = duckdb_engine if engine_name == "duckdb" else bigquery_engine
+
+        # Qualify table name for BigQuery
+        if engine_name == "bigquery":
+            table_name = f"`{settings.GCP_PROJECT_ID}.{settings.BQ_DATASET_MART}.mart_reliability_by_route_day`"
+        else:
+            table_name = "mart_reliability_by_route_day"
+
+        _, df = engine_module.execute(
+            f"SELECT DISTINCT precip_bin FROM {table_name} "
             "WHERE precip_bin IS NOT NULL ORDER BY precip_bin"
         )
-        return df["precip_bin"].astype(str).tolist()
-    except Exception:
-        return ["none", "rain", "snow"]
+        return df["precip_bin"].astype(str).tolist(), None
+    except Exception as exc:
+        return ["none", "rain", "snow"], str(exc)
 
 
 def human_readable_bytes(value: int | None) -> str:
@@ -79,23 +97,32 @@ def human_readable_bytes(value: int | None) -> str:
 
 
 @st.cache_data
-def load_service_date_range() -> tuple[date | None, date | None]:
+def load_service_date_range(engine_name: str) -> tuple[date | None, date | None, str | None]:
+    """Load service date range from the selected engine. Returns (min_date, max_date, error_message)."""
     try:
-        _, df = duckdb_engine.execute(
-            "SELECT MIN(service_date_mst) AS min_date, MAX(service_date_mst) AS max_date "
-            "FROM mart_reliability_by_route_day"
+        engine_module = duckdb_engine if engine_name == "duckdb" else bigquery_engine
+
+        # Qualify table name for BigQuery
+        if engine_name == "bigquery":
+            table_name = f"`{settings.GCP_PROJECT_ID}.{settings.BQ_DATASET_MART}.mart_reliability_by_route_day`"
+        else:
+            table_name = "mart_reliability_by_route_day"
+
+        _, df = engine_module.execute(
+            f"SELECT MIN(service_date_mst) AS min_date, MAX(service_date_mst) AS max_date "
+            f"FROM {table_name}"
         )
         if df.empty:
-            return None, None
+            return None, None, "No data found in mart_reliability_by_route_day"
         min_timestamp = pd.to_datetime(df.loc[0, "min_date"])
         max_timestamp = pd.to_datetime(df.loc[0, "max_date"])
         if pd.isna(min_timestamp) or pd.isna(max_timestamp):
-            return None, None
+            return None, None, "Date values are null or invalid"
         min_date = min_timestamp.date()
         max_date = max_timestamp.date()
-        return min_date, max_date
-    except Exception:
-        return None, None
+        return min_date, max_date, None
+    except Exception as exc:
+        return None, None, str(exc)
 
 
 def read_duckdb_freshness() -> str:
@@ -199,40 +226,131 @@ def _inject_condition(sql: str, column: str, condition: str) -> str:
 
 
 def build_chart(df: pd.DataFrame) -> alt.Chart | None:
-    if df.empty:
+    """Build an appropriate chart based on available columns."""
+    if df.empty or len(df) == 0:
         return None
+
     chart_df = df.copy()
+
+    # Convert date columns
     if "service_date_mst" in chart_df.columns:
         chart_df["service_date_mst"] = pd.to_datetime(chart_df["service_date_mst"], errors="coerce")
+
+    # Limit to top/bottom entries for readability
+    max_categories = 15
+
+    # Chart 1: Route-based delay ratio bar chart
     if {"route_id", "avg_delay_ratio"} <= set(chart_df.columns):
+        # Take top entries by delay ratio
+        plot_df = chart_df.nlargest(max_categories, "avg_delay_ratio")
+
+        return (
+            alt.Chart(plot_df)
+            .mark_bar(color="#4C78A8")
+            .encode(
+                x=alt.X("route_id:N", sort="-y", title="Route ID", axis=alt.Axis(labelAngle=-45)),
+                y=alt.Y(
+                    "avg_delay_ratio:Q", title="Average Delay Ratio", scale=alt.Scale(zero=True)
+                ),
+                color=alt.Color(
+                    "avg_delay_ratio:Q",
+                    scale=alt.Scale(scheme="redyellowgreen", reverse=True),
+                    legend=None,
+                ),
+                tooltip=[
+                    alt.Tooltip("route_id:N", title="Route"),
+                    alt.Tooltip("avg_delay_ratio:Q", title="Delay Ratio", format=".3f"),
+                ]
+                + [
+                    alt.Tooltip(f"{col}:Q", format=".2f")
+                    for col in chart_df.columns
+                    if col not in ["route_id", "avg_delay_ratio"]
+                    and pd.api.types.is_numeric_dtype(chart_df[col])
+                ],
+            )
+            .properties(title="Top Routes by Delay Ratio", height=400)
+        )
+
+    # Chart 2: Time series of on-time percentage
+    if {"service_date_mst", "pct_on_time"} <= set(chart_df.columns):
+        clean_df = chart_df.dropna(subset=["service_date_mst", "pct_on_time"])
+
+        if "route_id" in clean_df.columns:
+            color_field = "route_id:N"
+            # Limit to top routes by average on-time percentage
+            top_routes = clean_df.groupby("route_id")["pct_on_time"].mean().nlargest(5).index
+            clean_df = clean_df[clean_df["route_id"].isin(top_routes)]
+        elif "stop_id" in clean_df.columns:
+            color_field = "stop_id:N"
+            # Limit to top stops
+            top_stops = clean_df.groupby("stop_id")["pct_on_time"].mean().nlargest(5).index
+            clean_df = clean_df[clean_df["stop_id"].isin(top_stops)]
+        else:
+            color_field = None
+
+        chart = (
+            alt.Chart(clean_df)
+            .mark_line(point=True, strokeWidth=2)
+            .encode(
+                x=alt.X("service_date_mst:T", title="Date"),
+                y=alt.Y("pct_on_time:Q", title="On-Time %", scale=alt.Scale(domain=[0, 100])),
+                tooltip=[
+                    alt.Tooltip("service_date_mst:T", title="Date", format="%Y-%m-%d"),
+                    alt.Tooltip("pct_on_time:Q", title="On-Time %", format=".1f"),
+                ]
+                + (
+                    [
+                        alt.Tooltip(
+                            color_field.split(":")[0],
+                            title=color_field.split(":")[0].replace("_", " ").title(),
+                        )
+                    ]
+                    if color_field
+                    else []
+                ),
+            )
+            .properties(title="On-Time Performance Over Time", height=400)
+        )
+
+        if color_field:
+            chart = chart.encode(
+                color=alt.Color(
+                    color_field, title=color_field.split(":")[0].replace("_", " ").title()
+                )
+            )
+
+        return chart
+
+    # Chart 3: Generic bar chart for any numeric column
+    numeric_cols = [col for col in chart_df.columns if pd.api.types.is_numeric_dtype(chart_df[col])]
+    categorical_cols = [
+        col
+        for col in chart_df.columns
+        if not pd.api.types.is_numeric_dtype(chart_df[col]) and col != "service_date_mst"
+    ]
+
+    if len(numeric_cols) > 0 and len(categorical_cols) > 0:
+        y_col = numeric_cols[0]
+        x_col = categorical_cols[0]
+
+        # Limit categories
+        if len(chart_df) > max_categories:
+            chart_df = chart_df.nlargest(max_categories, y_col)
+
         return (
             alt.Chart(chart_df)
             .mark_bar()
             .encode(
-                x=alt.X("route_id:N", sort="-y"),
-                y="avg_delay_ratio:Q",
+                x=alt.X(f"{x_col}:N", sort="-y", title=x_col.replace("_", " ").title()),
+                y=alt.Y(
+                    f"{y_col}:Q", title=y_col.replace("_", " ").title(), scale=alt.Scale(zero=True)
+                ),
+                color=alt.Color(f"{y_col}:Q", scale=alt.Scale(scheme="blues"), legend=None),
                 tooltip=list(chart_df.columns),
             )
+            .properties(height=400)
         )
-    if {"service_date_mst", "pct_on_time"} <= set(chart_df.columns):
-        if "route_id" in chart_df.columns:
-            color_field = "route_id"
-        elif "stop_id" in chart_df.columns:
-            color_field = "stop_id"
-        else:
-            color_field = None
-        chart = (
-            alt.Chart(chart_df.dropna(subset=["service_date_mst", "pct_on_time"]))
-            .mark_line()
-            .encode(
-                x="service_date_mst:T",
-                y="pct_on_time:Q",
-                tooltip=list(chart_df.columns),
-            )
-        )
-        if color_field:
-            chart = chart.encode(color=f"{color_field}:N")
-        return chart
+
     return None
 
 
@@ -283,9 +401,28 @@ with st.sidebar:
         "Engine",
         ["duckdb", "bigquery"],
         index=0 if settings.ENGINE == "duckdb" else 1,
+        help="Switch between DuckDB (local, fast) and BigQuery (cloud, up-to-date)",
     )
+
+    # Detect engine change and reset Step 2 & 3 (but preserve question in Step 1)
+    if "last_engine" not in st.session_state:
+        st.session_state["last_engine"] = engine
+    elif st.session_state["last_engine"] != engine:
+        # Engine changed - reset SQL and results but keep the question
+        st.session_state["generated_sql"] = None
+        st.session_state["edited_sql"] = None
+        st.session_state["sanitized_sql"] = None
+        st.session_state["explanation"] = ""
+        st.session_state["results_df"] = None
+        st.session_state["results_stats"] = None
+        st.session_state["run_error"] = None
+        st.session_state["sql_error"] = None
+        st.session_state["bq_est_bytes_preview"] = None
+        st.session_state["last_engine"] = engine
+
     today = date.today()
-    min_available, max_available = load_service_date_range()
+    min_available, max_available, date_error = load_service_date_range(engine)
+
     if min_available and max_available:
         default_start = max(min_available, today - timedelta(days=30))
         default_end = min(max_available, today)
@@ -301,14 +438,27 @@ with st.sidebar:
     else:
         default_range = (today - timedelta(days=30), today)
         date_range = st.date_input("Service date range", value=default_range)
-        st.caption("Available service dates: unavailable")
+        if date_error:
+            st.error(f"⚠️ Failed to load date range: {date_error}")
+        else:
+            st.caption("Available service dates: unavailable")
+
     if isinstance(date_range, tuple) and len(date_range) == 2:
         start_date, end_date = date_range
     else:
         start_date = end_date = date_range
-    routes = st.multiselect("Routes", options=load_route_options())
+
+    route_options, route_error = load_route_options(engine)
+    routes = st.multiselect("Routes", options=route_options)
+    if route_error:
+        st.error(f"⚠️ Failed to load routes: {route_error}")
+
     stop_search = st.text_input("Stop ID", placeholder="e.g., 12345")
-    weather_bins = st.multiselect("Weather bins", options=load_weather_bins())
+
+    weather_options, weather_error = load_weather_bins(engine)
+    weather_bins = st.multiselect("Weather bins", options=weather_options)
+    if weather_error:
+        st.warning(f"⚠️ Weather bins error: {weather_error}")
 
     st.markdown("---")
     st.subheader("Freshness")
@@ -330,143 +480,204 @@ filters = {
     "weather": weather_bins,
 }
 
+# Step 1: Ask Your Question
+st.markdown("### Step 1: Ask Your Question")
 question = st.text_area(
-    "Ask a question",
+    "Enter your natural language question",
     placeholder="e.g., Worst 10 routes in snow over the last 30 days",
+    help="Ask questions about transit reliability, delays, or weather impacts",
 )
 
-generate_clicked = st.button("Generate SQL", type="primary")
+col1, col2 = st.columns([1, 5])
+with col1:
+    generate_clicked = st.button("Generate SQL", type="primary", use_container_width=True)
+with col2:
+    if st.session_state.get("generated_sql"):
+        st.success("✓ SQL generated successfully")
+
 if generate_clicked:
     st.session_state["sql_error"] = None
     st.session_state["generated_sql"] = None
     st.session_state["explanation"] = ""
+    st.session_state["results_df"] = None
+    st.session_state["results_stats"] = None
+    st.session_state["run_error"] = None
     if not question.strip():
         st.session_state["sql_error"] = "Please enter a question before generating SQL."
     else:
-        prompt = build_prompt(question, filters, schema_brief)
-        try:
-            llm_output = call_provider(prompt)
-        except NotImplementedError as exc:
-            st.session_state["sql_error"] = str(exc)
-            llm_output = None
-        if llm_output:
-            candidate_sql = llm_output.get("sql", "")
-            candidate_sql = add_filter_clauses(candidate_sql, filters)
+        with st.spinner("Generating SQL query..."):
+            prompt = build_prompt(question, filters, schema_brief)
             try:
-                config = build_guardrail_config(engine)
-                sanitized_sql = sanitize_sql(candidate_sql, config)
-                sanitized_sql = adapt_sql_for_engine(sanitized_sql, engine, models)
-                st.session_state["generated_sql"] = sanitized_sql
-                st.session_state["edited_sql"] = sanitized_sql
-                st.session_state["sanitized_sql"] = sanitized_sql
-                st.session_state["explanation"] = llm_output.get("explanation", "")
-                st.session_state["model_names"] = sorted(models.keys())
-                st.session_state["bq_est_bytes_preview"] = None
-            except SqlValidationError as exc:
+                llm_output = call_provider(prompt)
+            except NotImplementedError as exc:
                 st.session_state["sql_error"] = str(exc)
+                llm_output = None
+            if llm_output:
+                candidate_sql = llm_output.get("sql", "")
+                candidate_sql = add_filter_clauses(candidate_sql, filters)
+                try:
+                    config = build_guardrail_config(engine)
+                    sanitized_sql = sanitize_sql(candidate_sql, config)
+                    sanitized_sql = adapt_sql_for_engine(sanitized_sql, engine, models)
+                    st.session_state["generated_sql"] = sanitized_sql
+                    st.session_state["edited_sql"] = sanitized_sql
+                    st.session_state["sanitized_sql"] = sanitized_sql
+                    st.session_state["explanation"] = llm_output.get("explanation", "")
+                    st.session_state["model_names"] = sorted(models.keys())
+                    st.session_state["bq_est_bytes_preview"] = None
+                except SqlValidationError as exc:
+                    st.session_state["sql_error"] = str(exc)
 
 if st.session_state.get("sql_error"):
     st.error(st.session_state["sql_error"])
 
+st.markdown("---")
+
+# Step 2: Review & Edit SQL
 if st.session_state.get("generated_sql"):
-    st.subheader("Generated SQL")
+    st.markdown("### Step 2: Review & Edit SQL")
+
+    if st.session_state.get("explanation"):
+        with st.expander("Query Explanation", expanded=False):
+            st.info(st.session_state["explanation"])
+
     default_sql = st.session_state.get("edited_sql", st.session_state["generated_sql"])
     edited_sql = st.text_area(
-        "SQL (editable)",
+        "SQL Query (editable)",
         value=default_sql,
         height=240,
+        help="Edit the SQL if needed. Changes are validated automatically.",
     )
     st.session_state["edited_sql"] = edited_sql
+
+    # Real-time validation
     try:
         config_preview = build_guardrail_config(engine)
         sanitized = sanitize_sql(edited_sql, config_preview)
         sanitized = adapt_sql_for_engine(sanitized, engine, models)
         st.session_state["sanitized_sql"] = sanitized
         st.session_state["sql_error"] = None
+
+        # Show validation success
+        st.success("✓ SQL validated successfully")
+
+        # BigQuery estimate
         if engine == "bigquery":
             try:
                 estimate_stats = bigquery_engine.estimate(sanitized)
                 st.session_state["bq_est_bytes_preview"] = estimate_stats["bq_est_bytes"]
+                st.info(
+                    f"📊 Estimated bytes: {human_readable_bytes(st.session_state['bq_est_bytes_preview'])} "
+                    f"(Max allowed: {human_readable_bytes(int(os.getenv('MAX_BYTES_BILLED', '2000000000')))})"
+                )
             except Exception as exc:  # pragma: no cover - interactive warning
                 st.session_state["bq_est_bytes_preview"] = None
-                st.warning(f"Dry-run estimate unavailable: {exc}")
+                st.warning(f"⚠️ Dry-run estimate unavailable: {exc}")
         else:
             st.session_state["bq_est_bytes_preview"] = None
+
     except SqlValidationError as exc:
         st.session_state["sanitized_sql"] = None
         st.session_state["bq_est_bytes_preview"] = None
         st.session_state["sql_error"] = str(exc)
-    if st.session_state.get("explanation"):
-        st.info(st.session_state["explanation"])
-    if engine == "bigquery" and st.session_state.get("bq_est_bytes_preview") is not None:
-        st.caption(
-            f"Estimated BigQuery bytes processed: {human_readable_bytes(st.session_state['bq_est_bytes_preview'])} (MAX {human_readable_bytes(int(os.getenv('MAX_BYTES_BILLED', '2000000000')))})."
+        st.error(f"❌ SQL Validation Error: {exc}")
+
+    # Run button
+    col1, col2 = st.columns([1, 5])
+    with col1:
+        run_clicked = st.button(
+            "Run Query",
+            type="primary",
+            use_container_width=True,
+            disabled=st.session_state.get("sql_error") is not None,
         )
-
-run_clicked = st.button("Run")
-
-if run_clicked and st.session_state.get("generated_sql"):
-    sql_to_run = st.session_state.get("edited_sql", st.session_state["generated_sql"])
-    try:
-        config_preview = build_guardrail_config(engine)
-        sanitized_sql = sanitize_sql(sql_to_run, config_preview)
-        sanitized_sql = adapt_sql_for_engine(sanitized_sql, engine, models)
-        st.session_state["sanitized_sql"] = sanitized_sql
-    except SqlValidationError as exc:
-        st.session_state["run_error"] = str(exc)
-        st.session_state["results_df"] = None
-        st.session_state["results_stats"] = None
-    else:
-        engine_module = duckdb_engine if engine == "duckdb" else bigquery_engine
-        cached = query_cache.get(engine, sanitized_sql)
-        try:
-            cache_hit = False
-            latency_ms = 0.0
-            if cached:
-                stats, df = cached
-                cache_hit = True
-            else:
-                start_time = time.monotonic()
-                stats, df = engine_module.execute(sanitized_sql)
-                latency_ms = (time.monotonic() - start_time) * 1000
-                query_cache.set(engine, sanitized_sql, (stats, df))
-            log_query(
-                engine=engine,
-                rows=len(df),
-                latency_ms=latency_ms,
-                models=st.session_state.get("model_names", allowlist),
-                sql=sanitized_sql,
-                question=question,
-                cache_hit=cache_hit,
-                bq_est_bytes=stats.get("bq_est_bytes") if isinstance(stats, dict) else None,
+    with col2:
+        if st.session_state.get("results_df") is not None:
+            st.success(
+                f"✓ Query executed successfully ({len(st.session_state['results_df'])} rows)"
             )
-            st.session_state["results_df"] = df
-            st.session_state["results_stats"] = stats
-            st.session_state["run_error"] = None
-        except Exception as exc:
+
+    if run_clicked:
+        sql_to_run = st.session_state.get("edited_sql", st.session_state["generated_sql"])
+        try:
+            config_preview = build_guardrail_config(engine)
+            sanitized_sql = sanitize_sql(sql_to_run, config_preview)
+            sanitized_sql = adapt_sql_for_engine(sanitized_sql, engine, models)
+            st.session_state["sanitized_sql"] = sanitized_sql
+        except SqlValidationError as exc:
             st.session_state["run_error"] = str(exc)
             st.session_state["results_df"] = None
             st.session_state["results_stats"] = None
-elif run_clicked:
-    st.session_state["run_error"] = "SQL did not pass validation; adjust your query and try again."
+        else:
+            with st.spinner("Executing query..."):
+                engine_module = duckdb_engine if engine == "duckdb" else bigquery_engine
+                cached = query_cache.get(engine, sanitized_sql)
+                try:
+                    cache_hit = False
+                    latency_ms = 0.0
+                    if cached:
+                        stats, df = cached
+                        cache_hit = True
+                        st.info("⚡ Results loaded from cache")
+                    else:
+                        start_time = time.monotonic()
+                        stats, df = engine_module.execute(sanitized_sql)
+                        latency_ms = (time.monotonic() - start_time) * 1000
+                        query_cache.set(engine, sanitized_sql, (stats, df))
+                    log_query(
+                        engine=engine,
+                        rows=len(df),
+                        latency_ms=latency_ms,
+                        models=st.session_state.get("model_names", allowlist),
+                        sql=sanitized_sql,
+                        question=question,
+                        cache_hit=cache_hit,
+                        bq_est_bytes=stats.get("bq_est_bytes") if isinstance(stats, dict) else None,
+                    )
+                    st.session_state["results_df"] = df
+                    st.session_state["results_stats"] = stats
+                    st.session_state["run_error"] = None
+                except Exception as exc:
+                    st.session_state["run_error"] = str(exc)
+                    st.session_state["results_df"] = None
+                    st.session_state["results_stats"] = None
 
-if st.session_state.get("run_error"):
-    st.error(f"Query failed: {st.session_state['run_error']}")
+    st.markdown("---")
+else:
+    st.info("👆 Generate SQL from a question to continue")
 
-results_df: pd.DataFrame | None = st.session_state.get("results_df")
-results_stats = st.session_state.get("results_stats")
+# Step 3: Results
+if st.session_state.get("generated_sql"):
+    st.markdown("### Step 3: Results")
 
-if results_stats:
-    st.subheader("Execution Stats")
-    st.json(results_stats)
+    if st.session_state.get("run_error"):
+        st.error(f"❌ Query failed: {st.session_state['run_error']}")
 
-if results_df is not None:
-    st.subheader("Results")
-    st.dataframe(results_df, use_container_width=True)
-    chart = build_chart(results_df)
-    if chart:
-        st.altair_chart(chart, use_container_width=True)
-    csv_data = results_df.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        "Download CSV", csv_data, file_name="whylinedenver_results.csv", mime="text/csv"
-    )
+    results_df: pd.DataFrame | None = st.session_state.get("results_df")
+    results_stats = st.session_state.get("results_stats")
+
+    if results_df is not None:
+        # Execution stats in expander
+        if results_stats:
+            with st.expander("Execution Statistics", expanded=False):
+                st.json(results_stats)
+
+        # Results table
+        st.dataframe(results_df, use_container_width=True)
+
+        # Visualization
+        chart = build_chart(results_df)
+        if chart:
+            st.altair_chart(chart, use_container_width=True)
+
+        # Download button
+        csv_data = results_df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="📥 Download Results as CSV",
+            data=csv_data,
+            file_name="whylinedenver_results.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+    elif not st.session_state.get("run_error"):
+        st.info("👆 Run the query to see results")

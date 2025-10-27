@@ -48,7 +48,7 @@ Snapshots run **every hour from 5am to 7pm MST** (15 hours).
 
 Two GitHub Actions workflows run in sequence:
 
-### Workflow 1: Snapshot Capture (`hourly-gtfs-rt.yml`)
+### Workflow 1: Snapshot Capture (`realtime-gtfs-rt.yml`)
 
 Runs 15 times per day at the top of each hour (5am, 6am, ..., 7pm MST).
 
@@ -64,7 +64,7 @@ Runs 15 times per day at the top of each hour (5am, 6am, ..., 7pm MST).
 **Output**: ~550KB per run (500KB trip updates, 50KB vehicle positions)
 **Duration**: ~3 minutes
 
-### Workflow 2: BigQuery Load (`hourly-bq-load.yml`)
+### Workflow 2: BigQuery Load (`realtime-bq-load.yml`)
 
 Runs 30 minutes after each snapshot (e.g., 5:30am, 6:30am, etc.).
 
@@ -197,7 +197,7 @@ Expected distribution: 70-80% "On Time", 10-15% "Late 5-15min", remainder distri
 
 Check workflow runs:
 ```bash
-gh run list --workflow=hourly-gtfs-rt.yml --limit 20
+gh run list --workflow=realtime-gtfs-rt.yml --limit 20
 ```
 
 Common causes:
