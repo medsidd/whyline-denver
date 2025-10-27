@@ -317,6 +317,11 @@ with st.sidebar:
     st.caption("DuckDB sync")
     st.write(read_duckdb_freshness())
 
+    st.markdown("---")
+    st.subheader("Resources")
+    st.markdown("[📚 Model Documentation](https://medsidd.github.io/whyline-denver/)")
+    st.caption("Interactive dbt docs with full lineage graphs and column-level metadata")
+
 filters = {
     "start_date": start_date.isoformat() if start_date else None,
     "end_date": end_date.isoformat() if end_date else None,

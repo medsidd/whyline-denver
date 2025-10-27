@@ -62,60 +62,73 @@ WhyLine Denver follows a **medallion architecture** to progressively refine raw 
 
 ```
 ┌─── BRONZE LAYER ────────────────────────────────────────────┐
-│  Raw ingestion: Python CLIs fetch data from public APIs    │
-│  • GTFS Static (monthly): routes, stops, schedules         │
-│  • GTFS Realtime (hourly, 15x/day): trip delays, positions │
-│  • Weather (daily): NOAA temperature, precipitation, snow  │
-│  • Crashes (nightly): Denver 5-year traffic accident data  │
-│  • Sidewalks (nightly): pedestrian infrastructure segments │
-│  • Census ACS (annual): demographics by tract              │
-│  • Tract Boundaries (annual): geographic polygons          │
+│  Raw ingestion: Python CLIs fetch data from public APIs     │
+│  • GTFS Static (monthly): routes, stops, schedules          │
+│  • GTFS Realtime (hourly, 15x/day): trip delays, positions  │
+│  • Weather (daily): NOAA temperature, precipitation, snow   │
+│  • Crashes (nightly): Denver 5-year traffic accident data   │
+│  • Sidewalks (nightly): pedestrian infrastructure segments  │
+│  • Census ACS (annual): demographics by tract               │
+│  • Tract Boundaries (annual): geographic polygons           │
 │                                                             │
-│  Storage: GCS (raw/*/extract_date=YYYY-MM-DD/)             │
-│  Loader: Parametric BigQuery loader with idempotency       │
-│  Output: 13 raw_* tables in BigQuery                       │
+│  Storage: GCS (raw/*/extract_date=YYYY-MM-DD/)              │
+│  Loader: Parametric BigQuery loader with idempotency        │
+│  Output: 13 raw_* tables in BigQuery                        │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─── SILVER LAYER ────────────────────────────────────────────┐
 │  Staging & Intermediate: dbt models clean and enrich        │
-│  • Deduplication (latest extract wins)                     │
-│  • Geometry creation (POINT/LINE for spatial joins)        │
-│  • Timezone normalization (UTC → MST)                      │
-│  • Complex metrics (headway adherence, delay resolution)   │
+│  • Deduplication (latest extract wins)                      │
+│  • Geometry creation (POINT/LINE for spatial joins)         │
+│  • Timezone normalization (UTC → MST)                       │
+│  • Complex metrics (headway adherence, delay resolution)    │
 │                                                             │
-│  Staging Models (11): stg_gtfs_*, stg_rt_events, stg_...   │
-│  Intermediate Models (7): int_*_resolved, int_headway_*    │
-│  Storage: BigQuery views (stg_denver dataset)              │
+│  Staging Models (11): stg_gtfs_*, stg_rt_events, stg_...    │
+│  Intermediate Models (7): int_*_resolved, int_headway_*     │
+│  Storage: BigQuery views (stg_denver dataset)               │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─── GOLD LAYER ──────────────────────────────────────────────┐
-│  Marts: Final analytical tables for consumption            │
+│  Marts: Final analytical tables for consumption             │
 │                                                             │
 │  RELIABILITY DOMAIN                                         │
-│  • mart_reliability_by_route_day: on-time %, delays by     │
-│    route + weather conditions (incremental, 30-day window) │
-│  • mart_reliability_by_stop_hour: hourly stop performance  │
-│  • mart_weather_impacts: how precipitation degrades OTP    │
+│  • mart_reliability_by_route_day: on-time %, delays by      │
+│    route + weather conditions (incremental, 30-day window)  │
+│  • mart_reliability_by_stop_hour: hourly stop performance   │
+│  • mart_weather_impacts: how precipitation degrades OTP     │
 │                                                             │
 │  SAFETY DOMAIN                                              │
-│  • mart_crash_proximity_by_stop: crashes within 100m/250m  │
-│    of each transit stop (spatial join, last 365 days)      │
+│  • mart_crash_proximity_by_stop: crashes within 100m/250m   │
+│    of each transit stop (spatial join, last 365 days)       │
 │                                                             │
 │  EQUITY DOMAIN                                              │
-│  • mart_vulnerability_by_stop: composite score (0-100)     │
-│    measuring % households without cars, % using transit,   │
-│    and % in poverty within 0.5mi walkable catchment        │
-│  • mart_priority_hotspots: stops where vulnerability,      │
-│    low reliability, and crash exposure intersect           │
+│  • mart_vulnerability_by_stop: composite score (0-100)      │
+│    measuring % households without cars, % using transit,    │ 
+│    and % in poverty within 0.5mi walkable catchment         │
+│  • mart_priority_hotspots: stops where vulnerability,       │
+│    low reliability, and crash exposure intersect            │
 │                                                             │
 │  ACCESS DOMAIN                                              │
-│  • mart_access_score_by_stop: sidewalk density within      │
-│    200m buffer (pedestrian infrastructure quality)         │
+│  • mart_access_score_by_stop: sidewalk density within       │
+│    200m buffer (pedestrian infrastructure quality)          │
 │                                                             │
-│  Storage: BigQuery tables (mart_denver dataset)            │
-│  Export: Parquet files in GCS → synced to local DuckDB     │
+│  Storage: BigQuery tables (mart_denver dataset)             │
+│  Export: Parquet files in GCS → synced to local DuckDB      │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### Pipeline Architecture Diagram
+
+![WhyLine Denver Pipeline Architecture](docs/diagrams/exports/pipeline.png)
+
+**[View full diagram](docs/diagrams/pipeline.drawio)** | **[Edit in draw.io](https://app.diagrams.net)**
+
+The pipeline architecture diagram shows the complete end-to-end data flow across 5 layers:
+- **Ingestion**: 7 data sources (GTFS, GTFS-RT, weather, crashes, sidewalks, Census)
+- **Bronze**: GCS raw storage + BigQuery raw tables (13 tables)
+- **Silver + Gold**: dbt transformations (11 staging, 7 intermediate, 7 marts)
+- **Sync**: Parquet export + DuckDB materialization
+- **Consumption**: Streamlit app + dbt docs
 
 ## Data Lineage
 
@@ -147,7 +160,18 @@ WhyLine Denver tracks complete lineage from source APIs through transformations 
    → mart_crash_proximity_by_stop (ST_DISTANCE within 250m, last 365 days)
    ```
 
-For visual lineage diagrams, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+### Comprehensive Data Lineage Diagram
+
+![WhyLine Denver Comprehensive Data Lineage](docs/diagrams/exports/data_lineage_comprehensive.png)
+
+**[View full diagram](docs/diagrams/data_lineage_comprehensive.drawio)** | **[Edit in draw.io](https://app.diagrams.net)**
+
+This diagram visualizes all 29 models across the medallion architecture:
+- **Bronze**: 7 sources → 13 raw tables
+- **Silver**: 11 staging models + 7 intermediate models
+- **Gold**: 7 analytical marts (Reliability, Safety, Equity, Access domains)
+
+For domain-specific lineage diagrams and additional architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Freshness & Automation
 

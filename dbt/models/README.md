@@ -247,7 +247,7 @@ Staging models (`stg_*`) clean and standardize raw data. They handle deduplicati
 
 **Logic**: Rank by `_ingested_at` DESC and filter `rank = 1` (latest ingestion wins).
 
-**Why Deduplication?** NOAA backfills 30 days nightly to capture finalization. Same date may appear in multiple ingests.
+**Why Deduplication?** NOAA re-ingests a rolling 30-day window nightly to capture finalization. Same date may appear in multiple ingests.
 
 ---
 
@@ -690,7 +690,7 @@ Mart models (`mart_*`) are the final analytical tables consumed by the Streamlit
   WHERE service_date_mst > (SELECT MAX(service_date_mst) - INTERVAL 35 DAY FROM {{ this }})
 {% endif %}
 ```
-This ensures late-arriving data (from delayed GTFS-RT snapshots or NOAA backfills) gets incorporated.
+This ensures late-arriving data (from delayed GTFS-RT snapshots or late weather data) gets incorporated.
 
 **Why 35 days?** Covers a full month + buffer for weekend service variations and holidays.
 

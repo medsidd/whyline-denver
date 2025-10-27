@@ -78,7 +78,7 @@ WhyLine Denver uses GitHub Actions for **end-to-end pipeline orchestration**:
 │      ├─ ingest-gtfs-static (monthly GTFS ZIP)                  │
 │      ├─ ingest-crashes (5y + YTD)                              │
 │      ├─ ingest-sidewalks (full dataset)                        │
-│      ├─ ingest-noaa (rolling 30-day weather backfill)          │
+│      ├─ ingest-noaa (rolling 30-day weather window)            │
 │      ├─ ingest-acs (2023 demographics, if needed)              │
 │      ├─ ingest-tracts (Denver boundaries, if needed)           │
 │      └─ bq-load (load all CSVs to BigQuery)                    │
@@ -231,7 +231,7 @@ schedule:
 - `ingest-gtfs-static`: Download RTD GTFS ZIP, extract TXT files, upload to GCS
 - `ingest-crashes`: Fetch Denver crash data (last 5 years + YTD) from ArcGIS API
 - `ingest-sidewalks`: Fetch sidewalk segments with geometry from Denver Open Data
-- `ingest-noaa`: Fetch last 30 days of weather from NOAA CDO API (rolling backfill)
+- `ingest-noaa`: Fetch last 30 days of weather from NOAA CDO API (rolling window)
 - `ingest-acs`: Fetch 2023 ACS 5-year estimates (tract-level demographics)
 - `ingest-tracts`: Fetch Denver census tract boundaries from TIGERweb
 
@@ -444,7 +444,7 @@ nightly-duckdb (9:30am UTC)
 - Ensures Parquet exports complete before DuckDB sync
 - Avoids race conditions (e.g., dbt reading partially-loaded tables)
 
-**Fallback**: If a workflow fails, subsequent workflows still run (no hard dependencies). Manual intervention may be needed to backfill.
+**Fallback**: If a workflow fails, subsequent workflows still run (no hard dependencies). Manual intervention may be needed to re-run failed ingestion.
 
 ---
 

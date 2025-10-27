@@ -1,0 +1,245 @@
+<mxfile host="65bd71144e">
+    <diagram id="app-guardrails" name="App Guardrails &amp; LLM Query Flow">
+        <mxGraphModel dx="1212" dy="1158" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="WhyLine Denver — App Guardrails &amp; LLM Query Flow" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=18;fontStyle=1;fontColor=#1a237e;" parent="1" vertex="1">
+                    <mxGeometry x="300" y="20" width="800" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="section-input-bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#1976d2;opacity=20;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="80" width="320" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="section-input-label" value="USER INPUT" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontStyle=1;fontColor=#0d47a1;" parent="1" vertex="1">
+                    <mxGeometry x="150" y="90" width="100" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="user-question" value="User Question&#xa;&#xa;&quot;Which routes are worst&#xa;during snowstorms?&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#90caf9;strokeColor=#1976d2;fontColor=#0d47a1;fontSize=10;fontStyle=1;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="120" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="user-filters" value="User Filters&#xa;&#xa;• Date range&#xa;• Route ID&#xa;• Weather bin" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#bbdefb;strokeColor=#1976d2;fontColor=#0d47a1;fontSize=9;align=left;verticalAlign=top;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="200" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="schema-brief" value="Schema Brief&#xa;&#xa;• mart_reliability_by_route_day&#xa;• mart_crash_proximity_by_stop&#xa;• mart_vulnerability_by_stop&#xa;• ...&#xa;&#xa;Column descriptions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1f5fe;strokeColor=#1976d2;fontColor=#0d47a1;fontSize=8;align=left;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="220" y="120" width="120" height="150" as="geometry"/>
+                </mxCell>
+                <mxCell id="section-llm-bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e5f5;strokeColor=#7b1fa2;opacity=20;" parent="1" vertex="1">
+                    <mxGeometry x="400" y="80" width="440" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="section-llm-label" value="LLM PROCESSING" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontStyle=1;fontColor=#6a1b9a;" parent="1" vertex="1">
+                    <mxGeometry x="470" y="90" width="120" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="prompt-builder" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(83, 67, 84);&quot;&gt;build_prompt()&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;font style=&quot;color: rgb(83, 67, 84);&quot;&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;Combine:&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Question&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Filters&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Schema brief&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;Instructions:&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• SELECT-only&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Use marts&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Keep &amp;lt;5000 rows&lt;/span&gt;&lt;/div&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1bee7;strokeColor=#7b1fa2;fontColor=#4a148c;fontSize=8;align=center;verticalAlign=top;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="450" y="120" width="120" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="llm-call" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;call_provider()&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;LLM: Gemini (or stub)&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;Output:&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;{&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;&quot;sql&quot;: &quot;SELECT ...&quot;,&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;&quot;explanation&quot;: &quot;...&quot;&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;}&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ce93d8;strokeColor=#7b1fa2;fontColor=#ffffff;fontSize=8;align=center;verticalAlign=top;fontStyle=1;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="660" y="130" width="130" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="section-guard-bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff3e0;strokeColor=#ff6f00;opacity=20;" parent="1" vertex="1">
+                    <mxGeometry x="20" y="330" width="660" height="420" as="geometry"/>
+                </mxCell>
+                <mxCell id="section-guard-label" value="GUARDRAILS ENFORCEMENT" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontStyle=1;fontColor=#e65100;" parent="1" vertex="1">
+                    <mxGeometry x="250" y="340" width="200" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="guard-normalize" value="1. Normalize&#xa;&#xa;• Trim whitespace&#xa;• Remove trailing ;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe0b2;strokeColor=#ff9800;fontColor=#e65100;fontSize=9;align=left;verticalAlign=top;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="400" width="130" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="guard-single" value="2. Single Statement&#xa;&#xa;• No semicolons&#xa;• One query only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffcc80;strokeColor=#f57c00;fontColor=#e65100;fontSize=9;align=left;verticalAlign=top;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="210" y="400" width="130" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="guard-readonly" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(140, 84, 28);&quot;&gt;3. Read-Only&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(140, 84, 28);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(140, 84, 28);&quot;&gt;• Must start with SELECT&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(140, 84, 28);&quot;&gt;(or WITH...SELECT)&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(140, 84, 28);&quot;&gt;• Block:&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(140, 84, 28);&quot;&gt;INSERT, UPDATE, DELETE,&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(140, 84, 28);&quot;&gt;CREATE, DROP, ALTER,&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(140, 84, 28);&quot;&gt;MERGE, TRUNCATE, GRANT,&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(140, 84, 28);&quot;&gt;REVOKE, CALL, LOAD&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffab91;strokeColor=#e64a19;fontColor=#bf360c;fontSize=8;align=center;verticalAlign=top;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="370" y="375" width="140" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="guard-allowlist" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;4. Table Allow-List&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;Extract FROM/JOIN tables&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;Allowed marts only:&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;• mart_reliability_*&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;• mart_crash_proximity_*&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;• mart_vulnerability_*&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;• mart_priority_hotspots&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;• mart_access_score_*&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;No raw_* tables!&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ff8a65;strokeColor=#d84315;fontColor=#ffffff;fontSize=8;align=center;verticalAlign=top;fontStyle=1;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="530" y="355" width="130" height="150" as="geometry"/>
+                </mxCell>
+                <mxCell id="guard-namespace" value="5. Namespace Check&#xa;&#xa;For BigQuery:&#xa;• Allowed project:&#xa;  whyline-denver&#xa;• Allowed dataset:&#xa;  mart_denver" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffab91;strokeColor=#e64a19;fontColor=#bf360c;fontSize=8;align=left;verticalAlign=top;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="530" y="525" width="130" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="guard-limit" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(140, 84, 28);&quot;&gt;6. Enforce LIMIT&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(140, 84, 28);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(140, 84, 28);&quot;&gt;If no LIMIT:&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(140, 84, 28);&quot;&gt;Add LIMIT 5000&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(140, 84, 28);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(140, 84, 28);&quot;&gt;Cap max rows&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffcc80;strokeColor=#f57c00;fontColor=#e65100;fontSize=8;align=center;verticalAlign=top;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="280" y="500" width="130" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="guard-partition" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(217, 130, 44);&quot;&gt;7. Partition Filter&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(217, 130, 44);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(217, 130, 44);&quot;&gt;If service_date_mst&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(217, 130, 44);&quot;&gt;referenced but no WHERE:&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(217, 130, 44);&quot;&gt;Warn user&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(217, 130, 44);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(217, 130, 44);&quot;&gt;(BigQuery only)&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe0b2;strokeColor=#ff9800;fontColor=#e65100;fontSize=8;align=center;verticalAlign=top;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="120" y="490" width="130" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="guard-quote" value="8. Quote Hyphens&#xa;&#xa;For BigQuery:&#xa;  project-id → `project-id`&#xa;&#xa;Handle GCP naming" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffab91;strokeColor=#e64a19;fontColor=#bf360c;fontSize=8;align=left;verticalAlign=top;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="600" width="130" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="sanitized-sql" value="Sanitized SQL&#xa;✓ Validated&#xa;✓ Safe to execute" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#a5d6a7;strokeColor=#388e3c;fontColor=#1b5e20;fontSize=10;fontStyle=1;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="215" y="675" width="270" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="section-engine-bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#388e3c;opacity=20;" parent="1" vertex="1">
+                    <mxGeometry x="700" y="330" width="280" height="420" as="geometry"/>
+                </mxCell>
+                <mxCell id="section-engine-label" value="ENGINE FACTORY" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontStyle=1;fontColor=#2e7d32;" parent="1" vertex="1">
+                    <mxGeometry x="790" y="340" width="100" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="engine-choice" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(0, 105, 0);&quot;&gt;Engine Selection&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(0, 105, 0);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(0, 105, 0);&quot;&gt;User chooses in sidebar:&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(0, 105, 0);&quot;&gt;• DuckDB (default)&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(0, 105, 0);&quot;&gt;• BigQuery&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#c8e6c9;strokeColor=#388e3c;fontColor=#1b5e20;fontSize=9;align=center;verticalAlign=top;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="720" y="370" width="240" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="engine-duckdb" value="DuckDB Engine&#xa;&#xa;duckdb_engine.execute(sql)&#xa;&#xa;• Connect: warehouse.duckdb&#xa;• Execute query&#xa;• Return DataFrame&#xa;&#xa;Stats: {&quot;engine&quot;: &quot;duckdb&quot;, &quot;rows&quot;: N}" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#a5d6a7;strokeColor=#2e7d32;fontColor=#1b5e20;fontSize=8;align=left;verticalAlign=top;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="710" y="480" width="120" height="150" as="geometry"/>
+                </mxCell>
+                <mxCell id="engine-bigquery" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;BigQuery Engine&lt;br&gt;&lt;br&gt;bigquery_engine.execute(sql)&lt;br&gt;&lt;br&gt;• Dry-run estimate&lt;br&gt;• Check MAX_BYTES_BILLED&lt;br&gt;  (default: 2GB)&lt;br&gt;• Execute query&lt;br&gt;• Return DataFrame&lt;br&gt;&lt;br&gt;Stats: {&quot;engine&quot;: &quot;bigquery&quot;,&lt;br&gt;       &quot;rows&quot;: N,&lt;br&gt;       &quot;bq_est_bytes&quot;: X}&lt;/font&gt;&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#81c784;strokeColor=#388e3c;fontColor=#ffffff;fontSize=8;align=left;verticalAlign=top;fontStyle=1;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="850" y="480" width="120" height="150" as="geometry"/>
+                </mxCell>
+                <mxCell id="engine-cost" value="Cost Cap&#xa;&#xa;MAX_BYTES_BILLED=2GB&#xa;&#xa;Prevents runaway&#xa;BigQuery costs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e1;strokeColor=#f57f17;fontSize=7;align=left;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="780" y="670" width="120" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="section-telem-bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fce4ec;strokeColor=#c2185b;opacity=20;" parent="1" vertex="1">
+                    <mxGeometry x="1020" y="330" width="340" height="420" as="geometry"/>
+                </mxCell>
+                <mxCell id="section-telem-label" value="TELEMETRY &amp; CACHING" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontStyle=1;fontColor=#ad1457;" parent="1" vertex="1">
+                    <mxGeometry x="1130" y="340" width="120" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="cache-check" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(102, 20, 91);&quot;&gt;Query Cache&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(102, 20, 91);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(102, 20, 91);&quot;&gt;query_cache.get(engine, sql)&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(102, 20, 91);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(102, 20, 91);&quot;&gt;If cached:&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(102, 20, 91);&quot;&gt;Return cached result&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(102, 20, 91);&quot;&gt;Else:&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(102, 20, 91);&quot;&gt;Execute &amp;amp; cache&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f48fb1;strokeColor=#c2185b;fontColor=#880e4f;fontSize=9;align=center;verticalAlign=top;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="1040" y="370" width="150" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="log-query" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;font-weight: normal; background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(153, 0, 153);&quot;&gt;Query Logging&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;&lt;font style=&quot;color: rgb(153, 0, 153);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;span style=&quot;font-weight: normal;&quot;&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(153, 0, 153);&quot;&gt;log_query(sql, engine, stats)&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;/span&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(153, 0, 153);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;font style=&quot;color: rgb(153, 0, 153);&quot;&gt;&lt;span style=&quot;font-weight: normal;&quot;&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;Record:&lt;/span&gt;&lt;/div&gt;&lt;/span&gt;&lt;span style=&quot;font-weight: normal;&quot;&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Timestamp&lt;/span&gt;&lt;/div&gt;&lt;/span&gt;&lt;span style=&quot;font-weight: normal;&quot;&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• SQL text&lt;/span&gt;&lt;/div&gt;&lt;/span&gt;&lt;span style=&quot;font-weight: normal;&quot;&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Engine used&lt;/span&gt;&lt;/div&gt;&lt;/span&gt;&lt;span style=&quot;font-weight: normal;&quot;&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Rows returned&lt;/span&gt;&lt;/div&gt;&lt;/span&gt;&lt;span style=&quot;font-weight: normal;&quot;&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Execution time&lt;/span&gt;&lt;/div&gt;&lt;/span&gt;&lt;/font&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;font-weight: normal; background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(153, 0, 153);&quot;&gt;• User session&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f06292;strokeColor=#ad1457;fontColor=#ffffff;fontSize=8;align=center;verticalAlign=top;fontStyle=1;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="1220" y="360" width="130" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="results-output" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;font-weight: normal; background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(0, 0, 0);&quot;&gt;Results Output&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;font-weight: 400;&quot;&gt;&lt;font style=&quot;color: rgb(0, 0, 0);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;span style=&quot;font-weight: normal;&quot;&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(0, 0, 0);&quot;&gt;DataFrame + Stats&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;/span&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(0, 0, 0);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;font style=&quot;color: rgb(0, 0, 0);&quot;&gt;&lt;span style=&quot;font-weight: normal;&quot;&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;Display:&lt;/span&gt;&lt;/div&gt;&lt;/span&gt;&lt;span style=&quot;font-weight: normal;&quot;&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Data table (st.dataframe)&lt;/span&gt;&lt;/div&gt;&lt;/span&gt;&lt;span style=&quot;font-weight: normal;&quot;&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Interactive chart (Altair)&lt;/span&gt;&lt;/div&gt;&lt;/span&gt;&lt;span style=&quot;font-weight: normal;&quot;&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• CSV download button&lt;/span&gt;&lt;/div&gt;&lt;/span&gt;&lt;/font&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;font-weight: normal; background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(0, 0, 0);&quot;&gt;• Execution metadata&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ec407a;strokeColor=#c2185b;fontColor=#ffffff;fontSize=9;align=center;verticalAlign=top;fontStyle=1;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="1040" y="500" width="300" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="error-handling" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;Error Handling&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;If SqlValidationError:&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;Display error to user&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;Block execution&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;If engine error:&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;Show helpful message&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;Log for debugging&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e1;strokeColor=#f57f17;fontSize=8;align=center;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="1040" y="630" width="300" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#1976d2;" parent="1" source="user-question" target="prompt-builder" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="130" y="110"/>
+                            <mxPoint x="380" y="110"/>
+                            <mxPoint x="380" y="170"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#1976d2;" parent="1" source="user-filters" target="prompt-builder" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="380" y="250"/>
+                            <mxPoint x="380" y="170"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#1976d2;" parent="1" source="schema-brief" target="prompt-builder" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="380" y="195"/>
+                            <mxPoint x="380" y="170"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#7b1fa2;" parent="1" source="prompt-builder" target="llm-call" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow5" value="Candidate SQL" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#ff6f00;fontSize=8;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="1" source="llm-call" target="guard-normalize" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="725" y="290"/>
+                            <mxPoint x="125" y="290"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#ff6f00;" parent="1" source="guard-normalize" target="guard-single" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#ff6f00;" parent="1" source="guard-single" target="guard-readonly" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#ff6f00;" parent="1" source="guard-readonly" target="guard-allowlist" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#ff6f00;" parent="1" source="guard-allowlist" target="guard-namespace" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="585" y="570"/>
+                            <mxPoint x="585" y="570"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#ff6f00;" parent="1" source="guard-namespace" target="guard-limit" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#ff6f00;exitX=0.25;exitY=1;exitDx=0;exitDy=0;" parent="1" source="guard-limit" target="sanitized-sql" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="312" y="620"/>
+                            <mxPoint x="312" y="620"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow12" value="if BQ" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1;strokeColor=#ff6f00;dashed=1;fontSize=7;exitX=0.445;exitY=0.999;exitDx=0;exitDy=0;exitPerimeter=0;" parent="1" source="guard-partition" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="178" y="600"/>
+                            <mxPoint x="249" y="600"/>
+                        </Array>
+                        <mxPoint x="249" y="670" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow13" value="if BQ" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1;strokeColor=#ff6f00;dashed=1;fontSize=7;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" parent="1" source="guard-quote" target="sanitized-sql" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="105" y="700"/>
+                        </Array>
+                        <mxPoint x="210" y="700" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#388e3c;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" parent="1" source="sanitized-sql" target="engine-choice" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="485" y="710"/>
+                            <mxPoint x="690" y="710"/>
+                            <mxPoint x="690" y="400"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow15" value="DuckDB" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#388e3c;fontSize=8;" parent="1" source="engine-choice" target="engine-duckdb" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow16" value="BigQuery" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#388e3c;fontSize=8;" parent="1" source="engine-choice" target="engine-bigquery" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#c2185b;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" parent="1" source="engine-duckdb" target="cache-check" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="770" y="640"/>
+                            <mxPoint x="1010" y="640"/>
+                            <mxPoint x="1010" y="452"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow18" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#c2185b;exitX=0.988;exitY=0.12;exitDx=0;exitDy=0;exitPerimeter=0;" parent="1" source="engine-bigquery" target="cache-check" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1000" y="498"/>
+                            <mxPoint x="1000" y="425"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#c2185b;" parent="1" source="cache-check" target="log-query" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#c2185b;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=0.532;entryY=-0.031;entryDx=0;entryDy=0;entryPerimeter=0;" parent="1" source="log-query" target="results-output" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1200" y="458"/>
+                            <mxPoint x="1200" y="497"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="legend-box" value="KEY FEATURES" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eceff1;strokeColor=#37474f;fontStyle=1;fontSize=10;align=center;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="780" width="620" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend-text" value="• LLM generates SQL from natural language questions&#xa;• 8-step guardrail validation ensures safe, read-only queries&#xa;• Allow-list restricts queries to curated mart tables only (no raw data access)&#xa;• Dual-engine: DuckDB (local, free) or BigQuery (cloud, cost-capped at 2GB)&#xa;• Query caching &amp; telemetry logging for performance &amp; auditability" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=8;fontColor=#37474f;" parent="1" vertex="1">
+                    <mxGeometry x="50" y="800" width="600" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="note-box" value="SECURITY NOTE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffebee;strokeColor=#c62828;fontStyle=1;fontSize=10;align=center;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="700" y="780" width="660" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="note-text" value="All guardrails are enforced server-side before query execution. User-edited SQL is re-validated&#xa;through the same sanitize_sql() pipeline. This prevents SQL injection, data exfiltration, and&#xa;accidental table mutations. BigQuery cost caps (MAX_BYTES_BILLED) prevent runaway expenses." style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=8;fontColor=#c62828;" parent="1" vertex="1">
+                    <mxGeometry x="710" y="800" width="640" height="40" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
