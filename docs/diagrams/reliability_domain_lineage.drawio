@@ -1,0 +1,162 @@
+<mxfile host="65bd71144e">
+    <diagram id="reliability-lineage" name="Reliability Domain Lineage">
+        <mxGraphModel dx="520" dy="542" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="Reliability Domain: GTFS-RT + Weather → On-Time Performance &amp; Headway Analysis" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=17;fontStyle=1;fontColor=#c62828;" parent="1" vertex="1">
+                    <mxGeometry x="200" y="20" width="1200" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="bg-bronze" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff3e0;strokeColor=#ff6f00;opacity=25;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="80" width="1520" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="bg-silver" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#1976d2;opacity=25;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="230" width="1520" height="340" as="geometry"/>
+                </mxCell>
+                <mxCell id="bg-gold" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffebee;strokeColor=#c62828;opacity=25;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="590" width="1520" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="label-bronze" value="BRONZE" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=12;fontStyle=1;fontColor=#ff6f00;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="90" width="80" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="label-silver" value="SILVER" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=12;fontStyle=1;fontColor=#1976d2;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="240" width="80" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="label-gold" value="GOLD" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=12;fontStyle=1;fontColor=#c62828;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="600" width="80" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="src-gtfsrt" value="RTD GTFS-RT&#xa;Trip Updates" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=12;fillColor=#4caf50;strokeColor=#2e7d32;fontColor=#ffffff;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="130" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="src-gtfs-static" value="RTD GTFS&#xa;Static Feed" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=12;fillColor=#66bb6a;strokeColor=#388e3c;fontColor=#ffffff;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="250" y="130" width="400" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="src-weather" value="NOAA&#xa;Daily Weather" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=12;fillColor=#2196f3;strokeColor=#1565c0;fontColor=#ffffff;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="680" y="130" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="stg-events" value="stg_rt_events&#xa;(Unified RT stream)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffcc80;strokeColor=#e65100;fontColor=#bf360c;fontStyle=1;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="270" width="120" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="stg-trips" value="stg_gtfs_trips" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#a5d6a7;strokeColor=#388e3c;fontColor=#1b5e20;fontStyle=1;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="250" y="270" width="110" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="stg-stop-times" value="stg_gtfs_stop_times" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#a5d6a7;strokeColor=#388e3c;fontColor=#1b5e20;fontStyle=1;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="380" y="270" width="120" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="stg-routes" value="stg_gtfs_routes" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#a5d6a7;strokeColor=#388e3c;fontColor=#1b5e20;fontStyle=1;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="520" y="270" width="110" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="stg-weather" value="stg_weather&#xa;(Deduped)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#90caf9;strokeColor=#1565c0;fontColor=#0d47a1;fontStyle=1;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="680" y="270" width="120" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="int-resolved" value="int_rt_events_resolved&#xa;COALESCE(arrival,departure)&#xa;Flag on-time (±300s)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#81c784;strokeColor=#388e3c;fontColor=#ffffff;fontStyle=1;fontSize=9;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="390" width="160" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="int-sched-arr" value="int_scheduled_arrivals&#xa;Parse GTFS timetables" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#81c784;strokeColor=#388e3c;fontColor=#ffffff;fontStyle=1;fontSize=9;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="290" y="380" width="150" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="int-headway-obs" value="int_stop_headways_observed&#xa;Measure actual headways" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff176;strokeColor=#f57f17;fontColor=#f57f00;fontStyle=1;fontSize=9;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="470" y="360" width="160" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="int-headway-adh" value="int_headway_adherence&#xa;Join obs ↔ sched&#xa;Flag adherent (±50%)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffd54f;strokeColor=#f9a825;fontColor=#ff6f00;fontStyle=1;fontSize=9;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="470" y="510" width="160" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="int-weather-date" value="int_weather_by_date&#xa;Denormalized for joins" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#64b5f6;strokeColor=#1976d2;fontColor=#ffffff;fontStyle=1;fontSize=9;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="670" y="360" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="mart-route-day" value="mart_reliability_by_route_day&#xa;&#xa;Daily OTP by route + weather&#xa;GROUP BY route, date, precip_bin&#xa;&#xa;Incremental | Partitioned by date" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ef5350;strokeColor=#c62828;fontColor=#ffffff;fontStyle=1;fontSize=10;shadow=1;align=left;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="640" width="260" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="mart-stop-hour" value="mart_reliability_by_stop_hour&#xa;&#xa;Hourly stop OTP + headway adherence&#xa;JOIN int_rt_events + int_headway_adherence&#xa;&#xa;Incremental | Partitioned by date" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ef5350;strokeColor=#c62828;fontColor=#ffffff;fontStyle=1;fontSize=10;shadow=1;align=left;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="380" y="640" width="280" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="mart-weather" value="mart_weather_impacts&#xa;&#xa;Self-join on route_id:&#xa;Compare OTP by precip_bin vs &#39;none&#39;&#xa;delta = pct_on_time[bin] - pct_on_time[&#39;none&#39;]&#xa;&#xa;Full table refresh" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ef5350;strokeColor=#c62828;fontColor=#ffffff;fontStyle=1;fontSize=10;shadow=1;align=left;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="720" y="640" width="260" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#4caf50;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="src-gtfsrt" target="stg-events" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#2196f3;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="src-weather" target="stg-weather" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#66bb6a;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="stg-events" target="int-resolved" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#4caf50;exitX=0.5;exitY=1;entryX=0.25;entryY=0;" parent="1" source="stg-trips" target="int-sched-arr" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#4caf50;exitX=0.5;exitY=1;entryX=0.75;entryY=0;" parent="1" source="stg-stop-times" target="int-sched-arr" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#fbc02d;exitX=0.5;exitY=1;entryX=0.2;entryY=0;" parent="1" source="stg-events" target="int-headway-obs" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="160" y="340"/>
+                            <mxPoint x="502" y="340"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#fbc02d;exitX=1;exitY=0.75;entryX=0.5;entryY=0;exitDx=0;exitDy=0;" parent="1" source="int-sched-arr" target="int-headway-sch" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="440" y="430"/>
+                            <mxPoint x="550" y="430"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#ffa726;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="int-headway-obs" target="int-headway-adh" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#ffa726;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="int-headway-sch" target="int-headway-adh" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#2196f3;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="stg-weather" target="int-weather-date" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=3;strokeColor=#66bb6a;exitX=0.5;exitY=1;entryX=0.2;entryY=0;" parent="1" source="int-resolved" target="mart-route-day" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e12" value="LEFT JOIN" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#42a5f5;fontSize=9;exitX=0.3;exitY=1;entryX=0.8;entryY=0;" parent="1" source="int-weather-date" target="mart-route-day" edge="1">
+                    <mxGeometry x="-0.2174" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="712" y="600"/>
+                            <mxPoint x="288" y="600"/>
+                        </Array>
+                        <mxPoint as="offset"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=3;strokeColor=#66bb6a;exitX=0.8;exitY=1;entryX=0.2;entryY=0;" parent="1" source="int-resolved" target="mart-stop-hour" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="208" y="600"/>
+                            <mxPoint x="436" y="600"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#ffa726;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" parent="1" source="int-headway-adh" target="mart-stop-hour" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e15" value="Self-join on route_id&#xa;Compare bins vs &#39;none&#39;" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2.5;strokeColor=#e53935;dashed=1;fontSize=9;fontStyle=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" parent="1" source="mart-route-day" target="mart-weather" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="340" y="770"/>
+                            <mxPoint x="700" y="770"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="insights" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(217, 130, 44);&quot;&gt;KEY INSIGHTS&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(217, 130, 44);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(217, 130, 44);&quot;&gt;• int_rt_events_resolved: 144M events/year → ~15K route-days&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(217, 130, 44);&quot;&gt;• Incremental refresh: Rebuild last 35 days (captures late data)&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(217, 130, 44);&quot;&gt;• Weather LEFT JOIN: All transit days preserved&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(217, 130, 44);&quot;&gt;• On-time threshold: ±300 sec (±5 min)&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(217, 130, 44);&quot;&gt;• Headway adherence: ±50% of scheduled interval&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(217, 130, 44);&quot;&gt;• mart_weather_impacts: Self-join to compute delta by precip bin&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e1;strokeColor=#f9a825;align=center;verticalAlign=top;fontStyle=1;fontSize=10;shadow=1;fontColor=#f57f00;" parent="1" vertex="1">
+                    <mxGeometry x="1000" y="120" width="480" height="180" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;COLOR GUIDE&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;🟢 Green: GTFS Static (routes, stops, schedules)&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;🟠 Orange: GTFS Realtime (trip updates)&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;🔵 Blue: Weather data&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;🟡 Yellow: Headway analysis pipeline&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;🔴 Red: Final marts (analytical tables)&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#757575;align=center;verticalAlign=top;fontStyle=1;fontSize=10;shadow=1;fontColor=#424242;" parent="1" vertex="1">
+                    <mxGeometry x="1000" y="330" width="480" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="stats" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;PIPELINE METRICS&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• 3 source feeds → 5 staging models&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• 5 intermediate models (3 pipelines: delay, headway, weather)&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• 3 final marts (2 incremental, 1 full refresh)&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;LAYOUT: Vertical separation eliminates line crossings.&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;Each pipeline (delay, headway, weather) flows independently&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;until convergence at mart layer.&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#9e9e9e;align=center;verticalAlign=top;fontStyle=1;fontSize=10;shadow=1;fontColor=#424242;" parent="1" vertex="1">
+                    <mxGeometry x="1000" y="520" width="480" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="int-headway-sch" value="int_stop_headways_scheduled&#xa;Calculate scheduled headways" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff176;strokeColor=#f57f17;fontColor=#f57f00;fontStyle=1;fontSize=9;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="470" y="440" width="160" height="50" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

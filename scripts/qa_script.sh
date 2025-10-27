@@ -847,7 +847,7 @@ fi
 echo -e "${BOLD}For detailed documentation:${NC}"
 echo "  • Complete validation guide: docs/QA_Validation_Guide.md"
 echo "  • GTFS-RT strategy: docs/guides/GTFS_RT_Strategy.md"
-echo "  • NOAA strategy: docs/guides/NOAA_Backfill_Strategy.md"
+echo "  • NOAA strategy: docs/guides/NOAA_Data_Collection_Strategy.md"
 echo ""
 
 if [ "$FAILED_CHECKS" -gt 0 ]; then

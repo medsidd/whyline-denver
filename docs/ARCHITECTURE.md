@@ -53,33 +53,33 @@ WhyLine Denver is a **dual-engine transit analytics platform** built on modern c
 └───────────────────┘
          ↕ SQL queries
 ┌─ ANALYTICS ENGINES ─────────────────┐
-│ BigQuery (prod)   │ DuckDB (local) │
-│ • Serverless      │ • File-backed  │
-│ • Geospatial      │ • Free         │
-│ • 1TB/mo free     │ • Fast         │
-└──────────────────────────────────────┘
+│ BigQuery (prod)   │ DuckDB (local)  │
+│ • Serverless      │ • File-backed   │
+│ • Geospatial      │ • Free          │
+│ • 1TB/mo free     │ • Fast          │
+└─────────────────────────────────────┘
          ↕ dbt models
 ┌─ TRANSFORMATION ──────────────────────┐
 │ dbt (29 models)                       │
-│ • Staging (11): dedupe, normalize    │
-│ • Intermediate (7): derived metrics  │
-│ • Marts (7): analytical tables       │
-│ • Tests (40+): data quality          │
+│ • Staging (11): dedupe, normalize     │
+│ • Intermediate (7): derived metrics   │
+│ • Marts (7): analytical tables        │
+│ • Tests (40+): data quality           │
 └───────────────────────────────────────┘
          ↕ ingestion → loading
 ┌─ ORCHESTRATION ────────────────────────┐
-│ GitHub Actions (6 workflows)          │
-│ • Hourly: GTFS-RT (15x/day)          │
-│ • Nightly: Static data (1x/day)      │
-│ • Nightly: dbt build + test          │
-│ • CI: Lint + test on PR              │
+│ GitHub Actions (6 workflows)           │
+│ • Hourly: GTFS-RT (15x/day)            │
+│ • Nightly: Static data (1x/day)        │
+│ • Nightly: dbt build + test            │
+│ • CI: Lint + test on PR                │
 └────────────────────────────────────────┘
          ↕ HTTP APIs
 ┌─ DATA SOURCES (Public APIs) ───────────┐
-│ • RTD GTFS/GTFS-RT                    │
+│ • RTD GTFS/GTFS-RT                     │
 │ • Denver Open Data (crashes, sidewalks)|
-│ • NOAA/NCEI (weather)                 │
-│ • U.S. Census (ACS, TIGER/Line)       │
+│ • NOAA/NCEI (weather)                  │
+│ • U.S. Census (ACS, TIGER/Line)        │
 └────────────────────────────────────────┘
 ```
 
@@ -245,7 +245,7 @@ stg_gtfs_routes:
 |--------|-----------|-------------|-----|-------|
 | `gtfs_static.py` | Monthly | ~1-2MB | RTD GTFS ZIP | 6 TXT files extracted |
 | `gtfs_realtime.py` | Hourly (15x/day) | ~500KB trip updates, ~50KB positions per snapshot | RTD GTFS-RT Protobuf | 3 snapshots, 2 min apart |
-| `noaa_daily.py` | Nightly | ~10KB per day | NOAA CDO JSON | Rolling 30-day backfill |
+| `noaa_daily.py` | Nightly | ~10KB per day | NOAA CDO JSON | Rolling 30-day window |
 | `denver_crashes.py` | Nightly | ~5MB (5 years) | ArcGIS REST | Paginated, 1000 records/page |
 | `denver_sidewalks.py` | Nightly | ~2MB | ArcGIS REST | ~35K segments with geometry |
 | `acs.py` | Annual | ~50KB | Census API | 2023 ACS 5-year, tract-level |
@@ -446,7 +446,7 @@ LEFT JOIN {{ ref('int_weather_by_date') }} USING (service_date_mst)
 GROUP BY route_id, service_date_mst, precip_bin
 ```
 
-**Why 35-day lookback?** Ensures late-arriving data (delayed snapshots, NOAA backfills) gets incorporated without full rebuild.
+**Why 35-day lookback?** Ensures late-arriving data (delayed snapshots, late weather updates) gets incorporated without full rebuild.
 
 ---
 
@@ -518,7 +518,101 @@ def refresh_duckdb(duckdb_path='data/warehouse.duckdb'):
 
 ## Data Flow Diagrams
 
-### End-to-End Pipeline
+WhyLine Denver includes comprehensive visual diagrams documenting the complete data pipeline and app architecture:
+
+### Pipeline Architecture Diagram
+
+![Pipeline Architecture](diagrams/exports/pipeline.png)
+
+**[View source: pipeline.drawio](diagrams/pipeline.drawio)** | **[Edit in draw.io](https://app.diagrams.net)**
+
+This diagram shows:
+- **Ingestion Layer**: 7 data sources (GTFS, GTFS-RT, weather, crashes, sidewalks, Census ACS, tract boundaries)
+- **Bronze Layer**: GCS raw storage + BigQuery raw tables with metadata tracking
+- **Silver Layer**: dbt staging (11 models) + intermediate (7 models) transformations
+- **Gold Layer**: 7 analytical marts organized by domain (Reliability, Safety, Equity, Access)
+- **Sync Layer**: Parquet export to GCS + DuckDB materialization
+- **Consumption Layer**: Streamlit app + dbt docs on GitHub Pages
+
+### App Guardrails Diagram
+
+![App Guardrails & LLM Query Flow](diagrams/exports/app_guardrails.png)
+
+**[View source: app_guardrails.drawio](diagrams/app_guardrails.drawio)** | **[Edit in draw.io](https://app.diagrams.net)**
+
+This diagram shows:
+- **User Input**: Natural language questions + filters + schema context
+- **LLM Processing**: Prompt construction + Gemini API call → candidate SQL
+- **Guardrails Enforcement**: 8-step validation pipeline
+  1. Normalize (trim, remove semicolons)
+  2. Single statement check
+  3. Read-only enforcement (SELECT-only, block DDL/DML)
+  4. Table allow-list (marts only, no raw tables)
+  5. Namespace validation (BigQuery project/dataset)
+  6. LIMIT enforcement (max 5000 rows)
+  7. Partition filter suggestion (performance)
+  8. Hyphenated identifier quoting (BigQuery)
+- **Engine Factory**: Dual-engine execution (DuckDB local vs. BigQuery cloud)
+- **Telemetry & Caching**: Query logging + result caching
+- **Results Output**: DataFrames, charts, CSV exports
+
+### Data Lineage Diagrams
+
+WhyLine Denver also includes domain-specific lineage diagrams showing model-level dependencies:
+
+#### Comprehensive Data Lineage (All 29 Models)
+
+![Comprehensive Data Lineage](diagrams/exports/data_lineage_comprehensive.png)
+
+**[View source: data_lineage_comprehensive.drawio](diagrams/data_lineage_comprehensive.drawio)** | **[Edit in draw.io](https://app.diagrams.net)**
+
+Shows all 29 models across Bronze → Silver → Gold medallion architecture.
+
+#### Domain-Specific Lineage Diagrams
+
+<details>
+<summary><strong>Reliability Domain Lineage</strong> (click to expand)</summary>
+
+![Reliability Domain Lineage](diagrams/exports/reliability_domain_lineage.svg)
+
+**[View source: reliability_domain_lineage.drawio](diagrams/reliability_domain_lineage.drawio)**
+
+Delay analysis, headway calculations, weather impacts.
+</details>
+
+<details>
+<summary><strong>Safety Domain Lineage</strong> (click to expand)</summary>
+
+![Safety Domain Lineage](diagrams/exports/safety_domain_lineage.svg)
+
+**[View source: safety_domain_lineage.drawio](diagrams/safety_domain_lineage.drawio)**
+
+Crash proximity analysis with spatial joins.
+</details>
+
+<details>
+<summary><strong>Equity Domain Lineage</strong> (click to expand)</summary>
+
+![Equity Domain Lineage](diagrams/exports/equity_domain_lineage.svg)
+
+**[View source: equity_domain_lineage.drawio](diagrams/equity_domain_lineage.drawio)**
+
+Vulnerability scoring and priority hotspots.
+</details>
+
+<details>
+<summary><strong>Access Domain Lineage</strong> (click to expand)</summary>
+
+![Access Domain Lineage](diagrams/exports/access_domain_lineage.svg)
+
+**[View source: access_domain_lineage.drawio](diagrams/access_domain_lineage.drawio)**
+
+Sidewalk infrastructure quality metrics.
+</details>
+
+All diagrams use vibrant Material Design colors and include detailed annotations explaining "why" decisions (e.g., buffer distances, weighting schemes, spatial join logic).
+
+### ASCII Overview (Quick Reference)
 
 ```
 ┌─────────────┐
@@ -581,18 +675,18 @@ def refresh_duckdb(duckdb_path='data/warehouse.duckdb'):
 12:00 UTC (5am MST)
   ↓
 ┌─ GitHub Actions: hourly-gtfs-rt.yml ─┐
-│                                        │
-│ [Minute 0] Snapshot 1                 │
-│   RTD API: /TripUpdate.pb → CSV       │
-│   RTD API: /VehiclePosition.pb → CSV  │
-│   Upload to GCS                        │
-│                                        │
-│ [Minute 2] Snapshot 2 (repeat)        │
-│                                        │
-│ [Minute 4] Snapshot 3 (repeat)        │
-│                                        │
-│ Workflow exits (~5 min total)         │
-└────────────────────────────────────────┘
+│                                      │
+│ [Minute 0] Snapshot 1                │
+│   RTD API: /TripUpdate.pb → CSV      │
+│   RTD API: /VehiclePosition.pb → CSV │
+│   Upload to GCS                      │
+│                                      │
+│ [Minute 2] Snapshot 2 (repeat)       │
+│                                      │
+│ [Minute 4] Snapshot 3 (repeat)       │
+│                                      │
+│ Workflow exits (~5 min total)        │
+└──────────────────────────────────────┘
   ↓
 GCS: gs://whylinedenver-raw/raw/rtd_gtfsrt/snapshot_at=2025-10-24T12:00/
   ├─ trip_updates.csv.gz (500KB, 5-10K rows)
@@ -601,14 +695,14 @@ GCS: gs://whylinedenver-raw/raw/rtd_gtfsrt/snapshot_at=2025-10-24T12:00/
 12:30 UTC (5:30am MST) [+30 min offset]
   ↓
 ┌─ GitHub Actions: hourly-bq-load.yml ──┐
-│                                        │
+│                                       │
 │ Scan GCS for new files since 12:00    │
-│ Load trip_updates → raw_gtfsrt_trip... │
-│ Load vehicle_positions → raw_gtfsrt... │
-│ Record MD5 in __ingestion_log          │
-│                                        │
-│ Workflow exits (~2 min)                │
-└────────────────────────────────────────┘
+│ Load trip_updates → raw_gtfsrt_trip...│
+│ Load vehicle_positions → raw_gtfsrt...│
+│ Record MD5 in __ingestion_log         │
+│                                       │
+│ Workflow exits (~2 min)               │
+└───────────────────────────────────────┘
   ↓
 BigQuery: raw_gtfsrt_trip_updates (partitioned by feed_ts_utc)
   New rows appended with _ingested_at = 2025-10-24T12:32:00Z
@@ -650,15 +744,15 @@ BigQuery: raw_gtfsrt_trip_updates (partitioned by feed_ts_utc)
 ┌─ Local Development ─────────────────┐
 │ gcloud auth application-default     │
 │   login                             │
-│ → Stores token in ~/.config/gcloud/│
+│ → Stores token in ~/.config/gcloud/ │
 │ → Python libraries auto-discover    │
 └─────────────────────────────────────┘
 
 ┌─ GitHub Actions ────────────────────┐
-│ secrets.GCP_SA_KEY (base64 JSON)   │
-│ → Decoded to /tmp/gcp-key.json     │
+│ secrets.GCP_SA_KEY (base64 JSON)    │
+│ → Decoded to /tmp/gcp-key.json      │
 │ → GOOGLE_APPLICATION_CREDENTIALS    │
-│   env var points to temp file      │
+│   env var points to temp file       │
 └─────────────────────────────────────┘
 ```
 

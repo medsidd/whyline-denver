@@ -1,0 +1,55 @@
+<mxfile host="65bd71144e">
+    <diagram id="access-lineage" name="Access Domain Lineage">
+        <mxGraphModel dx="734" dy="515" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="750" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="Access Domain: Sidewalks + Stops → Pedestrian Infrastructure Quality" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=16;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="150" y="20" width="800" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="src-sidewalks" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;Denver OpenData&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;Sidewalk Segments&lt;/span&gt;&lt;/div&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#d5e8d4;strokeColor=#82b366;" parent="1" vertex="1">
+                    <mxGeometry x="150" y="100" width="180" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="src-stops" value="RTD GTFS&#xa;Stops" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#d5e8d4;strokeColor=#82b366;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="100" width="160" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="raw-sidewalks" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;raw_sidewalks&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;~35K segments&lt;/span&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+                    <mxGeometry x="150" y="220" width="180" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="raw-stops" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;raw_gtfs_stops&lt;/span&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="220" width="160" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="stg-sidewalks" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;stg_sidewalks&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Create LINESTRING:&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;ST_MAKELINE(start_pt, end_pt)&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Compute length (meters)&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Calculate centroid&lt;/span&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=center;" parent="1" vertex="1">
+                    <mxGeometry x="130" y="330" width="220" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="stg-stops" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;stg_gtfs_stops&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• ST_GEOGPOINT(lon,lat)&lt;/span&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="330" width="180" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="mart" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;mart_access_score_by_stop&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;STEP 1: CREATE 200M BUFFER&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;buffer = ST_BUFFER(stop.geom, 200)&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;STEP 2: FIND INTERSECTING SIDEWALKS&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;JOIN ... ON ST_INTERSECTS(sidewalk.geom, buffer)&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;STEP 3: SUM SIDEWALK LENGTH IN BUFFER&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;sidewalk_len_m = SUM(ST_LENGTH(ST_INTERSECTION(sidewalk, buffer)))&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;→ Handles partial segments correctly&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;STEP 4: NORMALIZE TO 0-100 SCORE&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;access_score_0_100 = min-max normalize&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;Full table refresh (spatial join expensive)&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6ffe6;strokeColor=#00cc66;align=center;verticalAlign=top;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="150" y="500" width="470" height="260" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" parent="1" source="src-sidewalks" target="raw-sidewalks" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" parent="1" source="src-stops" target="raw-stops" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" parent="1" source="raw-sidewalks" target="stg-sidewalks" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" parent="1" source="raw-stops" target="stg-stops" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;entryX=0.3;entryY=0;" parent="1" source="stg-sidewalks" target="mart" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;entryX=0.7;entryY=0;" parent="1" source="stg-stops" target="mart" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="notes" value="WHY 200M BUFFER?&#xa;Typical walking distance to/from stop.&#xa;Captures immediate stop environment.&#xa;&#xa;GEOMETRY TYPES:&#xa;• Sidewalks = LINESTRING (path)&#xa;• Stops = POINT (location)&#xa;• Buffer = POLYGON (200m circle)&#xa;&#xa;ST_INTERSECTION handles partial&#xa;segment overlaps correctly.&#xa;&#xa;INTERPRETATION:&#xa;• High score: Dense sidewalk network&#xa;• Low score: Sparse infrastructure&#xa;&#xa;USE CASES:&#xa;• First/last-mile analysis&#xa;• ADA compliance planning&#xa;• Identify walkability gaps&#xa;&#xa;LIMITATIONS:&#xa;• Doesn&#39;t assess condition/quality&#xa;• Doesn&#39;t include crosswalks&#xa;• Length is proxy for access" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;verticalAlign=top;fontSize=9;" parent="1" vertex="1">
+                    <mxGeometry x="680" y="220" width="170" height="290" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

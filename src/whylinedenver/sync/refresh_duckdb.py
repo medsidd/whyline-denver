@@ -29,6 +29,17 @@ HOT_MARTS = {
     "mart_weather_impacts",
 }
 
+# Snapshot marts without time dimensions should only sync the latest run_date
+# to avoid duplicating the same data (only build_run_at differs between exports).
+# Partitioned marts and snapshot marts with time dimensions (e.g., as_of_date)
+# should sync all run_dates to maintain historical data.
+LATEST_RUN_DATE_ONLY_MARTS = {
+    "mart_access_score_by_stop",
+    "mart_vulnerability_by_stop",
+    "mart_priority_hotspots",
+    "mart_weather_impacts",
+}
+
 
 @dataclass(slots=True)
 class RefreshResult:
@@ -178,6 +189,21 @@ def _latest_run_date(run_dates: Iterable[str]) -> str:
     return dates[-1] if dates else ""
 
 
+def _build_glob_pattern(
+    base_path: Path, mart_name: str, run_dates: list[str], use_latest_only: bool
+) -> str:
+    """Build the appropriate glob pattern for reading parquet files.
+
+    For snapshot marts without time dimensions, use only the latest run_date
+    to avoid duplicates. For partitioned marts and snapshots with time dimensions,
+    use all run_dates to capture historical data.
+    """
+    if use_latest_only and run_dates:
+        latest = _latest_run_date(run_dates)
+        return str(base_path / mart_name / f"run_date={latest}" / "**" / "*")
+    return str(base_path / mart_name / "run_date=*" / "**" / "*")
+
+
 def _ensure_connection(path: Path) -> duckdb.DuckDBPyConnection:
     path.parent.mkdir(parents=True, exist_ok=True)
     return duckdb.connect(str(path))
@@ -206,14 +232,20 @@ def refresh(
 
     for mart_name in ALLOWLISTED_MARTS:
         marker_date = ""
+        use_latest_only = mart_name in LATEST_RUN_DATE_ONLY_MARTS
+
         if local_parquet_root:
             run_dates, glob = _collect_local_run_dates(local_parquet_root, mart_name)
+            if glob and use_latest_only:
+                glob = _build_glob_pattern(
+                    local_parquet_root.resolve(), mart_name, run_dates, use_latest_only
+                )
         else:
             assert storage_client is not None
             run_dates = _cache_gcs_parquet(
                 storage_client, settings.GCS_BUCKET, mart_name, cache_root
             )
-            glob = str(cache_root / mart_name / "run_date=*" / "**" / "*")
+            glob = _build_glob_pattern(cache_root, mart_name, run_dates, use_latest_only)
             marker_date = _load_export_marker(storage_client, settings.GCS_BUCKET, mart_name)
 
         if not glob:
@@ -227,11 +259,13 @@ def refresh(
             else f"CREATE OR REPLACE VIEW {mart_name} AS " f"SELECT * FROM read_parquet('{glob}')"
         )
 
+        sync_strategy = "latest run_date only" if use_latest_only else "all run_dates"
         LOGGER.info(
-            "Refreshing %s as %s using %s",
+            "Refreshing %s as %s using %s (%s)",
             mart_name,
             "table" if materialize else "view",
             glob,
+            sync_strategy,
         )
         LOGGER.debug("Statement:\n%s", statement)
 

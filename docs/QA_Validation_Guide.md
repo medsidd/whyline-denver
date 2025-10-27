@@ -34,7 +34,7 @@ Run the QA script anytime you want to verify pipeline health:
 - ✅ **After deploying changes** to workflows or dbt models
 - ✅ **Daily/weekly monitoring** to catch issues early
 - ✅ **Before analysis** to ensure data quality
-- ✅ **After backfills** to verify data completeness
+- ✅ **After re-running ingestion** to verify data completeness
 - ✅ **Troubleshooting** when something seems wrong
 
 ### What It Validates
@@ -666,14 +666,14 @@ gh run list --workflow=hourly-gtfs-rt.yml --limit 30
 # Check last nightly ingest run
 gh run list --workflow=nightly-ingest.yml --limit 5
 
-# Check weather backfill logs
+# Check weather ingestion logs
 gh run view <run-id> --log | grep -i weather
 ```
 
 **Common causes**:
 - NOAA API key expired/invalid
 - NOAA API rate limiting
-- Backfill script not run
+- Ingestion not run recently
 
 **Solutions**:
 - Verify NOAA_TOKEN environment variable
@@ -761,7 +761,7 @@ ORDER BY date DESC;
 **Solutions**:
 - Wait for rainy days to occur naturally
 - Verify precipitation data is being captured correctly
-- Check weather data backfill includes rainy periods
+- Check weather data collection includes rainy periods
 
 ---
 
@@ -939,7 +939,7 @@ The QA validation script is your **single source of truth** for pipeline health:
 
 - ✅ **Run it often** - After deploys, during troubleshooting, or for routine monitoring
 - ✅ **Trust the warnings** - Day 1 warnings are expected and documented
-- ✅ **Act on failures** - Check GitHub Actions logs, verify permissions, run backfills
+- ✅ **Act on failures** - Check GitHub Actions logs, verify permissions, re-run ingestion
 - ✅ **Sync DuckDB regularly** - Use `make sync-duckdb` to keep local database fresh
 - ✅ **Wait for accumulation** - Weather impact analysis needs 30+ days of data
 
