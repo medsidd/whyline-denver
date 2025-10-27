@@ -1,6 +1,6 @@
-# NOAA Weather Data Backfill Strategy
+# NOAA Weather Data Collection Strategy
 
-Weather data is essential for analyzing transit reliability impacts, but NOAA's Climate Data Online (CDO) API publishes incomplete data that gets finalized over the following 3-14 days. This document explains our rolling backfill strategy to handle late-arriving data.
+Weather data is essential for analyzing transit reliability impacts, but NOAA's Climate Data Online (CDO) API publishes incomplete data that gets finalized over the following 3-14 days. This document explains our rolling window re-ingestion strategy to handle late-arriving data.
 
 ## The NOAA Data Lag Problem
 
@@ -18,7 +18,7 @@ Weather stations report data in batches, and NOAA's quality control process take
 - Single ingestion: Misses late-arriving data
 - Daily re-ingestion: Requires duplicate handling and versioning
 
-We implemented daily re-ingestion with a two-layer deduplication strategy.
+We implemented a rolling window re-ingestion pattern with a two-layer deduplication strategy.
 
 ## Two-Layer Architecture
 
@@ -88,11 +88,11 @@ Weather completeness depends on recency:
 
 Querying recent dates will show NULLs. This is expected behavior.
 
-## Initial Historical Backfill
+## Initial Historical Data Collection
 
-A one-time backfill ran for January 1, 2024 through September 30, 2025 (21 months of historical data).
+A one-time historical collection ran for January 1, 2024 through September 30, 2025 (21 months of historical data).
 
-Script (`scripts/backfill_noaa_2024.sh`):
+Script (`scripts/collect_noaa_2024.sh`):
 ```bash
 for month in {1..9}; do
   python -m whylinedenver.ingest.noaa_daily \
@@ -121,7 +121,7 @@ GROUP BY month
 ORDER BY month DESC;
 ```
 
-Run monthly. If historical months show <90% completeness, re-backfill that period.
+Run monthly. If historical months show <90% completeness, re-run ingestion for that period.
 
 **Recent updates:**
 ```sql
@@ -136,7 +136,7 @@ GROUP BY date
 ORDER BY date DESC;
 ```
 
-Shows which dates received new data in the last week. Useful for verifying nightly re-ingest.
+Shows which dates received new data in the last week. Useful for verifying the nightly rolling window re-ingestion.
 
 **Verify deduplication (should return 0 rows):**
 ```sql
@@ -156,7 +156,7 @@ Expected for dates within the last 7 days. Data from the last week is typically 
 
 **Historical data has unexpected NULLs:**
 
-Re-run ingestion for that date range:
+Re-run data collection for that date range:
 ```bash
 python -m whylinedenver.ingest.noaa_daily \
   --start 2024-06-01 --end 2024-06-30 \
@@ -204,10 +204,10 @@ BigQuery partitions by `DATE(_extract_date)`, so queries only scan relevant part
 
 **Monthly (recommended):**
 - Review data quality for previous month
-- Re-backfill if necessary
+- Re-run ingestion if necessary
 
 **Quarterly (optional):**
-- Re-run backfills for recent quarters to capture final corrections
+- Re-run ingestion for recent quarters to capture final corrections
 - Example: January 2026, re-ingest Q4 2025
 
 ## Success Criteria

@@ -677,7 +677,7 @@ gh run view <run-id> --log | grep -i weather
 
 **Solutions**:
 - Verify NOAA_TOKEN environment variable
-- Run manual backfill: `python -m whylinedenver.ingest.weather --backfill-days 30`
+- Run manual re-ingestion: `python -m whylinedenver.ingest.weather --backfill-days 30`
 - Check NOAA CDO API status
 
 #### ⚠️ DuckDB Mart Date Mismatch
