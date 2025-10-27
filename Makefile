@@ -1,6 +1,6 @@
 .SHELLFLAGS := -o pipefail -c
 SHELL := /bin/bash
-.PHONY: install lint format test test-ingest run app ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dbt-run-realtime dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams
+.PHONY: install lint format test test-ingest run app ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local bq-load-realtime bq-load-historical dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dbt-run-realtime dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams
 .PHONY: sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams dbt-run-realtime
 
 # Shared command helpers ------------------------------------------------------
@@ -85,10 +85,24 @@ ingest-all-gcs:
 	@$(MAKE) INGEST_DEST=gcs ingest-all
 
 bq-load:
-	$(PY) -m load.bq_load --src gcs --bucket $(GCS_BUCKET) --since 2025-01-01
+	@$(MAKE) bq-load-realtime
 
 bq-load-local:
-	$(PY) -m load.bq_load --src local --bucket $(GCS_BUCKET) --since 2025-01-01
+	$(PY) -m load.bq_load --src local --bucket $(GCS_BUCKET) --from 2025-01-01
+
+bq-load-realtime:
+	@set -euo pipefail; \
+	FROM_DATE=$$(date -u -v-1d +%Y-%m-%d 2>/dev/null || date -u -d 'yesterday' +%Y-%m-%d); \
+	UNTIL_DATE=$$(date -u +%Y-%m-%d); \
+	$(PY) -m load.bq_load --src gcs --bucket $(GCS_BUCKET) --from $$FROM_DATE --until $$UNTIL_DATE
+
+bq-load-historical:
+	@set -euo pipefail; \
+	FROM_DATE=$${FROM:-2025-01-01}; \
+	UNTIL_DATE=$${UNTIL:-$$(date -u +%Y-%m-%d)}; \
+	$(PY) -m load.bq_load --src gcs --bucket $(GCS_BUCKET) --from $$FROM_DATE --until $$UNTIL_DATE; \
+	DBT_TARGET=prod $(DBT_CMD) run --project-dir dbt --target prod --select 'staging marts'; \
+	DBT_TARGET=prod $(DBT_CMD) test --project-dir dbt --target prod --select 'marts'
 
 sync-export:
 	@set -euo pipefail; \
@@ -211,7 +225,7 @@ export-diagrams:
 	@bash scripts/export_diagrams.sh
 
 ci-help:
-	@echo "Targets: install | lint | format | test | run | ingest-* | bq-load(-local) | dbt-* | dev-loop | export-diagrams"
+	@echo "Targets: install | lint | format | test | run | ingest-* | bq-load(-local|-realtime|-historical) | dbt-* | dev-loop | export-diagrams"
 
 .SHELLFLAGS := -o pipefail -c
 SHELL := /bin/bash

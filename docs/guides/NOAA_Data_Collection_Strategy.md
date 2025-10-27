@@ -61,7 +61,7 @@ python -m whylinedenver.ingest.noaa_daily \
 **Process:**
 1. Fetch weather data for the last 30 days
 2. Write CSV to GCS at `raw/noaa_daily/extract_date=YYYY-MM-DD/`
-3. `bq-load` workflow appends to BigQuery
+3. `realtime-bq-load.yml` (Make target `bq-load-realtime`) appends to BigQuery
 
 **Why 30 days?**
 - NOAA finalization lag is 3-14 days depending on metric

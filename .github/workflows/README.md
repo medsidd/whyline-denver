@@ -213,7 +213,7 @@ schedule:
    make nightly-ingest-bq
    # Expands to:
    #   make INGEST_DEST=gcs ingest-static
-   #   make bq-load
+   #   make bq-load-realtime
    ```
 
 **Ingestion Targets** (executed serially):
@@ -227,7 +227,7 @@ schedule:
 **Outputs**: CSVs uploaded to GCS under respective paths (e.g., `raw/noaa_daily/extract_date=YYYY-MM-DD/`)
 
 **Then** (after ingestion completes):
-- `bq-load` scans GCS for new files and loads to BigQuery
+- `bq-load-realtime` scans recent GCS files and loads them to BigQuery
 
 **Duration**: ~8 minutes
 

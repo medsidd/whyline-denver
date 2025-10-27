@@ -11,7 +11,7 @@ import logging
 import sys
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Iterable, Iterator, Sequence
 
@@ -61,7 +61,21 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--bucket", help="GCS bucket name (required for --src gcs, used for temp uploads)."
     )
-    parser.add_argument("--since", help="Only load extracts on/after this YYYY-MM-DD date.")
+    parser.add_argument(
+        "--from",
+        dest="start_date",
+        help="Only load extracts on/after this YYYY-MM-DD date.",
+    )
+    parser.add_argument(
+        "--since",
+        dest="start_date",
+        help=argparse.SUPPRESS,
+    )
+    parser.add_argument(
+        "--until",
+        dest="end_date",
+        help="Only load extracts on/before this YYYY-MM-DD date.",
+    )
     parser.add_argument(
         "--dry-run", action="store_true", help="Print the load plan without running it."
     )
@@ -73,24 +87,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
-    try:
-        since_date = date.fromisoformat(args.since) if args.since else None
-    except ValueError as exc:
-        raise SystemExit(f"--since must be YYYY-MM-DD: {exc}") from exc
-
-    bucket = args.bucket
-    if args.src == "gcs" and not bucket:
-        raise SystemExit("--bucket is required when --src gcs")
-
-    if args.src == "local" and not bucket:
-        bucket = settings.GCS_BUCKET
-    if args.src == "local" and not bucket:
-        raise SystemExit(
-            "--bucket must be provided (or GCS_BUCKET env set) when loading local files."
-        )
-
-    if args.max_files is not None and args.max_files <= 0:
-        raise SystemExit("--max-files must be a positive integer.")
+    start_date, end_date = parse_date_range(args)
+    bucket = resolve_bucket(args)
+    validate_max_files(args.max_files)
 
     storage_client = storage.Client() if args.src in ("local", "gcs") else None
     bq_client = bigquery.Client(project=settings.GCP_PROJECT_ID)
@@ -103,18 +102,73 @@ def main(argv: Sequence[str] | None = None) -> int:
         storage_client=storage_client,
         bucket=bucket,
         source=args.src,
-        since=since_date,
+        start_date=start_date,
+        end_date=end_date,
     )
-    print_plan(plan, since=since_date, max_files=args.max_files)
+    print_plan(plan, start=start_date, until=end_date, max_files=args.max_files)
 
     if args.dry_run:
         LOGGER.info("Dry-run complete. No load jobs executed.")
         return 0
 
-    files_to_load = [item for item in plan if item.skip_reason is None and not item.already_loaded]
-    if args.max_files is not None:
-        files_to_load = files_to_load[: args.max_files]
+    files_to_load = select_load_candidates(plan, max_files=args.max_files)
+    loaded_count = execute_plan(
+        files_to_load,
+        bq_client=bq_client,
+        storage_client=storage_client,
+        bucket=bucket,
+    )
 
+    LOGGER.info("Completed load run: %d file(s) ingested.", loaded_count)
+    return 0
+
+
+def parse_date_range(args: argparse.Namespace) -> tuple[date | None, date | None]:
+    try:
+        start_date = date.fromisoformat(args.start_date) if args.start_date else None
+    except ValueError as exc:
+        raise SystemExit(f"--from must be YYYY-MM-DD: {exc}") from exc
+    try:
+        end_date = date.fromisoformat(args.end_date) if args.end_date else None
+    except ValueError as exc:
+        raise SystemExit(f"--until must be YYYY-MM-DD: {exc}") from exc
+    if start_date and end_date and end_date < start_date:
+        raise SystemExit("--until date must be on/after --from date.")
+    return start_date, end_date
+
+
+def resolve_bucket(args: argparse.Namespace) -> str | None:
+    bucket = args.bucket
+    if args.src == "gcs" and not bucket:
+        raise SystemExit("--bucket is required when --src gcs")
+    if args.src == "local" and not bucket:
+        bucket = settings.GCS_BUCKET
+    if args.src == "local" and not bucket:
+        raise SystemExit(
+            "--bucket must be provided (or GCS_BUCKET env set) when loading local files."
+        )
+    return bucket
+
+
+def validate_max_files(max_files: int | None) -> None:
+    if max_files is not None and max_files <= 0:
+        raise SystemExit("--max-files must be a positive integer.")
+
+
+def select_load_candidates(plan: Iterable[PlanItem], *, max_files: int | None) -> list[PlanItem]:
+    candidates = [item for item in plan if item.skip_reason is None and not item.already_loaded]
+    if max_files is not None:
+        candidates = candidates[:max_files]
+    return candidates
+
+
+def execute_plan(
+    files_to_load: Iterable[PlanItem],
+    *,
+    bq_client: bigquery.Client,
+    storage_client: storage.Client | None,
+    bucket: str | None,
+) -> int:
     loaded_count = 0
     for item in files_to_load:
         load_file(
@@ -124,9 +178,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             item=item,
         )
         loaded_count += 1
-
-    LOGGER.info("Completed load run: %d file(s) ingested.", loaded_count)
-    return 0
+    return loaded_count
 
 
 def build_plan(
@@ -135,19 +187,37 @@ def build_plan(
     storage_client: storage.Client | None,
     bucket: str | None,
     source: str,
-    since: date | None,
+    start_date: date | None,
+    end_date: date | None,
 ) -> list[PlanItem]:
     plan: list[PlanItem] = []
     for job in JOBS:
-        files = discover_files(job=job, source=source, storage_client=storage_client, bucket=bucket)
+        files = discover_files(
+            job=job,
+            source=source,
+            storage_client=storage_client,
+            bucket=bucket,
+            start_date=start_date,
+            end_date=end_date,
+        )
         for file_ref in files:
-            if since and file_ref.extract_date and file_ref.extract_date < since:
+            if start_date and file_ref.extract_date and file_ref.extract_date < start_date:
                 plan.append(
                     PlanItem(
                         job=job,
                         file=file_ref,
                         hash_md5=None,
-                        skip_reason=f"extract_date {file_ref.extract_date} < {since}",
+                        skip_reason=f"extract_date {file_ref.extract_date} < {start_date}",
+                    )
+                )
+                continue
+            if end_date and file_ref.extract_date and file_ref.extract_date > end_date:
+                plan.append(
+                    PlanItem(
+                        job=job,
+                        file=file_ref,
+                        hash_md5=None,
+                        skip_reason=f"extract_date {file_ref.extract_date} > {end_date}",
                     )
                 )
                 continue
@@ -175,6 +245,8 @@ def discover_files(
     source: str,
     storage_client: storage.Client | None,
     bucket: str | None,
+    start_date: date | None,
+    end_date: date | None,
 ) -> Iterator[FileRef]:
     if source == "local":
         yield from discover_local_files(job)
@@ -183,7 +255,13 @@ def discover_files(
             raise RuntimeError("Bucket is required for GCS discovery.")
         if storage_client is None:
             raise RuntimeError("GCS discovery requires a storage client.")
-        yield from discover_gcs_files(job, storage_client, bucket)
+        yield from discover_gcs_files(
+            job,
+            storage_client,
+            bucket,
+            start_date=start_date,
+            end_date=end_date,
+        )
     else:
         raise ValueError(f"Unsupported source {source}")
 
@@ -208,34 +286,79 @@ def discover_local_files(job: JobSpec) -> Iterator[FileRef]:
 
 
 def discover_gcs_files(
-    job: JobSpec, storage_client: storage.Client, bucket: str
+    job: JobSpec,
+    storage_client: storage.Client,
+    bucket: str,
+    start_date: date | None,
+    end_date: date | None,
 ) -> Iterator[FileRef]:
     for pattern in job.patterns:
-        prefix = build_gcs_prefix(pattern)
-        full_prefix = f"{RAW_ROOT_GCS}/{prefix}" if prefix else RAW_ROOT_GCS
-        for blob in storage_client.list_blobs(bucket, prefix=full_prefix):
-            if blob.name.endswith("/"):
-                continue
-            relative = (
-                blob.name[len(f"{RAW_ROOT_GCS}/") :]
-                if blob.name.startswith(f"{RAW_ROOT_GCS}/")
-                else blob.name
-            )
-            if not fnmatch.fnmatch(relative, pattern):
-                continue
-            extract = infer_extract_date(relative)
-            size = blob.size
-            yield FileRef(
-                source_path=f"gs://{bucket}/{blob.name}",
-                relative_path=relative,
-                extract_date=extract,
-                size=size,
-                is_gcs=True,
-                blob=blob,
-            )
+        prefixes = build_gcs_prefixes(pattern, start_date=start_date, end_date=end_date)
+        for full_prefix in prefixes:
+            for blob in storage_client.list_blobs(bucket, prefix=full_prefix):
+                if blob.name.endswith("/"):
+                    continue
+                relative = (
+                    blob.name[len(f"{RAW_ROOT_GCS}/") :]
+                    if blob.name.startswith(f"{RAW_ROOT_GCS}/")
+                    else blob.name
+                )
+                if not fnmatch.fnmatch(relative, pattern):
+                    continue
+                extract = infer_extract_date(relative)
+                size = blob.size
+                yield FileRef(
+                    source_path=f"gs://{bucket}/{blob.name}",
+                    relative_path=relative,
+                    extract_date=extract,
+                    size=size,
+                    is_gcs=True,
+                    blob=blob,
+                )
 
 
-def build_gcs_prefix(pattern: str) -> str:
+def build_gcs_prefixes(
+    pattern: str, *, start_date: date | None, end_date: date | None
+) -> list[str]:
+    date_glob = None
+    key = None
+    if "snapshot_at=*" in pattern:
+        date_glob = "snapshot_at=*"
+        key = "snapshot_at="
+    elif "extract_date=*" in pattern:
+        date_glob = "extract_date=*"
+        key = "extract_date="
+
+    if date_glob and (start_date or end_date):
+        today = datetime.now(UTC).date()
+        if start_date and end_date:
+            start = start_date
+            stop = end_date
+        elif start_date:
+            start = start_date
+            stop = today
+        else:  # end_date only
+            start = end_date
+            stop = end_date
+        if stop < start:
+            start, stop = stop, start
+        before, _ = pattern.split(date_glob, 1)
+        prefixes: list[str] = []
+        for offset in range((stop - start).days + 1):
+            day = start + timedelta(days=offset)
+            partial = f"{before}{key}{day.isoformat()}"
+            prefix = partial.rstrip("/")
+            full_prefix = f"{RAW_ROOT_GCS}/{prefix}" if prefix else RAW_ROOT_GCS
+            if full_prefix not in prefixes:
+                prefixes.append(full_prefix)
+        return prefixes
+
+    base_prefix = _base_gcs_prefix(pattern)
+    full_prefix = f"{RAW_ROOT_GCS}/{base_prefix}" if base_prefix else RAW_ROOT_GCS
+    return [full_prefix]
+
+
+def _base_gcs_prefix(pattern: str) -> str:
     for idx, char in enumerate(pattern):
         if char in "*?[":
             slash_idx = pattern.rfind("/", 0, idx)
@@ -429,12 +552,18 @@ def already_loaded(
     return any(result)
 
 
-def print_plan(plan: Iterable[PlanItem], *, since: date | None, max_files: int | None) -> None:
+def print_plan(
+    plan: Iterable[PlanItem],
+    *,
+    start: date | None,
+    until: date | None,
+    max_files: int | None,
+) -> None:
     to_load = [item for item in plan if item.skip_reason is None and not item.already_loaded]
     total_new = len(to_load)
     if max_files is not None:
         total_new = min(total_new, max_files)
-    LOGGER.info("Load plan (since=%s max_files=%s)", since, max_files)
+    LOGGER.info("Load plan (from=%s until=%s max_files=%s)", start, until, max_files)
     for item in plan:
         status = "LOAD"
         if item.skip_reason:

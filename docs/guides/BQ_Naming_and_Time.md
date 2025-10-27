@@ -26,7 +26,7 @@ The prefixes make it immediately obvious which layer you're working with. dbt ca
 
 ## Metadata Columns on Raw Tables
 
-Every raw table receives four metadata columns automatically when you run `bq-load`:
+Every raw table receives four metadata columns automatically when you run `bq-load-realtime` or `bq-load-historical`:
 
 | Column | Type | Purpose |
 |--------|------|---------|
