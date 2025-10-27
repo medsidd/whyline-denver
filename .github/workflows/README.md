@@ -27,16 +27,15 @@ WhyLine Denver uses GitHub Actions for **end-to-end pipeline orchestration**:
 ```
 .github/workflows/
 │
-├── hourly/                  (5am-7pm MST, 15x/day)
-│   ├─ hourly-gtfs-rt.yml   → Capture 3 snapshots (2 min apart)
-│   └─ hourly-bq-load.yml   → Load snapshots to BigQuery (+30 min offset)
+├── realtime-gtfs-rt.yml   → Capture GTFS-RT feed and push to GCS (micro-batch every 5 min)
+├── realtime-bq-load.yml   → Load to BigQuery + build realtime marts (~2 min later)
 │
-├── nightly/                 (8am-9:30am UTC / 1-2:45am MST)
+├── nightly                (8am-9:30am UTC / 1-2:45am MST)
 │   ├─ nightly-ingest.yml   → Refresh static data (GTFS, crashes, weather)
 │   ├─ nightly-bq.yml       → dbt run/test + export marts to GCS
 │   └─ nightly-duckdb.yml   → Sync DuckDB from Parquet exports
 │
-└── ci/                      (On push/PR, plus docs on main)
+└── ci                      (On push/PR, plus docs on main)
     └─ ci.yml               → Lint, format, test + dbt docs to GitHub Pages
 ```
 
@@ -53,28 +52,29 @@ WhyLine Denver uses GitHub Actions for **end-to-end pipeline orchestration**:
 ### Data Flow Through Workflows
 
 ```
-┌─ HOURLY CYCLE (15x/day) ───────────────────────────────────────┐
-│                                                                  │
-│  5:00 AM MST (12:00 UTC)                                        │
-│    hourly-gtfs-rt.yml triggers                                  │
+┌─ REALTIME CYCLE (288x/day) ────────────────────────────────────┐
+│                                                                │
+│  Every 5 minutes (00,05,10,...)                                │
+│    realtime-gtfs-rt.yml triggers                               │
 │      ├─ Fetch RTD GTFS-RT APIs (Trip Updates + Vehicle Pos)    │
-│      ├─ Write 3 snapshots to GCS (2 min apart)                 │
-│      └─ Exit (duration: ~3 min)                                 │
-│                                                                  │
-│  5:30 AM MST (12:30 UTC)                                        │
-│    hourly-bq-load.yml triggers (+30 min offset)                 │
+│      ├─ Write snapshot artifacts to GCS                        │
+│      └─ Exit (duration: ~2 min)                                │
+│                                                                │
+│  ~2 minutes later (02,07,12,...)                               │
+│    realtime-bq-load.yml triggers                               │
 │      ├─ Scan GCS for new snapshot files                        │
-│      ├─ Load to raw_gtfsrt_trip_updates, raw_gtfsrt_vehicle... │
-│      └─ Exit (duration: ~2 min)                                 │
-│                                                                  │
-│  ... repeats every hour through 7pm MST (14 more cycles)        │
-│                                                                  │
-└──────────────────────────────────────────────────────────────────┘
+│      ├─ Load to raw_gtfsrt_* tables in BigQuery                │
+│      ├─ Run dbt micro-batch for realtime marts                 │
+│      └─ Exit (duration: ~2-3 min)                              │
+│                                                                │
+│  ... repeats 288 times per day                                 │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
 
 ┌─ NIGHTLY CYCLE (once per day) ─────────────────────────────────┐
-│                                                                  │
-│  1:00 AM MST (8:00 UTC)                                         │
-│    nightly-ingest.yml triggers                                  │
+│                                                                │
+│  1:00 AM MST (8:00 UTC)                                        │
+│    nightly-ingest.yml triggers                                 │
 │      ├─ ingest-gtfs-static (monthly GTFS ZIP)                  │
 │      ├─ ingest-crashes (5y + YTD)                              │
 │      ├─ ingest-sidewalks (full dataset)                        │
@@ -82,58 +82,44 @@ WhyLine Denver uses GitHub Actions for **end-to-end pipeline orchestration**:
 │      ├─ ingest-acs (2023 demographics, if needed)              │
 │      ├─ ingest-tracts (Denver boundaries, if needed)           │
 │      └─ bq-load (load all CSVs to BigQuery)                    │
-│    Exit (duration: ~8 min)                                      │
-│                                                                  │
-│  2:00 AM MST (9:00 UTC)                                         │
-│    nightly-bq.yml triggers                                      │
+│    Exit (duration: ~8 min)                                     │
+│                                                                │
+│  2:00 AM MST (9:00 UTC)                                        │
+│    nightly-bq.yml triggers                                     │
 │      ├─ dbt parse                                              │
-│      ├─ dbt run --select staging.*                            │
+│      ├─ dbt run --select staging.*                             │
 │      ├─ dbt run --select intermediate.*                        │
 │      ├─ dbt run --select marts.*                               │
 │      ├─ dbt test (40+ data quality tests)                      │
 │      ├─ export marts to GCS as Parquet                         │
 │      └─ upload dbt artifacts (manifest, catalog)               │
-│    Exit (duration: ~12 min)                                     │
-│                                                                  │
-│  2:30 AM MST (9:30 UTC)                                         │
-│    nightly-duckdb.yml triggers                                  │
+│    Exit (duration: ~12 min)                                    │
+│                                                                │
+│  2:30 AM MST (9:30 UTC)                                        │
+│    nightly-duckdb.yml triggers                                 │
 │      ├─ Download Parquet exports from GCS                      │
 │      ├─ Materialize hot marts in DuckDB                        │
 │      ├─ Create views for cold marts                            │
 │      └─ Update sync_state.json                                 │
-│    Exit (duration: ~5 min)                                      │
-│                                                                  │
-└──────────────────────────────────────────────────────────────────┘
+│    Exit (duration: ~5 min)                                     │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Workflow Specifications
 
-### 1. `hourly/hourly-gtfs-rt.yml` – GTFS Realtime Snapshots
+### 1. `realtime-gtfs-rt.yml` – GTFS Realtime Snapshots
 
-**Purpose**: Capture trip delays and vehicle positions 15 times per day to build a rich temporal dataset.
+**Purpose**: Capture trip delays and vehicle positions every five minutes to keep downstream marts within ~2 minutes of the live feed.
 
 **Schedule**:
 ```yaml
 schedule:
-  - cron: '0 12 * * *'  # 5am MST
-  - cron: '0 13 * * *'  # 6am MST
-  - cron: '0 14 * * *'  # 7am MST
-  - cron: '0 15 * * *'  # 8am MST
-  - cron: '0 16 * * *'  # 9am MST
-  - cron: '0 17 * * *'  # 10am MST
-  - cron: '0 18 * * *'  # 11am MST
-  - cron: '0 19 * * *'  # 12pm MST
-  - cron: '0 20 * * *'  # 1pm MST
-  - cron: '0 21 * * *'  # 2pm MST
-  - cron: '0 22 * * *'  # 3pm MST
-  - cron: '0 23 * * *'  # 4pm MST
-  - cron: '0 0 * * *'   # 5pm MST
-  - cron: '0 1 * * *'   # 6pm MST
-  - cron: '0 2 * * *'   # 7pm MST
+  - cron: '*/5 * * * *'
 ```
-**Rationale**: Covers service hours (5am-7pm MST) when most transit operates. Avoids late-night dead zones.
+**Rationale**: Running continuously removes blind spots, providing near-realtime visibility into service changes and minimizing latency for dependent marts.
 
 **Triggers**: Also supports `workflow_dispatch` for manual runs.
 
@@ -147,41 +133,39 @@ schedule:
    python -m whylinedenver.ingest.gtfs_realtime \
      --gcs \
      --bucket whylinedenver-raw \
-     --snapshots 3 \
+     --snapshots 1 \
      --interval-sec 120
    ```
-   This fetches both Trip Updates and Vehicle Positions APIs, then waits 2 minutes and repeats 3 times.
+   A single snapshot is taken each run; the workflow itself triggers every five minutes so back-to-back sampling is unnecessary.
 
 **Outputs**:
 - `gs://whylinedenver-raw/raw/rtd_gtfsrt/snapshot_at=YYYY-MM-DDTHH:MM/trip_updates.csv.gz`
 - `gs://whylinedenver-raw/raw/rtd_gtfsrt/snapshot_at=YYYY-MM-DDTHH:MM/vehicle_positions.csv.gz`
 
-**Success Criteria**: Workflow completes in <5 minutes; QA script validates ≥40 snapshots/day.
+**Success Criteria**: Workflow completes in <5 minutes; QA script validates ≥250 snapshots/day (≈5-minute cadence).
 
 **Common Failures**:
 - RTD API timeout (503/504)
 - GCS permissions issue
 - GitHub Actions runner timeout (rare)
 
-**Monitoring**: Check workflow status at [GitHub Actions](https://github.com/medsidd/whyline-denver/actions/workflows/hourly-gtfs-rt.yml).
+**Monitoring**: Check workflow status at [GitHub Actions](https://github.com/medsidd/whyline-denver/actions/workflows/realtime-gtfs-rt.yml).
 
 ---
 
-### 2. `hourly/hourly-bq-load.yml` – BigQuery Hourly Load
+### 2. `realtime-bq-load.yml` – BigQuery Micro-Batch Load
 
-**Purpose**: Load GTFS-RT snapshots from GCS to BigQuery tables.
+**Purpose**: Load GTFS-RT snapshots from GCS to BigQuery and immediately refresh realtime-facing marts.
 
 **Schedule**:
 ```yaml
 schedule:
-  - cron: '30 12 * * *'  # 5:30am MST
-  - cron: '30 13 * * *'  # 6:30am MST
-  ... (15 total, offset +30 min from snapshots)
+  - cron: '2-59/5 * * * *'
 ```
-**Rationale**: 30-minute delay allows snapshot upload to complete before loading.
+**Rationale**: A two-minute offset gives the ingest workflow time to land artifacts before the load begins, keeping throughput high without collisions.
 
 **Steps**:
-1. **Checkout, setup Python, install deps** (same as hourly-gtfs-rt)
+1. **Checkout, setup Python, install deps** (same as realtime-gtfs-rt)
 2. **Configure GCP credentials**
 3. **Run loader**:
    ```bash
@@ -190,14 +174,19 @@ schedule:
      --bucket whylinedenver-raw \
      --since $(date -u -v-1d +%Y-%m-%d)  # Last 24 hours
    ```
+4. **Refresh realtime marts**:
+   ```bash
+   make dbt-run-realtime
+   ```
 
 **Idempotency**: Loader tracks MD5 hashes in `__ingestion_log` table; duplicate files are skipped.
 
 **Outputs**:
 - Rows appended to `raw_gtfsrt_trip_updates` (partitioned by `feed_ts_utc`)
 - Rows appended to `raw_gtfsrt_vehicle_positions` (partitioned by `feed_ts_utc`)
+- Micro-batched builds of `mart_reliability_by_stop_hour`, `mart_reliability_by_route_day`, and `mart_weather_impacts`
 
-**Success Criteria**: Workflow completes in <3 minutes; no duplicate loads.
+**Success Criteria**: Workflow completes in <3 minutes; no duplicate loads; realtime marts report `build_run_at` within 5 minutes of ingestion.
 
 **Common Failures**:
 - No new files in GCS (not an error, just no-op)
@@ -416,17 +405,15 @@ After the `build` job passes, two additional jobs run sequentially:
 
 ## Scheduling Strategy
 
-### Hourly Workflow Timing
+### Realtime Workflow Timing
 
-**Problem**: GitHub Actions cron is not guaranteed to run exactly on schedule (can delay 5-15 minutes during peak times).
+**Challenge**: GitHub Actions cron can drift a few minutes; relying on hourly triggers leaves large blind spots for realtime analytics.
 
-**Solution**: Use 15 discrete cron jobs instead of a single job running every hour. This maximizes chance of capturing all service hours even if some runs delay.
+**Approach**: Trigger the ingest workflow every 5 minutes (`*/5`) around the clock. A follow-on loader kicks off ~2 minutes later (`2-59/5`) to give the ingest run time to land artifacts.
 
-**Coverage Window**: 5am-7pm MST (14 hours) → 15 runs × 3 snapshots = **45 snapshots/day**
+**Throughput**: 288 ingest runs/day × 1 snapshot/run = **~288 snapshots/day**. Each snapshot is typically <600KB so the cadence remains well within GCS/GitHub quotas.
 
-**Why 3 snapshots per run?** Smooths over API jitter. If one snapshot fails (503 error), we still capture 2 others.
-
-**Why 2-minute intervals?** GTFS-RT feeds update every 1-2 minutes; 2-minute spacing avoids duplicate data.
+**Resiliency**: With 5-minute intervals, a single failed run only leaves a 5-minute gap. The loader re-runs the three realtime marts immediately, keeping BigQuery results within ~5 minutes of the live feed.
 
 ### Nightly Workflow Sequencing
 
@@ -505,8 +492,8 @@ Green badge = recent runs succeeded. Red badge = investigate.
 
 Run `./scripts/qa_script.sh` to validate:
 - Workflow success rates (should be >80%)
-- Data freshness (GTFS-RT <2 hours old, weather <7 days behind)
-- Row counts (40+ snapshots/day)
+- Data freshness (GTFS-RT <10 minutes old, weather <7 days behind)
+- Row counts (~250+ snapshots/day)
 
 See [docs/QA_Validation_Guide.md](../../docs/QA_Validation_Guide.md) for details.
 
@@ -514,7 +501,7 @@ See [docs/QA_Validation_Guide.md](../../docs/QA_Validation_Guide.md) for details
 
 ```bash
 # List recent runs for a workflow
-gh run list --workflow=hourly-gtfs-rt.yml --limit 20
+gh run list --workflow=realtime-gtfs-rt.yml --limit 20
 
 # View specific run details
 gh run view <run-id>
@@ -533,13 +520,13 @@ gh run view <run-id> --log > logs.txt
 
 ## Troubleshooting
 
-### Problem: Hourly workflow shows "skipped" runs
+### Problem: Realtime workflow shows "skipped" runs
 
-**Cause**: GitHub Actions has a 10-minute startup latency during peak times. If multiple workflows queue, some may skip.
+**Cause**: GitHub Actions occasionally delays runners by a few minutes. With 5-minute cadence, overlapping runs can mark later runs as "skipped".
 
-**Solution**: Accept that 1-2 runs/day may skip. QA script validates ≥40 snapshots/day (out of 45 possible), allowing 5 misses.
+**Solution**: Accept occasional skips. QA script validates ≥250 snapshots/day (out of ~288 possible), allowing short-lived gaps without paging.
 
-**Mitigation**: Consider switching to a dedicated orchestrator (Airflow, Prefect) if reliability needs increase.
+**Mitigation**: If gaps exceed 10 minutes, investigate `gh run list --workflow=realtime-gtfs-rt.yml` to confirm runners are not stuck in queue. Consider a dedicated orchestrator (Airflow, Prefect) for strict SLA requirements.
 
 ---
 

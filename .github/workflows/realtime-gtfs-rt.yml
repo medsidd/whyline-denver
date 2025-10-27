@@ -1,23 +1,9 @@
-name: Hourly GTFS-RT Snapshots
+name: Realtime GTFS-RT Snapshots
 
 on:
   schedule:
-    # Run every hour from 12pm-2am UTC (5am-7pm MST) covering peak operations
-    - cron: "0 12 * * *"  # 5am MST - Early morning
-    - cron: "0 13 * * *"  # 6am MST
-    - cron: "0 14 * * *"  # 7am MST - Morning rush start
-    - cron: "0 15 * * *"  # 8am MST - Peak morning rush
-    - cron: "0 16 * * *"  # 9am MST - Morning rush end
-    - cron: "0 17 * * *"  # 10am MST
-    - cron: "0 18 * * *"  # 11am MST
-    - cron: "0 19 * * *"  # 12pm MST - Midday
-    - cron: "0 20 * * *"  # 1pm MST
-    - cron: "0 21 * * *"  # 2pm MST
-    - cron: "0 22 * * *"  # 3pm MST
-    - cron: "0 23 * * *"  # 4pm MST - Evening rush start
-    - cron: "0 0 * * *"   # 5pm MST - Peak evening rush
-    - cron: "0 1 * * *"   # 6pm MST - Evening rush
-    - cron: "0 2 * * *"   # 7pm MST - Evening rush end
+    # Micro-batch every 5 minutes (24/7) to approximate realtime snapshots
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -52,5 +38,4 @@ jobs:
         run: |
           PYTHONPATH=$PWD/src python -m whylinedenver.ingest.gtfs_realtime \
             --gcs --bucket $GCS_BUCKET \
-            --snapshots 3 \
-            --interval-sec 120
+            --snapshots 1
