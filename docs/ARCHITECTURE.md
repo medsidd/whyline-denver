@@ -330,9 +330,9 @@ LOAD_JOBS = [
 #### Loader Logic (`bq_load.py`)
 
 ```python
-def load_job(job_spec, bucket, since=None):
-    # 1. List files matching glob pattern in GCS
-    files = list_gcs_files(bucket, job_spec['pattern'], since)
+def load_job(job_spec, bucket, start=None, end=None):
+    # 1. List files matching glob pattern in GCS (date-aware)
+    files = list_gcs_files(bucket, job_spec['pattern'], start=start, end=end)
 
     # 2. For each file:
     for file in files:
@@ -351,6 +351,8 @@ def load_job(job_spec, bucket, since=None):
         # 2c. Record in __ingestion_log
         insert_log_entry(file['path'], file['md5'], table=job_spec['table'])
 ```
+
+The realtime workflow invokes this loader with `start=yesterday`, `end=today`, which keeps the GCS listing bounded (~48 hours). For manual backfills, `bq-load-historical` passes explicit `FROM`/`UNTIL` values and triggers a full dbt rebuild.
 
 **Why Parametric?** Adding a new data source requires only:
 1. Create ingestion module
@@ -984,7 +986,7 @@ def validate_schema(df, required_columns):
    ```
 2. If >7 days old, rebuild from GCS bronze layer:
    ```bash
-   make bq-load  # Reload raw tables
+   make bq-load-historical FROM=2025-01-01 UNTIL=$(date -u +%Y-%m-%d)  # Reload raw tables
    make nightly-bq  # Rebuild marts
    ```
 
