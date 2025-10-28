@@ -558,20 +558,32 @@ def inject_custom_css() -> None:
 
 def render_header() -> None:
     """Render custom header with logo and tagline - ENHANCED RETRO VERSION."""
-    logo_path = Path(__file__).parent.parent / "assets" / "whylinedenver-logo@512.png"
+    assets_dir = Path(__file__).parent.parent / "assets"
+    logo_path = None
+    for candidate in ("whylinedenver-logo.svg", "whylinedenver-logo@512.png"):
+        path = assets_dir / candidate
+        if path.exists():
+            logo_path = path
+            break
 
-    if logo_path.exists():
-        # Encode logo as base64 for embedding
+    if logo_path and logo_path.suffix.lower() == ".svg":
+        raw = logo_path.read_text(encoding="utf-8")
+        logo_data = base64.b64encode(raw.encode("utf-8")).decode()
+        mime = "image/svg+xml"
+    elif logo_path:
         with open(logo_path, "rb") as f:
             logo_data = base64.b64encode(f.read()).decode()
+        mime = "image/png"
+    else:
+        logo_data = ""
+        mime = ""
 
-        # Create image element (no animation)
+    if logo_data:
         img_element = (
-            f'<img src="data:image/png;base64,{logo_data}" alt="{BRAND_NAME} logo" '
+            f'<img src="data:{mime};base64,{logo_data}" alt="{BRAND_NAME} logo" '
             'class="retro-banner__logo-img" />'
         )
     else:
-        # Fallback: no image
         img_element = ""
 
     logo_markup = f'<div class="retro-banner__logo">{img_element}</div>' if img_element else ""
