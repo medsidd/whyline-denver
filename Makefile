@@ -54,7 +54,7 @@ app:
 # Ingest ----------------------------------------------------------------------
 ingest-all: ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts
 
-# Ingest without realtime (realtime handled by hourly workflow)
+# Ingest without realtime (realtime handled by cloud run workflow)
 ingest-static: ingest-gtfs-static ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts
 
 ingest-gtfs-static:
