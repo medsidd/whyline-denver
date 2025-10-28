@@ -92,7 +92,12 @@ bq-load-local:
 
 bq-load-realtime:
 	@set -euo pipefail; \
-	FROM_DATE=$$(date -u -v-1d +%Y-%m-%d 2>/dev/null || date -u -d 'yesterday' +%Y-%m-%d); \
+	NOW_HOUR=$$(date -u +%H); \
+	if [ "$$NOW_HOUR" -lt 6 ]; then \
+		FROM_DATE=$$(date -u -v-1d +%Y-%m-%d 2>/dev/null || date -u -d 'yesterday' +%Y-%m-%d); \
+	else \
+		FROM_DATE=$$(date -u +%Y-%m-%d); \
+	fi; \
 	UNTIL_DATE=$$(date -u +%Y-%m-%d); \
 	$(PY) -m load.bq_load --src gcs --bucket $(GCS_BUCKET) --from $$FROM_DATE --until $$UNTIL_DATE
 

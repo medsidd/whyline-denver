@@ -352,7 +352,7 @@ def load_job(job_spec, bucket, start=None, end=None):
         insert_log_entry(file['path'], file['md5'], table=job_spec['table'])
 ```
 
-The realtime workflow invokes this loader with `start=yesterday`, `end=today`, which keeps the GCS listing bounded (~48 hours). For manual backfills, `bq-load-historical` passes explicit `FROM`/`UNTIL` values and triggers a full dbt rebuild.
+The realtime workflow invokes this loader with a rolling window that usually covers only the current UTC day (it falls back to include yesterday before 06:00 UTC). For manual backfills, `bq-load-historical` passes explicit `FROM`/`UNTIL` values and triggers a full dbt rebuild.
 
 **Why Parametric?** Adding a new data source requires only:
 1. Create ingestion module
