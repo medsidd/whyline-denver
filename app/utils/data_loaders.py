@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from whylinedenver.config import settings
 from whylinedenver.engines import bigquery_engine, duckdb_engine
+from whylinedenver.llm import adapt_sql_for_engine
 from whylinedenver.semantics.dbt_artifacts import DbtArtifacts, ModelInfo
 from whylinedenver.sync.state_store import load_sync_state
 
@@ -42,13 +43,42 @@ def load_route_options(engine_name: str) -> tuple[list[str], str | None]:
         else:
             table_name = "mart_reliability_by_route_day"
 
-        _, df = engine_module.execute(
+        sql = (
             f"SELECT DISTINCT route_id FROM {table_name} "
             "WHERE route_id IS NOT NULL ORDER BY route_id LIMIT 200"
         )
+        models = load_allowed_models()
+        if engine_name == "bigquery":
+            sql = adapt_sql_for_engine(sql, engine_name, models)
+        _, df = engine_module.execute(sql)
         return df["route_id"].astype(str).tolist(), None
     except Exception as exc:
         return [], str(exc)
+
+
+@st.cache_data
+def load_stop_lookup(engine_name: str) -> pd.DataFrame:
+    """Return stop metadata (id, name, lat/lon) for tooltips and charts."""
+    if engine_name != "bigquery":
+        return pd.DataFrame(columns=["stop_id", "stop_name", "stop_lat", "stop_lon"])
+
+    try:
+        engine_module = bigquery_engine
+        table_name = f"`{settings.GCP_PROJECT_ID}.{settings.BQ_DATASET_STG}.stg_gtfs_stops`"
+
+        sql = f"SELECT stop_id, stop_name, stop_lat, stop_lon " f"FROM {table_name}"
+        models = load_allowed_models()
+        sql = adapt_sql_for_engine(sql, engine_name, models)
+
+        _, df = engine_module.execute(sql)
+        for col in ("stop_id",):
+            if col in df.columns:
+                df[col] = df[col].astype(str)
+        return df
+    except Exception as exc:
+        return pd.DataFrame(columns=["stop_id", "stop_name", "stop_lat", "stop_lon"]).assign(
+            error=str(exc)
+        )
 
 
 @st.cache_data
@@ -63,10 +93,14 @@ def load_weather_bins(engine_name: str) -> tuple[list[str], str | None]:
         else:
             table_name = "mart_reliability_by_route_day"
 
-        _, df = engine_module.execute(
+        sql = (
             f"SELECT DISTINCT precip_bin FROM {table_name} "
             "WHERE precip_bin IS NOT NULL ORDER BY precip_bin"
         )
+        models = load_allowed_models()
+        if engine_name == "bigquery":
+            sql = adapt_sql_for_engine(sql, engine_name, models)
+        _, df = engine_module.execute(sql)
         return df["precip_bin"].astype(str).tolist(), None
     except Exception as exc:
         return ["none", "rain", "snow"], str(exc)
@@ -84,10 +118,14 @@ def load_service_date_range(engine_name: str) -> tuple[date | None, date | None,
         else:
             table_name = "mart_reliability_by_route_day"
 
-        _, df = engine_module.execute(
+        sql = (
             f"SELECT MIN(service_date_mst) AS min_date, MAX(service_date_mst) AS max_date "
             f"FROM {table_name}"
         )
+        models = load_allowed_models()
+        if engine_name == "bigquery":
+            sql = adapt_sql_for_engine(sql, engine_name, models)
+        _, df = engine_module.execute(sql)
         if df.empty:
             return None, None, "No data found in mart_reliability_by_route_day"
         min_timestamp = pd.to_datetime(df.loc[0, "min_date"])
@@ -113,7 +151,15 @@ def read_duckdb_freshness() -> str:
     if not payload:
         return "Unavailable"
     ts = payload.get("duckdb_synced_at_utc") or payload.get("refreshed_at_utc")  # Backward compat
-    return format_timestamp(ts)
+    if ts:
+        return format_timestamp(ts)
+
+    marts = payload.get("marts")
+    if isinstance(marts, dict) and marts:
+        latest = max(marts.values())
+        return f"Latest run_date {latest}"
+
+    return "Awaiting first DuckDB sync"
 
 
 def read_bigquery_freshness() -> str:

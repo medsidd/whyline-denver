@@ -3,29 +3,28 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-from collections.abc import Iterable, Mapping, Sequence
+import os
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Optional
 
 import duckdb
 from google.api_core.exceptions import GoogleAPIError, NotFound
 from google.cloud import storage
 
 from whylinedenver.config import Settings
-from whylinedenver.sync.export_bq_marts import ALLOWLISTED_MARTS
-from whylinedenver.sync.state_store import (
-    SyncStateUploadError,
-    load_sync_state,
-    write_sync_state,
-)
+from whylinedenver.sync.constants import ALLOWLISTED_MARTS
+from whylinedenver.sync.state_store import SyncStateUploadError, load_sync_state, write_sync_state
 
 LOGGER = logging.getLogger(__name__)
 
 DEFAULT_DUCKDB_PATH = Path("data/warehouse.duckdb")
 DEFAULT_CACHE_ROOT = Path("data/marts")
 SYNC_STATE_PATH = Path("data/sync_state.json")
+
+DUCKDB_MAX_AGE_DAYS = int(os.getenv("DUCKDB_MAX_AGE_DAYS", "90"))
 
 # Materialize hot tables; keep colder marts as views.
 HOT_MARTS = {
@@ -87,31 +86,6 @@ def _parse_args(argv: Optional[Sequence[str]]) -> argparse.Namespace:
         help="Print planned statements without mutating DuckDB or sync state.",
     )
     return parser.parse_args(argv)
-
-
-def _load_sync_state(path: Path) -> tuple[Dict[str, str], str]:
-    """Load sync state. Returns (marts_dict, bigquery_updated_at)."""
-    payload = load_sync_state(path=path) or {}
-    marts = dict(payload.get("marts", {}))
-    bq_updated = payload.get("bigquery_updated_at_utc", "")
-    return marts, bq_updated
-
-
-def _write_sync_state(path: Path, state: Mapping[str, str], bigquery_updated_at: str = "") -> None:
-    """Write sync state preserving BigQuery timestamp."""
-    payload = {
-        "duckdb_synced_at_utc": datetime.now(UTC).isoformat(),
-        "marts": dict(state),
-    }
-    # Preserve BigQuery timestamp if it exists
-    if bigquery_updated_at:
-        payload["bigquery_updated_at_utc"] = bigquery_updated_at
-
-    try:
-        write_sync_state(payload, path=path)
-    except SyncStateUploadError as exc:
-        LOGGER.error("%s", exc)
-        raise
 
 
 def _collect_local_run_dates(base: Path, mart_name: str) -> tuple[list[str], str]:
@@ -196,24 +170,121 @@ def _latest_run_date(run_dates: Iterable[str]) -> str:
     return dates[-1] if dates else ""
 
 
-def _build_glob_pattern(
-    base_path: Path, mart_name: str, run_dates: list[str], use_latest_only: bool
-) -> str:
-    """Build the appropriate glob pattern for reading parquet files.
-
-    For snapshot marts without time dimensions, use only the latest run_date
-    to avoid duplicates. For partitioned marts and snapshots with time dimensions,
-    use all run_dates to capture historical data.
-    """
-    if use_latest_only and run_dates:
-        latest = _latest_run_date(run_dates)
-        return str(base_path / mart_name / f"run_date={latest}" / "**" / "*")
-    return str(base_path / mart_name / "run_date=*" / "**" / "*")
-
-
 def _ensure_connection(path: Path) -> duckdb.DuckDBPyConnection:
     path.parent.mkdir(parents=True, exist_ok=True)
     return duckdb.connect(str(path))
+
+
+def _prepare_sync_state(path: Path) -> tuple[dict, dict, str | None]:
+    default: dict[str, object] = {}
+
+    remote_state = load_sync_state(path=path, prefer_gcs=True)
+    if remote_state:
+        serialized = json.dumps(remote_state, indent=2, sort_keys=True) + "\n"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(serialized, encoding="utf-8")
+        default = dict(remote_state)
+
+    local_state = load_sync_state(path=path, prefer_gcs=False) or {}
+    state = dict(local_state or default)
+
+    if default:
+        state.setdefault("duckdb_synced_at_utc", default.get("duckdb_synced_at_utc"))
+        state.setdefault("bigquery_updated_at_utc", default.get("bigquery_updated_at_utc"))
+        existing_marts = state.get("marts")
+        if not isinstance(existing_marts, dict) or not existing_marts:
+            state["marts"] = default.get("marts", {})
+
+    marts_state = state.get("marts")
+    if not isinstance(marts_state, dict):
+        marts_state = {}
+        state["marts"] = marts_state
+    bigquery_updated_at = state.get("bigquery_updated_at_utc")
+    return state, marts_state, bigquery_updated_at
+
+
+def _resolve_mart_sources(
+    *,
+    mart_name: str,
+    local_parquet_root: Optional[Path],
+    cache_root: Path,
+    storage_client: Optional[storage.Client],
+    bucket: str,
+    use_latest_only: bool,
+) -> tuple[list[str], list[str], str]:
+    marker_date = ""
+    run_dates: list[str] = []
+    paths: list[str] = []
+
+    if local_parquet_root:
+        base_path = local_parquet_root.resolve()
+        run_dates, _ = _collect_local_run_dates(local_parquet_root, mart_name)
+    else:
+        assert storage_client is not None
+        base_path = cache_root.resolve()
+        run_dates = _cache_gcs_parquet(storage_client, bucket, mart_name, cache_root)
+        marker_date = _load_export_marker(storage_client, bucket, mart_name)
+
+    run_dates = sorted(run_dates)
+
+    if run_dates and DUCKDB_MAX_AGE_DAYS > 0 and not use_latest_only:
+        cutoff = (date.today() - timedelta(days=DUCKDB_MAX_AGE_DAYS)).isoformat()
+        filtered = [rd for rd in run_dates if rd >= cutoff]
+        if filtered:
+            if filtered != run_dates:
+                LOGGER.info(
+                    "Trimming %s run_dates to last %s days (%d → %d)",
+                    mart_name,
+                    DUCKDB_MAX_AGE_DAYS,
+                    len(run_dates),
+                    len(filtered),
+                )
+            run_dates = filtered
+
+    if use_latest_only and run_dates:
+        run_dates = [_latest_run_date(run_dates)]
+
+    if run_dates:
+        for rd in run_dates:
+            paths.append(str(base_path / mart_name / f"run_date={rd}" / "**" / "*"))
+    else:
+        paths.append(str(base_path / mart_name / "run_date=*" / "**" / "*"))
+
+    return run_dates, paths, marker_date
+
+
+def _refresh_mart(
+    *,
+    con: duckdb.DuckDBPyConnection,
+    mart_name: str,
+    run_dates: list[str],
+    paths: list[str],
+    materialize: bool,
+    sync_strategy: str,
+    dry_run: bool,
+) -> RefreshResult:
+    if len(paths) == 1:
+        source_expr = f"read_parquet('{paths[0]}')"
+    else:
+        array_literal = ", ".join(f"'{path}'" for path in paths)
+        source_expr = f"read_parquet(ARRAY[{array_literal}])"
+
+    statement = (
+        f"CREATE OR REPLACE TABLE {mart_name} AS SELECT * FROM {source_expr}"
+        if materialize
+        else f"CREATE OR REPLACE VIEW {mart_name} AS SELECT * FROM {source_expr}"
+    )
+    LOGGER.info(
+        "Refreshing %s as %s using %s paths (%s)",
+        mart_name,
+        "table" if materialize else "view",
+        len(paths),
+        sync_strategy,
+    )
+    LOGGER.debug("Statement:\n%s", statement)
+    if not dry_run:
+        con.execute(statement)
+    return RefreshResult(mart_name=mart_name, run_dates=run_dates, materialized=materialize)
 
 
 def refresh(
@@ -225,12 +296,11 @@ def refresh(
     dry_run: bool = False,
 ) -> list[RefreshResult]:
     con = _ensure_connection(duckdb_path)
-    sync_state, bigquery_updated_at = _load_sync_state(SYNC_STATE_PATH)
-    LOGGER.debug("Current sync state: %s", sync_state)
+    state, marts_state, bigquery_updated_at = _prepare_sync_state(SYNC_STATE_PATH)
+    LOGGER.debug("Current sync state marts: %s", marts_state)
     LOGGER.debug("BigQuery last updated: %s", bigquery_updated_at)
 
     results: list[RefreshResult] = []
-    updated_state = dict(sync_state)
 
     storage_client: Optional[storage.Client] = None
     if local_parquet_root is None:
@@ -242,59 +312,47 @@ def refresh(
         marker_date = ""
         use_latest_only = mart_name in LATEST_RUN_DATE_ONLY_MARTS
 
-        if local_parquet_root:
-            run_dates, glob = _collect_local_run_dates(local_parquet_root, mart_name)
-            if glob and use_latest_only:
-                glob = _build_glob_pattern(
-                    local_parquet_root.resolve(), mart_name, run_dates, use_latest_only
-                )
-        else:
-            assert storage_client is not None
-            run_dates = _cache_gcs_parquet(
-                storage_client, settings.GCS_BUCKET, mart_name, cache_root
-            )
-            glob = _build_glob_pattern(cache_root, mart_name, run_dates, use_latest_only)
-            marker_date = _load_export_marker(storage_client, settings.GCS_BUCKET, mart_name)
+        run_dates, paths, marker_date = _resolve_mart_sources(
+            mart_name=mart_name,
+            local_parquet_root=local_parquet_root,
+            cache_root=cache_root,
+            storage_client=storage_client,
+            bucket=settings.GCS_BUCKET,
+            use_latest_only=use_latest_only,
+        )
 
-        if not glob:
+        if not paths:
             LOGGER.warning("Skipping %s; no parquet files discovered", mart_name)
             continue
 
         materialize = mart_name in HOT_MARTS
-        statement = (
-            f"CREATE OR REPLACE TABLE {mart_name} AS " f"SELECT * FROM read_parquet('{glob}')"
-            if materialize
-            else f"CREATE OR REPLACE VIEW {mart_name} AS " f"SELECT * FROM read_parquet('{glob}')"
-        )
-
         sync_strategy = "latest run_date only" if use_latest_only else "all run_dates"
-        LOGGER.info(
-            "Refreshing %s as %s using %s (%s)",
-            mart_name,
-            "table" if materialize else "view",
-            glob,
-            sync_strategy,
+        result = _refresh_mart(
+            con=con,
+            mart_name=mart_name,
+            run_dates=run_dates,
+            paths=paths,
+            materialize=materialize,
+            sync_strategy=sync_strategy,
+            dry_run=dry_run,
         )
-        LOGGER.debug("Statement:\n%s", statement)
-
+        results.append(result)
         if not dry_run:
-            con.execute(statement)
             latest = _latest_run_date(run_dates)
             if not latest and not local_parquet_root:
                 latest = marker_date
             if latest:
-                updated_state[mart_name] = latest
-
-        results.append(
-            RefreshResult(
-                mart_name=mart_name,
-                run_dates=run_dates,
-                materialized=materialize,
-            )
-        )
+                marts_state[mart_name] = latest
 
     if not dry_run:
-        _write_sync_state(SYNC_STATE_PATH, updated_state, bigquery_updated_at)
+        state["duckdb_synced_at_utc"] = datetime.now(UTC).isoformat()
+        if bigquery_updated_at:
+            state["bigquery_updated_at_utc"] = bigquery_updated_at
+        try:
+            write_sync_state(state, path=SYNC_STATE_PATH)
+        except SyncStateUploadError as exc:
+            LOGGER.error("%s", exc)
+            raise
     con.close()
     return results
 

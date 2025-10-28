@@ -19,6 +19,11 @@ BRAND_ERROR = os.getenv("APP_ERROR_COLOR", "#c77f6d")  # Terra Cotta
 BRAND_NAME = os.getenv("APP_BRAND_NAME", "WhyLine Denver")
 BRAND_TAGLINE = os.getenv("APP_TAGLINE", "Ask anything about Denver transit — in your own words")
 
+STRIPE_GRADIENT = (
+    f"linear-gradient(90deg, {BRAND_PRIMARY} 0%, {BRAND_ACCENT} 25%, "
+    f"{BRAND_SUCCESS} 50%, {BRAND_WARNING} 75%, {BRAND_ERROR} 100%)"
+)
+
 # Chart color palette (5-color sequential for data viz)
 CHART_COLORS = [BRAND_PRIMARY, BRAND_SUCCESS, BRAND_ACCENT, BRAND_WARNING, BRAND_ERROR]
 
@@ -223,6 +228,60 @@ def inject_custom_css() -> None:
             font-family: 'Inter', sans-serif;
         }}
 
+        .status-badge {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.75rem;
+            background-color: rgba(135, 167, 179, 0.08);
+            border-left: 4px solid rgba(135, 167, 179, 0.3);
+            border-radius: 10px;
+            padding: 0.65rem 0.9rem;
+            margin-bottom: 0.6rem;
+        }}
+
+        .status-badge__label {{
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #9a8e7e;
+        }}
+
+        .status-badge__value {{
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: {BRAND_PRIMARY};
+        }}
+
+        .status-badge--success {{
+            background-color: rgba(163, 184, 140, 0.16);
+            border-left-color: {BRAND_SUCCESS};
+        }}
+
+        .status-badge--accent {{
+            background-color: rgba(212, 165, 116, 0.16);
+            border-left-color: {BRAND_ACCENT};
+        }}
+
+        .status-badge--warning {{
+            background-color: rgba(232, 184, 99, 0.18);
+            border-left-color: {BRAND_WARNING};
+        }}
+
+        .status-badge--success .status-badge__value {{
+            color: {BRAND_SUCCESS};
+        }}
+
+        .status-badge--accent .status-badge__value {{
+            color: {BRAND_ACCENT};
+        }}
+
+        .status-badge--warning .status-badge__value {{
+            color: {BRAND_WARNING};
+        }}
+
         .stSuccess {{
             background-color: rgba(163, 184, 140, 0.1);
             border-left-color: {BRAND_SUCCESS};
@@ -284,6 +343,67 @@ def inject_custom_css() -> None:
             padding: 1rem;
         }}
 
+        /* ═══ RETRO HEADER ═══ */
+        .retro-banner {{
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 2.5rem;
+            margin-bottom: 2.5rem;
+            padding: 2.5rem;
+            background: linear-gradient(135deg, rgba(135, 167, 179, 0.15) 0%, rgba(212, 165, 116, 0.12) 100%);
+            border-radius: 16px;
+            border: 4px solid rgba(135, 167, 179, 0.3);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+        }}
+
+        .retro-banner__stripe {{
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: {STRIPE_GRADIENT};
+        }}
+
+        .retro-banner__logo {{
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+
+        .retro-banner__logo-img {{
+            height: 140px;
+            width: auto;
+            filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.5));
+        }}
+
+        .retro-banner__text {{
+            min-width: 0;
+        }}
+
+        .retro-banner__title {{
+            margin: 0;
+            font-size: 3.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, {BRAND_PRIMARY} 0%, {BRAND_ACCENT} 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+        }}
+
+        .retro-banner__tagline {{
+            margin: 0.75rem 0 0 0;
+            color: {BRAND_ACCENT};
+            font-size: 1.3rem;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+        }}
+
         /* ═══ DOWNLOAD BUTTON ═══ */
         .stDownloadButton > button {{
             background-color: #322e38;
@@ -325,6 +445,111 @@ def inject_custom_css() -> None:
         h1 a, h2 a, h3 a, h4 a, h5 a, h6 a {{
             display: none !important;
         }}
+
+        /* ═══ RESPONSIVE ADJUSTMENTS ═══ */
+        @media (max-width: 1200px) {{
+            h1 {{
+                font-size: 2.75rem;
+            }}
+            h2 {{
+                font-size: 1.8rem;
+            }}
+            .stButton > button {{
+                font-size: 1rem;
+                padding: 0.65rem 1.5rem;
+            }}
+            .retro-banner {{
+                gap: 1.75rem;
+                padding: 2rem;
+            }}
+            .retro-banner__logo-img {{
+                height: 120px;
+            }}
+            .retro-banner__title {{
+                font-size: 3rem;
+            }}
+        }}
+
+        @media (max-width: 900px) {{
+            .block-container {{
+                padding: 1.5rem 1.25rem 2.5rem;
+            }}
+            div[data-testid="stHorizontalBlock"] {{
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.85rem !important;
+            }}
+            div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {{
+                width: 100% !important;
+                flex: 1 1 100% !important;
+            }}
+            .retro-banner {{
+                padding: 1.75rem;
+                gap: 1.5rem;
+            }}
+            .retro-banner__title {{
+                font-size: 2.6rem;
+            }}
+            .retro-banner__tagline {{
+                font-size: 1.15rem;
+            }}
+            .retro-banner__logo-img {{
+                height: 110px;
+            }}
+        }}
+
+        @media (max-width: 680px) {{
+            html, body, [class*="css"] {{
+                font-size: 15px;
+            }}
+            h1 {{
+                font-size: 2.1rem;
+            }}
+            h2 {{
+                font-size: 1.6rem;
+            }}
+            h3 {{
+                font-size: 1.3rem;
+            }}
+            .retro-banner {{
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 1.5rem;
+            }}
+            .retro-banner__logo {{
+                width: 100%;
+                justify-content: flex-start;
+            }}
+            .retro-banner__logo-img {{
+                height: 90px;
+            }}
+            .retro-banner__text {{
+                width: 100%;
+            }}
+            .retro-banner__title {{
+                font-size: 2.3rem;
+            }}
+            .retro-banner__tagline {{
+                font-size: 1rem;
+                margin-top: 0.5rem;
+            }}
+            .stButton > button {{
+                font-size: 0.95rem;
+                padding: 0.65rem 1.1rem;
+                width: 100%;
+            }}
+            [data-testid="stSidebar"] {{
+                border-right: none;
+            }}
+            .status-badge {{
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.25rem;
+            }}
+            .stAlert {{
+                font-size: 0.95rem;
+            }}
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -335,45 +560,30 @@ def render_header() -> None:
     """Render custom header with logo and tagline - ENHANCED RETRO VERSION."""
     logo_path = Path(__file__).parent.parent / "assets" / "whylinedenver-logo@512.png"
 
-    # Retro rainbow stripe gradient
-    stripe_gradient = f"linear-gradient(90deg, {BRAND_PRIMARY} 0%, {BRAND_ACCENT} 25%, {BRAND_SUCCESS} 50%, {BRAND_WARNING} 75%, {BRAND_ERROR} 100%)"
-
     if logo_path.exists():
         # Encode logo as base64 for embedding
         with open(logo_path, "rb") as f:
             logo_data = base64.b64encode(f.read()).decode()
 
         # Create image element (no animation)
-        img_element = f'<img src="data:image/png;base64,{logo_data}" style="height: 140px; width: auto; filter: drop-shadow(0 6px 16px rgba(0,0,0,0.5));" />'
+        img_element = (
+            f'<img src="data:image/png;base64,{logo_data}" alt="{BRAND_NAME} logo" '
+            'class="retro-banner__logo-img" />'
+        )
     else:
         # Fallback: no image
         img_element = ""
 
+    logo_markup = f'<div class="retro-banner__logo">{img_element}</div>' if img_element else ""
+
     st.markdown(
         f"""
-        <div style="display: flex; align-items: center; gap: 2.5rem; margin-bottom: 2.5rem; padding: 2.5rem;
-                    background: linear-gradient(135deg, rgba(135, 167, 179, 0.15) 0%, rgba(212, 165, 116, 0.12) 100%);
-                    border-radius: 16px;
-                    border: 4px solid rgba(135, 167, 179, 0.3);
-                    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-                    position: relative;
-                    overflow: hidden;">
-            <div style="position: absolute; top: 0; left: 0; right: 0; height: 6px; background: {stripe_gradient};"></div>
-            {img_element}
-            <div>
-                <h1 style="margin: 0; font-size: 3.5rem; font-weight: 800;
-                           background: linear-gradient(135deg, {BRAND_PRIMARY} 0%, {BRAND_ACCENT} 100%);
-                           -webkit-background-clip: text;
-                           -webkit-text-fill-color: transparent;
-                           background-clip: text;
-                           letter-spacing: -0.03em;
-                           line-height: 1.1;">
-                    {BRAND_NAME}
-                </h1>
-                <p style="margin: 0.75rem 0 0 0; color: {BRAND_ACCENT}; font-size: 1.3rem;
-                          font-weight: 500; letter-spacing: 0.02em;">
-                    {BRAND_TAGLINE}
-                </p>
+        <div class="retro-banner">
+            <div class="retro-banner__stripe"></div>
+            {logo_markup}
+            <div class="retro-banner__text">
+                <h1 class="retro-banner__title">{BRAND_NAME}</h1>
+                <p class="retro-banner__tagline">{BRAND_TAGLINE}</p>
             </div>
         </div>
         """,
@@ -389,7 +599,7 @@ def render_footer() -> None:
         <div style="text-align: center; padding: 2rem 0; color: #9a8e7e; font-size: 0.9rem;">
             <p style="margin-bottom: 0.5rem;">
                 <strong style="color: {BRAND_PRIMARY};">{BRAND_NAME}</strong> —
-                Built with <span style="color: {BRAND_ACCENT};">♥</span> using dbt, DuckDB, BigQuery, and Streamlit
+                Built with <span style="color: {BRAND_ACCENT};">♥</span> by your Denver City neighbor.
             </p>
             <p style="margin-bottom: 0.5rem; font-size: 0.85rem;">
                 Data sources:

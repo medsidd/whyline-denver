@@ -49,7 +49,7 @@ test-ingest:
 run: app
 
 app:
-	$(PY) -m streamlit run app/streamlit_app.py
+	STREAMLIT_SERVER_BASEURLPATH="" $(PY) -m streamlit run app/streamlit_app.py
 
 # Ingest ----------------------------------------------------------------------
 ingest-all: ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts

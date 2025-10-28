@@ -63,7 +63,7 @@ gcloud run jobs create realtime-load \
   --region "${REGION}" \
   --image "${IMAGE_URI}" \
   --service-account "${SERVICE_ACCOUNT}" \
-  --set-env-vars JOB_TYPE=load,GCS_BUCKET=whylinedenver-raw,SYNC_STATE_GCS_BUCKET=whylinedenver-raw \
+  --set-env-vars JOB_TYPE=load,GCS_BUCKET=whylinedenver-raw,SYNC_STATE_GCS_BUCKET=whylinedenver-raw,SYNC_STATE_GCS_BLOB=state/sync_state.json \
   --max-retries 1
 ```
 
@@ -101,7 +101,7 @@ gcloud run jobs update realtime-load \
   --region "${REGION}" \
   --image "${IMAGE_URI}" \
   --service-account realtime-jobs@${PROJECT_ID}.iam.gserviceaccount.com \
-  --set-env-vars JOB_TYPE=load,GCS_BUCKET=whylinedenver-raw,SYNC_STATE_GCS_BUCKET=whylinedenver-raw,GCP_PROJECT_ID=${PROJECT_ID},BQ_DATASET_RAW=raw_denver,BQ_DATASET_STG=stg_denver,BQ_DATASET_MART=mart_denver,DBT_PROFILES_DIR=/app/dbt/profiles
+  --set-env-vars JOB_TYPE=load,GCS_BUCKET=whylinedenver-raw,SYNC_STATE_GCS_BUCKET=whylinedenver-raw,SYNC_STATE_GCS_BLOB=state/sync_state.json,GCP_PROJECT_ID=${PROJECT_ID},BQ_DATASET_RAW=raw_denver,BQ_DATASET_STG=stg_denver,BQ_DATASET_MART=mart_denver,DBT_PROFILES_DIR=/app/dbt/profiles
 
 # Smoke-test both jobs
 gcloud run jobs execute realtime-ingest --project "${PROJECT_ID}" --region "${REGION}" --wait

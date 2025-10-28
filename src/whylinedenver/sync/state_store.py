@@ -37,6 +37,38 @@ def _ensure_storage_client():
     return storage.Client()
 
 
+def download_sync_state(
+    *,
+    path: Path = DEFAULT_SYNC_STATE_PATH,
+) -> bool:
+    """Ensure a local copy of sync_state.json exists by downloading from GCS if available."""
+    target = _gcs_target()
+    if not target:
+        LOGGER.debug("No GCS target configured; skipping sync_state download.")
+        return False
+
+    bucket_name, blob_name = target
+    try:
+        client = _ensure_storage_client()
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(blob_name)
+        if not blob.exists():
+            LOGGER.info("sync_state.json not found in gs://%s/%s", bucket_name, blob_name)
+            return False
+        contents = blob.download_as_bytes()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(contents)
+        LOGGER.debug(
+            "Downloaded sync_state.json from gs://%s/%s to %s", bucket_name, blob_name, path
+        )
+        return True
+    except Exception as exc:  # pragma: no cover - network/credential errors
+        LOGGER.warning(
+            "Failed to download sync_state.json from gs://%s/%s: %s", bucket_name, blob_name, exc
+        )
+        return False
+
+
 def write_sync_state(
     payload: Mapping[str, Any],
     *,

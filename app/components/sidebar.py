@@ -30,6 +30,19 @@ from utils.data_loaders import (
 )
 
 
+def _freshness_badge(label: str, value: str, variant: str) -> None:
+    """Render a styled freshness badge in the sidebar."""
+    st.markdown(
+        f"""
+        <div class="status-badge status-badge--{variant}">
+            <span class="status-badge__label">{label}</span>
+            <span class="status-badge__value">{value}</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render() -> tuple[str, dict[str, Any]]:
     """
     Render sidebar with engine selector, filters, and freshness indicators.
@@ -38,13 +51,29 @@ def render() -> tuple[str, dict[str, Any]]:
         (engine, filters_dict): Selected engine and filter values
     """
     with st.sidebar:
+        st.header("Freshness")
+        bq_freshness = read_bigquery_freshness()
+        duckdb_freshness = read_duckdb_freshness()
+        _freshness_badge(
+            "dbt build (BigQuery)",
+            bq_freshness,
+            "primary" if bq_freshness != "Unavailable" else "warning",
+        )
+        _freshness_badge(
+            "DuckDB sync",
+            duckdb_freshness,
+            "accent" if duckdb_freshness != "Unavailable" else "warning",
+        )
+        st.caption("BigQuery: full corpus  \nDuckDB: ≈90 days cached for fast local exploration.")
+
+        st.markdown("---")
         st.header("Controls")
 
-        # Engine selector
         engine = st.radio(
             "Engine",
             ["duckdb", "bigquery"],
             index=0 if settings.ENGINE == "duckdb" else 1,
+            format_func=lambda value: "DuckDB" if value == "duckdb" else "BigQuery",
             help="Switch between DuckDB (local, fast) and BigQuery (cloud, up-to-date)",
         )
 
@@ -130,20 +159,6 @@ def render() -> tuple[str, dict[str, Any]]:
                 st.caption(filter_text)
         else:
             st.caption("_No filters applied_")
-
-        # Freshness indicators
-        st.markdown("---")
-        st.subheader("Freshness")
-        st.caption("BigQuery dbt build")
-        st.write(read_bigquery_freshness())
-        st.caption("DuckDB sync")
-        st.write(read_duckdb_freshness())
-
-        # Resources
-        st.markdown("---")
-        st.subheader("Resources")
-        st.markdown("[📚 Model Documentation](https://medsidd.github.io/whyline-denver/)")
-        st.caption("Interactive dbt docs with full lineage graphs and column-level metadata")
 
     # Build filters dictionary
     filters = {

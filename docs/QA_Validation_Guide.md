@@ -550,6 +550,64 @@ make sync-duckdb
 
 ---
 
+### Section 7: Streamlit Exports & Badges
+
+**What it checks**: App-level UX polish covering downloads and freshness indicators.
+
+> Tip: A dedicated **Downloads** section appears even before you generate SQL, so you can validate exports on a fresh session.
+
+#### 7.1 Per-query CSV Download
+
+1. Launch the Streamlit app locally (`make app`) or open the deployed Hugging Face Space.
+2. Run a prebuilt question (e.g., "Worst snow routes") to populate Step 3.
+3. Click **Download Results as CSV**.
+
+**Expected result**: `whylinedenver_results.csv` downloads with identical columns and row count to the table in Step 3.
+
+#### 7.2 Full Mart Export Guardrails
+
+1. Expand the **Downloads** panel beneath Step 3.
+2. Choose `mart_reliability_by_route_day`.
+3. Leave the row cap at `200,000` (or set to `5,000` for a quick smoke test).
+4. Toggle **Filter by** `service_date_mst` (auto-detected), pick a short date window, then click **Prepare CSV export**.
+
+**Expected result**:
+- Success message such as `Prepared 5,000 rows from Reliability by route & day on duckdb`.
+- `⬇️ Download prepared CSV` button appears, producing a file named like `mart_reliability_by_route_day_duckdb_20250118_20250124_20250124T153000Z.csv`.
+- SQL preview shows a guarded `SELECT … LIMIT …` statement, with a `BETWEEN DATE` clause when a window is selected.
+
+#### 7.3 Alternate Date Columns
+
+1. Switch the mart to `mart_crash_proximity_by_stop`.
+2. Enable the date filter (auto-detected as `as_of_date`), set a recent 30-day window, and prepare the export.
+
+**Expected result**: The export succeeds with a guarded WHERE clause on `as_of_date`, and the success message reflects the chosen column and window.
+
+#### 7.4 Date-less Marts
+
+1. Switch the mart to `mart_priority_hotspots`.
+
+**Expected result**: Date toggle is disabled with helper text (`exports are not date-bounded`) and the export still succeeds without a WHERE clause.
+
+#### 7.5 DuckDB Warehouse Snapshot
+
+1. In the same **Downloads** panel, scroll to **DuckDB warehouse snapshot**.
+2. Click **🦆📦 Download DuckDB warehouse**.
+
+**Expected result**: Browser downloads `warehouse.duckdb`. Caption displays file size (e.g., `1.2 GB`) and a "Last sync" timestamp pulled from `sync_state.json`.
+
+#### 7.6 Freshness Badges
+
+1. Inspect the sidebar **Freshness** section.
+
+**Expected result**:
+- Two styled badges: `dbt build (BigQuery)` and `DuckDB sync`.
+- Timestamps align with `read_bigquery_freshness()` / `read_duckdb_freshness()` values (UTC).
+- If the value is `Unavailable`, the badge appears in the amber "warning" style.
+- DuckDB freshness represents the latest sync of the 90-day local cache (trimmed via `DUCKDB_MAX_AGE_DAYS`); BigQuery continues to expose the full historical corpus.
+
+---
+
 ## Expected Results by Stage
 
 ### Day 1 (First Day of Operation)

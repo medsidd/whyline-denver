@@ -2,6 +2,9 @@
 set -exuo pipefail
 
 JOB_TYPE=${JOB_TYPE:-ingest}
+SYNC_STATE_GCS_BLOB=${SYNC_STATE_GCS_BLOB:-state/sync_state.json}
+
+export SYNC_STATE_GCS_BLOB
 
 log() {
   printf '[%s] %s\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "$*"
@@ -33,6 +36,7 @@ case "${JOB_TYPE}" in
     make bq-load-realtime
     make dbt-run-realtime
     log "Updating BigQuery freshness timestamp"
+    mkdir -p data
     make update-bq-timestamp
     ;;
   *)
