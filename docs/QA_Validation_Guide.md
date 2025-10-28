@@ -237,7 +237,7 @@ WITH windows AS (
            TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), DAY),
            INTERVAL offset MINUTE
          ) AS window_start
-  FROM UNNEST(GENERATE_ARRAY(0, 24 * 60 - 5, 5)) AS offset
+  FROM UNNEST(GENERATE_ARRAY(0, 24 * 60, 5)) AS offset
 ),
 captured AS (
   SELECT DISTINCT TIMESTAMP_TRUNC(feed_ts_utc, MINUTE) AS minute_bucket
