@@ -53,7 +53,9 @@ def update_bigquery_timestamp() -> int:
         if not SYNC_STATE_PATH.exists():
             sync_state = {}
         else:
-            LOGGER.error("sync_state.json exists but is malformed or unreadable at %s", SYNC_STATE_PATH)
+            LOGGER.error(
+                "sync_state.json exists but is malformed or unreadable at %s", SYNC_STATE_PATH
+            )
             return 1
 
     # Update BigQuery timestamp while preserving other fields
