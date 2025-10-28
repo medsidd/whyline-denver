@@ -69,6 +69,7 @@ def build_chart(df: pd.DataFrame) -> alt.Chart | None:
                 ),
                 tooltip=[
                     alt.Tooltip("stop_id:N", title="Stop ID"),
+                    alt.Tooltip("stop_name:N", title="Stop Name"),
                     alt.Tooltip("event_hour_mst:O", title="Hour"),
                     alt.Tooltip("pct_on_time:Q", title="On-Time %", format=".1f"),
                 ],
@@ -172,16 +173,20 @@ def build_chart(df: pd.DataFrame) -> alt.Chart | None:
         else:
             color_field = None
 
+        tooltip_fields = [
+            alt.Tooltip("service_date_mst:T", title="Date", format="%Y-%m-%d"),
+            alt.Tooltip("pct_on_time:Q", title="On-Time %", format=".1f"),
+        ]
+        if "stop_name" in clean_df.columns:
+            tooltip_fields.insert(0, alt.Tooltip("stop_name:N", title="Stop Name"))
+
         chart = (
             alt.Chart(clean_df)
             .mark_line(point=True, strokeWidth=3, size=80)
             .encode(
                 x=alt.X("service_date_mst:T", title="Date"),
                 y=alt.Y("pct_on_time:Q", title="On-Time %", scale=alt.Scale(domain=[0, 100])),
-                tooltip=[
-                    alt.Tooltip("service_date_mst:T", title="Date", format="%Y-%m-%d"),
-                    alt.Tooltip("pct_on_time:Q", title="On-Time %", format=".1f"),
-                ]
+                tooltip=tooltip_fields
                 + (
                     [
                         alt.Tooltip(
@@ -254,6 +259,35 @@ def build_chart(df: pd.DataFrame) -> alt.Chart | None:
     return None
 
 
+def _select_metric_column(map_df: pd.DataFrame) -> tuple[str | None, pd.Series | None]:
+    """Pick a numeric column to use for radius/tooltip."""
+    preferred_order = [
+        "priority_score",
+        "priority_rank",
+        "crash_250m_cnt",
+        "crash_100m_cnt",
+        "vuln_score_0_100",
+        "reliability_score_0_100",
+        "pct_on_time",
+    ]
+
+    numeric_cols = [
+        col
+        for col in map_df.columns
+        if pd.api.types.is_numeric_dtype(map_df[col]) and col not in {"lat", "lon"}
+    ]
+
+    for col in preferred_order:
+        if col in numeric_cols:
+            return col, map_df[col]
+
+    for col in numeric_cols:
+        if col not in {"stop_id"}:
+            return col, map_df[col]
+
+    return None, None
+
+
 def build_map(df: pd.DataFrame, engine_module=None) -> object | None:
     """
     Build a pydeck hotspot map for priority stops.
@@ -276,7 +310,7 @@ def build_map(df: pd.DataFrame, engine_module=None) -> object | None:
     # ═══════════════════════════════════════════════════════════════════════════
     # NEW MAP TYPE: HOTSPOT MAP - Priority Stops
     # ═══════════════════════════════════════════════════════════════════════════
-    if {"stop_id", "priority_score"} <= set(map_df.columns):
+    if "stop_id" in map_df.columns:
         # Check if lat/lon already present
         if not (
             {"lat", "lon"} <= set(map_df.columns) or {"stop_lat", "stop_lon"} <= set(map_df.columns)
@@ -295,7 +329,7 @@ def build_map(df: pd.DataFrame, engine_module=None) -> object | None:
                             stops_table = "stg_gtfs_stops"
 
                         _, stops_df = engine_module.execute(
-                            f"SELECT stop_id, stop_lat, stop_lon FROM {stops_table}"
+                            f"SELECT stop_id, stop_name, stop_lat, stop_lon FROM {stops_table}"
                         )
 
                         # Join with map data
@@ -311,6 +345,11 @@ def build_map(df: pd.DataFrame, engine_module=None) -> object | None:
         if "stop_lat" in map_df.columns:
             map_df = map_df.rename(columns={"stop_lat": "lat", "stop_lon": "lon"})
 
+        if "stop_name" not in map_df.columns:
+            map_df["stop_name"] = map_df.get("stop_id", "")
+        else:
+            map_df["stop_name"] = map_df["stop_name"].fillna(map_df.get("stop_id", ""))
+
         # Filter out invalid coordinates
         map_df = map_df.dropna(subset=["lat", "lon"])
         map_df = map_df[(map_df["lat"] != 0) & (map_df["lon"] != 0)]
@@ -318,12 +357,22 @@ def build_map(df: pd.DataFrame, engine_module=None) -> object | None:
         if len(map_df) == 0:
             return None
 
-        # Normalize priority_score for visualization (radius scaling)
-        max_score = map_df["priority_score"].max()
-        if max_score > 0:
-            map_df["radius"] = (map_df["priority_score"] / max_score) * 200 + 50
+        metric_col, metric_series = _select_metric_column(map_df)
+        metric_label = None
+        if metric_col and metric_series is not None:
+            metric_values = metric_series.fillna(0).abs()
+            max_val = metric_values.max()
+            if max_val > 0:
+                map_df["radius"] = (metric_values / max_val) * 200 + 50
+            else:
+                map_df["radius"] = 100
+            map_df["metric_value_display"] = metric_series.round(2).fillna("–")
+            metric_label = metric_col.replace("_", " ").title()
         else:
-            map_df["radius"] = 100
+            map_df["radius"] = 120
+            metric_col = None
+            metric_label = None
+            map_df["metric_value_display"] = "–"
 
         # Create scatterplot layer
         layer = pdk.Layer(
@@ -345,12 +394,16 @@ def build_map(df: pd.DataFrame, engine_module=None) -> object | None:
         )
 
         # Create deck with custom tooltip
+        tooltip_html = "<b>Stop:</b> {stop_name} ({stop_id})"
+        if metric_label:
+            tooltip_html += f"<br/><b>{metric_label}:</b> {{metric_value_display}}"
+
         return pdk.Deck(
             layers=[layer],
             initial_view_state=view_state,
             map_style="mapbox://styles/mapbox/dark-v10",
             tooltip={
-                "html": "<b>Stop ID:</b> {stop_id}<br/><b>Priority Score:</b> {priority_score:.2f}",
+                "html": tooltip_html,
                 "style": {
                     "backgroundColor": "#322e38",
                     "color": "#e8d5c4",

@@ -10,6 +10,7 @@ from typing import Optional
 from google.cloud import bigquery, storage
 
 from whylinedenver.config import Settings
+from whylinedenver.sync.constants import ALLOWLISTED_MARTS
 from whylinedenver.sync.state import (
     BQStateStore,
     CompositeStateStore,
@@ -18,16 +19,6 @@ from whylinedenver.sync.state import (
 )
 
 LOGGER = logging.getLogger(__name__)
-
-ALLOWLISTED_MARTS: tuple[str, ...] = (
-    "mart_reliability_by_route_day",
-    "mart_reliability_by_stop_hour",
-    "mart_crash_proximity_by_stop",
-    "mart_access_score_by_stop",
-    "mart_vulnerability_by_stop",
-    "mart_priority_hotspots",
-    "mart_weather_impacts",
-)
 
 PARTITIONED_MARTS: frozenset[str] = frozenset(
     {"mart_reliability_by_route_day", "mart_reliability_by_stop_hour"}

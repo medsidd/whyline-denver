@@ -38,6 +38,14 @@ make app
 
 That's it. You now have a local analytical database with 7 marts covering reliability, safety, equity, and accessibility—refreshed nightly by automated workflows.
 
+## Exports & Badges
+
+- Keep the per-query `Download Results as CSV` button for ad hoc answers.
+- Use the dedicated **Downloads** panel (available even before you ask a question) to export an entire mart with a safety row cap and optional date filters—columns such as `service_date_mst` or `as_of_date` are detected automatically, all routed through the same SQL guardrails.
+- Grab the latest `warehouse.duckdb` snapshot from the same panel for full offline exploration.
+- Sidebar freshness badges surface the most recent BigQuery dbt build and DuckDB sync timestamps so you know when each engine was updated.
+- DuckDB mirrors only the most recent 90 days of time-partitioned marts (configurable via `DUCKDB_MAX_AGE_DAYS`), keeping local storage lean while BigQuery retains the full corpus.
+
 ## Production Path (BigQuery)
 
 For production workloads or larger teams:
@@ -54,7 +62,7 @@ For production workloads or larger teams:
    Select **BigQuery** as the query engine. Queries will show dry-run byte estimates and respect `MAX_BYTES_BILLED` limits.
 
 4. **Deploy to Hugging Face Spaces** (optional):
-   See [.github/workflows/README.md](.github/workflows/README.md) for deployment instructions.
+   See [`deploy/hf-space/README.md`](deploy/hf-space/README.md) for deployment instructions.
 
 5. **Provision realtime Cloud Run jobs**:
    Follow [`deploy/cloud-run/README.md`](deploy/cloud-run/README.md) to build the container, create Cloud Run jobs, and wire up Cloud Scheduler every 5 minutes.
