@@ -48,7 +48,13 @@ def update_bigquery_timestamp() -> int:
         generated_at = datetime.now(UTC).isoformat()
 
     # Load existing sync state (prefer the GCS copy if available)
-    sync_state = load_sync_state(path=SYNC_STATE_PATH) or {}
+    sync_state = load_sync_state(path=SYNC_STATE_PATH)
+    if sync_state is None:
+        if not SYNC_STATE_PATH.exists():
+            sync_state = {}
+        else:
+            LOGGER.error("sync_state.json exists but is malformed or unreadable at %s", SYNC_STATE_PATH)
+            return 1
 
     # Update BigQuery timestamp while preserving other fields
     sync_state["bigquery_updated_at_utc"] = generated_at
