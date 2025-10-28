@@ -56,6 +56,60 @@ For production workloads or larger teams:
 4. **Deploy to Hugging Face Spaces** (optional):
    See [.github/workflows/README.md](.github/workflows/README.md) for deployment instructions.
 
+5. **Provision realtime Cloud Run jobs**:
+   Follow [`deploy/cloud-run/README.md`](deploy/cloud-run/README.md) to build the container, create Cloud Run jobs, and wire up Cloud Scheduler every 5 minutes.
+
+## LLM Provider (Gemini)
+
+The Streamlit app can swap between the stubbed SQL generator and Google Gemini while keeping the same guardrails. To enable Gemini:
+
+- Install dependencies with `pip install -r requirements.txt` (includes `google-generativeai`).
+- Set `LLM_PROVIDER=gemini` in `.env`.
+- Add `GEMINI_API_KEY=<your key>` and optionally override `GEMINI_MODEL` (default: `gemini-2.5-flash`).
+
+When Gemini is active, generated SQL still flows through `sanitize_sql` so any non-SELECT statements are rejected before execution.
+
+## App Theming & Branding
+
+WhyLine Denver features a custom **"Vintage Transit"** visual identity that goes beyond typical Streamlit aesthetics:
+
+**🎨 Design Philosophy:** Professional-fun retro aesthetic inspired by vintage transit signage and mid-century public infrastructure.
+
+**Color Palette:**
+- **Dusty Sky Blue** (`#87a7b3`) – Primary brand color, vintage transit-friendly
+- **Vintage Gold** (`#d4a574`) – Accent color, warm retro signage
+- **Sage Green** (`#a3b88c`) – Success/positive metrics
+- **Soft Amber** (`#e8b863`) – Warnings/attention
+- **Terra Cotta** (`#c77f6d`) – Errors/critical alerts
+- **Deep Plum-Gray** (`#232129`) – Background, easy on eyes
+- **Warm Cream** (`#e8d5c4`) – Text, like aged paper
+
+**Typography:**
+- **Headers:** Space Grotesk (geometric, retro-modern)
+- **Body:** Inter (clean, readable, professional)
+- **Code:** JetBrains Mono (SQL blocks)
+
+**Theming Features:**
+- Heavy custom CSS overrides to hide Streamlit branding
+- Branded header with logo and tagline
+- Consistent chart color palette across all visualizations
+- Google Fonts integration for custom typography
+- Gradient buttons with hover effects
+- Rounded corners, subtle shadows, and warm color transitions
+
+All brand colors are configurable via environment variables in [.env](.env):
+```bash
+APP_BRAND_NAME=WhyLine Denver
+APP_TAGLINE=Ask anything about Denver transit — in your own words
+APP_PRIMARY_COLOR=#87a7b3
+APP_ACCENT_COLOR=#d4a574
+APP_SUCCESS_COLOR=#a3b88c
+APP_WARNING_COLOR=#e8b863
+APP_ERROR_COLOR=#c77f6d
+```
+
+Logo assets are stored in [`app/assets/`](app/assets/) with multiple resolutions (512px, 1024px, 2048px, 4096px) for responsive display.
+
 ## Data Architecture: Bronze → Silver → Gold
 
 WhyLine Denver follows a **medallion architecture** to progressively refine raw data into trusted analytical datasets:
@@ -64,7 +118,7 @@ WhyLine Denver follows a **medallion architecture** to progressively refine raw 
 ┌─── BRONZE LAYER ────────────────────────────────────────────┐
 │  Raw ingestion: Python CLIs fetch data from public APIs     │
 │  • GTFS Static (monthly): routes, stops, schedules          │
-│  • GTFS Realtime (micro-batch, every 5 min): trip delays, positions  │
+│  • GTFS Realtime (micro-batch, every 5 min): trip delays, positions │
 │  • Weather (daily): NOAA temperature, precipitation, snow   │
 │  • Crashes (nightly): Denver 5-year traffic accident data   │
 │  • Sidewalks (nightly): pedestrian infrastructure segments  │
@@ -119,7 +173,7 @@ WhyLine Denver follows a **medallion architecture** to progressively refine raw 
 
 ### Pipeline Architecture Diagram
 
-![WhyLine Denver Pipeline Architecture](docs/diagrams/exports/pipeline.svg)
+![WhyLine Denver Pipeline Architecture](docs/diagrams/exports/pipeline.png)
 
 **[View full diagram](docs/diagrams/pipeline.drawio)** | **[Edit in draw.io](https://app.diagrams.net)**
 
@@ -191,10 +245,12 @@ These guardrails ensure that natural-language querying stays within compliance b
 
 All pipelines run on GitHub Actions:
 
-- **Every 5 minutes (24/7):** GTFS Realtime micro-batches capture trip delays and vehicle positions continuously. Each run snapshots the feed and pushes it to BigQuery within ~2 minutes of publish.
+- **Every 5 minutes (24/7):** GTFS Realtime micro-batches run on Cloud Run Jobs triggered by Cloud Scheduler. Each run snapshots the feed, lands artifacts in GCS, and refreshes the BigQuery marts within ~8 minutes of publish.
 - **Nightly (8am UTC / 1-2am MST):** Static data refreshes (GTFS schedules, crashes, sidewalks, weather, demographics).
 - **Nightly (9am UTC / 2-3am MST):** dbt runs all staging → intermediate → marts, validates data quality with 40+ tests, then exports marts to GCS as Parquet.
 - **Nightly (9:30am UTC):** DuckDB sync downloads Parquet exports and materializes hot marts locally.
+
+For setup instructions see [`deploy/cloud-run/README.md`](deploy/cloud-run/README.md). The legacy GitHub Actions realtime workflows remain available for manual execution only.
 
 The app displays freshness timestamps:
 - "Built from mart_denver as of 2025-10-24 02:15 UTC"
@@ -246,7 +302,7 @@ WhyLine Denver ingests zero personally identifiable information. All datasets ar
 ### How fresh is the data?
 
 - **GTFS Static**: Updated monthly when RTD publishes new schedules
-- **GTFS Realtime**: ~2-minute lag from API publish to BigQuery (micro-batches every 5 minutes around the clock)
+- **GTFS Realtime**: ~8-minute lag from API publish to BigQuery (micro-batches every 5 minutes via Cloud Run)
 - **Weather**: 3-7 day lag (NOAA finalization period)
 - **Crashes**: 24-hour lag (nightly ingest of Denver Open Data)
 - **Demographics**: Annual (ACS 5-year estimates)

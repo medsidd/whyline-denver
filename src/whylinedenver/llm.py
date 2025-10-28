@@ -1,46 +1,56 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Dict, Mapping
+
+try:
+    import google.generativeai as genai
+except ImportError:  # pragma: no cover - optional dependency for stub mode
+    genai = None
 
 from whylinedenver.config import settings
 from whylinedenver.semantics.dbt_artifacts import ModelInfo
-from whylinedenver.sql_guardrails import GuardrailConfig, sanitize_sql
+from whylinedenver.sql_guardrails import CTE_PATTERN, GuardrailConfig, sanitize_sql
 
 
-def build_schema_brief(models: Mapping[str, ModelInfo], *, max_columns: int = 5) -> str:
+def build_schema_brief(models: Mapping[str, ModelInfo], *, max_columns: int = 7) -> str:
+    """Condense model metadata for prompt conditioning."""
+
     lines: list[str] = []
     for model in sorted(models.values(), key=lambda m: m.name):
-        description = model.description or "No description available."
-        lines.append(f"- {model.name}: {description}")
-        columns = list(model.columns.items())[:max_columns]
-        for column_name, info in columns:
-            col_desc = info.description or "No column description available."
-            col_type = info.type or "UNKNOWN"
-            lines.append(f"    • {column_name} ({col_type}): {col_desc}")
+        description = (model.description or "")[:80]
+        column_names = ", ".join(list(model.columns.keys())[:max_columns])
+        line = f"{model.name}: {description} | cols: {column_names}"
+        lines.append(line.strip())
     return "\n".join(lines)
 
 
 def build_prompt(question: str, filters: Mapping[str, Any] | None, schema_brief: str) -> str:
     filters = filters or {}
-    filters_serialized = "\n".join(f"- {key}: {value}" for key, value in filters.items()) or "None"
-    instructions = (
-        "You are a SQL expert for the WhyLine Denver transit analytics platform.\n"
-        "Respond with a single SELECT statement that adheres to the following:\n"
-        "- Only query the provided mart tables.\n"
-        "- Apply relevant filters when possible.\n"
-        "- Keep results under 5,000 rows.\n"
-        "- Return helpful column aliases that match the question.\n"
-        "- Provide a short natural-language explanation of the query intent."
-    )
+    filters_serialized = json.dumps(filters, indent=2, sort_keys=True) if filters else "{}"
     return (
-        f"{instructions}\n\n"
-        f"Question:\n{question}\n\n"
-        f"User filters:\n{filters_serialized}\n\n"
-        f"Schema brief:\n{schema_brief}\n\n"
-        "Return JSON with keys 'sql' and 'explanation'."
+        "You are a SQL generation assistant for the WhyLine Denver transit analytics platform.\n"
+        "You may query ONLY these models:\n"
+        f"{schema_brief}\n\n"
+        "Return a JSON object with keys 'sql' and 'explanation'.\n"
+        "- 'sql' must contain a single DuckDB/BigQuery compatible SELECT statement.\n"
+        "- Do not include semicolons or additional statements.\n"
+        "- 'explanation' must be 2-3 succinct sentences for non-technical transit stakeholders,\n"
+        "  describing what insights the query surfaces and why it matters.\n"
+        "- All FROM/JOIN sources must come from the allow-listed models; derive comparisons using CTEs or subqueries built on those tables.\n"
+        "- Keep results under 5,000 rows and honor recency cues by filtering service_date_mst within 30-90 days when appropriate.\n"
+        "- Treat the user filters below as scalar values only—never reference them as tables or views.\n"
+        "- Do not invent placeholder tables (e.g., filters, zero, baseline); name any CTEs you create based on the metrics being calculated.\n"
+        "- When analyzing crash trends described as 'this month', 'recent', or 'last few days', default to window_days = 30 on mart_crash_proximity_by_stop and anchor comparisons on the latest as_of_date values.\n"
+        "- Prefer analytic window functions such as LAG() and ROW_NUMBER() to calculate change over time instead of fabricating previous_* tables.\n"
+        "- Include severity metrics (fatal and severe crash counts) alongside total crashes when the question focuses on risk or hotspots.\n\n"
+        f"Question: {question}\n"
+        "User filters (values only):\n"
+        f"{filters_serialized}\n"
     )
 
 
@@ -52,9 +62,85 @@ class LlmResponse:
 
 def call_provider(prompt: str) -> Dict[str, str]:
     provider = os.getenv("LLM_PROVIDER", "stub").lower()
-    if provider != "stub":
-        raise NotImplementedError(f"LLM provider '{provider}' is not implemented yet.")
-    return _stubbed_response(prompt)
+
+    if provider == "gemini":
+        return _gemini_response(prompt)
+
+    if provider in {"stub", "default"}:
+        return _stubbed_response(prompt)
+
+    raise NotImplementedError(f"LLM provider '{provider}' is not implemented yet.")
+
+
+@lru_cache(maxsize=1)
+def _init_gemini_model():
+    if genai is None:
+        raise RuntimeError(
+            "google-generativeai is not installed. Install requirements.txt to use Gemini."
+        )
+
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("LLM_API_KEY")
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY is not set in the environment.")
+
+    genai.configure(api_key=api_key)
+    model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    return genai.GenerativeModel(model_name)
+
+
+def _gemini_response(prompt: str) -> Dict[str, str]:
+    model = _init_gemini_model()
+    response = model.generate_content(prompt)
+
+    text = getattr(response, "text", None)
+    if not text and hasattr(response, "candidates"):
+        parts = []
+        for candidate in response.candidates or []:
+            content = getattr(candidate, "content", None)
+            if not content:
+                continue
+            for part in getattr(content, "parts", []):
+                part_text = getattr(part, "text", None)
+                if part_text:
+                    parts.append(part_text)
+        text = "\n".join(parts)
+
+    if not text:
+        raise RuntimeError("Gemini returned an empty response.")
+
+    payload = _strip_code_fence(text)
+    data = _parse_response_payload(payload)
+    return data
+
+
+def _strip_code_fence(text: str) -> str:
+    """Remove markdown code fences and language hints from model output."""
+
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned[3:]
+        if "\n" in cleaned:
+            _language, cleaned = cleaned.split("\n", 1)
+        else:
+            cleaned = ""
+    if cleaned.endswith("```"):
+        cleaned = cleaned[:-3]
+    return cleaned.strip().strip("`")
+
+
+def _parse_response_payload(payload: str) -> Dict[str, str]:
+    try:
+        data = json.loads(payload)
+    except json.JSONDecodeError as exc:  # pragma: no cover - defensive branch
+        raise RuntimeError(f"Gemini response was not valid JSON: {exc}") from exc
+
+    sql = _strip_code_fence(data.get("sql") or "").strip()
+    explanation = (data.get("explanation") or "").strip()
+    if not sql:
+        raise RuntimeError("Gemini response missing 'sql'.")
+    if not explanation:
+        explanation = "Generated by Gemini."
+    return {"sql": sql, "explanation": explanation}
 
 
 def _stubbed_response(prompt: str) -> Dict[str, str]:
@@ -71,7 +157,10 @@ def _stubbed_response(prompt: str) -> Dict[str, str]:
                 "ORDER BY avg_delay_ratio DESC\n"
                 "LIMIT 10"
             ),
-            "explanation": "Ranks routes by average delay ratio over the past 30 days.",
+            "explanation": (
+                "Finds the ten routes with the most severe delays over the past month, "
+                "highlighting where riders feel the biggest pain today."
+            ),
         }
     return {
         "sql": ("SELECT *\n" "FROM mart_access_score_by_stop\n" "LIMIT 100"),
@@ -143,10 +232,14 @@ def _duckdb_date_sub_replacer(match: re.Match[str]) -> str:
 
 
 def _qualify_bigquery_tables(sql: str, models: Mapping[str, ModelInfo]) -> str:
+    cte_names = {name.strip("`").lower() for name in CTE_PATTERN.findall(sql)}
+
     def replacer(match: re.Match[str]) -> str:
         table_token = match.group("table")
         alias = match.group("alias") or ""
         raw_table = table_token.strip("`")
+        if raw_table.lower() in cte_names:
+            return match.group(0)
         if "." in raw_table:
             return match.group(0)
         model = models.get(raw_table)

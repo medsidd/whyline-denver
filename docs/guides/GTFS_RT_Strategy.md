@@ -1,6 +1,6 @@
 # GTFS Realtime Snapshot Strategy
 
-We capture RTD's realtime transit data every hour from 5am to 7pm MST, resulting in 45 snapshots per day. This document explains the rationale for high-frequency sampling and how the hourly workflows orchestrate data collection.
+We capture RTD's realtime transit data every **five minutes** (24/7) using Cloud Scheduler &rarr; Cloud Run Jobs. This document explains the rationale for the high-frequency sampling, how the Cloud Run jobs orchestrate the ingest + load pipeline, and how to validate healthy operation.
 
 ## What We're Capturing
 
@@ -22,6 +22,8 @@ A single daily snapshot would provide limited analytical value. Consider: "Route
 
 **Benefits of dense temporal sampling:**
 
+> **Legacy schedule context**: The analysis below references the earlier hourly cadence (45 snapshots/day) because the comparative charts still illustrate why high-frequency sampling matters. Operationally we now sample every 5 minutes via Cloud Run Jobs.
+
 With 45 snapshots across 15 hours, we can:
 - Distinguish chronic delays (appearing in consecutive snapshots) from transient ones
 - Track delay propagation across routes and time periods
@@ -34,7 +36,7 @@ Annual infrastructure cost is ~$8/year for the entire GTFS-RT pipeline (storage 
 
 ## Coverage Schedule
 
-Snapshots run **every hour from 5am to 7pm MST** (15 hours).
+Snapshots previously ran hourly; today we schedule Cloud Run Jobs every five minutes so the dataset has 288 snapshots/day.
 
 | Time Block | Rationale |
 |------------|-----------|
@@ -50,7 +52,7 @@ Two GitHub Actions workflows run in sequence:
 
 ### Workflow 1: Snapshot Capture (`realtime-gtfs-rt.yml`)
 
-Runs 15 times per day at the top of each hour (5am, 6am, ..., 7pm MST).
+Runs 288 times per day on a 5-minute cadence (00, 05, 10, ...).
 
 **Execution:**
 1. Minute 0: Fetch Trip Updates and Vehicle Positions, write to GCS
@@ -81,7 +83,7 @@ The snapshot workflow needs time to upload files to GCS. A 30-minute buffer ensu
 ## Data Volume & Costs
 
 **Daily:**
-- 15 hourly runs × 3 snapshots = 45 snapshots
+- 24 hours × 12 snapshots/hour = 288 snapshots
 - ~25MB compressed
 - ~360,000 trip update rows
 - ~18,000 vehicle position rows
@@ -157,7 +159,7 @@ WHERE DATE(feed_ts_utc, 'America/Denver') = CURRENT_DATE('America/Denver');
 ```
 Expected: ~45 snapshots, ~360K trip updates
 
-**Find missing hours:**
+**Find missing 5-minute windows:**
 ```sql
 WITH hours AS (
   SELECT hour FROM UNNEST(GENERATE_ARRAY(5, 19)) AS hour
@@ -193,7 +195,7 @@ Expected distribution: 70-80% "On Time", 10-15% "Late 5-15min", remainder distri
 
 ## Troubleshooting
 
-**Fewer than 40 snapshots captured:**
+**Fewer than 200 snapshots captured:**
 
 Check workflow runs:
 ```bash
@@ -201,7 +203,7 @@ gh run list --workflow=realtime-gtfs-rt.yml --limit 20
 ```
 
 Common causes:
-- GitHub Actions cron jitter (5-15 minute delays during peak times)
+- Cloud Scheduler jitter (typically <1 minute)
 - RTD API downtime
 - Workflow disabled
 

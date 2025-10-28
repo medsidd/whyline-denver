@@ -1,6 +1,7 @@
 [theme]
-primaryColor = "#0ea5e9"
-backgroundColor = "#0b1220"
-secondaryBackgroundColor = "#111827"
-textColor = "#e5e7eb"
-font = "sans serif"
+# WhyLine Denver - Vintage Transit Palette (Retro, Easy on Eyes)
+primaryColor = "#87a7b3"  # Dusty Sky Blue (vintage, calming)
+backgroundColor = "#232129"  # Deep Plum-Gray (warm, soft on eyes)
+secondaryBackgroundColor = "#322e38"  # Card background (layered warmth)
+textColor = "#e8d5c4"  # Warm Cream (like aged paper)
+font = "sans serif"  # Overridden with Google Fonts: Space Grotesk + Inter

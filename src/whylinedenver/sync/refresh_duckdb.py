@@ -15,6 +15,11 @@ from google.cloud import storage
 
 from whylinedenver.config import Settings
 from whylinedenver.sync.export_bq_marts import ALLOWLISTED_MARTS
+from whylinedenver.sync.state_store import (
+    SyncStateUploadError,
+    load_sync_state,
+    write_sync_state,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -84,27 +89,29 @@ def _parse_args(argv: Optional[Sequence[str]]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _load_sync_state(path: Path) -> Dict[str, str]:
-    if not path.exists():
-        return {}
-    try:
-        with path.open("r", encoding="utf-8") as fh:
-            payload = json.load(fh)
-            return dict(payload.get("marts", {}))
-    except json.JSONDecodeError as exc:
-        LOGGER.warning("Ignoring malformed sync state (%s): %s", path, exc)
-        return {}
+def _load_sync_state(path: Path) -> tuple[Dict[str, str], str]:
+    """Load sync state. Returns (marts_dict, bigquery_updated_at)."""
+    payload = load_sync_state(path=path) or {}
+    marts = dict(payload.get("marts", {}))
+    bq_updated = payload.get("bigquery_updated_at_utc", "")
+    return marts, bq_updated
 
 
-def _write_sync_state(path: Path, state: Mapping[str, str]) -> None:
+def _write_sync_state(path: Path, state: Mapping[str, str], bigquery_updated_at: str = "") -> None:
+    """Write sync state preserving BigQuery timestamp."""
     payload = {
-        "refreshed_at_utc": datetime.now(UTC).isoformat(),
+        "duckdb_synced_at_utc": datetime.now(UTC).isoformat(),
         "marts": dict(state),
     }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as fh:
-        json.dump(payload, fh, indent=2, sort_keys=True)
-        fh.write("\n")
+    # Preserve BigQuery timestamp if it exists
+    if bigquery_updated_at:
+        payload["bigquery_updated_at_utc"] = bigquery_updated_at
+
+    try:
+        write_sync_state(payload, path=path)
+    except SyncStateUploadError as exc:
+        LOGGER.error("%s", exc)
+        raise
 
 
 def _collect_local_run_dates(base: Path, mart_name: str) -> tuple[list[str], str]:
@@ -218,8 +225,9 @@ def refresh(
     dry_run: bool = False,
 ) -> list[RefreshResult]:
     con = _ensure_connection(duckdb_path)
-    sync_state = _load_sync_state(SYNC_STATE_PATH)
+    sync_state, bigquery_updated_at = _load_sync_state(SYNC_STATE_PATH)
     LOGGER.debug("Current sync state: %s", sync_state)
+    LOGGER.debug("BigQuery last updated: %s", bigquery_updated_at)
 
     results: list[RefreshResult] = []
     updated_state = dict(sync_state)
@@ -286,7 +294,7 @@ def refresh(
         )
 
     if not dry_run:
-        _write_sync_state(SYNC_STATE_PATH, updated_state)
+        _write_sync_state(SYNC_STATE_PATH, updated_state, bigquery_updated_at)
     con.close()
     return results
 

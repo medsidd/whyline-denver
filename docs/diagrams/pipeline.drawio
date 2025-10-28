@@ -211,8 +211,8 @@
                 <mxCell id="arrow15" value="SQL&#xa;queries" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#c2185b;fontSize=8;" parent="1" source="duckdb-sync" target="app-streamlit" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="1250" y="390"/>
-                            <mxPoint x="1250" y="240"/>
+                            <mxPoint x="196" y="390"/>
+                            <mxPoint x="196" y="240"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
@@ -221,8 +221,8 @@
                         <Array as="points">
                             <mxPoint x="950" y="350"/>
                             <mxPoint x="950" y="740"/>
-                            <mxPoint x="1250" y="740"/>
-                            <mxPoint x="1250" y="440"/>
+                            <mxPoint x="196" y="740"/>
+                            <mxPoint x="196" y="440"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>

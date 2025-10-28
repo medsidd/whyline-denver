@@ -34,7 +34,7 @@ WhyLine Denver is a **dual-engine transit analytics platform** built on modern c
 | **Architecture Pattern** | Medallion (Bronze → Silver → Gold) + Dual-Engine Analytics |
 | **Primary Warehouse** | Google BigQuery (serverless, columnar) |
 | **Local Engine** | DuckDB (embedded, file-backed) |
-| **Orchestration** | GitHub Actions (cron workflows) |
+| **Orchestration** | Cloud Scheduler + Cloud Run Jobs (realtime), GitHub Actions (nightly) |
 | **Transformation** | dbt 1.8 (SQL + Jinja templating) |
 | **Ingestion** | Python 3.11 CLIs (click framework) |
 | **Storage** | Google Cloud Storage (object storage) |
@@ -69,7 +69,7 @@ WhyLine Denver is a **dual-engine transit analytics platform** built on modern c
          ↕ ingestion → loading
 ┌─ ORCHESTRATION ────────────────────────┐
 │ GitHub Actions (6 workflows)           │
-│ • Micro-batch: GTFS-RT (every 5 min)   │
+│ • Micro-batch: GTFS-RT (every 15 min)   │
 │ • Nightly: Static data (1x/day)        │
 │ • Nightly: dbt build + test            │
 │ • CI: Lint + test on PR                │
@@ -103,7 +103,7 @@ WhyLine Denver was designed with these principles:
 - dbt incremental models use `WHERE date > MAX(date) - INTERVAL 35 DAY` for safe replays
 
 ### 3. **Cost Optimization**
-- GitHub Actions stays within free tier (2,000 min/month; we use ~800)
+- Cloud Run Jobs + Scheduler stay within free tier for realtime; GitHub Actions covers nightly workloads (~400 min/month)
 - BigQuery scans ~100GB/month (well under 1TB free tier)
 - GCS storage is $0.55/year (16GB GTFS-RT compressed)
 - DuckDB enables free local analytics (no cloud costs for development)
@@ -244,7 +244,7 @@ stg_gtfs_routes:
 | Module | Frequency | Output Size | API | Notes |
 |--------|-----------|-------------|-----|-------|
 | `gtfs_static.py` | Monthly | ~1-2MB | RTD GTFS ZIP | 6 TXT files extracted |
-| `gtfs_realtime.py` | Every 5 min (24/7) | ~500KB trip updates, ~50KB positions per snapshot | RTD GTFS-RT Protobuf | Single snapshot per run; workflow triggers every 5 min |
+| `gtfs_realtime.py` | Every 5 min (24/7) | ~500KB trip updates, ~50KB positions per snapshot | RTD GTFS-RT Protobuf | Single snapshot per run; workflow triggers every 15 min |
 | `noaa_daily.py` | Nightly | ~10KB per day | NOAA CDO JSON | Rolling 30-day window |
 | `denver_crashes.py` | Nightly | ~5MB (5 years) | ArcGIS REST | Paginated, 1000 records/page |
 | `denver_sidewalks.py` | Nightly | ~2MB | ArcGIS REST | ~35K segments with geometry |
@@ -674,9 +674,9 @@ All diagrams use vibrant Material Design colors and include detailed annotations
 ### GTFS-RT Micro-Batch Cycle (Detailed)
 
 ```
-Every 5 minutes (00, 05, 10, ...)
+Every 5 minutes (00, 05, 10, 15, ...) – scheduled by Cloud Scheduler
   ↓
-┌─ GitHub Actions: realtime-gtfs-rt.yml ─┐
+┌─ Cloud Run Job: realtime-ingest ───────┐
 │                                      │
 │ [Minute 0] Capture snapshot          │
 │   RTD API: /TripUpdate.pb → CSV      │
@@ -690,9 +690,9 @@ GCS: gs://whylinedenver-raw/raw/rtd_gtfsrt/snapshot_at=2025-10-24T12:00/
   ├─ trip_updates.csv.gz (500KB, 5-10K rows)
   └─ vehicle_positions.csv.gz (50KB, 400-500 rows)
 
-~2 minutes later (02, 07, 12, ...)
+~2 minutes later (02, 07, 12, 17, ...) – second Cloud Scheduler job
   ↓
-┌─ GitHub Actions: realtime-bq-load.yml ─┐
+┌─ Cloud Run Job: realtime-load ────────┐
 │                                       │
 │ Detect new snapshot prefix            │
 │ Load trip_updates → raw_gtfsrt_trip...│
@@ -736,7 +736,8 @@ BigQuery: raw_gtfsrt_trip_updates (partitioned by feed_ts_utc)
 |---------|-------|---------------|
 | **Google Cloud Storage** | Raw file storage (bronze layer) | Bucket: `whylinedenver-raw`, Location: us-central1 |
 | **BigQuery** | Data warehouse (silver + gold layers) | Project: `whyline-denver`, Datasets: `raw_denver`, `stg_denver`, `mart_denver` |
-| **GitHub Actions** | Orchestration | 2,000 free minutes/month (using ~800) |
+| **Cloud Scheduler + Cloud Run Jobs** | Realtime orchestration | 2 jobs, 5-minute cadence (fits Always Free) |
+| **GitHub Actions** | Nightly orchestration & CI | 2,000 free minutes/month (using ~400) |
 | **Hugging Face Spaces** (planned) | Streamlit app hosting | Free tier (CPU, 16GB storage) |
 
 ### Authentication
@@ -749,11 +750,10 @@ BigQuery: raw_gtfsrt_trip_updates (partitioned by feed_ts_utc)
 │ → Python libraries auto-discover    │
 └─────────────────────────────────────┘
 
-┌─ GitHub Actions ────────────────────┐
-│ secrets.GCP_SA_KEY (base64 JSON)    │
-│ → Decoded to /tmp/gcp-key.json      │
-│ → GOOGLE_APPLICATION_CREDENTIALS    │
-│   env var points to temp file       │
+┌─ Cloud Run Jobs ───────────────────┐
+│ Workload identity via service acct │
+│ → ADC provided automatically        │
+│ → Env vars (GCS_BUCKET, etc.)      │
 └─────────────────────────────────────┘
 ```
 
@@ -799,25 +799,24 @@ BigQuery: raw_gtfsrt_trip_updates (partitioned by feed_ts_utc)
 
 ---
 
-### Why GitHub Actions?
+### Why Cloud Run Jobs + Scheduler (for realtime)?
 
-**Alternatives Considered**: Airflow, Prefect, Dagster, AWS Step Functions
+**Alternatives Considered**: GitHub Actions cron, Cloud Functions, Cloud Composer, Prefect Cloud
 
-**Decision**: GitHub Actions
+**Decision**: Cloud Run Jobs triggered by Cloud Scheduler every 5 minutes
 
 **Rationale**:
-- **Free**: 2,000 minutes/month for private repos (WhyLine Denver uses ~800)
-- **Zero Ops**: No servers, no databases, no maintenance
-- **Version-controlled**: Workflows are YAML in repo; changes are auditable
-- **Simple**: Cron syntax, no DAG complexity
-- **Integrated**: Same platform as code, PRs, CI
+- **Free Tier Friendly**: Always Free covers our runtime (≈3 min × 288 runs ≈ 864 vCPU-min/mo)
+- **Serverless**: No VM/cluster management; container handles dependencies
+- **Secrets & IAM**: Uses workload identity; no JSON keys in CI
+- **Faster Start**: Cold starts <5s; keeps end-to-end latency <8 minutes
+- **Observability**: Cloud Logging + Cloud Console history per job invocation
 
 **Trade-offs**:
-- ❌ Limited observability (no UI for re-running individual tasks)
-- ❌ Cron jitter (5-15 min delay during peak times; acceptable for WhyLine Denver)
-- ❌ No complex dependencies (can't express "run task B only if task A succeeds"; we use time offsets instead)
+- ❌ Need container build/push pipeline (handled via Cloud Build)
+- ❌ Slightly more infra setup (Scheduler jobs + service accounts)
 
-**When to Migrate**: If hourly snapshots need sub-minute precision or complex error handling, consider Airflow/Prefect.
+**Nightly Workloads**: Still run on GitHub Actions (dbt, docs, QA) because they tie into PR CI/CD and consume modest minutes.
 
 ---
 
@@ -938,19 +937,19 @@ def validate_schema(df, required_columns):
 
 #### Level 3: QA Script
 
-- Validates freshness (GTFS-RT <10 minutes, weather <7 days)
-- Validates row counts (≥250 snapshots/day)
+- Validates freshness (GTFS-RT <20 minutes, weather <7 days)
+- Validates row counts (≥288 snapshots/day)
 - Validates cross-platform consistency (BigQuery vs. DuckDB mart counts within 5%)
 
 ### Failure Recovery Procedures
 
 #### Scenario: Micro-batch GTFS-RT workflow fails (503 from RTD API)
 
-**Detection**: Status badge turns red; QA script shows <250 snapshots/day or freshness >10 minutes
+**Detection**: Status badge turns red; QA script shows <288 snapshots/day or freshness >10 minutes
 
 **Recovery**:
 1. Check RTD API status (external issue?)
-2. If transient, the next 5-minute run usually recovers (auto-retry)
+2. If transient, the next 15-minute run usually recovers (auto-retry)
 3. If persistent, manually trigger workflow: `gh workflow run realtime-gtfs-rt.yml`
 
 **Prevention**: Retries with exponential backoff; tight cadence limits data loss to <5 minutes.

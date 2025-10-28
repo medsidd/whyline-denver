@@ -7,6 +7,7 @@ dbt/.dbt/
 data/warehouse.duckdb
 data/raw
 data/marts/
+data/sync_state.json
 .env
 /*.json
 .DS_Store

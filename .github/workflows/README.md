@@ -112,85 +112,38 @@ WhyLine Denver uses GitHub Actions for **end-to-end pipeline orchestration**:
 
 ### 1. `realtime-gtfs-rt.yml` – GTFS Realtime Snapshots
 
-**Purpose**: Capture trip delays and vehicle positions every five minutes to keep downstream marts within ~2 minutes of the live feed.
+> **Note**  
+> Automated scheduling now runs via Cloud Scheduler → Cloud Run Jobs. This workflow is
+> retained for manual invocation (`workflow_dispatch`) only. See
+> [`deploy/cloud-run/README.md`](../../deploy/cloud-run/README.md) for the production
+> deployment pattern.
 
-**Schedule**:
-```yaml
-schedule:
-  - cron: '*/5 * * * *'
-```
-**Rationale**: Running continuously removes blind spots, providing near-realtime visibility into service changes and minimizing latency for dependent marts.
+**Purpose**: Ad hoc execution of the snapshot pipeline from the command palette.
 
-**Triggers**: Also supports `workflow_dispatch` for manual runs.
+**Steps**: Same as before — checkout repo, install deps, run
+`python -m whylinedenver.ingest.gtfs_realtime`.
 
-**Steps**:
-1. **Checkout code** (`actions/checkout@v4`)
-2. **Setup Python 3.11** (`actions/setup-python@v4`)
-3. **Install dependencies** (`pip install -r requirements.txt`)
-4. **Configure GCP credentials** (from `GOOGLE_APPLICATION_CREDENTIALS` secret)
-5. **Run ingestion**:
-   ```bash
-   python -m whylinedenver.ingest.gtfs_realtime \
-     --gcs \
-     --bucket whylinedenver-raw \
-     --snapshots 1 \
-     --interval-sec 120
-   ```
-   A single snapshot is taken each run; the workflow itself triggers every five minutes so back-to-back sampling is unnecessary.
+**Success Criteria**: Manual run completes in <5 minutes and uploads snapshot artifacts.
 
-**Outputs**:
-- `gs://whylinedenver-raw/raw/rtd_gtfsrt/snapshot_at=YYYY-MM-DDTHH:MM/trip_updates.csv.gz`
-- `gs://whylinedenver-raw/raw/rtd_gtfsrt/snapshot_at=YYYY-MM-DDTHH:MM/vehicle_positions.csv.gz`
-
-**Success Criteria**: Workflow completes in <5 minutes; QA script validates ≥250 snapshots/day (≈5-minute cadence).
-
-**Common Failures**:
-- RTD API timeout (503/504)
-- GCS permissions issue
-- GitHub Actions runner timeout (rare)
-
-**Monitoring**: Check workflow status at [GitHub Actions](https://github.com/medsidd/whyline-denver/actions/workflows/realtime-gtfs-rt.yml).
+**Monitoring**: Use the Cloud Run job logs for the scheduled cadence; GitHub logs are
+helpful only for manual replays.
 
 ---
 
 ### 2. `realtime-bq-load.yml` – BigQuery Micro-Batch Load
 
-**Purpose**: Load GTFS-RT snapshots from GCS to BigQuery and immediately refresh realtime-facing marts.
+> **Note**  
+> The scheduled loader is now hosted on Cloud Run Jobs. This workflow remains available
+> for manual runs only.
 
-**Schedule**:
-```yaml
-schedule:
-  - cron: '2-59/5 * * * *'
-```
-**Rationale**: A two-minute offset gives the ingest workflow time to land artifacts before the load begins, keeping throughput high without collisions.
+**Purpose**: Manual execution of the BigQuery loader + realtime marts.
 
-**Steps**:
-1. **Checkout, setup Python, install deps** (same as realtime-gtfs-rt)
-2. **Configure GCP credentials**
-3. **Run loader**:
-   ```bash
-   python -m load.bq_load \
-     --src gcs \
-     --bucket whylinedenver-raw \
-     --since $(date -u -v-1d +%Y-%m-%d)  # Last 24 hours
-   ```
-4. **Refresh realtime marts**:
-   ```bash
-   make dbt-run-realtime
-   ```
+**Steps**: Checkout repo, install deps, run `make bq-load-realtime` and `make dbt-run-realtime`.
 
-**Idempotency**: Loader tracks MD5 hashes in `__ingestion_log` table; duplicate files are skipped.
+**Success Criteria**: Manual run completes in <5 minutes with successful dbt execution.
 
-**Outputs**:
-- Rows appended to `raw_gtfsrt_trip_updates` (partitioned by `feed_ts_utc`)
-- Rows appended to `raw_gtfsrt_vehicle_positions` (partitioned by `feed_ts_utc`)
-- Micro-batched builds of `mart_reliability_by_stop_hour`, `mart_reliability_by_route_day`, and `mart_weather_impacts`
-
-**Success Criteria**: Workflow completes in <3 minutes; no duplicate loads; realtime marts report `build_run_at` within 5 minutes of ingestion.
-
-**Common Failures**:
-- No new files in GCS (not an error, just no-op)
-- BigQuery quota exceeded (rare; WhyLine Denver is well under limits)
+**Monitoring**: Scheduled health is captured in Cloud Run job logs; GitHub logs apply to
+manual replays only.
 
 ---
 
@@ -411,9 +364,9 @@ After the `build` job passes, two additional jobs run sequentially:
 
 **Approach**: Trigger the ingest workflow every 5 minutes (`*/5`) around the clock. A follow-on loader kicks off ~2 minutes later (`2-59/5`) to give the ingest run time to land artifacts.
 
-**Throughput**: 288 ingest runs/day × 1 snapshot/run = **~288 snapshots/day**. Each snapshot is typically <600KB so the cadence remains well within GCS/GitHub quotas.
+**Throughput**: 288 ingest runs/day × 1 snapshot/run = **~96 snapshots/day**. Each snapshot is typically <600KB so the cadence remains well within GCS/GitHub quotas.
 
-**Resiliency**: With 5-minute intervals, a single failed run only leaves a 5-minute gap. The loader re-runs the three realtime marts immediately, keeping BigQuery results within ~5 minutes of the live feed.
+**Resiliency**: With 5-minute intervals, a single failed run only leaves a 15-minute gap. The loader re-runs the three realtime marts immediately, keeping BigQuery results within ~5 minutes of the live feed.
 
 ### Nightly Workflow Sequencing
 
@@ -524,7 +477,7 @@ gh run view <run-id> --log > logs.txt
 
 **Cause**: GitHub Actions occasionally delays runners by a few minutes. With 5-minute cadence, overlapping runs can mark later runs as "skipped".
 
-**Solution**: Accept occasional skips. QA script validates ≥250 snapshots/day (out of ~288 possible), allowing short-lived gaps without paging.
+**Solution**: Accept occasional skips. QA script validates ≥96 snapshots/day (out of ~288 possible), allowing short-lived gaps without paging.
 
 **Mitigation**: If gaps exceed 10 minutes, investigate `gh run list --workflow=realtime-gtfs-rt.yml` to confirm runners are not stuck in queue. Consider a dedicated orchestrator (Airflow, Prefect) for strict SLA requirements.
 

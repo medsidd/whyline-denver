@@ -132,7 +132,7 @@ Overall Results:
 
 **Workflows validated**:
 - `nightly-ingest.yml` - Static GTFS, weather, crash data (8am UTC daily)
-- `realtime-gtfs-rt.yml` - Realtime snapshots (every 5 minutes)
+- `realtime-gtfs-rt.yml` - Realtime snapshots (manual fallback; Cloud Run handles every 5 minutes)
 - `realtime-bq-load.yml` - BigQuery loads + dbt micro-batch (offset ~2 min)
 
 **Queries used**:
@@ -149,7 +149,7 @@ gh run list --workflow=realtime-bq-load.yml --limit 10 --json conclusion
 - ❌ FAIL: <50% success rate
 
 **Expected results**:
-- **Day 1**: 2-5 hourly runs (100% success)
+- **Day 1**: 4-10 runs (100% success)
 - **Steady state**: 10/10 recent runs successful (100% success)
 
 ---
@@ -174,11 +174,11 @@ gsutil ls "gs://${BUCKET}/raw/noaa_weather/date=${TODAY}/"
 
 **Success criteria**:
 - ✅ PASS: Weather file exists for today
-- ⚠️ WARN: <200 GTFS-RT snapshots (normal on Day 1)
+- ⚠️ WARN: <240 GTFS-RT snapshots (normal on Day 1)
 - ❌ FAIL: No snapshots or no weather file
 
 **Expected results**:
-- **Day 1**: 10-150 snapshots (micro-batch started mid-day)
+- **Day 1**: 20-200 snapshots (micro-batch started mid-day)
 - **Steady state**: ~288 snapshots/day (every 5 minutes)
 
 ---
@@ -201,7 +201,7 @@ WHERE feed_ts_utc >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 2 HOUR);
 ```
 
 **Success criteria**:
-- ✅ PASS: Latest snapshot <10 minutes old
+- ✅ PASS: Latest snapshot <20 minutes old
 - ⚠️ WARN: 10-30 minutes old (temporary backlog)
 - ❌ FAIL: >30 minutes old (outside maintenance window)
 
@@ -220,38 +220,41 @@ GROUP BY snapshot_date;
 ```
 
 **Success criteria**:
-- ✅ PASS: ≥40 snapshots today
-- ⚠️ WARN: 10-39 snapshots (accumulating)
-- ❌ FAIL: <10 snapshots
+- ✅ PASS: ≥240 snapshots today
+- ⚠️ WARN: 120-239 snapshots (accumulating)
+- ❌ FAIL: <120 snapshots
 
 **Expected results**:
-- **Day 1**: 2-20 snapshots, 50K-200K trip updates
-- **Steady state**: ~288 snapshots, ~600K trip updates/day
+- **Day 1**: 20-200 snapshots, 100K-500K trip updates
+- **Steady state**: 288 snapshots, ~600K trip updates/day
 
 #### 3.3 Missing Hours Check
 
 **Query**:
 ```sql
-WITH hours AS (
-  SELECT hour
-  FROM UNNEST(GENERATE_ARRAY(5, 19)) AS hour
+WITH windows AS (
+  SELECT TIMESTAMP_ADD(
+           TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), DAY),
+           INTERVAL offset MINUTE
+         ) AS window_start
+  FROM UNNEST(GENERATE_ARRAY(0, 24 * 60, 5)) AS offset
 ),
 captured AS (
-  SELECT DISTINCT EXTRACT(HOUR FROM DATETIME(feed_ts_utc, 'America/Denver')) AS hour
+  SELECT DISTINCT TIMESTAMP_TRUNC(feed_ts_utc, MINUTE) AS minute_bucket
   FROM `whyline-denver.raw_denver.raw_gtfsrt_trip_updates`
   WHERE DATE(feed_ts_utc, 'America/Denver') = CURRENT_DATE('America/Denver')
 )
-SELECT h.hour
-FROM hours h
-LEFT JOIN captured c ON h.hour = c.hour
-WHERE c.hour IS NULL
-ORDER BY h.hour;
+SELECT window_start
+FROM windows w
+LEFT JOIN captured c ON w.window_start = c.minute_bucket
+WHERE c.minute_bucket IS NULL
+ORDER BY window_start;
 ```
 
 **Success criteria**:
-- ✅ PASS: 0 missing hours
-- ⚠️ WARN: 1-12 missing hours (normal Day 1)
-- ❌ FAIL: >12 missing hours (after Day 2)
+- ✅ PASS: 0 missing 5-minute windows
+- ⚠️ WARN: ≤24 missing windows (normal Day 1 warm-up)
+- ❌ FAIL: >24 missing windows (after Day 2)
 
 #### 3.4 Weather Data Freshness
 
@@ -558,7 +561,7 @@ make sync-duckdb
 | **1. GitHub Actions** | ✅ 100% success | 2-5 hourly runs completed |
 | **2. GCS Files** | ⚠️ 5-20 snapshots | Workflows started mid-day |
 | **3.1 RT Freshness** | ✅ <120 min old | Latest snapshot recent |
-| **3.2 Daily Coverage** | ⚠️ 50-150 snapshots | Accumulating throughout day |
+| **3.2 Daily Coverage** | ⚠️ 120-239 snapshots | Accumulating throughout day |
 | **3.3 Missing Hours** | ⚠️ Gaps outside launch window | Micro-batch flow only recently enabled |
 | **3.4 Weather Freshness** | ✅ 1-7 days behind | NOAA lag is normal |
 | **3.5 Weather Quality** | ✅ 70%+ complete | Historical data is good |

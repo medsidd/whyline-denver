@@ -1,0 +1,241 @@
+<mxfile host="65bd71144e">
+    <diagram id="pipeline-architecture" name="Pipeline Architecture">
+        <mxGraphModel dx="418" dy="695" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="arrow16" value="SQL&#xa;queries" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#c2185b;dashed=1;fontSize=8;" parent="1" source="dbt-marts" target="app-streamlit" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="950" y="180"/>
+                            <mxPoint x="950" y="70"/>
+                            <mxPoint x="1410" y="70"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="title" value="WhyLine Denver — End-to-End Data Pipeline Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=18;fontStyle=1;fontColor=#1a237e;" parent="1" vertex="1">
+                    <mxGeometry x="400" y="20" width="800" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="bg-ingestion" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff3e0;strokeColor=#ff6f00;opacity=20;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="80" width="260" height="740" as="geometry"/>
+                </mxCell>
+                <mxCell id="bg-storage" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#1976d2;opacity=20;" parent="1" vertex="1">
+                    <mxGeometry x="320" y="80" width="220" height="740" as="geometry"/>
+                </mxCell>
+                <mxCell id="bg-transform" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e5f5;strokeColor=#7b1fa2;opacity=20;" parent="1" vertex="1">
+                    <mxGeometry x="560" y="80" width="380" height="740" as="geometry"/>
+                </mxCell>
+                <mxCell id="bg-export" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#388e3c;opacity=20;" parent="1" vertex="1">
+                    <mxGeometry x="960" y="80" width="280" height="740" as="geometry"/>
+                </mxCell>
+                <mxCell id="bg-consume" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fce4ec;strokeColor=#c2185b;opacity=20;" parent="1" vertex="1">
+                    <mxGeometry x="1260" y="80" width="300" height="740" as="geometry"/>
+                </mxCell>
+                <mxCell id="label-ingestion" value="INGESTION" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontStyle=1;fontColor=#e65100;" parent="1" vertex="1">
+                    <mxGeometry x="120" y="90" width="100" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="label-storage" value="BRONZE LAYER" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontStyle=1;fontColor=#0d47a1;" parent="1" vertex="1">
+                    <mxGeometry x="350" y="90" width="160" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="label-transform" value="SILVER + GOLD LAYERS" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontStyle=1;fontColor=#6a1b9a;" parent="1" vertex="1">
+                    <mxGeometry x="650" y="90" width="200" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="label-export" value="SYNC LAYER" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontStyle=1;fontColor=#2e7d32;" parent="1" vertex="1">
+                    <mxGeometry x="1050" y="90" width="100" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="label-consume" value="CONSUMPTION" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontStyle=1;fontColor=#ad1457;" parent="1" vertex="1">
+                    <mxGeometry x="1360" y="90" width="100" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="src-gtfs" value="RTD GTFS Static&#xa;(Monthly)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=8;fillColor=#4caf50;strokeColor=#2e7d32;fontColor=#ffffff;fontSize=9;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="130" width="110" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="src-gtfsrt" value="RTD GTFS-RT&#xa;(Every 5 min, 24/7)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=8;fillColor=#4caf50;strokeColor=#2e7d32;fontColor=#ffffff;fontSize=9;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="200" width="110" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="src-weather" value="NOAA Weather&#xa;(Daily)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=8;fillColor=#2196f3;strokeColor=#0d47a1;fontColor=#ffffff;fontSize=9;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="270" width="110" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="src-crashes" value="Denver Crashes&#xa;(Nightly)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=8;fillColor=#ff9800;strokeColor=#e65100;fontColor=#ffffff;fontSize=9;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="340" width="110" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="src-sidewalks" value="Denver Sidewalks&#xa;(Nightly)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=8;fillColor=#ff9800;strokeColor=#e65100;fontColor=#ffffff;fontSize=9;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="410" width="110" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="src-acs" value="Census ACS&#xa;(Annual)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=8;fillColor=#9c27b0;strokeColor=#6a1b9a;fontColor=#ffffff;fontSize=9;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="480" width="110" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="src-tracts" value="Census Tracts&#xa;(Annual)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;size=8;fillColor=#9c27b0;strokeColor=#6a1b9a;fontColor=#ffffff;fontSize=9;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="550" width="110" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="ingestion-note" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(153, 76, 0);&quot;&gt;Python CLIs&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(153, 76, 0);&quot;&gt;HTTP GET + retry&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(153, 76, 0);&quot;&gt;Write CSV to GCS&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e1;strokeColor=#f57f17;fontSize=8;align=center;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="115" y="620" width="110" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="gcs-raw" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;Google Cloud Storage&lt;br&gt;&lt;br&gt;gs://bucket/raw/&lt;br&gt;&lt;br&gt;Partitioned paths:&lt;br&gt;extract_date=YYYY-MM-DD/&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#90caf9;strokeColor=#1976d2;fontColor=#0d47a1;fontSize=9;align=center;verticalAlign=top;fontStyle=1;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="130" width="180" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="bq-raw" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(0, 76, 153);&quot;&gt;BigQuery: raw_denver&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(0, 76, 153); font-weight: normal;&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(0, 76, 153);&quot;&gt;13 raw_* tables&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(0, 76, 153); font-weight: normal;&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(0, 76, 153);&quot;&gt;Metadata:&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(0, 76, 153);&quot;&gt;• _ingested_at&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(0, 76, 153);&quot;&gt;• _source_path&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(0, 76, 153);&quot;&gt;• _extract_date&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(0, 76, 153);&quot;&gt;• _hash_md5&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(0, 76, 153); font-weight: normal;&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(0, 76, 153);&quot;&gt;Append-only, idempotent&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#64b5f6;strokeColor=#1976d2;fontColor=#0d47a1;fontSize=9;align=center;verticalAlign=top;fontStyle=1;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="360" width="180" height="180" as="geometry"/>
+                </mxCell>
+                <mxCell id="loader-note" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(153, 76, 0);&quot;&gt;Parametric Loader&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(153, 76, 0);&quot;&gt;(load/bq_load.py)&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(153, 76, 0);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(153, 76, 0);&quot;&gt;• Job registry&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(153, 76, 0);&quot;&gt;• MD5 dedup&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(153, 76, 0);&quot;&gt;• Partition &amp;amp; cluster&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(153, 76, 0);&quot;&gt;• __ingestion_log&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(153, 76, 0);&quot;&gt;• Rolling 24h window (realtime)&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(153, 76, 0);&quot;&gt;• Historical target + full dbt&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e1;strokeColor=#f57f17;fontSize=8;align=center;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="605" width="180" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="dbt-sources" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(102, 0, 102);&quot;&gt;dbt sources&lt;br&gt;(sources_raw.yml)&lt;br&gt;13 raw tables&lt;/font&gt;&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1bee7;strokeColor=#7b1fa2;fontColor=#4a148c;fontSize=9;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="580" y="130" width="160" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="dbt-staging" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(153, 0, 153);&quot;&gt;SILVER: Staging (11 models)&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(153, 0, 153); font-weight: normal;&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(153, 0, 153);&quot;&gt;stg_gtfs_* (6 models)&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(153, 0, 153);&quot;&gt;stg_rt_events&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(153, 0, 153);&quot;&gt;stg_denver_crashes&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(153, 0, 153);&quot;&gt;stg_sidewalks&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(153, 0, 153);&quot;&gt;stg_acs_geo&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(153, 0, 153);&quot;&gt;stg_denver_tracts&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(153, 0, 153); font-weight: normal;&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(153, 0, 153);&quot;&gt;Transformations:&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(153, 0, 153);&quot;&gt;• Dedupe (latest extract)&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(153, 0, 153);&quot;&gt;• Create geometry (ST_GEOGPOINT)&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(153, 0, 153);&quot;&gt;• Normalize enums&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(153, 0, 153);&quot;&gt;• Timezone conversion (UTC→MST)&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1bee7;strokeColor=#8e24aa;fontColor=#4a148c;fontSize=9;align=center;verticalAlign=top;fontStyle=1;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="575" y="230" width="170" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="dbt-intermediate" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(102, 0, 102);&quot;&gt;SILVER: Intermediate (7)&lt;br&gt;&lt;br&gt;int_rt_events_resolved&lt;br&gt;int_rt_daily_coverage&lt;br&gt;int_scheduled_arrivals&lt;br&gt;int_headway_obs&lt;br&gt;int_headway_sch&lt;br&gt;int_headway_adh&lt;br&gt;int_weather_by_date&lt;br&gt;&lt;br&gt;Complex metrics:&lt;br&gt;• Delay coalescing&lt;br&gt;• Headway calculations&lt;br&gt;• Schedule parsing&lt;/font&gt;&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ce93d8;strokeColor=#8e24aa;fontColor=#4a148c;fontSize=9;align=center;verticalAlign=top;fontStyle=1;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="575" y="500" width="160" height="210" as="geometry"/>
+                </mxCell>
+                <mxCell id="dbt-marts" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;GOLD: Marts (7 tables)&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255); font-weight: normal;&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;RELIABILITY (3):&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;• mart_reliability_by_route_day&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;• mart_reliability_by_stop_hour&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;• mart_weather_impacts&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255); font-weight: normal;&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;SAFETY (1):&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;• mart_crash_proximity_by_stop&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255); font-weight: normal;&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;EQUITY (2):&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;• mart_vulnerability_by_stop&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;• mart_priority_hotspots&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255); font-weight: normal;&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;ACCESS (1):&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;• mart_access_score_by_stop&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255); font-weight: normal;&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;Materialization: Tables&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;Partitioning: service_date_mst&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent; font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;Clustering: route_id, stop_id&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ba68c8;strokeColor=#8e24aa;fontColor=#ffffff;fontSize=9;align=center;verticalAlign=top;fontStyle=1;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="770" y="130" width="160" height="330" as="geometry"/>
+                </mxCell>
+                <mxCell id="dbt-tests" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;dbt tests&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;40+ tests&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Uniqueness&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Referential integrity&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Value ranges&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Not-null checks&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e1;strokeColor=#f57f17;fontSize=8;align=center;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="760" y="480" width="160" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="workflow-note" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;GitHub Actions&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• nightly-bq.yml&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;dbt build + test&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;(~12 min)&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Runs 1x/day&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;after ingestion&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e1;strokeColor=#f57f17;fontSize=8;align=center;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="760" y="600" width="160" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="parquet-export" value="&lt;font style=&quot;color: rgb(51, 102, 0);&quot;&gt;Parquet Export&lt;br&gt;&lt;br&gt;GCS: marts/*/run_date=&lt;br&gt;&lt;br&gt;• Snappy compression&lt;br&gt;• PyArrow engine&lt;br&gt;• Metadata JSON&lt;br&gt;&lt;br&gt;Export all 7 marts&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#81c784;strokeColor=#388e3c;fontColor=#1b5e20;fontSize=9;align=center;verticalAlign=top;fontStyle=1;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="980" y="130" width="240" height="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="duckdb-sync" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;&lt;font&gt;DuckDB Sync&lt;br&gt;&lt;br&gt;Local file:&lt;br&gt;data/warehouse.duckdb&lt;br&gt;&lt;br&gt;HOT MARTS (materialized):&lt;br&gt;• mart_reliability_by_route_day&lt;br&gt;• mart_reliability_by_stop_hour&lt;br&gt;&lt;br&gt;COLD MARTS (views):&lt;br&gt;• All safety, equity, access&lt;br&gt;&lt;br&gt;read_parquet() from cache&lt;/font&gt;&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#66bb6a;strokeColor=#2e7d32;fontColor=#ffffff;fontSize=9;align=center;verticalAlign=top;fontStyle=1;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="980" y="340" width="240" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="sync-workflow" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;GitHub Actions&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• nightly-duckdb.yml&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;Download Parquet&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;Refresh DuckDB&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;(~5 min)&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;br&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;• Runs after export&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e1;strokeColor=#f57f17;fontSize=8;align=center;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="980" y="600" width="240" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="app-streamlit" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;Streamlit App&lt;br&gt;&lt;br&gt;Natural Language Interface:&lt;br&gt;• User question&lt;br&gt;• LLM → SQL generation&lt;br&gt;• Guardrails enforcement&lt;br&gt;• Engine selection&lt;br&gt;  - DuckDB (local, free)&lt;br&gt;  - BigQuery (cloud, prod)&lt;br&gt;&lt;br&gt;Outputs:&lt;br&gt;• Interactive charts (Altair)&lt;br&gt;• Data tables&lt;br&gt;• CSV exports&lt;br&gt;• Maps (PyDeck)&lt;/font&gt;&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ec407a;strokeColor=#c2185b;fontColor=#ffffff;fontSize=9;align=center;verticalAlign=top;fontStyle=1;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="1280" y="130" width="260" height="220" as="geometry"/>
+                </mxCell>
+                <mxCell id="app-docs" value="&lt;span style=&quot;font-weight: normal;&quot;&gt;&lt;font style=&quot;color: rgb(255, 255, 255);&quot;&gt;dbt Docs (GitHub Pages)&lt;br&gt;&lt;br&gt;https://medsidd.github.io/&lt;br&gt;whyline-denver/&lt;br&gt;&lt;br&gt;• Full data lineage&lt;br&gt;• Column-level metadata&lt;br&gt;• Test coverage&lt;br&gt;• Model descriptions&lt;/font&gt;&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ff7043;strokeColor=#d84315;fontColor=#ffffff;fontSize=9;align=center;verticalAlign=top;fontStyle=1;shadow=1;" parent="1" vertex="1">
+                    <mxGeometry x="1280" y="370" width="260" height="140" as="geometry"/>
+                </mxCell>
+                <mxCell id="app-deployment" value="&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(102, 102, 0);&quot;&gt;Deployment&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;font style=&quot;color: rgb(102, 102, 0);&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(102, 102, 0);&quot;&gt;• Hugging Face Spaces&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(102, 102, 0);&quot;&gt;(Free tier)&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(102, 102, 0);&quot;&gt;• Default: DuckDB&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(102, 102, 0);&quot;&gt;• Optional: BigQuery&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;&lt;div style=&quot;text-align: justify;&quot;&gt;&lt;span style=&quot;background-color: transparent;&quot;&gt;&lt;font style=&quot;color: rgb(102, 102, 0);&quot;&gt;(via secrets)&lt;/font&gt;&lt;/span&gt;&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8e1;strokeColor=#f57f17;fontSize=8;align=center;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="1280" y="605" width="260" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#ff6f00;" parent="1" source="src-gtfs" target="gcs-raw" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="200" y="155"/>
+                            <mxPoint x="200" y="190"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#ff6f00;" parent="1" source="src-gtfsrt" target="gcs-raw" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="200" y="225"/>
+                            <mxPoint x="200" y="190"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#ff6f00;" parent="1" source="src-weather" target="gcs-raw" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="200" y="295"/>
+                            <mxPoint x="200" y="190"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#ff6f00;" parent="1" source="src-crashes" target="gcs-raw" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="200" y="365"/>
+                            <mxPoint x="200" y="190"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#ff6f00;" parent="1" source="src-sidewalks" target="gcs-raw" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="200" y="435"/>
+                            <mxPoint x="200" y="190"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#ff6f00;" parent="1" source="src-acs" target="gcs-raw" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="200" y="505"/>
+                            <mxPoint x="200" y="190"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#ff6f00;" parent="1" source="src-tracts" target="gcs-raw" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="200" y="575"/>
+                            <mxPoint x="200" y="190"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow8" value="COPY&#xa;(BigQuery)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#1976d2;fontSize=8;" parent="1" source="gcs-raw" target="bq-raw" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow9" value="dbt ref()" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#7b1fa2;fontSize=8;" parent="1" source="bq-raw" target="dbt-sources" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="470" y="340"/>
+                            <mxPoint x="550" y="340"/>
+                            <mxPoint x="550" y="160"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#7b1fa2;" parent="1" source="dbt-sources" target="dbt-staging" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#7b1fa2;" parent="1" source="dbt-staging" target="dbt-intermediate" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="660" y="480"/>
+                            <mxPoint x="660" y="480"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#7b1fa2;" parent="1" source="dbt-intermediate" target="dbt-marts" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="750" y="610"/>
+                            <mxPoint x="750" y="290"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow13" value="export_bq_marts.py" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#388e3c;fontSize=8;" parent="1" source="dbt-marts" target="parquet-export" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow14" value="refresh_duckdb.py" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#388e3c;fontSize=8;" parent="1" source="parquet-export" target="duckdb-sync" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow15" value="SQL&#xa;queries" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#c2185b;fontSize=8;" parent="1" source="duckdb-sync" target="app-streamlit" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1250" y="390"/>
+                            <mxPoint x="1250" y="240"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow17" value="dbt docs&#xa;generate" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#d84315;fontSize=8;" parent="1" source="dbt-marts" target="app-docs" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="950" y="350"/>
+                            <mxPoint x="950" y="740"/>
+                            <mxPoint x="1250" y="740"/>
+                            <mxPoint x="1250" y="440"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="legend-box" value="LEGEND" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eceff1;strokeColor=#37474f;fontStyle=1;fontSize=10;align=center;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="740" width="260" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend-text" value="• Ingestion: Python CLIs (hourly/daily/monthly)&#xa;• Storage: GCS (bronze) + BigQuery (raw tables)&#xa;• Transform: dbt (staging → intermediate → marts)&#xa;• Sync: Parquet export → DuckDB refresh&#xa;• Consume: Streamlit app (dual-engine: DuckDB/BigQuery)" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=8;fontColor=#37474f;" parent="1" vertex="1">
+                    <mxGeometry x="50" y="760" width="240" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow16-label" value="(BigQuery engine)" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=7;fontColor=#c2185b;" parent="1" vertex="1">
+                    <mxGeometry x="1210" y="50" width="60" height="20" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

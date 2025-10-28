@@ -45,7 +45,15 @@ jobs:
           BQ_DATASET_STG: ${{ secrets.BQ_DATASET_STG }}
           BQ_DATASET_MART: ${{ secrets.BQ_DATASET_MART }}
           GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
+          SYNC_STATE_GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
+          SYNC_STATE_GCS_BLOB: state/sync_state.json
         run: make nightly-bq
+
+      - name: Update BigQuery timestamp
+        env:
+          SYNC_STATE_GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
+          SYNC_STATE_GCS_BLOB: state/sync_state.json
+        run: make update-bq-timestamp
 
       - name: Upload dbt artifacts
         uses: actions/upload-artifact@v4

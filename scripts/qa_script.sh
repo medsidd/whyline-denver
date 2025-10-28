@@ -199,9 +199,9 @@ if [ "$SKIP_GCS" = false ]; then
         if [ "$RT_SNAPSHOTS" -eq 0 ]; then
             check_warning "GTFS-RT snapshots: No snapshot directories found for today (${TODAY_ISO})"
         elif [ "$RT_SNAPSHOTS" -ge 200 ]; then
-            check_passed "GTFS-RT snapshots: ${RT_SNAPSHOTS} snapshot directories for today (expected ~288)"
+            check_passed "GTFS-RT snapshots: ${RT_SNAPSHOTS} snapshot directories for today (expected ~96)"
         elif [ "$RT_SNAPSHOTS" -ge 100 ]; then
-            check_warning "GTFS-RT snapshots: ${RT_SNAPSHOTS} directories (expected ~288, day may still be in progress)"
+            check_warning "GTFS-RT snapshots: ${RT_SNAPSHOTS} directories (expected ~96, day may still be in progress)"
         elif [ "$RT_SNAPSHOTS" -ge 10 ]; then
             check_warning "GTFS-RT snapshots: ${RT_SNAPSHOTS} directories (micro-batch flow may have started recently)"
         else
@@ -259,14 +259,14 @@ TOTAL_UPDATES=$(echo "$SNAPSHOT_RESULT" | tail -1 | cut -d',' -f2)
 echo "Snapshots today: ${NUM_SNAPSHOTS}"
 echo "Trip updates today: ${TOTAL_UPDATES}"
 
-if [ "$NUM_SNAPSHOTS" -ge 250 ]; then
+if [ "$NUM_SNAPSHOTS" -ge 280 ]; then
     check_passed "Snapshot count: ${NUM_SNAPSHOTS} (target: ~288)"
-elif [ "$NUM_SNAPSHOTS" -ge 150 ]; then
-    check_warning "Snapshot count: ${NUM_SNAPSHOTS} (target: ~288, day may not be complete)"
-elif [ "$NUM_SNAPSHOTS" -ge 20 ]; then
+elif [ "$NUM_SNAPSHOTS" -ge 200 ]; then
+    check_warning "Snapshot count: ${NUM_SNAPSHOTS} (target: ~288, day may still be accumulating)"
+elif [ "$NUM_SNAPSHOTS" -ge 80 ]; then
     check_warning "Snapshot count: ${NUM_SNAPSHOTS} (realtime workflows may have started recently)"
 else
-    check_failed "Snapshot count: ${NUM_SNAPSHOTS} (expected at least 20)"
+    check_failed "Snapshot count: ${NUM_SNAPSHOTS} (expected at least 80)"
 fi
 
 subsection_header "3.2 GTFS-RT Trip Updates: 7-Day Trend"
@@ -823,9 +823,9 @@ echo "    - Missing hours are NORMAL on Day 1 (micro-batch only active post-laun
 echo "    - By tomorrow evening: ~288 snapshots/day"
 echo ""
 echo "  • Steady state (Day 2+):"
-echo "    - ~288 snapshots/day (every 5 minutes)"
-echo "    - ~600,000 trip updates/day"
-echo "    - ~110,000 vehicle positions/day"
+echo "    - 288 snapshots/day (every 5 minutes)"
+echo "    - ≈600,000 trip updates/day"
+echo "    - ≈110,000 vehicle positions/day"
 echo "    - Zero missing hours (24-hour coverage)"
 echo ""
 echo "  • Weather data lag: 3-7 days (normal due to NOAA finalization)"
