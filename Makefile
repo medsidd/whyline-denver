@@ -16,7 +16,10 @@ DBT_PROFILES  := DBT_PROFILES_DIR=$$PWD/dbt/profiles
 DBT_CMD       := $(DBT_PROFILES) $(PY) -m scripts.dbt_with_env
 DBT_TARGET    ?= prod
 
-GCS_BUCKET    ?= whylinedenver-raw
+CLOUD_RUN_IMAGE  ?= whylinedenver-realtime
+CLOUD_RUN_REPO   ?= realtime-jobs
+CLOUD_RUN_REGION ?= us-central1
+GCS_BUCKET       ?= whylinedenver-raw
 
 # Tooling ---------------------------------------------------------------------
 install:
@@ -186,6 +189,10 @@ dbt-docs:
 dbt-run-realtime:
 	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select +mart_reliability_by_stop_hour +mart_reliability_by_route_day +mart_weather_impacts
 
+# Update BigQuery freshness timestamp in sync_state.json after dbt runs
+update-bq-timestamp:
+	$(PY) -m whylinedenver.sync.update_bq_timestamp
+
 # Workflows -------------------------------------------------------------------
 dev-loop-local:
 	$(MAKE) ingest-all-local
@@ -229,8 +236,17 @@ export-diagrams:
 	@echo "Exporting draw.io diagrams to SVG/PNG..."
 	@bash scripts/export_diagrams.sh
 
+cloud-run-build:
+	@docker build -t $(CLOUD_RUN_IMAGE) -f deploy/cloud-run/Dockerfile .
+
+cloud-run-tag:
+	@docker tag $(CLOUD_RUN_IMAGE) $(CLOUD_RUN_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(CLOUD_RUN_REPO)/$(CLOUD_RUN_IMAGE)
+
+cloud-run-push: cloud-run-tag
+	@docker push $(CLOUD_RUN_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(CLOUD_RUN_REPO)/$(CLOUD_RUN_IMAGE)
+
 ci-help:
-	@echo "Targets: install | lint | format | test | run | ingest-* | bq-load(-local|-realtime|-historical) | dbt-* | dev-loop | export-diagrams"
+    @echo "Targets: install | lint | format | test | run | ingest-* | bq-load(-local|-realtime|-historical) | dbt-* | dev-loop | export-diagrams | cloud-run-(build|push)"
 
 .SHELLFLAGS := -o pipefail -c
 SHELL := /bin/bash

@@ -45,7 +45,7 @@ TABLE_PATTERN = re.compile(
 
 LIMIT_PATTERN = re.compile(r"\bLIMIT\s+(\d+)", re.IGNORECASE)
 CTE_PATTERN = re.compile(
-    r"\bWITH\s+(`[^`]+`|[a-zA-Z_][\w-]*)\s+AS\s*\(",
+    r"(?:\bWITH\b|,)\s+(`[^`]+`|[a-zA-Z_][\w-]*)\s+AS\s*\(",
     re.IGNORECASE,
 )
 

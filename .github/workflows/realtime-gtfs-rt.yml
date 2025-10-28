@@ -1,9 +1,7 @@
 name: Realtime GTFS-RT Snapshots
 
 on:
-  schedule:
-    # Micro-batch every 5 minutes (24/7) to approximate realtime snapshots
-    - cron: "*/5 * * * *"
+  # Automated cadence handled by Cloud Scheduler → Cloud Run (see deploy/cloud-run/README.md)
   workflow_dispatch:
 
 jobs:

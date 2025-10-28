@@ -40,6 +40,8 @@ jobs:
       - name: Refresh DuckDB warehouse
         env:
           GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
+          SYNC_STATE_GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
+          SYNC_STATE_GCS_BLOB: state/sync_state.json
         run: make nightly-duckdb
 
       - name: Upload DuckDB artifacts
