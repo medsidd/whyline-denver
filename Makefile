@@ -16,9 +16,15 @@ DBT_PROFILES  := DBT_PROFILES_DIR=$$PWD/dbt/profiles
 DBT_CMD       := $(DBT_PROFILES) $(PY) -m scripts.dbt_with_env
 DBT_TARGET    ?= prod
 
+# Cloud Run app defaults keep a single instance hot when needed with scale-to-zero otherwise
+GCP_PROJECT_ID    ?= whyline-denver
+CLOUD_RUN_REGION  ?= us-central1
+CLOUD_RUN_DUCKDB_BLOB ?= marts/duckdb/warehouse.duckdb
+CLOUD_RUN_MIN_INSTANCES ?= 0  # Allow scale-to-zero for low idle cost
+CLOUD_RUN_MAX_INSTANCES ?= 1  # Cap to control spend; adjust if traffic demands
+CLOUD_RUN_CONCURRENCY ?= 80   # High per-instance concurrency keeps a single instance busy
 CLOUD_RUN_IMAGE  ?= whylinedenver-realtime
 CLOUD_RUN_REPO   ?= realtime-jobs
-CLOUD_RUN_REGION ?= us-central1
 GCS_BUCKET       ?= whylinedenver-raw
 
 # Tooling ---------------------------------------------------------------------
@@ -127,6 +133,7 @@ sync-export:
 
 sync-refresh:
 	@set -euo pipefail; \
+	export DUCKDB_GCS_BLOB="$(CLOUD_RUN_DUCKDB_BLOB)"; \
 	ARGS=""; \
 	if [ -n "$${LOCAL_PARQUET_ROOT:-}" ]; then \
 		ARGS="$$ARGS --local-parquet-root $${LOCAL_PARQUET_ROOT}"; \

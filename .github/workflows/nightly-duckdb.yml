@@ -42,6 +42,7 @@ jobs:
           GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
           SYNC_STATE_GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
           SYNC_STATE_GCS_BLOB: state/sync_state.json
+          DUCKDB_GCS_BLOB: marts/duckdb/warehouse.duckdb
         run: make nightly-duckdb
 
       - name: Upload DuckDB artifacts

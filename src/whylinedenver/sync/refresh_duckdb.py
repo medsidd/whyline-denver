@@ -52,6 +52,10 @@ class RefreshResult:
     materialized: bool
 
 
+class DuckDBUploadError(RuntimeError):
+    """Raised when DuckDB artifact cannot be mirrored to GCS."""
+
+
 def _parse_args(argv: Optional[Sequence[str]]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Refresh DuckDB from exported mart parquet files.")
     parser.add_argument(
@@ -101,6 +105,86 @@ def _collect_local_run_dates(base: Path, mart_name: str) -> tuple[list[str], str
     )
     glob = str(mart_root / "run_date=*" / "**" / "*")
     return run_dates, glob
+
+
+def _upload_duckdb_to_gcs(
+    client: storage.Client,
+    bucket: str,
+    blob_name: str,
+    source_path: Path,
+) -> None:
+    if not source_path.exists():
+        raise DuckDBUploadError(f"DuckDB file not found at {source_path}")
+
+    blob = client.bucket(bucket).blob(blob_name)
+
+    try:
+        blob.upload_from_filename(source_path)
+    except GoogleAPIError as exc:
+        raise DuckDBUploadError(
+            f"Failed to upload DuckDB to gs://{bucket}/{blob_name}: {exc}"
+        ) from exc
+
+    size_mb = source_path.stat().st_size / (1024 * 1024)
+    LOGGER.info(
+        "Uploaded DuckDB warehouse to gs://%s/%s (%.2f MiB)",
+        bucket,
+        blob_name,
+        size_mb,
+    )
+
+
+def _refresh_all_marts(
+    *,
+    con: duckdb.DuckDBPyConnection,
+    storage_client: Optional[storage.Client],
+    settings: Settings,
+    local_parquet_root: Optional[Path],
+    cache_root: Path,
+    marts_state: dict[str, object],
+    dry_run: bool,
+) -> list[RefreshResult]:
+    results: list[RefreshResult] = []
+
+    for mart_name in ALLOWLISTED_MARTS:
+        marker_date = ""
+        use_latest_only = mart_name in LATEST_RUN_DATE_ONLY_MARTS
+        run_dates, paths, marker_date = _resolve_mart_sources(
+            mart_name=mart_name,
+            local_parquet_root=local_parquet_root,
+            cache_root=cache_root,
+            storage_client=storage_client,
+            bucket=settings.GCS_BUCKET,
+            use_latest_only=use_latest_only,
+        )
+
+        if not paths:
+            LOGGER.warning("Skipping %s; no parquet files discovered", mart_name)
+            continue
+
+        materialize = mart_name in HOT_MARTS
+        sync_strategy = "latest run_date only" if use_latest_only else "all run_dates"
+        result = _refresh_mart(
+            con=con,
+            mart_name=mart_name,
+            run_dates=run_dates,
+            paths=paths,
+            materialize=materialize,
+            sync_strategy=sync_strategy,
+            dry_run=dry_run,
+        )
+        results.append(result)
+
+        if dry_run:
+            continue
+
+        latest = _latest_run_date(run_dates)
+        if not latest and not local_parquet_root:
+            latest = marker_date
+        if latest:
+            marts_state[mart_name] = latest
+
+    return results
 
 
 def _cache_gcs_parquet(
@@ -300,60 +384,43 @@ def refresh(
     LOGGER.debug("Current sync state marts: %s", marts_state)
     LOGGER.debug("BigQuery last updated: %s", bigquery_updated_at)
 
-    results: list[RefreshResult] = []
-
     storage_client: Optional[storage.Client] = None
     if local_parquet_root is None:
         storage_client = storage.Client(project=settings.GCP_PROJECT_ID)
         cache_root = cache_root.resolve()
         cache_root.mkdir(parents=True, exist_ok=True)
 
-    for mart_name in ALLOWLISTED_MARTS:
-        marker_date = ""
-        use_latest_only = mart_name in LATEST_RUN_DATE_ONLY_MARTS
-
-        run_dates, paths, marker_date = _resolve_mart_sources(
-            mart_name=mart_name,
+    results: list[RefreshResult] = []
+    try:
+        results = _refresh_all_marts(
+            con=con,
+            storage_client=storage_client,
+            settings=settings,
             local_parquet_root=local_parquet_root,
             cache_root=cache_root,
-            storage_client=storage_client,
-            bucket=settings.GCS_BUCKET,
-            use_latest_only=use_latest_only,
-        )
-
-        if not paths:
-            LOGGER.warning("Skipping %s; no parquet files discovered", mart_name)
-            continue
-
-        materialize = mart_name in HOT_MARTS
-        sync_strategy = "latest run_date only" if use_latest_only else "all run_dates"
-        result = _refresh_mart(
-            con=con,
-            mart_name=mart_name,
-            run_dates=run_dates,
-            paths=paths,
-            materialize=materialize,
-            sync_strategy=sync_strategy,
+            marts_state=marts_state,
             dry_run=dry_run,
         )
-        results.append(result)
         if not dry_run:
-            latest = _latest_run_date(run_dates)
-            if not latest and not local_parquet_root:
-                latest = marker_date
-            if latest:
-                marts_state[mart_name] = latest
+            state["duckdb_synced_at_utc"] = datetime.now(UTC).isoformat()
+            if bigquery_updated_at:
+                state["bigquery_updated_at_utc"] = bigquery_updated_at
+            try:
+                write_sync_state(state, path=SYNC_STATE_PATH)
+            except SyncStateUploadError as exc:
+                LOGGER.error("%s", exc)
+                raise
+    finally:
+        con.close()
 
-    if not dry_run:
-        state["duckdb_synced_at_utc"] = datetime.now(UTC).isoformat()
-        if bigquery_updated_at:
-            state["bigquery_updated_at_utc"] = bigquery_updated_at
-        try:
-            write_sync_state(state, path=SYNC_STATE_PATH)
-        except SyncStateUploadError as exc:
-            LOGGER.error("%s", exc)
-            raise
-    con.close()
+    if not dry_run and settings.DUCKDB_GCS_BLOB:
+        client_for_upload = storage_client or storage.Client(project=settings.GCP_PROJECT_ID)
+        _upload_duckdb_to_gcs(
+            client=client_for_upload,
+            bucket=settings.GCS_BUCKET,
+            blob_name=settings.DUCKDB_GCS_BLOB,
+            source_path=duckdb_path,
+        )
     return results
 
 
