@@ -270,7 +270,7 @@ streamlit-run: streamlit-build
 			-e GCP_REGION=$(CLOUD_RUN_REGION) \
 			-e GCS_BUCKET=$(GCS_BUCKET) \
 			-e DUCKDB_GCS_BLOB=$(CLOUD_RUN_DUCKDB_BLOB) \
-			-e DUCKDB_PARQUET_ROOT=/app/data/marts \
+			-e DUCKDB_PARQUET_ROOT=data/marts \
 			-e SYNC_STATE_GCS_BUCKET=$(GCS_BUCKET) \
 			-e SYNC_STATE_GCS_BLOB=state/sync_state.json \
 			-e GOOGLE_APPLICATION_CREDENTIALS=/var/secrets/sa.json \
@@ -285,7 +285,7 @@ streamlit-run: streamlit-build
 			-e GCP_REGION=$(CLOUD_RUN_REGION) \
 			-e GCS_BUCKET=$(GCS_BUCKET) \
 			-e DUCKDB_GCS_BLOB=$(CLOUD_RUN_DUCKDB_BLOB) \
-			-e DUCKDB_PARQUET_ROOT=/app/data/marts \
+			-e DUCKDB_PARQUET_ROOT=data/marts \
 			-e SYNC_STATE_GCS_BUCKET=$(GCS_BUCKET) \
 			-e SYNC_STATE_GCS_BLOB=state/sync_state.json \
 			$(STREAMLIT_IMAGE); \
