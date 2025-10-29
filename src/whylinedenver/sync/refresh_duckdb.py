@@ -12,6 +12,7 @@ from typing import Optional
 
 import duckdb
 from google.api_core.exceptions import GoogleAPIError, NotFound
+from google.auth.exceptions import DefaultCredentialsError
 from google.cloud import storage
 
 from whylinedenver.config import Settings
@@ -23,6 +24,7 @@ LOGGER = logging.getLogger(__name__)
 DEFAULT_DUCKDB_PATH = Path("data/warehouse.duckdb")
 DEFAULT_CACHE_ROOT = Path("data/marts")
 SYNC_STATE_PATH = Path("data/sync_state.json")
+DUCKDB_GCS_REQUIRED_ENV = "DUCKDB_GCS_REQUIRED"
 
 DUCKDB_MAX_AGE_DAYS = int(os.getenv("DUCKDB_MAX_AGE_DAYS", "90"))
 
@@ -54,6 +56,23 @@ class RefreshResult:
 
 class DuckDBUploadError(RuntimeError):
     """Raised when DuckDB artifact cannot be mirrored to GCS."""
+
+
+def _maybe_create_storage_client(
+    settings: Settings,
+    *,
+    strict: bool,
+) -> tuple[Optional[storage.Client], Exception | None]:
+    try:
+        return storage.Client(project=settings.GCP_PROJECT_ID), None
+    except DefaultCredentialsError as exc:
+        if strict:
+            raise
+        return None, exc
+    except Exception as exc:
+        if strict:
+            raise
+        return None, exc
 
 
 def _parse_args(argv: Optional[Sequence[str]]) -> argparse.Namespace:
@@ -120,7 +139,7 @@ def _upload_duckdb_to_gcs(
 
     try:
         blob.upload_from_filename(source_path)
-    except GoogleAPIError as exc:
+    except Exception as exc:
         raise DuckDBUploadError(
             f"Failed to upload DuckDB to gs://{bucket}/{blob_name}: {exc}"
         ) from exc
@@ -371,6 +390,15 @@ def _refresh_mart(
     return RefreshResult(mart_name=mart_name, run_dates=run_dates, materialized=materialize)
 
 
+def _require_duckdb_upload() -> bool:
+    return os.getenv(DUCKDB_GCS_REQUIRED_ENV, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def refresh(
     *,
     settings: Settings,
@@ -385,8 +413,9 @@ def refresh(
     LOGGER.debug("BigQuery last updated: %s", bigquery_updated_at)
 
     storage_client: Optional[storage.Client] = None
+    storage_error: Exception | None = None
     if local_parquet_root is None:
-        storage_client = storage.Client(project=settings.GCP_PROJECT_ID)
+        storage_client, storage_error = _maybe_create_storage_client(settings, strict=True)
         cache_root = cache_root.resolve()
         cache_root.mkdir(parents=True, exist_ok=True)
 
@@ -414,13 +443,26 @@ def refresh(
         con.close()
 
     if not dry_run and settings.DUCKDB_GCS_BLOB:
-        client_for_upload = storage_client or storage.Client(project=settings.GCP_PROJECT_ID)
-        _upload_duckdb_to_gcs(
-            client=client_for_upload,
-            bucket=settings.GCS_BUCKET,
-            blob_name=settings.DUCKDB_GCS_BLOB,
-            source_path=duckdb_path,
-        )
+        client_for_upload = storage_client
+        if client_for_upload is None:
+            client_for_upload, storage_error = _maybe_create_storage_client(settings, strict=False)
+        if client_for_upload is None:
+            LOGGER.warning(
+                "Skipping DuckDB upload to GCS (credentials unavailable): %s",
+                storage_error,
+            )
+        else:
+            try:
+                _upload_duckdb_to_gcs(
+                    client=client_for_upload,
+                    bucket=settings.GCS_BUCKET,
+                    blob_name=settings.DUCKDB_GCS_BLOB,
+                    source_path=duckdb_path,
+                )
+            except DuckDBUploadError as exc:
+                if _require_duckdb_upload():
+                    raise
+                LOGGER.warning("%s (continuing without remote mirror)", exc)
     return results
 
 

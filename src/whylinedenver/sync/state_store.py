@@ -12,6 +12,7 @@ LOGGER = logging.getLogger(__name__)
 
 # Default local location of sync_state.json; callers can override via arguments.
 DEFAULT_SYNC_STATE_PATH = Path("data/sync_state.json")
+SYNC_STATE_GCS_REQUIRED_ENV = "SYNC_STATE_GCS_REQUIRED"
 
 
 class SyncStateUploadError(RuntimeError):
@@ -34,7 +35,19 @@ def _ensure_storage_client():
         raise SyncStateUploadError(
             "google-cloud-storage is required to access sync_state.json in GCS."
         ) from exc
-    return storage.Client()
+    try:
+        return storage.Client()
+    except Exception as exc:  # pragma: no cover - credential/network errors
+        raise SyncStateUploadError("Unable to initialize Google Cloud Storage client") from exc
+
+
+def _require_gcs_upload() -> bool:
+    return os.getenv(SYNC_STATE_GCS_REQUIRED_ENV, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 def download_sync_state(
@@ -93,9 +106,10 @@ def write_sync_state(
         blob.upload_from_string(serialized, content_type="application/json")
         LOGGER.info("Uploaded sync state to gs://%s/%s", bucket_name, blob_name)
     except Exception as exc:  # pragma: no cover - network/credential errors
-        raise SyncStateUploadError(
-            f"Failed to upload sync_state.json to gs://{bucket_name}/{blob_name}: {exc}"
-        ) from exc
+        message = f"Failed to upload sync_state.json to gs://{bucket_name}/{blob_name}: {exc}"
+        if _require_gcs_upload():
+            raise SyncStateUploadError(message) from exc
+        LOGGER.warning("%s (continuing without remote mirror)", message)
 
 
 def load_sync_state(
