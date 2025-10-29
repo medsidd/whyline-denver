@@ -516,6 +516,8 @@ def refresh_duckdb(duckdb_path='data/warehouse.duckdb'):
 
 **Why differentiate?** Hot marts are queried frequently in app (need fast response); cold marts are referenced less often (view over Parquet is acceptable).
 
+Nightly syncs mirror the consolidated DuckDB file to `gs://whylinedenver-raw/marts/duckdb/warehouse.duckdb`. The Cloud Run Streamlit service mounts that blob (read-only) via GCS Fuse, keeping cold-starts fast without maintaining a dedicated database.
+
 ---
 
 ## Data Flow Diagrams
@@ -524,7 +526,7 @@ WhyLine Denver includes comprehensive visual diagrams documenting the complete d
 
 ### Pipeline Architecture Diagram
 
-![Pipeline Architecture](diagrams/exports/pipeline.svg)
+![Pipeline Architecture](diagrams/exports/pipeline.png)
 
 **[View source: pipeline.drawio](diagrams/pipeline.drawio)** | **[Edit in draw.io](https://app.diagrams.net)**
 
@@ -575,7 +577,7 @@ Shows all 29 models across Bronze → Silver → Gold medallion architecture.
 <details>
 <summary><strong>Reliability Domain Lineage</strong> (click to expand)</summary>
 
-![Reliability Domain Lineage](diagrams/exports/reliability_domain_lineage.svg)
+![Reliability Domain Lineage](diagrams/exports/reliability_domain_lineage.png)
 
 **[View source: reliability_domain_lineage.drawio](diagrams/reliability_domain_lineage.drawio)**
 
@@ -585,7 +587,7 @@ Delay analysis, headway calculations, weather impacts.
 <details>
 <summary><strong>Safety Domain Lineage</strong> (click to expand)</summary>
 
-![Safety Domain Lineage](diagrams/exports/safety_domain_lineage.svg)
+![Safety Domain Lineage](diagrams/exports/safety_domain_lineage.png)
 
 **[View source: safety_domain_lineage.drawio](diagrams/safety_domain_lineage.drawio)**
 
@@ -595,7 +597,7 @@ Crash proximity analysis with spatial joins.
 <details>
 <summary><strong>Equity Domain Lineage</strong> (click to expand)</summary>
 
-![Equity Domain Lineage](diagrams/exports/equity_domain_lineage.svg)
+![Equity Domain Lineage](diagrams/exports/equity_domain_lineage.png)
 
 **[View source: equity_domain_lineage.drawio](diagrams/equity_domain_lineage.drawio)**
 
@@ -605,7 +607,7 @@ Vulnerability scoring and priority hotspots.
 <details>
 <summary><strong>Access Domain Lineage</strong> (click to expand)</summary>
 
-![Access Domain Lineage](diagrams/exports/access_domain_lineage.svg)
+![Access Domain Lineage](diagrams/exports/access_domain_lineage.png)
 
 **[View source: access_domain_lineage.drawio](diagrams/access_domain_lineage.drawio)**
 

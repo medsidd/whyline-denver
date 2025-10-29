@@ -2,6 +2,7 @@ import os
 from functools import lru_cache
 
 import pandas as pd
+from google.api_core import exceptions
 from google.cloud import bigquery
 
 from whylinedenver.llm import adapt_sql_for_engine
@@ -38,5 +39,9 @@ def execute(sql: str) -> tuple[dict, pd.DataFrame]:
             maximum_bytes_billed=int(os.getenv("MAX_BYTES_BILLED", "2000000000"))
         ),
     )
-    df = job.result().to_dataframe(create_bqstorage_client=True)
+    results = job.result()
+    try:
+        df = results.to_dataframe(create_bqstorage_client=True)
+    except exceptions.PermissionDenied:
+        df = results.to_dataframe(create_bqstorage_client=False)
     return {"engine": "bigquery", "rows": len(df), "bq_est_bytes": est_bytes}, df

@@ -66,7 +66,7 @@ def render() -> tuple[str, dict[str, Any]]:
         )
         st.caption("BigQuery: full corpus  \nDuckDB: ≈90 days cached for fast local exploration.")
 
-        st.markdown("---")
+        st.markdown('<hr class="section-separator" />', unsafe_allow_html=True)
         st.header("Controls")
 
         engine = st.radio(

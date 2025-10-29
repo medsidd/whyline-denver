@@ -307,6 +307,26 @@ def build_map(df: pd.DataFrame, engine_module=None) -> object | None:
 
     map_df = df.copy()
 
+    def _sanitize_records(records: list[dict]) -> list[dict]:
+        sanitized: list[dict] = []
+        for record in records:
+            clean: dict = {}
+            for key, value in record.items():
+                if hasattr(value, "item"):
+                    value = value.item()
+                elif isinstance(value, pd.Timestamp | pd.Timedelta):
+                    value = value.isoformat()
+                elif hasattr(value, "isoformat"):
+                    try:
+                        value = value.isoformat()
+                    except Exception:
+                        value = str(value)
+                elif not isinstance(value, str | int | float | bool | type(None)):
+                    value = str(value)
+                clean[key] = value
+            sanitized.append(clean)
+        return sanitized
+
     # ═══════════════════════════════════════════════════════════════════════════
     # NEW MAP TYPE: HOTSPOT MAP - Priority Stops
     # ═══════════════════════════════════════════════════════════════════════════
@@ -375,9 +395,12 @@ def build_map(df: pd.DataFrame, engine_module=None) -> object | None:
             map_df["metric_value_display"] = "–"
 
         # Create scatterplot layer
+        map_df["radius"] = map_df["radius"].astype(float)
+        records = _sanitize_records(map_df.to_dict(orient="records"))
+
         layer = pdk.Layer(
             "ScatterplotLayer",
-            data=map_df,
+            data=records,
             get_position="[lon, lat]",
             get_radius="radius",
             get_fill_color=f"[{int(BRAND_ERROR[1:3], 16)}, {int(BRAND_ERROR[3:5], 16)}, {int(BRAND_ERROR[5:7], 16)}, 160]",

@@ -56,7 +56,7 @@ For production workloads or larger teams:
    ```
 
 2. **Configure `.env`:**
-   Set `GCP_PROJECT_ID`, `BQ_DATASET_RAW`, `BQ_DATASET_STG`, `BQ_DATASET_MART`, and `GCS_BUCKET`.
+   Set `GCP_PROJECT_ID`, `GCP_REGION`, `BQ_DATASET_RAW`, `BQ_DATASET_STG`, `BQ_DATASET_MART`, and `GCS_BUCKET`.
 
 3. **Switch engine in app sidebar:**
    Select **BigQuery** as the query engine. Queries will show dry-run byte estimates and respect `MAX_BYTES_BILLED` limits.
@@ -66,6 +66,9 @@ For production workloads or larger teams:
 
 5. **Provision realtime Cloud Run jobs**:
    Follow [`deploy/cloud-run/README.md`](deploy/cloud-run/README.md) to build the container, create Cloud Run jobs, and wire up Cloud Scheduler every 5 minutes.
+
+6. **Streamlit DuckDB artifact**:
+   Nightly syncs publish `warehouse.duckdb` to `gs://whylinedenver-raw/marts/duckdb/warehouse.duckdb` for the Cloud Run app volume mount.
 
 ## LLM Provider (Gemini)
 

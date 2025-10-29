@@ -38,7 +38,7 @@ from utils import data_loaders, session
 # ═══════════════════════════════════════════════════════════════════════════
 st.set_page_config(
     page_title=f"{branding.BRAND_NAME} — Transit Analytics",
-    page_icon=str(Path(__file__).parent / "assets" / "whylinedenver-logo@512.png"),
+    page_icon=str(Path(__file__).parent / "assets" / "favicon.ico"),
     layout="wide",
     initial_sidebar_state="expanded",
 )
