@@ -322,6 +322,12 @@ def inject_custom_css() -> None:
         }}
 
         /* ═══ DIVIDERS ═══ */
+        hr.section-separator {{
+            border: none;
+            border-top: 1px solid rgba(135, 167, 179, 0.25);
+            margin: 1.5rem 0 1rem;
+        }}
+
         hr {{
             border-color: #433f4c;
             margin: 2rem 0;
