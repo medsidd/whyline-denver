@@ -431,15 +431,16 @@ def refresh(
     LOGGER.debug("Current sync state marts: %s", marts_state)
     LOGGER.debug("BigQuery last updated: %s", bigquery_updated_at)
 
+    view_root, cache_root = _resolve_view_root(
+        settings=settings,
+        cache_root=cache_root,
+        local_parquet_root=local_parquet_root,
+    )
+
     storage_client: Optional[storage.Client] = None
     storage_error: Exception | None = None
     if local_parquet_root is None:
         storage_client, storage_error = _maybe_create_storage_client(settings, strict=True)
-        cache_root = cache_root.resolve()
-        cache_root.mkdir(parents=True, exist_ok=True)
-        view_root = Path(settings.DUCKDB_PARQUET_ROOT)
-    else:
-        view_root = local_parquet_root.resolve()
 
     results: list[RefreshResult] = []
     try:
@@ -454,38 +455,17 @@ def refresh(
             dry_run=dry_run,
         )
         if not dry_run:
-            state["duckdb_synced_at_utc"] = datetime.now(UTC).isoformat()
-            if bigquery_updated_at:
-                state["bigquery_updated_at_utc"] = bigquery_updated_at
-            try:
-                write_sync_state(state, path=SYNC_STATE_PATH)
-            except SyncStateUploadError as exc:
-                LOGGER.error("%s", exc)
-                raise
+            _update_sync_state(state, bigquery_updated_at)
     finally:
         con.close()
 
     if not dry_run and settings.DUCKDB_GCS_BLOB:
-        client_for_upload = storage_client
-        if client_for_upload is None:
-            client_for_upload, storage_error = _maybe_create_storage_client(settings, strict=False)
-        if client_for_upload is None:
-            LOGGER.warning(
-                "Skipping DuckDB upload to GCS (credentials unavailable): %s",
-                storage_error,
-            )
-        else:
-            try:
-                _upload_duckdb_to_gcs(
-                    client=client_for_upload,
-                    bucket=settings.GCS_BUCKET,
-                    blob_name=settings.DUCKDB_GCS_BLOB,
-                    source_path=duckdb_path,
-                )
-            except DuckDBUploadError as exc:
-                if _require_duckdb_upload():
-                    raise
-                LOGGER.warning("%s (continuing without remote mirror)", exc)
+        _maybe_upload_duckdb(
+            storage_client=storage_client,
+            storage_error=storage_error,
+            settings=settings,
+            duckdb_path=duckdb_path,
+        )
     return results
 
 
@@ -515,3 +495,58 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
+
+
+def _resolve_view_root(
+    *, settings: Settings, cache_root: Path, local_parquet_root: Optional[Path]
+) -> tuple[Path, Path]:
+    if local_parquet_root is None:
+        resolved_cache = cache_root.resolve()
+        resolved_cache.mkdir(parents=True, exist_ok=True)
+        if settings.DUCKDB_PARQUET_ROOT:
+            return Path(settings.DUCKDB_PARQUET_ROOT), resolved_cache
+        return resolved_cache, resolved_cache
+
+    resolved_local = local_parquet_root.resolve()
+    return resolved_local, resolved_local
+
+
+def _update_sync_state(state: dict, bigquery_updated_at: str | None) -> None:
+    state["duckdb_synced_at_utc"] = datetime.now(UTC).isoformat()
+    if bigquery_updated_at:
+        state["bigquery_updated_at_utc"] = bigquery_updated_at
+    try:
+        write_sync_state(state, path=SYNC_STATE_PATH)
+    except SyncStateUploadError as exc:
+        LOGGER.error("%s", exc)
+        raise
+
+
+def _maybe_upload_duckdb(
+    *,
+    storage_client: Optional[storage.Client],
+    storage_error: Exception | None,
+    settings: Settings,
+    duckdb_path: Path,
+) -> None:
+    client_for_upload = storage_client
+    if client_for_upload is None:
+        client_for_upload, storage_error = _maybe_create_storage_client(settings, strict=False)
+    if client_for_upload is None:
+        LOGGER.warning(
+            "Skipping DuckDB upload to GCS (credentials unavailable): %s",
+            storage_error,
+        )
+        return
+
+    try:
+        _upload_duckdb_to_gcs(
+            client=client_for_upload,
+            bucket=settings.GCS_BUCKET,
+            blob_name=settings.DUCKDB_GCS_BLOB,
+            source_path=duckdb_path,
+        )
+    except DuckDBUploadError as exc:
+        if _require_duckdb_upload():
+            raise
+        LOGGER.warning("%s (continuing without remote mirror)", exc)
