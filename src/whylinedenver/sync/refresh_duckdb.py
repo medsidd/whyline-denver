@@ -43,6 +43,7 @@ LATEST_RUN_DATE_ONLY_MARTS = {
     "mart_access_score_by_stop",
     "mart_vulnerability_by_stop",
     "mart_priority_hotspots",
+    "mart_crash_proximity_by_stop",
     "mart_weather_impacts",
 }
 

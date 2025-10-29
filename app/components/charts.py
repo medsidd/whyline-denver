@@ -233,6 +233,14 @@ def build_chart(df: pd.DataFrame) -> alt.Chart | None:
         if len(chart_df) > max_categories:
             chart_df = chart_df.nlargest(max_categories, y_col)
 
+        # Avoid implicit summation when duplicates exist for the category axis.
+        if chart_df.duplicated(subset=[x_col]).any():
+            chart_df = (
+                chart_df.groupby(x_col, as_index=False)[y_col]
+                .max()
+                .sort_values(by=y_col, ascending=False)
+            )
+
         return (
             alt.Chart(chart_df)
             .mark_bar(cornerRadius=4)

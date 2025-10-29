@@ -227,6 +227,8 @@ def render(
                         else:
                             display_df[base] = display_df[ref_col]
                         display_df = display_df.drop(columns=[ref_col])
+            else:
+                display_df["stop_id"] = display_df["stop_id"].astype(str)
 
         # Execution stats in expander
         if results_stats:

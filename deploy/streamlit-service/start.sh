@@ -130,28 +130,30 @@ for mart in ALLOWLISTED_MARTS:
         continue
 
     downloaded = 0
-for blob in blobs:
-    name = blob.name
-    if not name or name.endswith("/"):
-        continue
-    relative = name.split("marts/", 1)[-1]
-    if relative.startswith("/") or "../" in relative or relative == "..":
-        print(f"WARNING: Skipping suspicious parquet object name: {name}", file=sys.stderr)
-        continue
-    local_path = (cache_root / relative).resolve()
-    try:
-        local_path.relative_to(cache_root.resolve())
-    except ValueError:
-        print(f"WARNING: Skipping parquet outside cache root: {name}", file=sys.stderr)
-        continue
-    local_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        blob.download_to_filename(local_path)
-        downloaded += 1
-    except Exception as exc:  # pragma: no cover
-        print(f"WARNING: Failed to download {name}: {exc}", file=sys.stderr)
+    for blob in blobs:
+        name = blob.name
+        if not name or name.endswith("/"):
+            continue
+        relative = name.split("marts/", 1)[-1]
+        if relative.startswith("/") or "../" in relative or relative == "..":
+            print(f"WARNING: Skipping suspicious parquet object name: {name}", file=sys.stderr)
+            continue
+        local_path = (cache_root / relative).resolve()
+        try:
+            local_path.relative_to(cache_root.resolve())
+        except ValueError:
+            print(f"WARNING: Skipping parquet outside cache root: {name}", file=sys.stderr)
+            continue
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            blob.download_to_filename(local_path)
+            downloaded += 1
+        except Exception as exc:  # pragma: no cover
+            print(f"WARNING: Failed to download {name}: {exc}", file=sys.stderr)
     if downloaded:
         print(f"Downloaded {downloaded} parquet files for {mart}")
+    else:
+        print(f"No parquet files downloaded for {mart} (already cached or empty)")
 PY
 fi
 
