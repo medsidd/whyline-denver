@@ -160,11 +160,11 @@ def _refresh_all_marts(
     settings: Settings,
     local_parquet_root: Optional[Path],
     cache_root: Path,
+    view_root: Path,
     marts_state: dict[str, object],
     dry_run: bool,
 ) -> list[RefreshResult]:
     results: list[RefreshResult] = []
-    view_root = Path(settings.DUCKDB_PARQUET_ROOT)
 
     for mart_name in ALLOWLISTED_MARTS:
         marker_date = ""
@@ -436,6 +436,9 @@ def refresh(
         storage_client, storage_error = _maybe_create_storage_client(settings, strict=True)
         cache_root = cache_root.resolve()
         cache_root.mkdir(parents=True, exist_ok=True)
+        view_root = Path(settings.DUCKDB_PARQUET_ROOT)
+    else:
+        view_root = local_parquet_root.resolve()
 
     results: list[RefreshResult] = []
     try:
@@ -445,6 +448,7 @@ def refresh(
             settings=settings,
             local_parquet_root=local_parquet_root,
             cache_root=cache_root,
+            view_root=view_root,
             marts_state=marts_state,
             dry_run=dry_run,
         )
