@@ -494,34 +494,6 @@ def _update_sync_state(state: dict, bigquery_updated_at: str | None) -> None:
         raise
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
-    args = _parse_args(argv)
-    logging.basicConfig(
-        level=getattr(logging, args.log_level.upper()),
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
-    settings = Settings()
-    local_root = Path(args.local_parquet_root).resolve() if args.local_parquet_root else None
-    cache_root = Path(args.cache_root).resolve()
-
-    try:
-        refresh(
-            settings=settings,
-            duckdb_path=Path(args.duckdb_path),
-            local_parquet_root=local_root,
-            cache_root=cache_root,
-            dry_run=args.dry_run,
-        )
-    except Exception:  # pragma: no cover - defensive top-level guard
-        LOGGER.exception("DuckDB mart refresh failed")
-        return 1
-    return 0
-
-
-if __name__ == "__main__":  # pragma: no cover
-    raise SystemExit(main())
-
-
 def _maybe_upload_duckdb(
     *,
     storage_client: Optional[storage.Client],
@@ -550,3 +522,31 @@ def _maybe_upload_duckdb(
         if _require_duckdb_upload():
             raise
         LOGGER.warning("%s (continuing without remote mirror)", exc)
+
+
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    args = _parse_args(argv)
+    logging.basicConfig(
+        level=getattr(logging, args.log_level.upper()),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+    settings = Settings()
+    local_root = Path(args.local_parquet_root).resolve() if args.local_parquet_root else None
+    cache_root = Path(args.cache_root).resolve()
+
+    try:
+        refresh(
+            settings=settings,
+            duckdb_path=Path(args.duckdb_path),
+            local_parquet_root=local_root,
+            cache_root=cache_root,
+            dry_run=args.dry_run,
+        )
+    except Exception:  # pragma: no cover - defensive top-level guard
+        LOGGER.exception("DuckDB mart refresh failed")
+        return 1
+    return 0
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())
