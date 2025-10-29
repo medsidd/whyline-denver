@@ -22,8 +22,9 @@ When running on Cloud Run, prefer mounting the bucket via GCS Fuse (e.g. at
 `/mnt/gcs`). If `/mnt/gcs/marts/duckdb/warehouse.duckdb` exists, the startup
 script symlinks it into `/app/data/warehouse.duckdb` and skips the download
 step; the parquet cache is exposed via `/app/data/marts` so DuckDB views continue
-to work. Override `DUCKDB_PARQUET_ROOT` (e.g. `/mnt/gcs/marts`) if you mount to a
-different directory.
+to work. Views expect the default relative path `data/marts`, so keep
+`DUCKDB_PARQUET_ROOT` unchanged; the symlink ensures the relative path resolves
+to the mounted bucket.
 
 ```bash
 # If you want BigQuery access, export a service account path first
