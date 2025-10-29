@@ -73,7 +73,7 @@ For production workloads or larger teams:
 7. **Cloud Run app container**:
    Build and smoke-test the nginx + Streamlit container locally with `make streamlit-run`, then deploy the image to Cloud Run with `/app` as the base path.
 
-   - Mount `gs://whylinedenver-raw` into the service (GCS Fuse) at `/mnt/gcs` and set `DUCKDB_PARQUET_ROOT=data/marts`. The startup script symlinks `/app/data/marts → /mnt/gcs/marts`, and if `warehouse.duckdb` / `sync_state.json` are present on the mount they are reused directly (no download).
+   - Mount `gs://whylinedenver-raw` into the service (GCS Fuse) at `/mnt/gcs` and set `DUCKDB_PARQUET_ROOT=/mnt/gcs/marts`. The startup script symlinks `/app/data/marts → /mnt/gcs/marts`, and if `warehouse.duckdb` / `sync_state.json` are present on the mount they are reused directly (no download).
 
    ```bash
    # Optional: provide BigQuery + GCS credentials for local runs
