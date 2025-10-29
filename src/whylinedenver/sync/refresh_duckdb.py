@@ -469,6 +469,31 @@ def refresh(
     return results
 
 
+def _resolve_view_root(
+    *, settings: Settings, cache_root: Path, local_parquet_root: Optional[Path]
+) -> tuple[Path, Path]:
+    if local_parquet_root is None:
+        resolved_cache = cache_root.resolve()
+        resolved_cache.mkdir(parents=True, exist_ok=True)
+        if settings.DUCKDB_PARQUET_ROOT:
+            return Path(settings.DUCKDB_PARQUET_ROOT), resolved_cache
+        return resolved_cache, resolved_cache
+
+    resolved_local = local_parquet_root.resolve()
+    return resolved_local, resolved_local
+
+
+def _update_sync_state(state: dict, bigquery_updated_at: str | None) -> None:
+    state["duckdb_synced_at_utc"] = datetime.now(UTC).isoformat()
+    if bigquery_updated_at:
+        state["bigquery_updated_at_utc"] = bigquery_updated_at
+    try:
+        write_sync_state(state, path=SYNC_STATE_PATH)
+    except SyncStateUploadError as exc:
+        LOGGER.error("%s", exc)
+        raise
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = _parse_args(argv)
     logging.basicConfig(
@@ -495,31 +520,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
-
-
-def _resolve_view_root(
-    *, settings: Settings, cache_root: Path, local_parquet_root: Optional[Path]
-) -> tuple[Path, Path]:
-    if local_parquet_root is None:
-        resolved_cache = cache_root.resolve()
-        resolved_cache.mkdir(parents=True, exist_ok=True)
-        if settings.DUCKDB_PARQUET_ROOT:
-            return Path(settings.DUCKDB_PARQUET_ROOT), resolved_cache
-        return resolved_cache, resolved_cache
-
-    resolved_local = local_parquet_root.resolve()
-    return resolved_local, resolved_local
-
-
-def _update_sync_state(state: dict, bigquery_updated_at: str | None) -> None:
-    state["duckdb_synced_at_utc"] = datetime.now(UTC).isoformat()
-    if bigquery_updated_at:
-        state["bigquery_updated_at_utc"] = bigquery_updated_at
-    try:
-        write_sync_state(state, path=SYNC_STATE_PATH)
-    except SyncStateUploadError as exc:
-        LOGGER.error("%s", exc)
-        raise
 
 
 def _maybe_upload_duckdb(
