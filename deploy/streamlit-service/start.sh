@@ -111,16 +111,6 @@ cache_root.mkdir(parents=True, exist_ok=True)
 if not bucket_name:
     sys.exit(0)
 
-def _needs_download(root: Path) -> bool:
-    try:
-        next(root.glob("*"))
-    except StopIteration:
-        return True
-    return False
-
-if not _needs_download(cache_root):
-    sys.exit(0)
-
 try:
     client = storage.Client(project=project) if project else storage.Client()
 except Exception as exc:  # pragma: no cover
@@ -130,6 +120,9 @@ except Exception as exc:  # pragma: no cover
 for mart in ALLOWLISTED_MARTS:
     prefix = f"marts/{mart}/"
     dest_root = cache_root / mart
+    existing = any(dest_root.glob("run_date=*/**/*"))
+    if existing:
+        continue
     try:
         blobs = client.list_blobs(bucket_name, prefix=prefix)
     except Exception as exc:  # pragma: no cover

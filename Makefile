@@ -263,14 +263,14 @@ streamlit-run: streamlit-build
 	fi; \
 	if [ -n "$$GOOGLE_APPLICATION_CREDENTIALS" ]; then \
 		echo "→ Mounting GOOGLE_APPLICATION_CREDENTIALS from $$GOOGLE_APPLICATION_CREDENTIALS"; \
-		docker run --rm \
+			docker run --rm \
 			$$ENV_MOUNT \
 			-p 8080:8080 \
 			-e GCP_PROJECT_ID=$(GCP_PROJECT_ID) \
 			-e GCP_REGION=$(CLOUD_RUN_REGION) \
 			-e GCS_BUCKET=$(GCS_BUCKET) \
 			-e DUCKDB_GCS_BLOB=$(CLOUD_RUN_DUCKDB_BLOB) \
-			-e DUCKDB_PARQUET_ROOT=data/marts \
+			-e DUCKDB_PARQUET_ROOT=/app/data/marts \
 			-e SYNC_STATE_GCS_BUCKET=$(GCS_BUCKET) \
 			-e SYNC_STATE_GCS_BLOB=state/sync_state.json \
 			-e GOOGLE_APPLICATION_CREDENTIALS=/var/secrets/sa.json \
@@ -278,14 +278,14 @@ streamlit-run: streamlit-build
 			$(STREAMLIT_IMAGE); \
 	else \
 		echo "⚠️  GOOGLE_APPLICATION_CREDENTIALS not set; running without BigQuery access."; \
-		docker run --rm \
+			docker run --rm \
 			$$ENV_MOUNT \
 			-p 8080:8080 \
 			-e GCP_PROJECT_ID=$(GCP_PROJECT_ID) \
 			-e GCP_REGION=$(CLOUD_RUN_REGION) \
 			-e GCS_BUCKET=$(GCS_BUCKET) \
 			-e DUCKDB_GCS_BLOB=$(CLOUD_RUN_DUCKDB_BLOB) \
-			-e DUCKDB_PARQUET_ROOT=data/marts \
+			-e DUCKDB_PARQUET_ROOT=/app/data/marts \
 			-e SYNC_STATE_GCS_BUCKET=$(GCS_BUCKET) \
 			-e SYNC_STATE_GCS_BLOB=state/sync_state.json \
 			$(STREAMLIT_IMAGE); \
