@@ -32,6 +32,9 @@ ensure_data_dirs() {
   if [ -d "$MOUNTED_MARTS_DIR" ]; then
     ln -sfn "$MOUNTED_MARTS_DIR" /app/data/marts
   fi
+  if [ ! -e /app/data/marts ]; then
+    mkdir -p /app/data/marts
+  fi
 }
 
 ensure_data_dirs
@@ -86,6 +89,68 @@ for bucket_name, blob_name, local_path, label in targets:
             f"WARNING: Failed to download {label} from gs://{bucket_name}/{blob_name}: {exc}",
             file=sys.stderr,
         )
+PY
+fi
+
+# Download parquet marts when not mounted and directory is empty
+if [ ! -d "$MOUNTED_MARTS_DIR" ]; then
+  python - <<'PY' || true
+import os
+import sys
+from pathlib import Path
+
+from google.cloud import storage
+
+from whylinedenver.sync.constants import ALLOWLISTED_MARTS
+
+project = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCP_PROJECT_ID") or os.getenv("PROJECT_ID")
+bucket_name = os.getenv("GCS_BUCKET")
+cache_root = Path("/app/data/marts")
+cache_root.mkdir(parents=True, exist_ok=True)
+
+if not bucket_name:
+    sys.exit(0)
+
+def _needs_download(root: Path) -> bool:
+    try:
+        next(root.glob("*"))
+    except StopIteration:
+        return True
+    return False
+
+if not _needs_download(cache_root):
+    sys.exit(0)
+
+try:
+    client = storage.Client(project=project) if project else storage.Client()
+except Exception as exc:  # pragma: no cover
+    print(f"WARNING: Unable to init storage client for parquet download: {exc}", file=sys.stderr)
+    sys.exit(0)
+
+for mart in ALLOWLISTED_MARTS:
+    prefix = f"marts/{mart}/"
+    dest_root = cache_root / mart
+    try:
+        blobs = client.list_blobs(bucket_name, prefix=prefix)
+    except Exception as exc:  # pragma: no cover
+        print(f"WARNING: Failed to list parquet for {mart}: {exc}", file=sys.stderr)
+        continue
+
+    downloaded = 0
+    for blob in blobs:
+        name = blob.name
+        if not name or name.endswith("/"):
+            continue
+        relative = name.split("marts/", 1)[-1]
+        local_path = cache_root / relative
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            blob.download_to_filename(local_path)
+            downloaded += 1
+        except Exception as exc:  # pragma: no cover
+            print(f"WARNING: Failed to download {name}: {exc}", file=sys.stderr)
+    if downloaded:
+        print(f"Downloaded {downloaded} parquet files for {mart}")
 PY
 fi
 
