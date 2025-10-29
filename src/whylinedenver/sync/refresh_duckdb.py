@@ -160,6 +160,7 @@ def _refresh_all_marts(
     settings: Settings,
     local_parquet_root: Optional[Path],
     cache_root: Path,
+    view_root: Path,
     marts_state: dict[str, object],
     dry_run: bool,
 ) -> list[RefreshResult]:
@@ -168,7 +169,7 @@ def _refresh_all_marts(
     for mart_name in ALLOWLISTED_MARTS:
         marker_date = ""
         use_latest_only = mart_name in LATEST_RUN_DATE_ONLY_MARTS
-        run_dates, paths, marker_date = _resolve_mart_sources(
+        run_dates, paths, marker_date, relative_globs = _resolve_mart_sources(
             mart_name=mart_name,
             local_parquet_root=local_parquet_root,
             cache_root=cache_root,
@@ -188,6 +189,8 @@ def _refresh_all_marts(
             mart_name=mart_name,
             run_dates=run_dates,
             paths=paths,
+            relative_globs=relative_globs,
+            view_root=view_root,
             materialize=materialize,
             sync_strategy=sync_strategy,
             dry_run=dry_run,
@@ -314,10 +317,11 @@ def _resolve_mart_sources(
     storage_client: Optional[storage.Client],
     bucket: str,
     use_latest_only: bool,
-) -> tuple[list[str], list[str], str]:
+) -> tuple[list[str], list[str], str, list[str]]:
     marker_date = ""
     run_dates: list[str] = []
     paths: list[str] = []
+    relative_globs: list[str] = []
 
     if local_parquet_root:
         base_path = local_parquet_root.resolve()
@@ -349,11 +353,15 @@ def _resolve_mart_sources(
 
     if run_dates:
         for rd in run_dates:
-            paths.append(str(base_path / mart_name / f"run_date={rd}" / "**" / "*"))
+            suffix = Path(mart_name) / f"run_date={rd}" / "**" / "*"
+            paths.append(str((base_path / suffix).resolve()))
+            relative_globs.append(str(suffix).replace("\\", "/"))
     else:
-        paths.append(str(base_path / mart_name / "run_date=*" / "**" / "*"))
+        suffix = Path(mart_name) / "run_date=*" / "**" / "*"
+        paths.append(str((base_path / suffix).resolve()))
+        relative_globs.append(str(suffix).replace("\\", "/"))
 
-    return run_dates, paths, marker_date
+    return run_dates, paths, marker_date, relative_globs
 
 
 def _refresh_mart(
@@ -362,14 +370,24 @@ def _refresh_mart(
     mart_name: str,
     run_dates: list[str],
     paths: list[str],
+    relative_globs: list[str],
+    view_root: Path,
     materialize: bool,
     sync_strategy: str,
     dry_run: bool,
 ) -> RefreshResult:
-    if len(paths) == 1:
-        source_expr = f"read_parquet('{paths[0]}')"
+    if materialize:
+        query_paths = [path.replace("\\", "/") for path in paths]
     else:
-        array_literal = ", ".join(f"'{path}'" for path in paths)
+        query_paths = []
+        for suffix in relative_globs:
+            joined = str(view_root / Path(suffix)).replace("\\", "/")
+            query_paths.append(joined)
+
+    if len(query_paths) == 1:
+        source_expr = f"read_parquet('{query_paths[0]}')"
+    else:
+        array_literal = ", ".join(f"'{path}'" for path in query_paths)
         source_expr = f"read_parquet(ARRAY[{array_literal}])"
 
     statement = (
@@ -418,6 +436,9 @@ def refresh(
         storage_client, storage_error = _maybe_create_storage_client(settings, strict=True)
         cache_root = cache_root.resolve()
         cache_root.mkdir(parents=True, exist_ok=True)
+        view_root = Path(settings.DUCKDB_PARQUET_ROOT)
+    else:
+        view_root = local_parquet_root.resolve()
 
     results: list[RefreshResult] = []
     try:
@@ -427,6 +448,7 @@ def refresh(
             settings=settings,
             local_parquet_root=local_parquet_root,
             cache_root=cache_root,
+            view_root=view_root,
             marts_state=marts_state,
             dry_run=dry_run,
         )

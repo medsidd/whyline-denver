@@ -2,7 +2,6 @@
 baseUrlPath = "app"
 headless = true
 enableCORS = false
-port = 7860
 
 
 [browser]

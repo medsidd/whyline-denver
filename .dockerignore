@@ -7,7 +7,6 @@ __pycache__/
 *.log
 logs/
 data/
-dbt/target/
 site/
 dist/
 build/

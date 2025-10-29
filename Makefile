@@ -1,7 +1,7 @@
 .SHELLFLAGS := -o pipefail -c
 SHELL := /bin/bash
 .PHONY: install lint format test test-ingest run app ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local bq-load-realtime bq-load-historical dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dbt-run-realtime dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams
-.PHONY: sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams dbt-run-realtime
+.PHONY: sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams dbt-run-realtime streamlit-build streamlit-run
 
 # Shared command helpers ------------------------------------------------------
 PYTHON        := python
@@ -26,6 +26,7 @@ CLOUD_RUN_CONCURRENCY ?= 80   # High per-instance concurrency keeps a single ins
 CLOUD_RUN_IMAGE  ?= whylinedenver-realtime
 CLOUD_RUN_REPO   ?= realtime-jobs
 GCS_BUCKET       ?= whylinedenver-raw
+STREAMLIT_IMAGE  ?= whylinedenver-app
 
 # Tooling ---------------------------------------------------------------------
 install:
@@ -252,8 +253,46 @@ cloud-run-tag:
 cloud-run-push: cloud-run-tag
 	@docker push $(CLOUD_RUN_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(CLOUD_RUN_REPO)/$(CLOUD_RUN_IMAGE)
 
+streamlit-build:
+	docker build -t $(STREAMLIT_IMAGE) .
+
+streamlit-run: streamlit-build
+	@ENV_MOUNT=""; \
+	if [ -f .env ]; then \
+		ENV_MOUNT="-v $$PWD/.env:/app/.env:ro"; \
+	fi; \
+	if [ -n "$$GOOGLE_APPLICATION_CREDENTIALS" ]; then \
+		echo "→ Mounting GOOGLE_APPLICATION_CREDENTIALS from $$GOOGLE_APPLICATION_CREDENTIALS"; \
+		docker run --rm \
+			$$ENV_MOUNT \
+			-p 8080:8080 \
+			-e GCP_PROJECT_ID=$(GCP_PROJECT_ID) \
+			-e GCP_REGION=$(CLOUD_RUN_REGION) \
+			-e GCS_BUCKET=$(GCS_BUCKET) \
+			-e DUCKDB_GCS_BLOB=$(CLOUD_RUN_DUCKDB_BLOB) \
+			-e DUCKDB_PARQUET_ROOT=data/marts \
+			-e SYNC_STATE_GCS_BUCKET=$(GCS_BUCKET) \
+			-e SYNC_STATE_GCS_BLOB=state/sync_state.json \
+			-e GOOGLE_APPLICATION_CREDENTIALS=/var/secrets/sa.json \
+			-v "$$GOOGLE_APPLICATION_CREDENTIALS":/var/secrets/sa.json:ro \
+			$(STREAMLIT_IMAGE); \
+	else \
+		echo "⚠️  GOOGLE_APPLICATION_CREDENTIALS not set; running without BigQuery access."; \
+		docker run --rm \
+			$$ENV_MOUNT \
+			-p 8080:8080 \
+			-e GCP_PROJECT_ID=$(GCP_PROJECT_ID) \
+			-e GCP_REGION=$(CLOUD_RUN_REGION) \
+			-e GCS_BUCKET=$(GCS_BUCKET) \
+			-e DUCKDB_GCS_BLOB=$(CLOUD_RUN_DUCKDB_BLOB) \
+			-e DUCKDB_PARQUET_ROOT=data/marts \
+			-e SYNC_STATE_GCS_BUCKET=$(GCS_BUCKET) \
+			-e SYNC_STATE_GCS_BLOB=state/sync_state.json \
+			$(STREAMLIT_IMAGE); \
+	fi
+
 ci-help:
-    @echo "Targets: install | lint | format | test | run | ingest-* | bq-load(-local|-realtime|-historical) | dbt-* | dev-loop | export-diagrams | cloud-run-(build|push)"
+	@echo "Targets: install | lint | format | test | run | ingest-* | bq-load(-local|-realtime|-historical) | dbt-* | dev-loop | export-diagrams | cloud-run-(build|push) | streamlit-(build|run)"
 
 .SHELLFLAGS := -o pipefail -c
 SHELL := /bin/bash

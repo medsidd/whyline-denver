@@ -100,6 +100,9 @@ def render(
                     except NotImplementedError as exc:
                         st.session_state["sql_error"] = str(exc)
                         llm_output = None
+                    except Exception as exc:  # pragma: no cover - surface LLM runtime errors
+                        st.session_state["sql_error"] = f"LLM provider error: {exc}"
+                        llm_output = None
 
                     if llm_output:
                         candidate_sql = llm_output.get("sql", "")

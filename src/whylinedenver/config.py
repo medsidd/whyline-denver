@@ -61,6 +61,7 @@ class Settings:
     GCP_PROJECT_ID: str = os.getenv("GCP_PROJECT_ID", "whyline-denver")
     GCS_BUCKET: str = os.getenv("GCS_BUCKET", "whylinedenver-raw")
     DUCKDB_GCS_BLOB: str = os.getenv("DUCKDB_GCS_BLOB", "marts/duckdb/warehouse.duckdb")
+    DUCKDB_PARQUET_ROOT: str = os.getenv("DUCKDB_PARQUET_ROOT", "data/marts")
     BQ_DATASET_RAW: str = os.getenv("BQ_DATASET_RAW", "raw_denver")
     BQ_DATASET_STG: str = os.getenv("BQ_DATASET_STG", "stg_denver")
     BQ_DATASET_MART: str = os.getenv("BQ_DATASET_MART", "mart_denver")
