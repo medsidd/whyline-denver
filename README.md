@@ -70,6 +70,17 @@ For production workloads or larger teams:
 6. **Streamlit DuckDB artifact**:
    Nightly syncs publish `warehouse.duckdb` to `gs://whylinedenver-raw/marts/duckdb/warehouse.duckdb` for the Cloud Run app volume mount.
 
+7. **Cloud Run app container**:
+   Build and smoke-test the nginx + Streamlit container locally with `make streamlit-run`, then deploy the image to Cloud Run with `/app` as the base path.
+
+   - Mount `gs://whylinedenver-raw` into the service (GCS Fuse) at `/mnt/gcs` and set `DUCKDB_PARQUET_ROOT=data/marts`. The startup script symlinks `/app/data/marts → /mnt/gcs/marts`, and if `warehouse.duckdb` / `sync_state.json` are present on the mount they are reused directly (no download).
+
+   ```bash
+   # Optional: provide BigQuery + GCS credentials for local runs
+   export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud/application_default_credentials.json"
+   make streamlit-run
+   ```
+
 ## LLM Provider (Gemini)
 
 The Streamlit app can swap between the stubbed SQL generator and Google Gemini while keeping the same guardrails. To enable Gemini:

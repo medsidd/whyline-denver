@@ -516,7 +516,9 @@ def refresh_duckdb(duckdb_path='data/warehouse.duckdb'):
 
 **Why differentiate?** Hot marts are queried frequently in app (need fast response); cold marts are referenced less often (view over Parquet is acceptable).
 
-Nightly syncs mirror the consolidated DuckDB file to `gs://whylinedenver-raw/marts/duckdb/warehouse.duckdb`. The Cloud Run Streamlit service mounts that blob (read-only) via GCS Fuse, keeping cold-starts fast without maintaining a dedicated database.
+Nightly syncs mirror the consolidated DuckDB file to `gs://whylinedenver-raw/marts/duckdb/warehouse.duckdb`. The Cloud Run Streamlit service mounts that blob (read-only) via GCS Fuse, keeping cold-starts fast without maintaining a dedicated database. Streamlit also symlinks `/app/data/marts` to the mounted bucket so DuckDB views resolve parquet directly from GCS.
+
+At runtime a lightweight nginx sidecar (same container) terminates HTTP, proxies `/app/*` to the internal Streamlit server (running with `--server.baseUrlPath=/app`), redirects `/ → /app`, and serves static placeholders for `/docs` and `/data`. This keeps routing consistent with Cloudflare's apex redirect while letting us swap in real docs/downloads later.
 
 ---
 

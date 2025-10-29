@@ -27,9 +27,25 @@ STRIPE_GRADIENT = (
 # Chart color palette (5-color sequential for data viz)
 CHART_COLORS = [BRAND_PRIMARY, BRAND_SUCCESS, BRAND_ACCENT, BRAND_WARNING, BRAND_ERROR]
 
+ASSET_ROOT = Path(__file__).resolve().parents[1] / "assets"
+FAVICON_ICO_DATAURI = "data:image/x-icon;base64," + base64.b64encode(
+    (ASSET_ROOT / "favicon.ico").read_bytes()
+).decode("ascii")
+FAVICON_MASK_DATAURI = "data:image/svg+xml;base64," + base64.b64encode(
+    (ASSET_ROOT / "whylinedenver-logo.svg").read_bytes()
+).decode("ascii")
+
 
 def inject_custom_css() -> None:
     """Apply heavy custom CSS to override Streamlit defaults and create retro aesthetic."""
+    st.markdown(
+        f"""
+        <link rel="icon" type="image/x-icon" href="{FAVICON_ICO_DATAURI}">
+        <link rel="mask-icon" href="{FAVICON_MASK_DATAURI}" color="{BRAND_PRIMARY}">
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.markdown(
         f"""
         <style>
@@ -167,6 +183,25 @@ def inject_custom_css() -> None:
         [data-testid="stSidebar"] {{
             background-color: #1a171d;
             border-right: 1px solid #433f4c;
+            width: 380px;
+        }}
+
+        [data-testid="stSidebar"] > div {{
+            width: 100%;
+        }}
+
+        @media (max-width: 1400px) {{
+            [data-testid="stSidebar"] {{
+                width: 320px;
+                min-width: 320px;
+            }}
+        }}
+
+        @media (max-width: 1100px) {{
+            [data-testid="stSidebar"] {{
+                width: 300px;
+                min-width: 300px;
+            }}
         }}
 
         [data-testid="stSidebar"] h2 {{
@@ -232,11 +267,11 @@ def inject_custom_css() -> None:
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.5rem;
             background-color: rgba(135, 167, 179, 0.08);
             border-left: 4px solid rgba(135, 167, 179, 0.3);
             border-radius: 10px;
-            padding: 0.65rem 0.9rem;
+            padding: 0.6rem 0.85rem;
             margin-bottom: 0.6rem;
         }}
 
@@ -251,7 +286,8 @@ def inject_custom_css() -> None:
         .status-badge__value {{
             font-family: 'Space Grotesk', sans-serif;
             font-weight: 600;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
+            letter-spacing: 0.02em;
             color: {BRAND_PRIMARY};
         }}
 
