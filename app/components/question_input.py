@@ -65,7 +65,7 @@ def render(
         st.session_state["sql_error"] = None
         st.session_state["generated_sql"] = None
         st.session_state["explanation"] = ""
-        st.session_state["results_df"] = None
+        st.session_state["query_params"] = None  # Clear query params (optimized)
         st.session_state["results_stats"] = None
         st.session_state["run_error"] = None
         st.session_state["sql_cache_hit"] = False

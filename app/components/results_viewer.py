@@ -77,6 +77,40 @@ def _date_columns_for_mart(mart: str, models: dict[str, ModelInfo]) -> list[str]
     return ordered
 
 
+@st.cache_data(ttl=180, show_spinner=False)
+def _execute_query_cached(
+    engine: str, sql: str, _models: dict[str, ModelInfo]
+) -> pd.DataFrame | None:
+    """
+    Execute a query and cache the result for 3 minutes.
+
+    This cached function retrieves results from query_cache when available,
+    preventing repeated execution of the same query.
+
+    Args:
+        engine: Engine name (duckdb or bigquery)
+        sql: Sanitized and adapted SQL query
+        _models: Models dict (prefixed with _ to exclude from cache key)
+
+    Returns:
+        DataFrame with query results or None on error
+    """
+    engine_module = duckdb_engine if engine == "duckdb" else bigquery_engine
+
+    # Check query_cache first (very fast)
+    cached = query_cache.get(engine, sql)
+    if cached:
+        _, df = cached
+        return df
+
+    # Execute if not in cache (shouldn't happen often)
+    try:
+        _, df = engine_module.execute(sql)
+        return df
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def _load_date_bounds(
     engine: str,
     mart: str,
@@ -127,9 +161,9 @@ def render(
         allowlist: Set of allowed model names
     """
     generated_sql = st.session_state.get("generated_sql")
-    results_df: pd.DataFrame | None = st.session_state.get("results_df")
+    query_params = st.session_state.get("query_params")
 
-    if not generated_sql and results_df is None:
+    if not generated_sql and query_params is None:
         st.markdown("### Downloads")
         st.caption("Retrieve full marts or the DuckDB warehouse without generating SQL first.")
         _render_downloads_section(engine, models, guardrail_config)
@@ -147,10 +181,11 @@ def render(
             disabled=st.session_state.get("sql_error") is not None,
         )
     with col2:
-        if st.session_state.get("results_df") is not None:
-            st.success(
-                f"✓ Query executed successfully ({len(st.session_state['results_df'])} rows)"
-            )
+        if query_params is not None:
+            # Compute row count from cached execution
+            results_df = _execute_query_cached(query_params["engine"], query_params["sql"], models)
+            if results_df is not None:
+                st.success(f"✓ Query executed successfully ({len(results_df)} rows)")
 
     if run_clicked:
         sql_to_run = st.session_state.get("edited_sql", st.session_state["generated_sql"])
@@ -160,7 +195,7 @@ def render(
             st.session_state["sanitized_sql"] = sanitized_sql
         except SqlValidationError as exc:
             st.session_state["run_error"] = str(exc)
-            st.session_state["results_df"] = None
+            st.session_state["query_params"] = None
             st.session_state["results_stats"] = None
         else:
             with st.spinner("Executing query..."):
@@ -188,21 +223,33 @@ def render(
                         cache_hit=cache_hit,
                         bq_est_bytes=stats.get("bq_est_bytes") if isinstance(stats, dict) else None,
                     )
-                    st.session_state["results_df"] = df
+                    # Store only parameters, not the DataFrame
+                    st.session_state["query_params"] = {
+                        "engine": engine,
+                        "sql": sanitized_sql,
+                        "question": question,
+                    }
                     st.session_state["results_stats"] = stats
                     st.session_state["run_error"] = None
                 except Exception as exc:
                     st.session_state["run_error"] = str(exc)
-                    st.session_state["results_df"] = None
+                    st.session_state["query_params"] = None
                     st.session_state["results_stats"] = None
 
     if st.session_state.get("run_error"):
         st.error(f"❌ Query failed: {st.session_state['run_error']}")
 
-    results_df = st.session_state.get("results_df")
+    query_params = st.session_state.get("query_params")
     results_stats = st.session_state.get("results_stats")
 
-    if results_df is not None:
+    if query_params is not None:
+        # Recompute from cached execution - this is very fast due to query_cache
+        results_df = _execute_query_cached(query_params["engine"], query_params["sql"], models)
+
+        if results_df is None:
+            st.error("❌ Failed to retrieve cached results")
+            return
+
         display_df = results_df.copy()
 
         if "stop_id" in display_df.columns:
@@ -235,18 +282,32 @@ def render(
             with st.expander("Execution Statistics", expanded=False):
                 st.json(results_stats)
 
-        # Results table
-        st.dataframe(display_df, use_container_width=True)
+        # Downsample for display if too large (memory optimization)
+        max_display_rows = 10_000
+        display_sample = display_df
+        if len(display_df) > max_display_rows:
+            st.warning(
+                f"⚠️ Large result set ({len(display_df):,} rows). "
+                f"Displaying first {max_display_rows:,} rows. "
+                "Download full CSV below."
+            )
+            display_sample = display_df.head(max_display_rows)
 
-        # Visualization
-        chart = build_chart(display_df)
+        # Results table
+        st.dataframe(display_sample, use_container_width=True)
+
+        # Visualization - use downsampled data for charts
+        chart = build_chart(display_sample)
         if chart:
             st.altair_chart(chart, use_container_width=True)
 
-        # Map visualization
+        # Map visualization - limit to reasonable number of points
         engine_module = duckdb_engine if engine == "duckdb" else bigquery_engine
-        hotspot_map = build_map(display_df, engine_module)
+        map_sample = display_df.head(1000) if len(display_df) > 1000 else display_df
+        hotspot_map = build_map(map_sample, engine_module)
         if hotspot_map:
+            if len(display_df) > 1000:
+                st.caption(f"ℹ️ Map showing top 1,000 of {len(display_df):,} points")
             st.pydeck_chart(hotspot_map)
 
         # Download button
@@ -315,7 +376,7 @@ def _render_downloads_section(
                     )
                     if date_error:
                         st.warning(f"⚠️ Unable to load date range: {date_error}")
-                        st.session_state[filter_key] = False
+                        st.info("Please uncheck the filter to proceed without date filtering.")
                         filter_enabled = False
                     elif min_date and max_date:
                         start_key = f"full_mart_download_start_{mart}_{date_column}"
@@ -339,7 +400,7 @@ def _render_downloads_section(
                         )
                     else:
                         st.warning("Date bounds unavailable; export will include all rows.")
-                        st.session_state[filter_key] = False
+                        st.info("Please uncheck the filter to proceed without date filtering.")
                         filter_enabled = False
             else:
                 st.caption(

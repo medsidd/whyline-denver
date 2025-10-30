@@ -336,8 +336,8 @@ cloud-run-deploy-streamlit: cloud-run-build-streamlit
 		--set-env-vars SYNC_STATE_GCS_BUCKET=$(GCS_BUCKET) \
 		--set-env-vars SYNC_STATE_GCS_BLOB=state/sync_state.json \
 		--set-env-vars DUCKDB_GCS_BLOB=$(CLOUD_RUN_DUCKDB_BLOB) \
-		--set-env-vars DUCKDB_PATH=/mnt/gcs/marts/duckdb/warehouse.duckdb \
-		--set-env-vars DUCKDB_PARQUET_ROOT=data/marts \
+		--set-env-vars DUCKDB_PATH=/app/data/warehouse.duckdb \
+		--set-env-vars DUCKDB_COPY_LOCAL=0 \
 		--set-env-vars GCS_MOUNT_ROOT=/mnt/gcs \
 		--set-env-vars ENGINE=duckdb \
 		--set-env-vars MAX_BYTES_BILLED=$(MAX_BYTES_BILLED) \

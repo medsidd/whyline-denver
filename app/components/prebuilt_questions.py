@@ -97,7 +97,7 @@ def render(
                 st.session_state["explanation"] = f"Prebuilt query: {label}"
                 st.session_state["model_names"] = sorted(models.keys())
                 st.session_state["sql_error"] = None
-                st.session_state["results_df"] = None
+                st.session_state["query_params"] = None  # Clear query params (optimized)
                 st.session_state["results_stats"] = None
                 st.session_state["run_error"] = None
                 st.session_state["bq_est_bytes_preview"] = None

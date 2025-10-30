@@ -83,6 +83,24 @@ For production workloads or larger teams:
    make streamlit-run
    ```
 
+### Performance tuning (Cloud Run)
+
+For best interactivity on Streamlit in Cloud Run, use:
+
+- Concurrency: 10
+- CPU: 2 vCPU
+- Memory: 2–4 GiB
+- Timeouts: 600s
+
+The DuckDB engine now reuses a thread-local connection and, by default, copies the database to ephemeral storage to avoid GCS FUSE latency. You can control this behavior via:
+
+- `DUCKDB_PATH` – path to the warehouse (e.g., `/mnt/gcs/marts/duckdb/warehouse.duckdb`)
+- `DUCKDB_COPY_LOCAL` – set `0` to disable local copy (default `1`)
+- `DUCKDB_LOCAL_PATH` – local destination (default `/tmp/warehouse.duckdb`)
+- `DUCKDB_THREADS`, `DUCKDB_MEMORY_LIMIT`, `DUCKDB_TEMP_DIR`
+
+See `docs/guides/performance.md` for more details.
+
 ## LLM Provider (Gemini)
 
 The Streamlit app can swap between the stubbed SQL generator and Google Gemini while keeping the same guardrails. To enable Gemini:
