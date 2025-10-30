@@ -78,7 +78,13 @@ def render(
 
     cols = st.columns(2)
     for i, (label, sql) in enumerate(PREBUILT):
-        if cols[i % 2].button(label, use_container_width=True, key=f"prebuilt_{i}"):
+        # Explicitly mark as secondary to pick up scoped CSS that keeps labels on one line
+        if cols[i % 2].button(
+            label,
+            use_container_width=True,
+            key=f"prebuilt_{i}",
+            type="secondary",
+        ):
             # Validate and adapt SQL for current engine
             try:
                 sanitized_sql = sanitize_sql(sql, guardrail_config)

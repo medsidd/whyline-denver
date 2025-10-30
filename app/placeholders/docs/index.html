@@ -2,12 +2,197 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>Documentation &amp; Guides</title>
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Denver Transit Data Documentation - WhyLine Denver</title>
+    <meta name="description" content="Learn how to analyze Denver RTD transit data, understand bus reliability metrics, and explore transit equity. Complete guide to using WhyLine Denver.">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="mask-icon" href="/assets/whylinedenver-logo.svg" color="#87a7b3">
+    <link rel="canonical" href="https://www.whylinedenver.com/docs/">
+  <!-- Open Graph / Twitter for docs -->
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Denver Transit Data Documentation - WhyLine Denver">
+  <meta property="og:description" content="How to analyze Denver RTD transit data, reliability, equity, crashes, and weather impacts.">
+  <meta property="og:url" content="https://www.whylinedenver.com/docs/">
+  <meta property="og:image" content="https://www.whylinedenver.com/assets/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Denver Transit Data Documentation - WhyLine Denver">
+  <meta name="twitter:description" content="Complete guide to using WhyLine Denver for RTD analysis.">
+  <meta name="twitter:image" content="https://www.whylinedenver.com/assets/og-image.png">
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+        max-width: 900px;
+        margin: 40px auto;
+        padding: 20px;
+        line-height: 1.7;
+        color: #333;
+      }
+      h1 { color: #87a7b3; margin-bottom: 10px; }
+      h2 { color: #d4a574; margin-top: 40px; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px; }
+      h3 { color: #a3b88c; margin-top: 25px; }
+      code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }
+      pre { background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto; }
+      .nav { margin: 20px 0; padding: 15px; background: #f9f9f9; border-radius: 5px; }
+      .nav a { margin-right: 15px; color: #87a7b3; text-decoration: none; font-weight: 500; }
+      .nav a:hover { text-decoration: underline; }
+      table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+      th, td { padding: 10px; text-align: left; border-bottom: 1px solid #e0e0e0; }
+      th { background: #f5f5f5; font-weight: 600; }
+      .tip { background: #e8f5e9; border-left: 4px solid #a3b88c; padding: 15px; margin: 20px 0; }
+    </style>
   </head>
   <body>
-    <h1>Documentation (Coming Soon)</h1>
-    <p>Docs will live here soon. In the meantime, visit the <a href="/app">WhyLine Denver app</a>.</p>
+    <div class="nav">
+      <a href="/app">← Back to App</a>
+      <a href="/">Home</a>
+      <a href="https://medsidd.github.io/whyline-denver/">Technical Docs</a>
+      <a href="https://github.com/medsidd/whyline-denver">GitHub</a>
+    </div>
+
+    <h1>Denver Transit Data Documentation</h1>
+    <p><strong>WhyLine Denver</strong> is a free analytics tool for Denver RTD public transit. Ask questions in plain English and get instant insights about bus reliability, delays, equity gaps, and service quality.</p>
+
+    <h2>📊 Available Data & Metrics</h2>
+    
+    <h3>Bus Reliability Data</h3>
+    <p>Analyze on-time performance for every RTD bus route and stop:</p>
+    <ul>
+      <li><strong>On-Time Percentage</strong> - How often buses arrive within the scheduled window</li>
+      <li><strong>Average Delay</strong> - Mean minutes late/early by route, day, and hour</li>
+      <li><strong>Reliability Score</strong> - 0-100 composite metric of service consistency</li>
+      <li><strong>Historical Trends</strong> - 90+ days of real-time GTFS data</li>
+    </ul>
+
+    <h3>Equity & Accessibility Metrics</h3>
+    <p>Identify transit equity gaps across Denver neighborhoods:</p>
+    <ul>
+      <li><strong>Vulnerability Score</strong> - Census-based measure of community disadvantage (income, age, disability, vehicle access)</li>
+      <li><strong>Priority Hotspots</strong> - Bus stops with high vulnerability and low reliability</li>
+      <li><strong>Access Gaps</strong> - Areas with poor transit service but high need</li>
+    </ul>
+
+    <h3>Safety & Infrastructure</h3>
+    <ul>
+      <li><strong>Crash Proximity</strong> - Number of traffic crashes within 250m of each bus stop</li>
+      <li><strong>Sidewalk Coverage</strong> - Pedestrian infrastructure near transit stops</li>
+    </ul>
+
+    <h3>Weather Impact Analysis</h3>
+    <p>How weather conditions affect Denver bus service:</p>
+    <ul>
+      <li><strong>Snow & Ice</strong> - Reliability changes during winter weather</li>
+      <li><strong>Precipitation Bins</strong> - Light, moderate, heavy rain/snow categories</li>
+      <li><strong>Temperature Effects</strong> - Service performance across temperature ranges</li>
+    </ul>
+
+    <h2>🔍 Example Questions You Can Ask</h2>
+    
+    <div class="tip">
+      <strong>💡 Tip:</strong> Use the Prebuilt Questions in the app for instant examples!
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Example Question</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Reliability</td>
+          <td>"Which bus routes have the worst on-time performance?"</td>
+        </tr>
+        <tr>
+          <td>Equity</td>
+          <td>"Show me bus stops in vulnerable areas with poor service"</td>
+        </tr>
+        <tr>
+          <td>Safety</td>
+          <td>"Which stops are near the most traffic crashes?"</td>
+        </tr>
+        <tr>
+          <td>Weather</td>
+          <td>"How does snow impact bus reliability on Route 15?"</td>
+        </tr>
+        <tr>
+          <td>Time-based</td>
+          <td>"What's the average delay during morning rush hour?"</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>🚀 How to Use WhyLine Denver</h2>
+    
+    <h3>Step 1: Choose Your Engine</h3>
+    <ul>
+      <li><strong>DuckDB</strong> - Fast local queries on ~90 days of cached data</li>
+      <li><strong>BigQuery</strong> - Full historical dataset (slower but complete)</li>
+    </ul>
+
+    <h3>Step 2: Ask Your Question</h3>
+    <p>Type a question in plain English. Our AI will generate SQL automatically. Examples:</p>
+    <pre>"What are the 10 worst performing routes last month?"
+"Show stops with high crash exposure in vulnerable neighborhoods"
+"How does weather affect Route 15 reliability?"</pre>
+
+    <h3>Step 3: Review & Run SQL</h3>
+    <p>The generated SQL is editable. Advanced users can modify queries directly. Click "Run Query" to execute.</p>
+
+    <h3>Step 4: Analyze Results</h3>
+    <ul>
+      <li>Interactive charts and visualizations</li>
+      <li>Downloadable CSV datasets</li>
+      <li>Summary statistics</li>
+    </ul>
+
+    <h2>📖 Data Sources</h2>
+    <ul>
+      <li><strong>RTD GTFS</strong> - Real-time and schedule data from Denver Regional Transportation District</li>
+      <li><strong>Denver Open Data</strong> - Traffic crashes, sidewalk infrastructure, city boundaries</li>
+      <li><strong>NOAA Weather</strong> - Daily precipitation and temperature from Denver stations</li>
+      <li><strong>U.S. Census ACS</strong> - Demographics, income, vehicle ownership by census tract</li>
+    </ul>
+
+    <h2>🛠️ Technical Details</h2>
+    <p>Built with:</p>
+    <ul>
+      <li><strong>dbt</strong> - Data transformation pipeline</li>
+      <li><strong>DuckDB & BigQuery</strong> - Dual query engines</li>
+      <li><strong>Streamlit</strong> - Interactive web interface</li>
+      <li><strong>LLM</strong> - Natural language to SQL conversion</li>
+      <li><strong>Google Cloud Run</strong> - Scalable deployment</li>
+    </ul>
+    
+    <p><a href="https://medsidd.github.io/whyline-denver/">View complete technical documentation →</a></p>
+
+    <h2>🔗 Links & Resources</h2>
+    <ul>
+      <li><a href="/app">Launch WhyLine Denver App</a></li>
+      <li><a href="https://github.com/medsidd/whyline-denver">GitHub Repository</a></li>
+      <li><a href="https://medsidd.github.io/whyline-denver/">dbt Data Lineage</a></li>
+      <li><a href="https://www.rtd-denver.com/open-records">RTD Open Data</a></li>
+      <li><a href="https://www.denvergov.org/opendata">Denver Open Data Portal</a></li>
+    </ul>
+
+    <h2>❓ Frequently Asked Questions</h2>
+    
+    <h3>Is WhyLine Denver free to use?</h3>
+    <p>Yes, completely free. No signup required.</p>
+
+    <h3>How often is the data updated?</h3>
+    <p>DuckDB cache: Updated periodically (check sidebar freshness indicator)<br>
+    BigQuery: Real-time updates from RTD GTFS feeds</p>
+
+    <h3>Can I download the data?</h3>
+    <p>Yes! Every query result can be downloaded as CSV.</p>
+
+    <h3>Who built this?</h3>
+    <p>WhyLine Denver is an open-source project built by a Denver resident passionate about public transit and data transparency.</p>
+
+    <footer style="margin-top: 60px; padding-top: 30px; border-top: 2px solid #e0e0e0; color: #666;">
+      <p><strong>WhyLine Denver</strong> - Ask anything about Denver transit in your own words</p>
+      <p><a href="/app">Launch App</a> | <a href="/">Home</a> | <a href="https://github.com/medsidd/whyline-denver">GitHub</a></p>
+    </footer>
   </body>
 </html>

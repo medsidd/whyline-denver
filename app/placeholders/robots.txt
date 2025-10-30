@@ -1,0 +1,25 @@
+User-agent: *
+Allow: /
+Allow: /app/
+Allow: /docs/
+Allow: /data/
+Allow: /assets/
+
+Disallow: /_stcore/
+Disallow: /streamlit/
+Disallow: /_healthz
+
+Sitemap: https://www.whylinedenver.com/sitemap.xml
+
+# Fast crawl rate for important pages
+Crawl-delay: 1
+
+# Optimize for Google
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0
+
+# Optimize for Bing
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 0

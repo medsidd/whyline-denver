@@ -56,5 +56,13 @@ def execute(sql: str) -> tuple[dict, pd.DataFrame]:
     try:
         df = results.to_dataframe(create_bqstorage_client=True)
     except exceptions.PermissionDenied:
+        # Re-execute query since the RowIterator has already been consumed
+        job = _client().query(
+            sql,
+            job_config=bigquery.QueryJobConfig(
+                maximum_bytes_billed=int(os.getenv("MAX_BYTES_BILLED", "2000000000"))
+            ),
+        )
+        results = job.result()
         df = results.to_dataframe(create_bqstorage_client=False)
     return {"engine": "bigquery", "rows": len(df), "bq_est_bytes": est_bytes}, df

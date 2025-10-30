@@ -19,7 +19,7 @@ WhyLine Denver features a custom **"Vintage Transit"** visual identity designed 
 - **Accessible to All:** Works for both technical and non-technical users
 - **Not Streamlit-looking:** Heavy CSS overrides to create a custom web app feel
 
-**Tagline:** *"Ask anything about Denver transit — in your own words"*
+**Tagline:** *"Ask anything about Denver transit"*
 
 ---
 
@@ -265,7 +265,7 @@ All charts are styled consistently:
 2. **`.env` / `.env.example`** - Brand variables
    ```bash
    APP_BRAND_NAME=WhyLine Denver
-   APP_TAGLINE=Ask anything about Denver transit — in your own words
+   APP_TAGLINE=Ask anything about Denver transit
    APP_PRIMARY_COLOR=#87a7b3
    APP_ACCENT_COLOR=#d4a574
    APP_SUCCESS_COLOR=#a3b88c

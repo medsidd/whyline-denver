@@ -26,6 +26,35 @@ to work. Views expect the default relative path `data/marts`, so keep
 `DUCKDB_PARQUET_ROOT` unchanged; the symlink ensures the relative path resolves
 to the mounted bucket.
 
+### Cloud Run Deployment
+
+The repo ships with a Makefile helper that builds the container in Artifact
+Registry and deploys it to Cloud Run with the recommended low-cost settings.
+
+```bash
+export GCP_PROJECT_ID=whyline-denver
+export CLOUD_RUN_REGION=us-central1
+export GCS_BUCKET=whylinedenver-raw
+make cloud-run-deploy-streamlit
+```
+
+The target runs `gcloud builds submit` against the root `Dockerfile`, tags the
+image as `${CLOUD_RUN_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${CLOUD_RUN_STREAMLIT_REPO}/${CLOUD_RUN_STREAMLIT_IMAGE}`, and deploys it with:
+
+- Min instances 0, max 5, concurrency 80, 1 vCPU, 2 GiB RAM
+- Execution environment gen2 with unauthenticated access allowed
+- Cloud Storage volume mount at `/mnt/gcs` (read-only) pointing to
+  `$(GCS_BUCKET)`
+- Environment variables for DuckDB (`DUCKDB_PATH=/mnt/gcs/marts/duckdb/warehouse.duckdb`),
+  `DUCKDB_PARQUET_ROOT=data/marts`, `GCS_MOUNT_ROOT=/mnt/gcs`, and sync-state
+  configuration
+
+After deployment, verify with `gcloud run services describe` and visit the
+public URL—it should 301 to `/app` and the app should load successfully.
+Run a DuckDB query (e.g. crash proximity) to confirm results are served from
+`/mnt/gcs/marts/duckdb/warehouse.duckdb` and parquet views resolve without
+downloads.
+
 ```bash
 # If you want BigQuery access, export a service account path first
 export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud/application_default_credentials.json"

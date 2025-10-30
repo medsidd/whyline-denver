@@ -31,8 +31,12 @@ RUN mkdir -p /usr/share/nginx/html/docs \
 COPY app/placeholders/index.html /usr/share/nginx/html/index.html
 COPY app/placeholders/docs/index.html /usr/share/nginx/html/docs/index.html
 COPY app/placeholders/data/index.html /usr/share/nginx/html/data/index.html
+COPY app/placeholders/robots.txt /usr/share/nginx/html/robots.txt
+COPY app/placeholders/sitemap.xml /usr/share/nginx/html/sitemap.xml
 COPY app/assets/favicon.ico /usr/share/nginx/html/favicon.ico
 COPY app/assets/whylinedenver-logo.svg /usr/share/nginx/html/assets/whylinedenver-logo.svg
+COPY app/assets/whylinedenver-logo@1024.png /usr/share/nginx/html/assets/og-image.png
+COPY app/placeholders/404.html /usr/share/nginx/html/404.html
 
 RUN chmod +x /start.sh
 

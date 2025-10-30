@@ -3,11 +3,10 @@ set -euo pipefail
 
 STREAMLIT_CMD=(
   streamlit run app/streamlit_app.py \
-    --server.baseUrlPath=app \
+        --server.baseUrlPath=/app \
     --server.port=8501 \
-    --server.address=127.0.0.1 \
+        --server.address=0.0.0.0 \
     --server.enableCORS=false \
-    --server.enableXsrfProtection=false \
     --server.headless=true
 )
 

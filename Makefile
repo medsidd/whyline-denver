@@ -28,6 +28,19 @@ CLOUD_RUN_REPO   ?= realtime-jobs
 GCS_BUCKET       ?= whylinedenver-raw
 STREAMLIT_IMAGE  ?= whylinedenver-app
 
+# Cloud Run Streamlit deployment defaults
+CLOUD_RUN_STREAMLIT_REPO      ?= streamlit-app
+CLOUD_RUN_STREAMLIT_IMAGE     ?= whylinedenver-app:latest
+CLOUD_RUN_STREAMLIT_IMAGE_URI ?= $(CLOUD_RUN_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(CLOUD_RUN_STREAMLIT_REPO)/$(CLOUD_RUN_STREAMLIT_IMAGE)
+CLOUD_RUN_STREAMLIT_SERVICE   ?= whylinedenver-app
+CLOUD_RUN_STREAMLIT_SA        ?= streamlit-app@$(GCP_PROJECT_ID).iam.gserviceaccount.com
+CLOUD_RUN_STREAMLIT_MIN_INSTANCES ?= 0
+CLOUD_RUN_STREAMLIT_MAX_INSTANCES ?= 3
+CLOUD_RUN_STREAMLIT_CONCURRENCY  ?= 80
+CLOUD_RUN_STREAMLIT_CPU          ?= 1
+CLOUD_RUN_STREAMLIT_MEMORY       ?= 2Gi
+MAX_BYTES_BILLED ?= 2000000000  # 2 GB default max bytes billed for queries
+
 # Tooling ---------------------------------------------------------------------
 install:
 	$(PIP) install --upgrade pip
@@ -291,8 +304,49 @@ streamlit-run: streamlit-build
 			$(STREAMLIT_IMAGE); \
 	fi
 
+artifact-repo-create-streamlit:
+	gcloud artifacts repositories create $(CLOUD_RUN_STREAMLIT_REPO) \
+	  --project $(GCP_PROJECT_ID) \
+	  --repository-format=docker \
+	  --location $(CLOUD_RUN_REGION) \
+	  --description "WhyLine Streamlit images"
+
+cloud-run-build-streamlit:
+	gcloud builds submit \
+		--tag $(CLOUD_RUN_STREAMLIT_IMAGE_URI) \
+		--project $(GCP_PROJECT_ID) \
+		--region $(CLOUD_RUN_REGION) \
+		.
+
+cloud-run-deploy-streamlit: cloud-run-build-streamlit
+	gcloud run deploy $(CLOUD_RUN_STREAMLIT_SERVICE) \
+		--project $(GCP_PROJECT_ID) \
+		--region $(CLOUD_RUN_REGION) \
+		--image $(CLOUD_RUN_STREAMLIT_IMAGE_URI) \
+		--allow-unauthenticated \
+		--min-instances $(CLOUD_RUN_STREAMLIT_MIN_INSTANCES) \
+		--max-instances $(CLOUD_RUN_STREAMLIT_MAX_INSTANCES) \
+		--concurrency $(CLOUD_RUN_STREAMLIT_CONCURRENCY) \
+		--cpu $(CLOUD_RUN_STREAMLIT_CPU) \
+		--memory $(CLOUD_RUN_STREAMLIT_MEMORY) \
+		--execution-environment gen2 \
+		--service-account $(CLOUD_RUN_STREAMLIT_SA) \
+		--set-env-vars GCP_PROJECT_ID=$(GCP_PROJECT_ID) \
+		--set-env-vars GCS_BUCKET=$(GCS_BUCKET) \
+		--set-env-vars SYNC_STATE_GCS_BUCKET=$(GCS_BUCKET) \
+		--set-env-vars SYNC_STATE_GCS_BLOB=state/sync_state.json \
+		--set-env-vars DUCKDB_GCS_BLOB=$(CLOUD_RUN_DUCKDB_BLOB) \
+		--set-env-vars DUCKDB_PATH=/mnt/gcs/marts/duckdb/warehouse.duckdb \
+		--set-env-vars DUCKDB_PARQUET_ROOT=data/marts \
+		--set-env-vars GCS_MOUNT_ROOT=/mnt/gcs \
+		--set-env-vars ENGINE=duckdb \
+		--set-env-vars MAX_BYTES_BILLED=$(MAX_BYTES_BILLED) \
+		--set-env-vars APP_BRAND_NAME="WhyLine Denver" \
+		--add-volume=name=duckdb-bucket,type=cloud-storage,bucket=$(GCS_BUCKET) \
+		--add-volume-mount=volume=duckdb-bucket,mount-path=/mnt/gcs
+
 ci-help:
-	@echo "Targets: install | lint | format | test | run | ingest-* | bq-load(-local|-realtime|-historical) | dbt-* | dev-loop | export-diagrams | cloud-run-(build|push) | streamlit-(build|run)"
+	@echo "Targets: install | lint | format | test | run | ingest-* | bq-load(-local|-realtime|-historical) | dbt-* | dev-loop | export-diagrams | cloud-run-(build|push|deploy-streamlit) | streamlit-(build|run)"
 
 .SHELLFLAGS := -o pipefail -c
 SHELL := /bin/bash

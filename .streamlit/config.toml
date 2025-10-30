@@ -1,8 +1,13 @@
 [server]
-baseUrlPath = "app"
+baseUrlPath = "/app"
 headless = true
 enableCORS = false
-
+enableXsrfProtection = true
+enableWebsocketCompression = true
+cookieSameSite = "none"
+cookieSecure = true
 
 [browser]
 gatherUsageStats = false
+serverAddress = ""
+serverPort = 443
