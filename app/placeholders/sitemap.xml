@@ -24,11 +24,4 @@
         <changefreq>weekly</changefreq>
         <priority>0.7</priority>
     </url>
-    <!-- GitHub dbt Docs -->
-    <url>
-        <loc>https://medsidd.github.io/whyline-denver/</loc>
-        <lastmod>2025-10-29</lastmod>
-        <changefreq>weekly</changefreq>
-        <priority>0.6</priority>
-    </url>
 </urlset>

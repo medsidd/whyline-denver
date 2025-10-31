@@ -27,6 +27,12 @@ CLOUD_RUN_IMAGE  ?= whylinedenver-realtime
 CLOUD_RUN_REPO   ?= realtime-jobs
 GCS_BUCKET       ?= whylinedenver-raw
 STREAMLIT_IMAGE  ?= whylinedenver-app
+LLM_PROVIDER     ?= gemini
+GEMINI_MODEL     ?= gemini-2.5-flash
+GEMINI_API_KEY   ?=
+GEMINI_API_KEY_SECRET ?= gemini-api-key:latest
+
+CLOUD_RUN_STREAMLIT_GEMINI_FLAG := $(if $(strip $(GEMINI_API_KEY_SECRET)),--set-secrets GEMINI_API_KEY=$(GEMINI_API_KEY_SECRET),--set-env-vars GEMINI_API_KEY=$(GEMINI_API_KEY))
 
 # Cloud Run Streamlit deployment defaults
 CLOUD_RUN_STREAMLIT_REPO      ?= streamlit-app
@@ -340,6 +346,9 @@ cloud-run-deploy-streamlit: cloud-run-build-streamlit
 		--set-env-vars DUCKDB_COPY_LOCAL=0 \
 		--set-env-vars GCS_MOUNT_ROOT=/mnt/gcs \
 		--set-env-vars ENGINE=duckdb \
+		--set-env-vars LLM_PROVIDER=$(LLM_PROVIDER) \
+		--set-env-vars GEMINI_MODEL=$(GEMINI_MODEL) \
+		$(CLOUD_RUN_STREAMLIT_GEMINI_FLAG) \
 		--set-env-vars MAX_BYTES_BILLED=$(MAX_BYTES_BILLED) \
 		--set-env-vars APP_BRAND_NAME="WhyLine Denver" \
 		--add-volume=name=duckdb-bucket,type=cloud-storage,bucket=$(GCS_BUCKET) \
