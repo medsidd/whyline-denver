@@ -3,11 +3,10 @@ set -euo pipefail
 
 STREAMLIT_CMD=(
   streamlit run app/streamlit_app.py \
-    --server.baseUrlPath=app \
+        --server.baseUrlPath=/app \
     --server.port=8501 \
-    --server.address=127.0.0.1 \
+        --server.address=0.0.0.0 \
     --server.enableCORS=false \
-    --server.enableXsrfProtection=false \
     --server.headless=true
 )
 
@@ -29,22 +28,29 @@ MOUNTED_MARTS_DIR="${GCS_MOUNT_ROOT}/marts"
 
 ensure_data_dirs() {
   mkdir -p /app/data
+  mkdir -p /app/data/marts
+  
+  # If GCS is mounted, create symlink to mounted marts for fallback
   if [ -d "$MOUNTED_MARTS_DIR" ]; then
-    ln -sfn "$MOUNTED_MARTS_DIR" /app/data/marts
-  fi
-  if [ ! -e /app/data/marts ]; then
-    mkdir -p /app/data/marts
+    # Don't overwrite /app/data/marts if it already has downloaded content
+    if [ ! -d "/app/data/marts_gcs" ]; then
+      ln -sfn "$MOUNTED_MARTS_DIR" /app/data/marts_gcs
+      echo "Created symlink: /app/data/marts_gcs -> $MOUNTED_MARTS_DIR"
+    fi
   fi
 }
 
 ensure_data_dirs
 
+# Create symlinks for DuckDB and sync_state if they exist on GCS mount
 if [ -f "$MOUNTED_DUCKDB" ]; then
-  ln -sfn "$MOUNTED_DUCKDB" /app/data/warehouse.duckdb
+  ln -sfn "$MOUNTED_DUCKDB" /app/data/warehouse.duckdb.mounted
+  echo "Created symlink: /app/data/warehouse.duckdb.mounted -> $MOUNTED_DUCKDB"
 fi
 
 if [ -f "$MOUNTED_SYNC_STATE" ]; then
-  ln -sfn "$MOUNTED_SYNC_STATE" /app/data/sync_state.json
+  ln -sfn "$MOUNTED_SYNC_STATE" /app/data/sync_state.json.mounted
+  echo "Created symlink: /app/data/sync_state.json.mounted -> $MOUNTED_SYNC_STATE"
 fi
 
 NEED_DUCKDB_DOWNLOAD=1
@@ -52,7 +58,10 @@ NEED_SYNC_DOWNLOAD=1
 [ -f /app/data/warehouse.duckdb ] && NEED_DUCKDB_DOWNLOAD=0
 [ -f /app/data/sync_state.json ] && NEED_SYNC_DOWNLOAD=0
 
+echo "Startup checks: NEED_DUCKDB_DOWNLOAD=$NEED_DUCKDB_DOWNLOAD, NEED_SYNC_DOWNLOAD=$NEED_SYNC_DOWNLOAD"
+
 if [ "$NEED_DUCKDB_DOWNLOAD" -eq 1 ] || [ "$NEED_SYNC_DOWNLOAD" -eq 1 ]; then
+  echo "Downloading missing artifacts from GCS..."
   python - <<'PY' || true
 import os
 import sys
@@ -93,7 +102,11 @@ PY
 fi
 
 # Download parquet marts when not mounted and directory is empty
-if [ ! -d "$MOUNTED_MARTS_DIR" ]; then
+MARTS_EXIST=$(ls -A /app/data/marts 2>/dev/null | wc -l)
+echo "Checking parquet marts: files_count=$MARTS_EXIST"
+
+if [ "$MARTS_EXIST" -eq 0 ]; then
+  echo "Downloading parquet marts from GCS..."
   python - <<'PY' || true
 import os
 import sys

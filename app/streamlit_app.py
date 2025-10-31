@@ -41,7 +41,95 @@ st.set_page_config(
     page_icon=str(Path(__file__).parent / "assets" / "favicon.ico"),
     layout="wide",
     initial_sidebar_state="expanded",
+    menu_items={
+        "Get Help": "https://github.com/medsidd/whyline-denver",
+        "Report a bug": "https://github.com/medsidd/whyline-denver/issues",
+        "About": f"{branding.BRAND_NAME} - Ask questions about Denver transit in plain English",
+    },
 )
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SEO OPTIMIZATION - Meta tags and structured data
+# ═══════════════════════════════════════════════════════════════════════════
+seo_meta_tags = """
+<!-- Primary Meta Tags -->
+<meta name="title" content="WhyLine Denver - Denver Transit Analytics & Real-Time Bus Data">
+<meta name="description" content="Analyze Denver RTD bus data, delays, reliability, and equity gaps. Ask questions in plain English about transit reliability, crash exposure, weather impacts, and service quality.">
+<meta name="keywords" content="Denver transit, RTD bus data, Denver public transportation, bus delays Denver, transit reliability, Denver RTD analytics, bus schedule Denver, transit equity, Denver transportation data, RTD real-time data">
+<meta name="author" content="WhyLine Denver">
+<meta name="robots" content="index, follow">
+<meta name="language" content="English">
+<link rel="canonical" href="https://www.whylinedenver.com/app/">
+
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.whylinedenver.com/">
+<meta property="og:title" content="WhyLine Denver - Denver Transit Analytics">
+<meta property="og:description" content="Analyze RTD bus reliability, delays, equity gaps, and service quality. Ask questions about Denver transit in plain English.">
+<meta property="og:image" content="https://www.whylinedenver.com/assets/og-image.png">
+<meta property="og:site_name" content="WhyLine Denver">
+
+<!-- Twitter -->
+<meta property="twitter:card" content="summary_large_image">
+<meta property="twitter:url" content="https://www.whylinedenver.com/">
+<meta property="twitter:title" content="WhyLine Denver - Denver Transit Analytics">
+<meta property="twitter:description" content="Analyze RTD bus reliability, delays, equity gaps, and service quality with real-time data.">
+<meta property="twitter:image" content="https://www.whylinedenver.com/assets/og-image.png">
+
+<!-- Geo Tags -->
+<meta name="geo.region" content="US-CO">
+<meta name="geo.placename" content="Denver">
+<meta name="geo.position" content="39.7392;-104.9903">
+<meta name="ICBM" content="39.7392, -104.9903">
+
+<!-- Schema.org structured data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "WhyLine Denver",
+  "url": "https://www.whylinedenver.com",
+  "description": "Free analytics tool for Denver RTD transit data. Ask questions about bus reliability, delays, equity gaps, and service quality in plain English.",
+  "applicationCategory": "Transportation Analytics",
+  "operatingSystem": "Web Browser",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "provider": {
+    "@type": "Organization",
+    "name": "WhyLine Denver"
+  },
+  "areaServed": {
+    "@type": "City",
+    "name": "Denver",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "Denver",
+      "addressRegion": "CO",
+      "addressCountry": "US"
+    }
+  },
+  "about": [
+    {
+      "@type": "Thing",
+      "name": "Denver RTD Bus Service"
+    },
+    {
+      "@type": "Thing",
+      "name": "Public Transit Analytics"
+    },
+    {
+      "@type": "Thing",
+      "name": "Transportation Equity"
+    }
+  ]
+}
+</script>
+"""
+
+st.markdown(seo_meta_tags, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # INITIALIZATION

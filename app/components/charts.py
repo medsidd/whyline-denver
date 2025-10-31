@@ -27,11 +27,35 @@ from components.branding import (
 
 
 def build_chart(df: pd.DataFrame) -> alt.Chart | None:
-    """Build an appropriate chart based on available columns with brand colors."""
+    """
+    Build an appropriate chart based on available columns with brand colors.
+
+    Optimized for performance:
+    - Early downsampling for large datasets
+    - Limits categories to prevent memory/render issues
+    """
     if df.empty or len(df) == 0:
         return None
 
+    """Create a line chart from a DataFrame."""
+    # Early downsampling for large datasets (memory optimization)
+    max_chart_rows = 5000
     chart_df = df.copy()
+    if len(chart_df) > max_chart_rows:
+        # Keep the most relevant rows based on chart type
+        if "service_date_mst" in chart_df.columns:
+            # For time series: resample by taking every Nth row
+            step = len(chart_df) // max_chart_rows
+            chart_df = chart_df.iloc[::step].reset_index(drop=True)
+        else:
+            # For other charts: take top N by first numeric column
+            numeric_cols = [
+                col for col in chart_df.columns if pd.api.types.is_numeric_dtype(chart_df[col])
+            ]
+            if numeric_cols:
+                chart_df = chart_df.nlargest(max_chart_rows, numeric_cols[0])
+            else:
+                chart_df = chart_df.head(max_chart_rows)
 
     # Convert date columns
     if "service_date_mst" in chart_df.columns:
@@ -44,8 +68,9 @@ def build_chart(df: pd.DataFrame) -> alt.Chart | None:
     # NEW CHART TYPE 1: HEATMAP - Stop×Hour Reliability
     # ═══════════════════════════════════════════════════════════════════════════
     if {"event_hour_mst", "pct_on_time", "stop_id"} <= set(chart_df.columns):
-        # Limit to top stops by average on-time percentage for readability
-        top_stops = chart_df.groupby("stop_id")["pct_on_time"].mean().nlargest(20).index
+        # Limit to top stops by average on-time percentage for readability (memory optimization)
+        top_n_stops = 15  # Reduced from 20 for better performance
+        top_stops = chart_df.groupby("stop_id")["pct_on_time"].mean().nlargest(top_n_stops).index
         heatmap_df = chart_df[chart_df["stop_id"].isin(top_stops)].copy()
 
         # Ensure hour is treated as ordinal (0-23)
@@ -74,7 +99,11 @@ def build_chart(df: pd.DataFrame) -> alt.Chart | None:
                     alt.Tooltip("pct_on_time:Q", title="On-Time %", format=".1f"),
                 ],
             )
-            .properties(title="Stop Reliability Heatmap (by Hour)", height=420, width=600)
+            .properties(
+                title=f"Stop Reliability Heatmap - Top {top_n_stops} Stops (by Hour)",
+                height=420,
+                width=600,
+            )
             .configure_axis(labelColor="#c4b5a0", titleColor="#e8d5c4", gridColor="#433f4c")
             .configure_title(color=BRAND_ACCENT, fontSize=18, font="Space Grotesk", anchor="start")
         )
@@ -85,10 +114,13 @@ def build_chart(df: pd.DataFrame) -> alt.Chart | None:
     if {"precip_bin", "pct_on_time", "service_date_mst"} <= set(chart_df.columns):
         weather_df = chart_df.dropna(subset=["precip_bin", "pct_on_time", "service_date_mst"])
 
-        # Limit to reasonable date range if too many points
-        if len(weather_df) > 500:
-            # Take most recent data
-            weather_df = weather_df.nlargest(500, "service_date_mst")
+        # Downsample for performance (memory optimization)
+        max_weather_points = 300  # Reduced from 500
+        if len(weather_df) > max_weather_points:
+            # Take most recent data, evenly distributed
+            weather_df = weather_df.sort_values("service_date_mst")
+            step = len(weather_df) // max_weather_points
+            weather_df = weather_df.iloc[::step].reset_index(drop=True)
 
         return (
             alt.Chart(weather_df)
@@ -162,16 +194,40 @@ def build_chart(df: pd.DataFrame) -> alt.Chart | None:
 
         if "route_id" in clean_df.columns:
             color_field = "route_id:N"
-            # Limit to top routes by average on-time percentage
-            top_routes = clean_df.groupby("route_id")["pct_on_time"].mean().nlargest(5).index
+            # Limit to top routes by average on-time percentage (memory optimization)
+            top_n_routes = 5
+            top_routes = (
+                clean_df.groupby("route_id")["pct_on_time"].mean().nlargest(top_n_routes).index
+            )
             clean_df = clean_df[clean_df["route_id"].isin(top_routes)]
         elif "stop_id" in clean_df.columns:
             color_field = "stop_id:N"
-            # Limit to top stops
-            top_stops = clean_df.groupby("stop_id")["pct_on_time"].mean().nlargest(5).index
+            # Limit to top stops (memory optimization)
+            top_n_stops = 5
+            top_stops = (
+                clean_df.groupby("stop_id")["pct_on_time"].mean().nlargest(top_n_stops).index
+            )
             clean_df = clean_df[clean_df["stop_id"].isin(top_stops)]
         else:
             color_field = None
+
+        # Resample time series if too many points (memory optimization)
+        max_time_points = 500
+        if len(clean_df) > max_time_points:
+            # Group by date and aggregate (take mean)
+            if color_field:
+                group_col = color_field.split(":")[0]
+                clean_df = clean_df.groupby([group_col, "service_date_mst"], as_index=False).agg(
+                    {"pct_on_time": "mean"}
+                )
+                # Take every Nth row if still too large
+                if len(clean_df) > max_time_points:
+                    step = len(clean_df) // max_time_points
+                    clean_df = clean_df.iloc[::step].reset_index(drop=True)
+            else:
+                clean_df = clean_df.groupby("service_date_mst", as_index=False).agg(
+                    {"pct_on_time": "mean"}
+                )
 
         tooltip_fields = [
             alt.Tooltip("service_date_mst:T", title="Date", format="%Y-%m-%d"),
@@ -300,6 +356,11 @@ def build_map(df: pd.DataFrame, engine_module=None) -> object | None:
     """
     Build a pydeck hotspot map for priority stops.
 
+    Optimized for performance:
+    - Limits number of points rendered
+    - Uses lightweight record format
+    - Avoids storing full DataFrames in layer data
+
     Args:
         df: DataFrame with stop_id and priority_score (or lon/lat columns)
         engine_module: Engine module to fetch stop geometry if needed
@@ -313,7 +374,20 @@ def build_map(df: pd.DataFrame, engine_module=None) -> object | None:
     if df.empty or len(df) == 0:
         return None
 
+    # Early downsampling for performance (memory optimization)
+    max_map_points = 500  # Reduced from 1000
     map_df = df.copy()
+    if len(map_df) > max_map_points:
+        # Prioritize by metric if available, otherwise take first N
+        numeric_cols = [
+            col
+            for col in map_df.columns
+            if pd.api.types.is_numeric_dtype(map_df[col]) and col not in {"lat", "lon", "stop_id"}
+        ]
+        if numeric_cols:
+            map_df = map_df.nlargest(max_map_points, numeric_cols[0])
+        else:
+            map_df = map_df.head(max_map_points)
 
     def _sanitize_records(records: list[dict]) -> list[dict]:
         sanitized: list[dict] = []
@@ -402,9 +476,15 @@ def build_map(df: pd.DataFrame, engine_module=None) -> object | None:
             metric_label = None
             map_df["metric_value_display"] = "–"
 
-        # Create scatterplot layer
+        # Create scatterplot layer with minimal data
         map_df["radius"] = map_df["radius"].astype(float)
-        records = _sanitize_records(map_df.to_dict(orient="records"))
+
+        # Only keep essential columns for the map (memory optimization)
+        essential_cols = ["stop_id", "stop_name", "lat", "lon", "radius", "metric_value_display"]
+        available_cols = [col for col in essential_cols if col in map_df.columns]
+        map_df_minimal = map_df[available_cols].copy()
+
+        records = _sanitize_records(map_df_minimal.to_dict(orient="records"))
 
         layer = pdk.Layer(
             "ScatterplotLayer",

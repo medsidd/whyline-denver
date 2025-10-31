@@ -17,7 +17,7 @@ BRAND_SUCCESS = os.getenv("APP_SUCCESS_COLOR", "#a3b88c")  # Sage Green
 BRAND_WARNING = os.getenv("APP_WARNING_COLOR", "#e8b863")  # Soft Amber
 BRAND_ERROR = os.getenv("APP_ERROR_COLOR", "#c77f6d")  # Terra Cotta
 BRAND_NAME = os.getenv("APP_BRAND_NAME", "WhyLine Denver")
-BRAND_TAGLINE = os.getenv("APP_TAGLINE", "Ask anything about Denver transit — in your own words")
+BRAND_TAGLINE = os.getenv("APP_TAGLINE", "Ask anything about Denver transit")
 
 STRIPE_GRADIENT = (
     f"linear-gradient(90deg, {BRAND_PRIMARY} 0%, {BRAND_ACCENT} 25%, "
@@ -42,6 +42,10 @@ def inject_custom_css() -> None:
         f"""
         <link rel="icon" type="image/x-icon" href="{FAVICON_ICO_DATAURI}">
         <link rel="mask-icon" href="{FAVICON_MASK_DATAURI}" color="{BRAND_PRIMARY}">
+        <!-- Prefer link-based font loading for Safari stability -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
         """,
         unsafe_allow_html=True,
     )
@@ -49,14 +53,23 @@ def inject_custom_css() -> None:
     st.markdown(
         f"""
         <style>
-        /* Import Google Fonts - Space Grotesk (headers) & Inter (body) */
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+        /* Fonts loaded via <link> tags above for better Safari compatibility */
 
         /* ═══ GLOBAL RESETS & BASE STYLES ═══ */
         html, body, [class*="css"] {{
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             color: #e8d5c4;
             background: #232129;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            -webkit-text-size-adjust: 100%;
+            text-rendering: optimizeLegibility;
+        }}
+
+        /* Normalize form controls for WebKit */
+        input, textarea, select, button {{
+            -webkit-appearance: none;
+            appearance: none;
         }}
 
         /* Hide Streamlit branding */
@@ -114,7 +127,21 @@ def inject_custom_css() -> None:
             font-size: 1.1rem;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            white-space: nowrap;
+            /* --- keep label inside button --- */
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            /* Avoid breaking words into separate lines */
+            white-space: normal;         /* allow wrapping only at spaces */
+            word-break: keep-all;        /* prevent mid-word breaks */
+            overflow-wrap: normal;       /* don't force breaks inside words */
+            hyphens: none;               /* no auto-hyphenation */
+            overflow: hidden;            /* clip overflow */
+            text-overflow: ellipsis;     /* ellipsis as last resort */
+            box-sizing: border-box;
+            max-width: 100%;
+            min-width: 0;
+            line-height: 1.2;
             transition: all 0.3s ease;
             box-shadow:
                 0 6px 20px rgba(135, 167, 179, 0.3),
@@ -156,6 +183,22 @@ def inject_custom_css() -> None:
                 inset 0 -2px 0 rgba(0, 0, 0, 0.2);
         }}
 
+        /* Secondary buttons (e.g., Prebuilt Questions) - keep long labels on one line
+           and dynamically shrink the text to fit. */
+        .stButton > button[kind="secondary"] {{
+            /* Fluid, slightly smaller typography with lower bound for tight fits */
+            font-size: clamp(0.80rem, 1.1vw, 1.00rem);
+            letter-spacing: 0.015em;
+            text-transform: none !important;  /* remove uppercase to save width */
+            /* Prevent wrapping and gracefully clip if still too long */
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            /* Slightly tighter horizontal padding to buy space */
+            padding-left: 1.25rem;
+            padding-right: 1.25rem;
+        }}
+
         /* ═══ INPUT FIELDS - RETRO STYLE ═══ */
         .stTextInput > div > div > input,
         .stTextArea > div > div > textarea,
@@ -183,7 +226,8 @@ def inject_custom_css() -> None:
         [data-testid="stSidebar"] {{
             background-color: #1a171d;
             border-right: 1px solid #433f4c;
-            width: 380px;
+            /* Widen sidebar to keep freshness badges on a single line */
+            width: 440px;
         }}
 
         [data-testid="stSidebar"] > div {{
@@ -192,15 +236,13 @@ def inject_custom_css() -> None:
 
         @media (max-width: 1400px) {{
             [data-testid="stSidebar"] {{
-                width: 320px;
-                min-width: 320px;
+                width: 420px;
             }}
         }}
 
         @media (max-width: 1100px) {{
             [data-testid="stSidebar"] {{
-                width: 300px;
-                min-width: 300px;
+                width: 380px;
             }}
         }}
 
@@ -273,6 +315,10 @@ def inject_custom_css() -> None:
             border-radius: 10px;
             padding: 0.6rem 0.85rem;
             margin-bottom: 0.6rem;
+            /* Enforce single-line for badge text */
+            flex-wrap: nowrap;
+            white-space: nowrap;
+            overflow: hidden;
         }}
 
         .status-badge__label {{
@@ -281,6 +327,9 @@ def inject_custom_css() -> None:
             text-transform: uppercase;
             letter-spacing: 0.08em;
             color: #9a8e7e;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }}
 
         .status-badge__value {{
@@ -289,6 +338,9 @@ def inject_custom_css() -> None:
             font-size: 0.9rem;
             letter-spacing: 0.02em;
             color: {BRAND_PRIMARY};
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }}
 
         .status-badge--success {{

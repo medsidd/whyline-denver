@@ -74,12 +74,32 @@ For production workloads or larger teams:
    Build and smoke-test the nginx + Streamlit container locally with `make streamlit-run`, then deploy the image to Cloud Run with `/app` as the base path.
 
    - Mount `gs://whylinedenver-raw` into the service (GCS Fuse) at `/mnt/gcs` and leave `DUCKDB_PARQUET_ROOT` at the default `data/marts`. The startup script symlinks `/app/data/marts` to the mount so DuckDB views resolve relative paths, keeping the warehouse portable across environments.
+   - Deploy via `make cloud-run-deploy-streamlit` (override `GCP_PROJECT_ID`, `CLOUD_RUN_STREAMLIT_REPO`, etc. as needed). The target builds the Artifact Registry image and runs `gcloud run deploy` with the cost-friendly settings: min instances 0, max 5, concurrency 80, 1 CPU, 2 GiB RAM, DuckDB + parquet mount at `/mnt/gcs`, and the service account `$(CLOUD_RUN_STREAMLIT_SERVICE)@$(GCP_PROJECT_ID).iam.gserviceaccount.com`.
+   - QA: `gcloud run services describe $(CLOUD_RUN_STREAMLIT_SERVICE) --region $(CLOUD_RUN_REGION)` confirms the public URL. Visiting it should 301 to `/app`, load the Streamlit UI, and DuckDB queries should read from `/mnt/gcs/marts/duckdb/warehouse.duckdb` with freshness badges sourced from `/mnt/gcs/state/sync_state.json`.
 
    ```bash
    # Optional: provide BigQuery + GCS credentials for local runs
    export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud/application_default_credentials.json"
    make streamlit-run
    ```
+
+### Performance tuning (Cloud Run)
+
+For best interactivity on Streamlit in Cloud Run, use:
+
+- Concurrency: 10
+- CPU: 2 vCPU
+- Memory: 2–4 GiB
+- Timeouts: 600s
+
+The DuckDB engine now reuses a thread-local connection and, by default, copies the database to ephemeral storage to avoid GCS FUSE latency. You can control this behavior via:
+
+- `DUCKDB_PATH` – path to the warehouse (e.g., `/mnt/gcs/marts/duckdb/warehouse.duckdb`)
+- `DUCKDB_COPY_LOCAL` – set `0` to disable local copy (default `1`)
+- `DUCKDB_LOCAL_PATH` – local destination (default `/tmp/warehouse.duckdb`)
+- `DUCKDB_THREADS`, `DUCKDB_MEMORY_LIMIT`, `DUCKDB_TEMP_DIR`
+
+See `docs/guides/performance.md` for more details.
 
 ## LLM Provider (Gemini)
 
@@ -122,7 +142,7 @@ WhyLine Denver features a custom **"Vintage Transit"** visual identity that goes
 All brand colors are configurable via environment variables in [.env](.env):
 ```bash
 APP_BRAND_NAME=WhyLine Denver
-APP_TAGLINE=Ask anything about Denver transit — in your own words
+APP_TAGLINE=Ask anything about Denver transit
 APP_PRIMARY_COLOR=#87a7b3
 APP_ACCENT_COLOR=#d4a574
 APP_SUCCESS_COLOR=#a3b88c

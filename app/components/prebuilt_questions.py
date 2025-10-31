@@ -78,7 +78,13 @@ def render(
 
     cols = st.columns(2)
     for i, (label, sql) in enumerate(PREBUILT):
-        if cols[i % 2].button(label, use_container_width=True, key=f"prebuilt_{i}"):
+        # Explicitly mark as secondary to pick up scoped CSS that keeps labels on one line
+        if cols[i % 2].button(
+            label,
+            use_container_width=True,
+            key=f"prebuilt_{i}",
+            type="secondary",
+        ):
             # Validate and adapt SQL for current engine
             try:
                 sanitized_sql = sanitize_sql(sql, guardrail_config)
@@ -91,7 +97,7 @@ def render(
                 st.session_state["explanation"] = f"Prebuilt query: {label}"
                 st.session_state["model_names"] = sorted(models.keys())
                 st.session_state["sql_error"] = None
-                st.session_state["results_df"] = None
+                st.session_state["query_params"] = None  # Clear query params (optimized)
                 st.session_state["results_stats"] = None
                 st.session_state["run_error"] = None
                 st.session_state["bq_est_bytes_preview"] = None
