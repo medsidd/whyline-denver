@@ -42,9 +42,9 @@ CLOUD_RUN_STREAMLIT_SERVICE   ?= whylinedenver-app
 CLOUD_RUN_STREAMLIT_SA        ?= streamlit-app@$(GCP_PROJECT_ID).iam.gserviceaccount.com
 CLOUD_RUN_STREAMLIT_MIN_INSTANCES ?= 0
 CLOUD_RUN_STREAMLIT_MAX_INSTANCES ?= 3
-CLOUD_RUN_STREAMLIT_CONCURRENCY  ?= 80
-CLOUD_RUN_STREAMLIT_CPU          ?= 1
-CLOUD_RUN_STREAMLIT_MEMORY       ?= 2Gi
+CLOUD_RUN_STREAMLIT_CONCURRENCY  ?= 10
+CLOUD_RUN_STREAMLIT_CPU          ?= 8
+CLOUD_RUN_STREAMLIT_MEMORY       ?= 4Gi
 MAX_BYTES_BILLED ?= 2000000000  # 2 GB default max bytes billed for queries
 
 # Tooling ---------------------------------------------------------------------

@@ -2,12 +2,110 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>Data Downloads</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WhyLine Denver Data Library | Download Denver RTD Analytics Datasets</title>
+    <meta name="description" content="Access upcoming CSV downloads for Denver RTD reliability metrics, equity indicators, crash exposure, and weather impacts. Join the early access list for WhyLine Denver data drops.">
+    <meta name="keywords" content="Denver transit datasets, RTD CSV downloads, transit reliability data, Denver crash analytics, transit equity data, GTFS downloads Denver">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#87a7b3">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="512x512" href="/assets/whylinedenver-logo@512.png">
     <link rel="mask-icon" href="/assets/whylinedenver-logo.svg" color="#87a7b3">
+    <link rel="canonical" href="https://www.whylinedenver.com/data/">
+    <link rel="alternate" href="https://www.whylinedenver.com/data/" hreflang="en-US">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="WhyLine Denver Data Library">
+    <meta property="og:description" content="Downloadable RTD transit reliability, equity, safety, and weather datasets from WhyLine Denver.">
+    <meta property="og:url" content="https://www.whylinedenver.com/data/">
+    <meta property="og:image" content="https://www.whylinedenver.com/assets/whylinedenver-logo@1024.png">
+    <meta property="og:image:alt" content="WhyLine Denver data downloads preview">
+    <meta property="og:site_name" content="WhyLine Denver">
+    <meta property="og:locale" content="en_US">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="WhyLine Denver Data Library">
+    <meta name="twitter:description" content="Coming soon: CSV exports for RTD reliability, equity, safety, and weather analytics.">
+    <meta name="twitter:image" content="https://www.whylinedenver.com/assets/whylinedenver-logo@1024.png">
+    <meta name="twitter:image:alt" content="WhyLine Denver data downloads preview">
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Dataset",
+      "name": "WhyLine Denver Transit Analytics",
+      "description": "GTFS-based Denver RTD reliability, equity, safety, and weather analytics produced by the WhyLine Denver project.",
+      "url": "https://www.whylinedenver.com/data/",
+      "creator": {
+        "@type": "Organization",
+        "name": "WhyLine Denver",
+        "url": "https://www.whylinedenver.com/"
+      },
+      "spatialCoverage": {
+        "@type": "City",
+        "name": "Denver, Colorado"
+      },
+      "temporalCoverage": "2023-01-01/2025-10-31",
+      "distribution": [
+        {
+          "@type": "DataDownload",
+          "encodingFormat": "text/csv",
+          "contentUrl": "https://www.whylinedenver.com/data/",
+          "name": "Transit Reliability Metrics (CSV)"
+        },
+        {
+          "@type": "DataDownload",
+          "encodingFormat": "text/csv",
+          "contentUrl": "https://www.whylinedenver.com/data/",
+          "name": "Transit Equity Hotspots (CSV)"
+        },
+        {
+          "@type": "DataDownload",
+          "encodingFormat": "text/csv",
+          "contentUrl": "https://www.whylinedenver.com/data/",
+          "name": "Crash & Weather Impact Summary (CSV)"
+        }
+      ],
+      "license": "https://creativecommons.org/licenses/by/4.0/"
+    }
+    </script>
   </head>
   <body>
-    <h1>Data Downloads</h1>
-    <p>Self-serve downloads will be published shortly. For now, launch the <a href="/app">WhyLine Denver app</a>.</p>
+    <main style="max-width: 860px; margin: 50px auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; line-height: 1.7; padding: 0 20px; color: #333;">
+      <h1 style="color: #87a7b3;">WhyLine Denver Data Library</h1>
+      <p><strong>Downloadable datasets are almost ready.</strong> We are packaging the most-requested metrics so you can explore RTD performance offline or plug them into your BI stack.</p>
+
+      <section style="margin-top: 30px;">
+        <h2 style="color: #d4a574;">🚦 Transit Reliability (CSV)</h2>
+        <ul>
+          <li>Route- and stop-level on-time performance</li>
+          <li>Average delay by hour-of-day and day-of-week</li>
+          <li>Headway adherence and missed trip indicators</li>
+          <li>Last refreshed timestamp and data lineage metadata</li>
+        </ul>
+      </section>
+
+      <section style="margin-top: 30px;">
+        <h2 style="color: #a3b88c;">🤝 Equity & Accessibility</h2>
+        <ul>
+          <li>Vulnerability scores by census tract and stop</li>
+          <li>Equity gap index combining reliability + demographics</li>
+          <li>Top priority corridors for reinvestment</li>
+        </ul>
+      </section>
+
+      <section style="margin-top: 30px;">
+        <h2 style="color: #e8b863;">⚠️ Safety & Weather Overlays</h2>
+        <ul>
+          <li>Crash exposure within 250m of each stop</li>
+          <li>Sidewalk coverage and pedestrian infrastructure markers</li>
+          <li>Snow, precipitation, and temperature impact bins</li>
+        </ul>
+      </section>
+
+      <section style="margin-top: 40px;">
+        <h2 style="color: #c77f6d;">📬 Early Access</h2>
+        <p>Want the files as soon as they drop? Launch the <a href="/app">WhyLine Denver app</a> and opt into the beta list in the sidebar, or reach out via <a href="https://github.com/medsidd/whyline-denver/issues">GitHub</a>.</p>
+      </section>
+
+      <p style="margin-top: 40px;">In the meantime, you can generate any of these metrics on demand inside the <a href="/app">interactive app</a>, export CSV results, and bookmark queries for future refreshes.</p>
+    </main>
   </body>
 </html>
