@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+import json
 
 import streamlit as st
 
@@ -48,33 +49,155 @@ st.set_page_config(
     },
 )
 
-# ═══════════════════════════════════════════════════════════════════════════
-# SEO OPTIMIZATION - Meta tags and structured data
-# ═══════════════════════════════════════════════════════════════════════════
-seo_meta_tags = """
+primary_domain = "https://www.whylinedenver.com"
+app_url = f"{primary_domain}/app/"
+docs_url = f"{primary_domain}/docs/"
+data_url = f"{primary_domain}/data/"
+brand_name = branding.BRAND_NAME
+brand_tagline = branding.BRAND_TAGLINE
+brand_primary_color = branding.BRAND_PRIMARY
+primary_description = (
+    f"{brand_name} — {brand_tagline}. Analyze Denver RTD transit reliability, delays, "
+    "safety, and equity gaps. The app turns natural language questions into trusted SQL, "
+    "streamlined charts, and downloadable datasets powered by DuckDB and BigQuery."
+)
+seo_keywords = [
+    "Denver transit analytics",
+    "RTD bus delays",
+    "Denver public transportation data",
+    "transit reliability dashboard",
+    "Denver bus equity analysis",
+    "RTD real-time GTFS",
+    "Denver transit maps",
+]
+og_image_url = f"{primary_domain}/assets/whylinedenver-logo@1024.png"
+logo_url = f"{primary_domain}/assets/whylinedenver-logo.svg"
+icon_png_url = f"{primary_domain}/assets/whylinedenver-logo@512.png"
+
+schema_organization = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": brand_name,
+    "url": primary_domain,
+    "logo": logo_url,
+    "description": primary_description,
+    "sameAs": [
+        "https://github.com/medsidd/whyline-denver",
+        "https://medsidd.github.io/whyline-denver/",
+    ],
+    "founder": {
+        "@type": "Person",
+        "name": "Ahmed Siddiqui",
+    },
+    "areaServed": {
+        "@type": "City",
+        "name": "Denver",
+        "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Denver",
+            "addressRegion": "CO",
+            "addressCountry": "US",
+        },
+    },
+}
+
+schema_web_site = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": brand_name,
+    "url": primary_domain,
+    "description": primary_description,
+    "publisher": {"@type": "Organization", "name": brand_name, "logo": logo_url},
+    "inLanguage": "en-US",
+    "potentialAction": {
+        "@type": "SearchAction",
+        "target": f"{app_url}?q={{search_term_string}}",
+        "query-input": "required name=search_term_string",
+    },
+}
+
+schema_web_app = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": brand_name,
+    "url": app_url,
+    "operatingSystem": "Web Browser",
+    "applicationCategory": "BusinessApplication",
+    "description": primary_description,
+    "offers": {"@type": "Offer", "price": "0.00", "priceCurrency": "USD"},
+}
+
+schema_faq = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+        {
+            "@type": "Question",
+            "name": "Is WhyLine Denver free to use?",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes. The analytics app is completely free to use with no login required.",
+            },
+        },
+        {
+            "@type": "Question",
+            "name": "Which transit data sources power WhyLine Denver?",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The app blends RTD GTFS realtime feeds, schedule data, Denver crash records, sidewalk infrastructure, NOAA weather, and U.S. Census ACS demographics.",
+            },
+        },
+        {
+            "@type": "Question",
+            "name": "Can I download the results?",
+            "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes. Every query result can be exported as CSV from the Results panel for additional analysis.",
+            },
+        },
+    ],
+}
+
+json_ld_payloads = "\n".join(
+    f'<script type="application/ld+json">{json.dumps(obj, separators=(",", ":"))}</script>'
+    for obj in (schema_organization, schema_web_site, schema_web_app, schema_faq)
+)
+
+seo_meta_tags = f"""
 <!-- Primary Meta Tags -->
-<meta name="title" content="WhyLine Denver - Denver Transit Analytics & Real-Time Bus Data">
-<meta name="description" content="Analyze Denver RTD bus data, delays, reliability, and equity gaps. Ask questions in plain English about transit reliability, crash exposure, weather impacts, and service quality.">
-<meta name="keywords" content="Denver transit, RTD bus data, Denver public transportation, bus delays Denver, transit reliability, Denver RTD analytics, bus schedule Denver, transit equity, Denver transportation data, RTD real-time data">
-<meta name="author" content="WhyLine Denver">
+<title>{brand_name} — Denver Transit Analytics & Real-Time RTD Insights</title>
+<meta name="title" content="{brand_name} - Denver Transit Analytics & Real-Time Bus Data">
+<meta name="description" content="{primary_description}">
+<meta name="keywords" content="{', '.join(seo_keywords)}">
+<meta name="author" content="{brand_name}">
+<meta name="application-name" content="{brand_name}">
 <meta name="robots" content="index, follow">
 <meta name="language" content="English">
-<link rel="canonical" href="https://www.whylinedenver.com/app/">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="{brand_primary_color}">
+<link rel="canonical" href="{app_url}">
+<link rel="alternate" href="{app_url}" hreflang="en-US">
+<link rel="icon" type="image/png" href="{icon_png_url}">
 
 <!-- Open Graph / Facebook -->
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://www.whylinedenver.com/">
-<meta property="og:title" content="WhyLine Denver - Denver Transit Analytics">
-<meta property="og:description" content="Analyze RTD bus reliability, delays, equity gaps, and service quality. Ask questions about Denver transit in plain English.">
-<meta property="og:image" content="https://www.whylinedenver.com/assets/og-image.png">
-<meta property="og:site_name" content="WhyLine Denver">
+<meta property="og:url" content="{app_url}">
+<meta property="og:title" content="{brand_name} - Denver Transit Analytics">
+<meta property="og:description" content="{primary_description}">
+<meta property="og:image" content="{og_image_url}">
+<meta property="og:image:alt" content="{brand_name} dashboard preview">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:site_name" content="{brand_name}">
+<meta property="og:locale" content="en_US">
 
 <!-- Twitter -->
-<meta property="twitter:card" content="summary_large_image">
-<meta property="twitter:url" content="https://www.whylinedenver.com/">
-<meta property="twitter:title" content="WhyLine Denver - Denver Transit Analytics">
-<meta property="twitter:description" content="Analyze RTD bus reliability, delays, equity gaps, and service quality with real-time data.">
-<meta property="twitter:image" content="https://www.whylinedenver.com/assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:url" content="{app_url}">
+<meta name="twitter:title" content="{brand_name} - Denver Transit Analytics">
+<meta name="twitter:description" content="{primary_description}">
+<meta name="twitter:image" content="{og_image_url}">
+<meta name="twitter:image:alt" content="{brand_name} dashboard preview">
 
 <!-- Geo Tags -->
 <meta name="geo.region" content="US-CO">
@@ -82,51 +205,7 @@ seo_meta_tags = """
 <meta name="geo.position" content="39.7392;-104.9903">
 <meta name="ICBM" content="39.7392, -104.9903">
 
-<!-- Schema.org structured data -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "WebApplication",
-  "name": "WhyLine Denver",
-  "url": "https://www.whylinedenver.com",
-  "description": "Free analytics tool for Denver RTD transit data. Ask questions about bus reliability, delays, equity gaps, and service quality in plain English.",
-  "applicationCategory": "Transportation Analytics",
-  "operatingSystem": "Web Browser",
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "USD"
-  },
-  "provider": {
-    "@type": "Organization",
-    "name": "WhyLine Denver"
-  },
-  "areaServed": {
-    "@type": "City",
-    "name": "Denver",
-    "address": {
-      "@type": "PostalAddress",
-      "addressLocality": "Denver",
-      "addressRegion": "CO",
-      "addressCountry": "US"
-    }
-  },
-  "about": [
-    {
-      "@type": "Thing",
-      "name": "Denver RTD Bus Service"
-    },
-    {
-      "@type": "Thing",
-      "name": "Public Transit Analytics"
-    },
-    {
-      "@type": "Thing",
-      "name": "Transportation Equity"
-    }
-  ]
-}
-</script>
+{json_ld_payloads}
 """
 
 st.markdown(seo_meta_tags, unsafe_allow_html=True)
