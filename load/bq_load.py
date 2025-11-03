@@ -190,6 +190,10 @@ def build_plan(
     start_date: date | None,
     end_date: date | None,
 ) -> list[PlanItem]:
+    # Load ingestion log cache once for all deduplication checks
+    ingestion_cache = load_ingestion_log_cache(bq_client)
+    LOGGER.info("Beginning file discovery and deduplication checks")
+
     plan: list[PlanItem] = []
     for job in JOBS:
         files = discover_files(
@@ -223,8 +227,7 @@ def build_plan(
                 continue
             hash_md5 = compute_file_hash(file_ref, storage_client)
             already = already_loaded(
-                bq_client=bq_client,
-                job=job,
+                ingestion_cache=ingestion_cache,
                 source_path=file_ref.source_path,
                 hash_md5=hash_md5,
             )
@@ -492,6 +495,34 @@ def ensure_ingestion_log_table(bq_client: bigquery.Client) -> None:
     LOGGER.info("Created ingestion log table %s", table_id)
 
 
+def load_ingestion_log_cache(bq_client: bigquery.Client) -> set[tuple[str, str]]:
+    """
+    Load entire ingestion log into memory for fast deduplication checks.
+
+    This function loads all (_source_path, _hash_md5) tuples into a set,
+    eliminating the need for individual BigQuery queries for each file check.
+    The table is small (~450KB, 3000 rows), making this approach efficient.
+
+    Returns:
+        Set of (source_path, hash_md5) tuples representing already-loaded files.
+    """
+    table_id = f"{settings.GCP_PROJECT_ID}.{settings.BQ_DATASET_RAW}.{INGESTION_LOG_TABLE}"
+    query = f"SELECT _source_path, _hash_md5 FROM `{table_id}`"
+
+    try:
+        LOGGER.info("Loading ingestion log cache from %s", table_id)
+        result = bq_client.query(query).result()
+        cache = {(row._source_path, row._hash_md5) for row in result}
+        LOGGER.info("Loaded %d entries into ingestion log cache", len(cache))
+        return cache
+    except NotFound:
+        LOGGER.warning("Ingestion log table not found, returning empty cache")
+        return set()
+    except Exception as exc:
+        LOGGER.error("Failed to load ingestion log cache: %s", exc)
+        return set()
+
+
 def ensure_destination_table(bq_client: bigquery.Client, job: JobSpec) -> None:
     table_id = job.fq_table()
     try:
@@ -528,28 +559,22 @@ def build_load_config(job: JobSpec) -> bigquery.LoadJobConfig:
 
 def already_loaded(
     *,
-    bq_client: bigquery.Client,
-    job: JobSpec,
+    ingestion_cache: set[tuple[str, str]],
     source_path: str,
     hash_md5: str,
 ) -> bool:
-    table_id = f"{settings.GCP_PROJECT_ID}.{settings.BQ_DATASET_RAW}.{INGESTION_LOG_TABLE}"
-    query = (
-        f"SELECT 1 FROM `{table_id}` "
-        "WHERE _source_path = @source_path AND _hash_md5 = @hash_md5 "
-        "LIMIT 1"
-    )
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[
-            bigquery.ScalarQueryParameter("source_path", "STRING", source_path),
-            bigquery.ScalarQueryParameter("hash_md5", "STRING", hash_md5),
-        ]
-    )
-    try:
-        result = bq_client.query(query, job_config=job_config).result()
-    except NotFound:
-        return False
-    return any(result)
+    """
+    Check if a file has already been loaded using in-memory cache.
+
+    Args:
+        ingestion_cache: Set of (source_path, hash_md5) tuples from ingestion log
+        source_path: GCS URI or local path of the file
+        hash_md5: MD5 hash of the file content
+
+    Returns:
+        True if file has already been loaded, False otherwise
+    """
+    return (source_path, hash_md5) in ingestion_cache
 
 
 def print_plan(
