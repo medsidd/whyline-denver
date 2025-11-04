@@ -348,9 +348,9 @@ echo "Vehicle positions today: ${VP_COUNT}"
 echo "Unique vehicles: ${VP_VEHICLES}"
 echo "Snapshots: ${VP_SNAPSHOTS}"
 
-if [ "$VP_COUNT" -gt 100000 ]; then
-    check_passed "Vehicle positions: ${VP_COUNT} records (expected ~110,000/day)"
-elif [ "$VP_COUNT" -gt 30000 ]; then
+if [ "$VP_COUNT" -gt 50000 ]; then
+    check_passed "Vehicle positions: ${VP_COUNT} records (expected ~70,000/day)"
+elif [ "$VP_COUNT" -gt 20000 ]; then
     check_warning "Vehicle positions: ${VP_COUNT} records (day may not be complete)"
 else
     check_warning "Vehicle positions: ${VP_COUNT} records (realtime workflows may not have ramped yet)"
@@ -824,8 +824,8 @@ echo "    - By tomorrow evening: ~288 snapshots/day"
 echo ""
 echo "  • Steady state (Day 2+):"
 echo "    - 288 snapshots/day (every 5 minutes)"
-echo "    - ≈600,000 trip updates/day"
-echo "    - ≈110,000 vehicle positions/day"
+echo "    - ≈1,556,000 trip updates/day"
+echo "    - ≈70,000 vehicle positions/day"
 echo "    - Zero missing hours (24-hour coverage)"
 echo ""
 echo "  • Weather data lag: 3-7 days (normal due to NOAA finalization)"

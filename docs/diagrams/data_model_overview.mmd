@@ -1,0 +1,139 @@
+%% Data Modeling Overview (Mermaid)
+%% Visualizes WhyLine Denver dbt models from Raw → Staging → Intermediate → Marts
+
+flowchart LR
+  %% ────────────────────────────────────────────────────────────────────────
+  %% RAW (Bronze)
+  %% ────────────────────────────────────────────────────────────────────────
+  subgraph RAW[Bronze • Raw Sources]
+    direction TB
+    raw_gtfsrt_tu[raw_gtfsrt_trip_updates]
+    raw_gtfsrt_vp[raw_gtfsrt_vehicle_positions]
+    raw_gtfs_routes[raw_gtfs_routes]
+    raw_gtfs_trips[raw_gtfs_trips]
+    raw_gtfs_stop_times[raw_gtfs_stop_times]
+    raw_gtfs_stops[raw_gtfs_stops]
+    raw_gtfs_calendar[raw_gtfs_calendar]
+    raw_gtfs_calendar_dates[raw_gtfs_calendar_dates]
+    raw_weather[raw_weather_daily]
+    raw_crashes[raw_crashes]
+    raw_sidewalks[raw_sidewalks]
+    raw_acs[raw_acs_tract]
+    raw_tracts[raw_denver_tracts]
+  end
+
+  %% ────────────────────────────────────────────────────────────────────────
+  %% STAGING (Silver)
+  %% ────────────────────────────────────────────────────────────────────────
+  subgraph STG[Silver • Staging Models]
+    direction TB
+    stg_rt_events[stg_rt_events]
+    stg_rt_stats[stg_rt_events_daily_stats]
+    stg_routes[stg_gtfs_routes]
+    stg_trips[stg_gtfs_trips]
+    stg_stop_times[stg_gtfs_stop_times]
+    stg_stops[stg_gtfs_stops]
+    stg_weather[stg_weather]
+    stg_crashes[stg_denver_crashes]
+    stg_sidewalks[stg_sidewalks]
+    stg_acs[stg_acs_geo]
+    stg_tracts[stg_denver_tracts]
+  end
+
+  %% Raw → Staging
+  raw_gtfsrt_tu --> stg_rt_events
+  raw_gtfsrt_vp --> stg_rt_events
+  raw_gtfs_routes --> stg_routes
+  raw_gtfs_trips --> stg_trips
+  raw_gtfs_stop_times --> stg_stop_times
+  raw_gtfs_stops --> stg_stops
+  raw_gtfs_calendar --> stg_trips
+  raw_gtfs_calendar_dates --> stg_trips
+  raw_weather --> stg_weather
+  raw_crashes --> stg_crashes
+  raw_sidewalks --> stg_sidewalks
+  raw_acs --> stg_acs
+  raw_tracts --> stg_tracts
+
+  %% Enrichment inputs to stg_rt_events
+  stg_trips -. enrich .-> stg_rt_events
+
+  %% ────────────────────────────────────────────────────────────────────────
+  %% INTERMEDIATE (Silver)
+  %% ────────────────────────────────────────────────────────────────────────
+  subgraph INT[Silver • Intermediate Models]
+    direction TB
+    int_rt_resolved[int_rt_events_resolved]
+    int_obs_headways[int_stop_headways_observed]
+    int_sched_arrivals[int_scheduled_arrivals]
+    int_sched_headways[int_stop_headways_scheduled]
+    int_headway_adherence[int_headway_adherence]
+    int_weather_by_date[int_weather_by_date]
+    int_rt_daily_coverage[int_rt_daily_coverage]
+  end
+
+  stg_rt_events --> int_rt_resolved
+  stg_rt_events --> int_rt_daily_coverage
+  int_rt_resolved --> int_obs_headways
+
+  %% Scheduled reference chain
+  stg_stop_times --> int_sched_arrivals
+  stg_trips --> int_sched_arrivals
+  stg_routes --> int_sched_arrivals
+  int_sched_arrivals --> int_sched_headways
+  int_obs_headways --> int_headway_adherence
+  int_sched_headways --> int_headway_adherence
+
+  %% Weather enrichment
+  stg_weather --> int_weather_by_date
+
+  %% ────────────────────────────────────────────────────────────────────────
+  %% MARTS (Gold)
+  %% ────────────────────────────────────────────────────────────────────────
+  subgraph MARTS[Gold • Analytical Marts]
+    direction TB
+    mart_route_day[mart_reliability_by_route_day]
+    mart_stop_hour[mart_reliability_by_stop_hour]
+    mart_weather_impacts[mart_weather_impacts]
+    mart_crash_prox[mart_crash_proximity_by_stop]
+    mart_access[mart_access_score_by_stop]
+    mart_vuln[mart_vulnerability_by_stop]
+    mart_priority[mart_priority_hotspots]
+  end
+
+  %% Reliability domain
+  int_rt_resolved --> mart_route_day
+  int_headway_adherence --> mart_route_day
+  int_rt_resolved --> mart_stop_hour
+  int_weather_by_date --> mart_route_day
+  mart_route_day --> mart_weather_impacts
+
+  %% Safety domain
+  stg_crashes --> mart_crash_prox
+  stg_stops --> mart_crash_prox
+
+  %% Access domain
+  stg_sidewalks --> mart_access
+  stg_stops --> mart_access
+
+  %% Equity domain
+  stg_acs --> mart_vuln
+  stg_tracts --> mart_vuln
+  stg_stops --> mart_vuln
+
+  %% Priority hotspots (composite)
+  mart_vuln --> mart_priority
+  mart_crash_prox --> mart_priority
+  mart_stop_hour --> mart_priority
+
+  %% Styling hints
+  classDef raw fill:#2b2b2b,stroke:#555,stroke-width:1,color:#eee;
+  classDef stg fill:#1f3b4d,stroke:#86b3c2,stroke-width:1,color:#e6f1f5;
+  classDef int fill:#333a2f,stroke:#99c48a,stroke-width:1,color:#e6f4e8;
+  classDef mart fill:#3a2f2f,stroke:#d6a57a,stroke-width:1,color:#f8efe6;
+
+  class RAW raw
+  class STG stg
+  class INT int
+  class MARTS mart
+
