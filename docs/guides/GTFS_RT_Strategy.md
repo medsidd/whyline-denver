@@ -84,15 +84,15 @@ The snapshot workflow needs time to upload files to GCS. A 30-minute buffer ensu
 
 **Daily:**
 - 24 hours × 12 snapshots/hour = 288 snapshots
-- ~25MB compressed
-- ~360,000 trip update rows
-- ~18,000 vehicle position rows
+- ~85MB compressed
+- ~1,556,000 trip update rows
+- ~70,000 vehicle position rows
 
 **Annual:**
-- 16,425 snapshots
-- ~9GB compressed
-- ~144 million trip update rows
-- ~7 million vehicle position rows
+- 105,120 snapshots (288/day × 365 days)
+- ~30GB compressed
+- ~568 million trip update rows
+- ~25 million vehicle position rows
 
 **Infrastructure costs:**
 - GCS storage: $0.55/year

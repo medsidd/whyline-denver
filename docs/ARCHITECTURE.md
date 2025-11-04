@@ -41,7 +41,7 @@ WhyLine Denver is a **dual-engine transit analytics platform** built on modern c
 | **App Layer** | Streamlit 1.37 (interactive Python dashboard) |
 | **Annual Cost** | ~$25 (storage + compute) |
 | **Data Latency** | 2 minutes (GTFS-RT), 24 hours (static data), 3-7 days (weather) |
-| **Data Volume** | ~20GB raw, ~5GB marts, ~144M GTFS-RT events/year |
+| **Data Volume** | ~20GB raw, ~5GB marts, ~593M GTFS-RT events/year |
 
 ### Tech Stack
 
