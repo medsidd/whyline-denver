@@ -35,8 +35,12 @@ COPY app/placeholders/robots.txt /usr/share/nginx/html/robots.txt
 COPY app/placeholders/sitemap.xml /usr/share/nginx/html/sitemap.xml
 COPY app/assets/favicon.ico /usr/share/nginx/html/favicon.ico
 COPY app/assets/whylinedenver-logo.svg /usr/share/nginx/html/assets/whylinedenver-logo.svg
+COPY app/assets/whylinedenver-logo@512.png /usr/share/nginx/html/assets/whylinedenver-logo@512.png
+COPY app/assets/whylinedenver-logo@1024.png /usr/share/nginx/html/assets/whylinedenver-logo@1024.png
 COPY app/assets/whylinedenver-logo@1024.png /usr/share/nginx/html/assets/og-image.png
+COPY app/assets/whylinedenver-logo@512.png /usr/share/nginx/html/assets/apple-touch-icon.png
 COPY app/placeholders/404.html /usr/share/nginx/html/404.html
+COPY app/placeholders/site.webmanifest /usr/share/nginx/html/site.webmanifest
 
 RUN chmod +x /start.sh
 

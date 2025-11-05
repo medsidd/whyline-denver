@@ -1,5 +1,8 @@
 {{ config(materialized='view') }}
 
+{# Limit historical scan to reduce BigQuery costs #}
+{% set lookback_days = var('rt_events_lookback_days', 45) %}
+
 with trips as (
     select
         trip_id,
@@ -20,6 +23,7 @@ tu as (
         schedule_relationship,
         event_ts_utc as tu_event_ts_utc
     from {{ source('raw','raw_gtfsrt_trip_updates') }}
+    where feed_ts_utc >= timestamp_sub(current_timestamp(), interval {{ lookback_days }} day)
 ),
 vp as (
     select
@@ -35,6 +39,7 @@ vp as (
         speed_mps,
         event_ts_utc as vp_event_ts_utc
     from {{ source('raw','raw_gtfsrt_vehicle_positions') }}
+    where feed_ts_utc >= timestamp_sub(current_timestamp(), interval {{ lookback_days }} day)
 ),
 j as (
     select

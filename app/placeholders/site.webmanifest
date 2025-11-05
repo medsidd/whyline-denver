@@ -1,0 +1,22 @@
+{
+  "name": "WhyLine Denver",
+  "short_name": "WhyLine",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#87a7b3",
+  "icons": [
+    {
+      "src": "/assets/whylinedenver-logo@512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/whylinedenver-logo@1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
+

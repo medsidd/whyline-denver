@@ -15,13 +15,7 @@ with base as (
     from {{ ref('int_rt_events_resolved') }}
     where stop_id is not null
     {% if is_incremental() %}
-        and service_date_mst >= (
-            select ifnull(
-                max(service_date_mst),
-                date_sub(current_date("America/Denver"), interval 35 day)
-            )
-            from {{ this }}
-        )
+        and service_date_mst >= date_sub(current_date("America/Denver"), interval 3 day)
     {% endif %}
 ),
 head AS (
