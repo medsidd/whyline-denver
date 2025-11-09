@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import json
 import os
 from pathlib import Path
 
@@ -18,6 +19,11 @@ BRAND_WARNING = os.getenv("APP_WARNING_COLOR", "#e8b863")  # Soft Amber
 BRAND_ERROR = os.getenv("APP_ERROR_COLOR", "#c77f6d")  # Terra Cotta
 BRAND_NAME = os.getenv("APP_BRAND_NAME", "WhyLine Denver")
 BRAND_TAGLINE = os.getenv("APP_TAGLINE", "Ask anything about Denver transit")
+PRIMARY_DOMAIN = os.getenv("APP_PRIMARY_DOMAIN", "https://www.whylinedenver.com")
+FAVICON_ICO_URL = f"{PRIMARY_DOMAIN}/favicon.ico"
+FAVICON_PNG_512_URL = f"{PRIMARY_DOMAIN}/assets/whylinedenver-logo@512.png"
+APPLE_TOUCH_ICON_URL = f"{PRIMARY_DOMAIN}/assets/apple-touch-icon.png"
+MASK_ICON_URL = f"{PRIMARY_DOMAIN}/assets/whylinedenver-pinned-tab.svg"
 
 STRIPE_GRADIENT = (
     f"linear-gradient(90deg, {BRAND_PRIMARY} 0%, {BRAND_ACCENT} 25%, "
@@ -32,22 +38,74 @@ FAVICON_ICO_DATAURI = "data:image/x-icon;base64," + base64.b64encode(
     (ASSET_ROOT / "favicon.ico").read_bytes()
 ).decode("ascii")
 FAVICON_MASK_DATAURI = "data:image/svg+xml;base64," + base64.b64encode(
-    (ASSET_ROOT / "whylinedenver-logo.svg").read_bytes()
+    (ASSET_ROOT / "whylinedenver-pinned-tab.svg").read_bytes()
 ).decode("ascii")
 
 
 def inject_custom_css() -> None:
     """Apply heavy custom CSS to override Streamlit defaults and create retro aesthetic."""
+    favicon_links = [
+        {"rel": "icon", "href": FAVICON_ICO_URL, "attrs": {"type": "image/x-icon"}},
+        {
+            "rel": "icon",
+            "href": FAVICON_PNG_512_URL,
+            "attrs": {"type": "image/png", "sizes": "512x512"},
+        },
+        {
+            "rel": "apple-touch-icon",
+            "href": APPLE_TOUCH_ICON_URL,
+            "attrs": {"sizes": "180x180"},
+        },
+        {
+            "rel": "mask-icon",
+            "href": MASK_ICON_URL,
+            "attrs": {"color": BRAND_PRIMARY},
+        },
+    ]
+    favicon_json = json.dumps(favicon_links, separators=(",", ":"))
+
     st.markdown(
         f"""
-        <link rel="icon" type="image/x-icon" href="https://www.whylinedenver.com/favicon.ico">
-        <link rel="shortcut icon" type="image/x-icon" href="https://www.whylinedenver.com/favicon.ico">
-        <link rel="icon" type="image/png" sizes="512x512" href="https://www.whylinedenver.com/assets/whylinedenver-logo@512.png">
-        <link rel="mask-icon" href="https://www.whylinedenver.com/assets/whylinedenver-logo.svg" color="{BRAND_PRIMARY}">
+        <link rel="icon" type="image/x-icon" href="{FAVICON_ICO_URL}">
+        <link rel="shortcut icon" type="image/x-icon" href="{FAVICON_ICO_URL}">
+        <link rel="icon" type="image/png" sizes="512x512" href="{FAVICON_PNG_512_URL}">
+        <link rel="apple-touch-icon" sizes="180x180" href="{APPLE_TOUCH_ICON_URL}">
+        <link rel="mask-icon" href="{MASK_ICON_URL}" color="{BRAND_PRIMARY}">
         <!-- Prefer link-based font loading for Safari stability -->
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+        <script>
+        (() => {{
+            if (window.__WHYLINE_FAVICON_PATCH__) {{
+                return;
+            }}
+            window.__WHYLINE_FAVICON_PATCH__ = true;
+            const head = document.head || document.getElementsByTagName('head')[0];
+            if (!head) {{
+                return;
+            }}
+            const iconDefs = {favicon_json};
+            head.querySelectorAll("link[rel='icon'],link[rel='apple-touch-icon'],link[rel='mask-icon']").forEach((node) => {{
+                if (node.parentNode) {{
+                    node.parentNode.removeChild(node);
+                }}
+            }});
+            iconDefs.forEach((def) => {{
+                const link = document.createElement('link');
+                link.rel = def.rel;
+                link.href = def.href;
+                if (def.attrs) {{
+                    Object.entries(def.attrs).forEach(([key, value]) => {{
+                        if (value) {{
+                            link.setAttribute(key, value);
+                        }}
+                    }});
+                }}
+                head.appendChild(link);
+            }});
+        }})();
+        </script>
         """,
         unsafe_allow_html=True,
     )

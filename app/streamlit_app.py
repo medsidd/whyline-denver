@@ -87,6 +87,7 @@ seo_keywords = [
 og_image_url = f"{primary_domain}/assets/og-image.png"  # Social media preview (1200x630)
 logo_url = f"{primary_domain}/assets/whylinedenver-logo.svg"  # Google search logo
 icon_png_url = f"{primary_domain}/assets/whylinedenver-logo@512.png"  # Favicon
+mask_icon_url = f"{primary_domain}/assets/whylinedenver-pinned-tab.svg"  # Safari pinned tab icon
 
 schema_organization = {
     "@context": "https://schema.org",
@@ -196,7 +197,7 @@ seo_meta_tags = f"""
 <link rel="icon" type="image/x-icon" href="{primary_domain}/favicon.ico">
 <link rel="shortcut icon" type="image/x-icon" href="{primary_domain}/favicon.ico">
 <link rel="icon" type="image/png" sizes="512x512" href="{icon_png_url}">
-<link rel="mask-icon" href="{logo_url}" color="#87a7b3">
+<link rel="mask-icon" href="{mask_icon_url}" color="#87a7b3">
 <link rel="apple-touch-icon" href="{icon_png_url}">
 <link rel="apple-touch-icon" sizes="512x512" href="{icon_png_url}">
 <link rel="manifest" href="{primary_domain}/manifest.json">
