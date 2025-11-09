@@ -35,6 +35,7 @@ COPY app/placeholders/robots.txt /usr/share/nginx/html/robots.txt
 COPY app/placeholders/sitemap.xml /usr/share/nginx/html/sitemap.xml
 COPY app/assets/favicon.ico /usr/share/nginx/html/favicon.ico
 COPY app/assets/whylinedenver-logo.svg /usr/share/nginx/html/assets/whylinedenver-logo.svg
+COPY app/assets/whylinedenver-pinned-tab.svg /usr/share/nginx/html/assets/whylinedenver-pinned-tab.svg
 COPY app/assets/whylinedenver-logo@512.png /usr/share/nginx/html/assets/whylinedenver-logo@512.png
 COPY app/assets/whylinedenver-logo@1024.png /usr/share/nginx/html/assets/whylinedenver-logo@1024.png
 COPY app/assets/whylinedenver-logo@1024.png /usr/share/nginx/html/assets/og-image.png
