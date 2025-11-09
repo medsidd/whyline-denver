@@ -14,6 +14,7 @@ from pathlib import Path
 import json
 
 import streamlit as st
+from PIL import Image
 
 # Setup paths
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,9 +38,13 @@ from utils import data_loaders, session
 # ═══════════════════════════════════════════════════════════════════════════
 # PAGE CONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════════
+# Load favicon as PIL Image for better Streamlit compatibility
+favicon_path = Path(__file__).parent / "assets" / "whylinedenver-logo@512.png"
+page_icon = Image.open(favicon_path) if favicon_path.exists() else "🚌"
+
 st.set_page_config(
-    page_title=f"{branding.BRAND_NAME} — Transit Analytics",
-    page_icon=str(Path(__file__).parent / "assets" / "favicon.ico"),
+    page_title=f"{branding.BRAND_NAME} | RTD Reliability Analytics",
+    page_icon=page_icon,
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
@@ -62,17 +67,26 @@ primary_description = (
     "streamlined charts, and downloadable datasets powered by DuckDB and BigQuery."
 )
 seo_keywords = [
+    "WhyLine Denver",
+    "whyline denver",
+    "why line denver",
+    "transit denver",
+    "rtd denver",
     "Denver transit analytics",
     "RTD bus delays",
+    "Denver public transportation",
     "Denver public transportation data",
     "transit reliability dashboard",
     "Denver bus equity analysis",
     "RTD real-time GTFS",
     "Denver transit maps",
+    "Denver RTD data",
+    "Denver bus tracking",
+    "Denver transit reliability",
 ]
-og_image_url = f"{primary_domain}/assets/whylinedenver-logo@1024.png"
-logo_url = f"{primary_domain}/assets/whylinedenver-logo.svg"
-icon_png_url = f"{primary_domain}/assets/whylinedenver-logo@512.png"
+og_image_url = f"{primary_domain}/assets/og-image.png"  # Social media preview (1200x630)
+logo_url = f"{primary_domain}/assets/whylinedenver-logo.svg"  # Google search logo
+icon_png_url = f"{primary_domain}/assets/whylinedenver-logo@512.png"  # Favicon
 
 schema_organization = {
     "@context": "https://schema.org",
@@ -165,8 +179,8 @@ json_ld_payloads = "\n".join(
 
 seo_meta_tags = f"""
 <!-- Primary Meta Tags -->
-<title>{brand_name} — Denver Transit Analytics & Real-Time RTD Insights</title>
-<meta name="title" content="{brand_name} - Denver Transit Analytics & Real-Time Bus Data">
+<title>{brand_name} | RTD Reliability Analytics</title>
+<meta name="title" content="{brand_name} | RTD Reliability Analytics">
 <meta name="description" content="{primary_description}">
 <meta name="keywords" content="{', '.join(seo_keywords)}">
 <meta name="author" content="{brand_name}">
@@ -177,15 +191,24 @@ seo_meta_tags = f"""
 <meta name="theme-color" content="{brand_primary_color}">
 <link rel="canonical" href="{app_url}">
 <link rel="alternate" href="{app_url}" hreflang="en-US">
-<link rel="icon" type="image/png" href="{icon_png_url}">
+
+<!-- Icons and Manifest -->
+<link rel="icon" type="image/x-icon" href="{primary_domain}/favicon.ico">
+<link rel="shortcut icon" type="image/x-icon" href="{primary_domain}/favicon.ico">
+<link rel="icon" type="image/png" sizes="512x512" href="{icon_png_url}">
+<link rel="mask-icon" href="{logo_url}" color="#87a7b3">
+<link rel="apple-touch-icon" href="{icon_png_url}">
+<link rel="apple-touch-icon" sizes="512x512" href="{icon_png_url}">
+<link rel="manifest" href="{primary_domain}/manifest.json">
 
 <!-- Open Graph / Facebook -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="{app_url}">
-<meta property="og:title" content="{brand_name} - Denver Transit Analytics">
+<meta property="og:title" content="{brand_name} | RTD Reliability Analytics">
 <meta property="og:description" content="{primary_description}">
 <meta property="og:image" content="{og_image_url}">
 <meta property="og:image:alt" content="{brand_name} dashboard preview">
+<meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:site_name" content="{brand_name}">
@@ -194,7 +217,7 @@ seo_meta_tags = f"""
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:url" content="{app_url}">
-<meta name="twitter:title" content="{brand_name} - Denver Transit Analytics">
+<meta name="twitter:title" content="{brand_name} | RTD Reliability Analytics">
 <meta name="twitter:description" content="{primary_description}">
 <meta name="twitter:image" content="{og_image_url}">
 <meta name="twitter:image:alt" content="{brand_name} dashboard preview">
@@ -204,6 +227,11 @@ seo_meta_tags = f"""
 <meta name="geo.placename" content="Denver">
 <meta name="geo.position" content="39.7392;-104.9903">
 <meta name="ICBM" content="39.7392, -104.9903">
+
+<!-- Apple Web App -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="{brand_name}">
 
 {json_ld_payloads}
 """

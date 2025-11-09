@@ -1,5 +1,10 @@
 {{ config(materialized='view') }}
 
+{#
+GTFS schedule data is static and does not grow over time like realtime data.
+No date filtering needed - the entire schedule dataset is scanned, but it's relatively small.
+#}
+
 with st as (
     select
         trip_id,

@@ -40,8 +40,10 @@ def inject_custom_css() -> None:
     """Apply heavy custom CSS to override Streamlit defaults and create retro aesthetic."""
     st.markdown(
         f"""
-        <link rel="icon" type="image/x-icon" href="{FAVICON_ICO_DATAURI}">
-        <link rel="mask-icon" href="{FAVICON_MASK_DATAURI}" color="{BRAND_PRIMARY}">
+        <link rel="icon" type="image/x-icon" href="https://www.whylinedenver.com/favicon.ico">
+        <link rel="shortcut icon" type="image/x-icon" href="https://www.whylinedenver.com/favicon.ico">
+        <link rel="icon" type="image/png" sizes="512x512" href="https://www.whylinedenver.com/assets/whylinedenver-logo@512.png">
+        <link rel="mask-icon" href="https://www.whylinedenver.com/assets/whylinedenver-logo.svg" color="{BRAND_PRIMARY}">
         <!-- Prefer link-based font loading for Safari stability -->
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

@@ -1,4 +1,25 @@
-{{ config(materialized='view') }}
+{{
+    config(
+        materialized='incremental',
+        unique_key=['route_id', 'direction_id', 'stop_id', 'service_date_mst', 'event_ts_utc'],
+        on_schema_change='fail',
+        partition_by={
+            'field': 'service_date_mst',
+            'data_type': 'date',
+            'granularity': 'day'
+        },
+        cluster_by=['route_id', 'stop_id']
+    )
+}}
+
+{#
+Cost optimization: Materialize to avoid repeated complex joins on GTFS schedule data
+- Full refresh: 45-day lookback
+- Incremental: Only process last 3 days to minimize overhead
+- Uses MERGE strategy (not insert_overwrite) to avoid processing entire partition
+#}
+{% set lookback_days = var('schedule_lookback_days', 45) %}
+{% set incremental_days = 3 %}
 
 with obs as (
     select
@@ -10,6 +31,11 @@ with obs as (
         obs_headway_sec
     from {{ ref('int_stop_headways_observed') }}
     where obs_headway_sec is not null
+    {% if is_incremental() %}
+        and service_date_mst >= date_sub(current_date("America/Denver"), interval {{ incremental_days }} day)
+    {% else %}
+        and service_date_mst >= date_sub(current_date("America/Denver"), interval {{ lookback_days }} day)
+    {% endif %}
 ),
 sch as (
     select
@@ -21,6 +47,7 @@ sch as (
         sch_headway_sec
     from {{ ref('int_stop_headways_scheduled') }}
     where sch_headway_sec is not null
+    {# No date filter on schedule data - it's static #}
 ),
 nearest as (
     select

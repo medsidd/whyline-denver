@@ -10,6 +10,15 @@ with trips as (
         trip_headsign
     from {{ ref('stg_gtfs_trips') }}
 ),
+scheduled as (
+    select
+        trip_id,
+        stop_id,
+        stop_sequence,
+        sched_arrival_ts_mst,
+        sched_departure_ts_mst
+    from {{ ref('int_scheduled_arrivals') }}
+),
 tu as (
     select
         feed_ts_utc,
@@ -18,8 +27,8 @@ tu as (
         route_id,
         stop_id,
         stop_sequence,
-        arrival_delay_sec,
-        departure_delay_sec,
+        arrival_delay_sec as arrival_delay_sec_raw,
+        departure_delay_sec as departure_delay_sec_raw,
         schedule_relationship,
         event_ts_utc as tu_event_ts_utc
     from {{ source('raw','raw_gtfsrt_trip_updates') }}
@@ -50,8 +59,8 @@ j as (
         vp.vp_entity_id,
         tu.stop_id,
         tu.stop_sequence,
-        tu.arrival_delay_sec,
-        tu.departure_delay_sec,
+        tu.arrival_delay_sec_raw,
+        tu.departure_delay_sec_raw,
         tu.schedule_relationship,
         vp.vehicle_id,
         vp.vehicle_label,
@@ -84,8 +93,21 @@ select
     r.vp_entity_id,
     r.stop_id,
     r.stop_sequence,
-    r.arrival_delay_sec,
-    r.departure_delay_sec,
+    -- Use raw delay values if available, otherwise calculate from schedule
+    coalesce(
+        r.arrival_delay_sec_raw,
+        case
+            when s.sched_arrival_ts_mst is not null and r.event_ts_utc is not null
+            then timestamp_diff(r.event_ts_utc, s.sched_arrival_ts_mst, second)
+        end
+    ) as arrival_delay_sec,
+    coalesce(
+        r.departure_delay_sec_raw,
+        case
+            when s.sched_departure_ts_mst is not null and r.event_ts_utc is not null
+            then timestamp_diff(r.event_ts_utc, s.sched_departure_ts_mst, second)
+        end
+    ) as departure_delay_sec,
     r.schedule_relationship,
     r.vehicle_id,
     r.vehicle_label,
@@ -102,4 +124,8 @@ select
 from ranked as r
 left join trips as t
     on r.trip_id = t.trip_id
+left join scheduled as s
+    on r.trip_id = s.trip_id
+    and r.stop_id = s.stop_id
+    and r.stop_sequence = s.stop_sequence
 where r.trip_rank = 1

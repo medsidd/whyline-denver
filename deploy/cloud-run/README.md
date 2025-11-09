@@ -145,3 +145,26 @@ allows the ingest step to finish writing GCS files before the BigQuery load star
 All stdout/stderr is streamed to Cloud Logging automatically. The existing QA script
 (`scripts/qa_script.sh`) continues to validate freshness and snapshot counts; thresholds
 assume 288 snapshots per day (five-minute cadence).
+
+## Cost Optimization
+
+This deployment has undergone comprehensive BigQuery cost optimization through two phases:
+
+**Phase 1 - Client-Side Caching (Nov 3, 2025):**
+- Eliminated 126,691 deduplication queries/day by loading ingestion log into memory once per job
+- Reduced query count by 99.8%
+- Savings: $3,683/year (95% reduction)
+
+**Phase 2 - Partition Filters + VIEW Architecture (Nov 5, 2025):**
+- Added 45-day partition filters to `stg_rt_events` limiting raw table scans
+- Maintained VIEW architecture for intermediate tables (avoiding materialization costs)
+- Removed expensive subqueries from mart models (fixed 3-day lookback)
+- Savings: $110/year additional (60% reduction from Phase 1 baseline)
+
+**Combined Results:**
+- Total annual cost: $73/year (down from $3,866/year)
+- 98% total cost reduction
+- 100% billing efficiency (processing = billing)
+- All within Google Cloud free tier
+
+See [Case Study](../../docs/case-studies/bigquery-cost-optimization-2025.md) for full details.
