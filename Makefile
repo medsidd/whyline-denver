@@ -214,7 +214,10 @@ dbt-docs:
 	$(DBT_CMD) docs generate --project-dir dbt --target $(DBT_TARGET)
 
 dbt-run-realtime:
-	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select +mart_reliability_by_stop_hour +mart_reliability_by_route_day +mart_weather_impacts
+	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select +mart_reliability_by_stop_hour +mart_reliability_by_route_day +mart_weather_impacts --exclude int_scheduled_arrivals
+
+dbt-run-static:
+	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select int_scheduled_arrivals --full-refresh
 
 # Update BigQuery freshness timestamp in sync_state.json after dbt runs
 update-bq-timestamp:
