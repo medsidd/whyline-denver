@@ -33,3 +33,4 @@ select
         else cast(a_h as int64)
     end as arr_hour_bucket
 from norm
+qualify row_number() over (partition by trip_id, stop_id, stop_sequence order by arrival_time) = 1

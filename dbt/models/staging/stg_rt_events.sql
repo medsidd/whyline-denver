@@ -16,7 +16,8 @@ scheduled as (
         stop_id,
         stop_sequence,
         sched_arrival_ts_mst,
-        sched_departure_ts_mst
+        sched_departure_ts_mst,
+        service_date_mst
     from {{ ref('int_scheduled_arrivals') }}
 ),
 tu as (
@@ -128,4 +129,5 @@ left join scheduled as s
     on r.trip_id = s.trip_id
     and r.stop_id = s.stop_id
     and r.stop_sequence = s.stop_sequence
+    and s.service_date_mst = {{ date_mst('r.event_ts_utc') }}
 where r.trip_rank = 1
