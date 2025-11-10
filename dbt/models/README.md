@@ -175,11 +175,13 @@ Staging models (`stg_*`) clean and standardize raw data. They handle deduplicati
 ### GTFS Realtime Models
 
 #### 5. `stg_rt_events`
-**Source**: `raw_gtfsrt_trip_updates`, `raw_gtfsrt_vehicle_positions`, `stg_gtfs_trips`
+**Source**: `raw_gtfsrt_trip_updates`, `raw_gtfsrt_vehicle_positions`, `stg_gtfs_trips`, `int_scheduled_arrivals`
 **Grain**: One row per (feed_ts_utc, trip_id, route_id) combination
-**Materialization**: View
+**Materialization**: **Incremental table**, partitioned by `event_date_mst`, clustered by [`route_id`, `trip_id`]
+**unique_key**: `['feed_ts_utc', 'trip_id']`
+**Incremental Strategy**: MERGE with dual-lookback windows (3-day incremental, 45-day full-refresh)
 
-**Purpose**: Unified realtime event stream combining trip updates (delays) and vehicle positions (GPS coordinates).
+**Purpose**: Unified realtime event stream combining trip updates (delays) and vehicle positions (GPS coordinates). Materialized to avoid repeated scans of 5.6 GB raw trip_updates table on every query (Phase 3 cost optimization).
 
 **Key Columns**:
 - `feed_ts_utc`: Snapshot timestamp (minute precision)
@@ -425,18 +427,23 @@ Intermediate models (`int_*`) compute complex derived metrics that feed multiple
 ---
 
 #### 5. `int_scheduled_arrivals`
-**Source**: `stg_gtfs_stop_times`, `stg_gtfs_trips`
-**Grain**: One row per scheduled stop arrival
-**Materialization**: View
+**Source**: `stg_gtfs_stop_times`, `stg_gtfs_trips`, `stg_gtfs_calendar`, `stg_gtfs_calendar_dates`
+**Grain**: One row per scheduled stop arrival across all service dates
+**Materialization**: **Materialized table**, partitioned by `service_date_mst`, clustered by [`trip_id`, `stop_id`]
+**Rows**: ~22.4M rows spanning 76 days (Sept 25 - Dec 9, 2025)
 
-**Purpose**: Expand GTFS stop_times to absolute timestamps for all service dates.
+**Purpose**: Expand GTFS stop_times to absolute timestamps for comprehensive historical analysis. Materialized to avoid re-expanding 22.4M rows on every query (Phase 3 cost optimization).
 
 **Key Logic**:
-- Use service calendar to generate array of applicable dates
+- Generate date spine from start_date ('2025-09-25') to end_date ('2025-12-09')
+- Cross-join with service calendar rules to determine applicable service dates
 - `UNNEST(service_dates)` to expand to one row per (trip, stop, date)
 - Convert `arrival_time` + `service_date` → `sched_arrival_ts_mst`
+- Includes service_date_mst filter fix to prevent delay calculation errors
 
-**Usage**: Feeds intermediate headway models
+**Usage**: Feeds `stg_rt_events` (delay calculation), intermediate headway models
+
+**Cost Impact**: Materializing this table reduced per-execution query costs from 15.8GB to 7.5GB (52% reduction)
 
 ---
 
@@ -677,22 +684,76 @@ Mart models (`mart_*`) are the final analytical tables consumed by the Streamlit
 
 ## Materialization Strategies
 
-| Layer | Materialization | Rationale |
-|-------|----------------|-----------|
-| **Staging** | Views | Lightweight, always fresh, deduplication logic changes without rebuilds |
-| **Intermediate** | Views | Dependency layer, no need to persist |
-| **Marts (Reliability)** | Incremental tables | Large row counts (10K+ per day), partitioned by date, rebuild only last 35 days |
-| **Marts (Safety, Equity, Access)** | Tables | Smaller datasets (<10K rows), spatial joins expensive, full refresh acceptable |
+WhyLine Denver implements a **strategic materialization architecture** balancing cost efficiency with query performance, refined through three-phase cost optimization ([detailed case study](../../docs/case-studies/bigquery-cost-optimization-2025.md)):
 
-**Incremental Logic**:
+| Layer | Model | Materialization | Rationale |
+|-------|-------|----------------|-----------|
+| **Staging (Most)** | stg_gtfs_*, stg_weather, etc. | Views | Lightweight reference tables, always fresh, deduplication logic changes without rebuilds |
+| **Staging (RT)** | **stg_rt_events** | **Incremental table** | Avoids repeated scans of 5.6 GB raw trip_updates; 3-day/45-day dual lookback reduces per-execution processing from 15.8GB → 7.5GB |
+| **Intermediate (Most)** | int_rt_events_resolved, int_headway_* | Views | Dependency layer, lightweight joins on materialized upstream tables |
+| **Intermediate (Schedule)** | **int_scheduled_arrivals** | **Materialized table** | Expands 22.4M rows once instead of re-expanding on every query; eliminates VIEW re-expansion costs for 288 queries/day |
+| **Marts (Reliability)** | mart_reliability_*, int_headway_adherence | Incremental tables | Large row counts (10K+ per day), partitioned by date, rebuild only last 3 days with proper unique_keys |
+| **Marts (Safety, Equity, Access)** | mart_crash_proximity, mart_vulnerability_*, etc. | Tables | Smaller datasets (<10K rows), spatial joins expensive, full refresh nightly |
+
+### Incremental Processing Patterns
+
+**Pattern 1: Dual-Lookback Windows (stg_rt_events)**
+```sql
+{% set lookback_days = var('rt_events_lookback_days', 45) %}  -- Full refresh
+{% set incremental_days = 3 %}  -- Incremental updates
+
+where feed_ts_utc >= timestamp_sub(current_timestamp(),
+  interval {% if is_incremental() %}{{ incremental_days }}{% else %}{{ lookback_days }}{% endif %} day)
+```
+- **Full refresh**: Process 45 days for comprehensive rebuild
+- **Incremental**: Process only 3 days for daily updates
+- **Benefit**: Reduces incremental run cost from 5.32 GB → 0.35 GB (15x improvement)
+
+**Pattern 2: Fixed 3-Day Lookback (Marts)**
 ```sql
 {% if is_incremental() %}
-  WHERE service_date_mst > (SELECT MAX(service_date_mst) - INTERVAL 35 DAY FROM {{ this }})
+  WHERE service_date_mst >= date_sub(current_date("America/Denver"), interval 3 day)
 {% endif %}
 ```
-This ensures late-arriving data (from delayed GTFS-RT snapshots or late weather data) gets incorporated.
+- **Why 3 days?** Covers late-arriving GTFS-RT snapshots and delayed weather data
+- **Why not dynamic MAX(date)?** Expensive subquery scans entire table; fixed lookback uses partition pruning
+- **Cost impact**: Removed `SELECT MAX(service_date_mst) FROM table` subqueries saving ~0.5GB per MERGE
 
-**Why 35 days?** Covers a full month + buffer for weekend service variations and holidays.
+**Pattern 3: Unique Keys for Proper MERGE**
+```sql
+{{ config(
+    materialized='incremental',
+    unique_key=['route_id', 'service_date_mst', 'precip_bin', 'snow_day'],
+    ...
+) }}
+```
+- **Critical**: Without unique_key, dbt uses INSERT instead of MERGE, creating duplicates
+- **Grain matching**: unique_key must match aggregation grain exactly
+
+### Scalability Achievements
+
+Through Phase 3 strategic materialization (November 2025):
+- ✅ Enabled 28x data growth (2-day → 76-day schedule expansion)
+- ✅ Reduced per-execution costs 52% (15.8GB → 7.5GB processing)
+- ✅ Achieved sustainable $407/month architecture processing 593M+ annual events
+- ✅ Prevented $10,268/year cost explosion from naive VIEW-based approach
+- ✅ Maintained data quality: All 95 tests passing, no duplicates, correct delay calculations
+
+### When to Materialize vs. Keep as VIEW
+
+**Materialize when:**
+- Table scanned 100+ times per day (stg_rt_events: 288x/day)
+- Expensive transformation (schedule expansion: 22.4M rows from calendar rules)
+- Large source tables (>1 GB raw data)
+- Incremental processing can limit window effectively
+
+**Keep as VIEW when:**
+- Small reference tables (<100 MB)
+- Lightweight joins/filters on already-materialized upstream tables
+- Transformation logic changes frequently
+- Queried infrequently (<10x/day)
+
+See [BigQuery Cost Optimization Case Study](../../docs/case-studies/bigquery-cost-optimization-2025.md) for complete optimization journey including failed attempts and lessons learned.
 
 ---
 

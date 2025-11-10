@@ -8,7 +8,7 @@ so the UI can swap between DuckDB and BigQuery engines without extra infrastruct
 - **Entrypoint**: `/start.sh` launches Streamlit (bound to `127.0.0.1:8501` with `--server.baseUrlPath=/app`) and then runs nginx in the foreground.
 - **Reverse proxy**: `deploy/streamlit-service/nginx.conf` issues `301 / → /app`, serves static placeholders from `/usr/share/nginx/html` (`/docs`, `/data`, `/favicon.ico`, `/assets/*`), and proxies `/app/*` to Streamlit with websocket support.
 - **Placeholders**: `app/placeholders/` contains HTML stubs so `/docs` and `/data` exist ahead of future docs/downloads. The root placeholder auto-redirects to `/app/`.
-- **Safari favicon**: Streamlit injects a `mask-icon` snippet so pinned tabs show the WhyLine mark; nginx also exposes `/favicon.ico` and `/assets/whylinedenver-logo.svg` for the landing pages.
+- **Safari favicon**: Streamlit injects a `mask-icon` snippet so pinned tabs show the WhyLine mark; nginx also exposes `/favicon.ico` and `/assets/whylinedenver-pinned-tab.svg` for the landing pages.
 
 ## Local QA
 

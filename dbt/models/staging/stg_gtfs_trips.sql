@@ -53,3 +53,4 @@ select
 from tr
 left join cal using (service_id)
 left join ex using (service_id)
+qualify row_number() over (partition by tr.trip_id order by tr.service_id) = 1

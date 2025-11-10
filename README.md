@@ -178,10 +178,14 @@ WhyLine Denver follows a **medallion architecture** to progressively refine raw 
 │  • Geometry creation (POINT/LINE for spatial joins)         │
 │  • Timezone normalization (UTC → MST)                       │
 │  • Complex metrics (headway adherence, delay resolution)    │
+│  • GTFS schedule expansion (22.4M rows across 76 days)      │
 │                                                             │
 │  Staging Models (11): stg_gtfs_*, stg_rt_events, stg_...    │
 │  Intermediate Models (7): int_*_resolved, int_headway_*     │
-│  Storage: BigQuery views (stg_denver dataset)               │
+│  Storage: Strategic mix of VIEWs and incremental tables     │
+│    • stg_rt_events: Incremental table (3-day lookback)      │
+│    • int_scheduled_arrivals: Materialized table (22.4M rows)│
+│    • Others: VIEWs for lightweight transformations          │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─── GOLD LAYER ──────────────────────────────────────────────┐
@@ -380,16 +384,32 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed adaptation guideli
 
 ### What's the annual cost?
 
-Running WhyLine Denver costs approximately **$25/year**:
+Running WhyLine Denver costs approximately **$4,876/year** ($407/month):
 
-- GTFS-RT storage (16GB): $0.55
-- BigQuery storage (25GB): $0.50
-- BigQuery compute (365 dbt runs): ~$7
-- GCS Parquet exports (2GB): $0.05
-- GitHub Actions (6 workflows, 5,500+ runs/year): $0 (within free tier)
-- Streamlit on Hugging Face Spaces: $0 (free tier)
+**Query Costs** (~$406/month):
+- Cloud Run realtime jobs: 288 executions/day × $0.047/execution = $13.54/day
+- Comprehensive GTFS schedule (76 days, 22.4M rows) + realtime processing (1.6M events/day)
+- Achieved through three-phase optimization (see [cost optimization case study](docs/case-studies/bigquery-cost-optimization-2025.md)):
+  - Phase 1: Client-side caching ($3,866 → $183/year via 99.8% query reduction)
+  - Phase 2: Partition filters ($183 → $73/year via VIEW architecture optimization)
+  - Phase 3: Strategic materialization ($73 → $407/month to support 28x data growth with scalability)
 
-BigQuery has a 1TB/month free tier; WhyLine Denver scans ~100GB/month, well within limits for small teams.
+**Storage Costs** (~$0.35/month):
+- BigQuery storage (17.27 GB): $0.35/month
+  - raw_denver: 15.48 GB
+  - stg_denver: 1.78 GB (includes materialized staging tables)
+  - mart_denver: 0.01 GB
+- GCS storage: Minimal (<$0.10/month)
+
+**Infrastructure** ($0):
+- GitHub Actions (6 workflows, 105,120 snapshots/year): Free tier
+- Cloud Build: Minimal usage
+- Cloud Run: Scale-to-zero (min instances = 0)
+
+**Cost-Benefit Analysis:**
+The current architecture balances cost with capability - processing 593M+ annual events with 76-day schedule coverage for comprehensive historical analysis. For realtime-only monitoring (2-day schedule), costs can be reduced to $73/year with Phase 2 architecture, though this limits analytical depth.
+
+See [BigQuery Cost Optimization Case Study](docs/case-studies/bigquery-cost-optimization-2025.md) for detailed breakdown of optimization journey and trade-offs.
 
 ## Team Conventions
 

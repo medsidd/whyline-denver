@@ -3,33 +3,37 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>WhyLine Denver | Denver Transit Analytics & RTD Reliability Dashboard</title>
-    <meta name="description" content="WhyLine Denver turns plain-English questions into trusted SQL, charts, and downloads covering RTD bus reliability, delays, safety, weather, and transit equity.">
-    <meta name="keywords" content="Denver transit analytics, RTD bus delays, Denver public transportation data, transit equity dashboard, RTD reliability, GTFS realtime Denver">
+    <title>WhyLine Denver | RTD Reliability Analytics</title>
+    <meta name="description" content="WhyLine Denver — also known as Why Line Denver — turns plain-English questions into trusted RTD transit insights: reliability by route, delays, safety, weather impacts, and equity analysis.">
+    <meta name="keywords" content="WhyLine Denver, Why Line Denver, Denver transit analytics, RTD Denver, RTD bus delays, Denver public transportation data, transit equity dashboard, RTD reliability, GTFS realtime Denver, transit Denver">
     <meta name="robots" content="index, follow">
     <meta name="theme-color" content="#87a7b3">
     <meta name="application-name" content="WhyLine Denver">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="icon" type="image/png" sizes="512x512" href="/assets/whylinedenver-logo@512.png">
-    <link rel="mask-icon" href="/assets/whylinedenver-logo.svg" color="#87a7b3">
-    <link rel="canonical" href="https://www.whylinedenver.com/">
-    <link rel="alternate" href="https://www.whylinedenver.com/" hreflang="en-US">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="mask-icon" href="/assets/whylinedenver-pinned-tab.svg" color="#87a7b3">
+    <link rel="canonical" href="https://www.whylinedenver.com/app/">
+    <link rel="alternate" href="https://www.whylinedenver.com/app/" hreflang="en-US">
 
     <!-- Open Graph -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://www.whylinedenver.com/">
-    <meta property="og:title" content="WhyLine Denver | Transit Analytics for RTD">
-    <meta property="og:description" content="Free analytics for Denver RTD bus service, reliability, safety, weather impacts, and transit equity.">
-    <meta property="og:image" content="https://www.whylinedenver.com/assets/whylinedenver-logo@1024.png">
+    <meta property="og:url" content="https://www.whylinedenver.com/app/">
+    <meta property="og:title" content="WhyLine Denver | RTD Reliability Analytics">
+    <meta property="og:description" content="Analyze RTD Denver transit: reliability by route, delays, safety, weather, and equity — all in a free dashboard.">
+    <meta property="og:image" content="https://www.whylinedenver.com/assets/og-image.png">
     <meta property="og:image:alt" content="WhyLine Denver dashboard preview">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
     <meta property="og:site_name" content="WhyLine Denver">
     <meta property="og:locale" content="en_US">
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="WhyLine Denver | Denver Transit Analytics">
-    <meta name="twitter:description" content="Analyze RTD bus reliability, delays, equity gaps, safety, and weather in one free dashboard.">
-    <meta name="twitter:image" content="https://www.whylinedenver.com/assets/whylinedenver-logo@1024.png">
+    <meta name="twitter:title" content="WhyLine Denver | RTD Reliability Analytics">
+    <meta name="twitter:description" content="RTD Denver analytics: reliability, delays, equity gaps, safety, and weather in one free dashboard.">
+    <meta name="twitter:image" content="https://www.whylinedenver.com/assets/og-image.png">
     <meta name="twitter:image:alt" content="WhyLine Denver dashboard preview">
 
     <script type="application/ld+json">
@@ -39,10 +43,21 @@
       "name": "WhyLine Denver",
       "url": "https://www.whylinedenver.com",
       "logo": "https://www.whylinedenver.com/assets/whylinedenver-logo.svg",
-      "description": "WhyLine Denver turns plain-English questions into trusted SQL, charts, and downloads covering RTD bus reliability, delays, safety, weather, and transit equity.",
+      "description": "WhyLine Denver (a.k.a. Why Line Denver) turns plain-English questions into trusted RTD transit insights across reliability, delays, safety, weather, and equity.",
       "sameAs": [
         "https://github.com/medsidd/whyline-denver",
         "https://medsidd.github.io/whyline-denver/"
+      ]
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {"@type": "Question","name": "What is WhyLine Denver (Why Line Denver)?","acceptedAnswer": {"@type": "Answer","text": "A free RTD Denver transit analytics app that turns plain‑English questions into charts and downloadable data."}},
+        {"@type": "Question","name": "Does it cover RTD Denver reliability?","acceptedAnswer": {"@type": "Answer","text": "Yes. Explore on‑time performance, delays by route and time, and long‑term trends."}},
+        {"@type": "Question","name": "Can I use it for 'transit Denver' and 'RTD Denver' analysis?","acceptedAnswer": {"@type": "Answer","text": "Yes. It includes reliability, safety, weather, and equity metrics for Denver RTD buses."}}
       ]
     }
     </script>
@@ -75,13 +90,13 @@
     </style>
   </head>
   <body>
-    <h1>WhyLine Denver - Denver Transit Analytics</h1>
-    <p><strong>Free analytics for Denver RTD bus service.</strong> Ask questions about transit reliability, delays, equity gaps, and service quality in plain English.</p>
+    <h1>WhyLine Denver (Why Line Denver) — Denver Transit Analytics</h1>
+    <p><strong>Free analytics for RTD Denver.</strong> Ask questions about transit reliability, delays, equity gaps, and service quality in plain English.</p>
     
     <div class="features">
       <h2>What You Can Analyze:</h2>
       <ul>
-        <li>🚌 <strong>Bus Reliability</strong> - Which routes are most reliable? When do delays happen?</li>
+        <li>🚌 <strong>Bus Reliability (RTD Denver)</strong> - Which routes are most reliable? When do delays happen?</li>
         <li>📊 <strong>Equity Gaps</strong> - Where do vulnerable communities face poor transit service?</li>
         <li>⚠️ <strong>Safety</strong> - Which bus stops are near high-crash areas?</li>
         <li>🌦️ <strong>Weather Impact</strong> - How does snow and rain affect bus performance?</li>
@@ -89,7 +104,7 @@
       </ul>
     </div>
     
-  <p><a href="/app" style="display:inline-block; padding:10px 16px; background:#87a7b3; color:white; border-radius:6px; text-decoration:none;">Launch the WhyLine Denver App</a></p>
+  <p><a href="/app/" style="display:inline-block; padding:10px 16px; background:#87a7b3; color:white; border-radius:6px; text-decoration:none;">Launch the WhyLine Denver App</a></p>
     
     <footer style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #ccc; font-size: 0.9em; color: #666;">
       <p>Data sources: Denver RTD GTFS, Denver Open Data, NOAA Weather, U.S. Census ACS</p>

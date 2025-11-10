@@ -1,5 +1,7 @@
 {{ config(materialized='view') }}
 
+{# GTFS schedule data is static - no date filtering #}
+
 with base as (
     select
         route_id,

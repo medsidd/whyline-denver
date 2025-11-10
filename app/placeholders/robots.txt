@@ -1,9 +1,11 @@
 User-agent: *
 Allow: /
 Allow: /app/
-Allow: /docs/
-Allow: /data/
 Allow: /assets/
+
+# Explicitly disallow /docs and /data from indexing
+Disallow: /docs/
+Disallow: /data/
 
 Disallow: /_stcore/
 Disallow: /streamlit/

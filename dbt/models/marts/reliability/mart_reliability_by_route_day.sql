@@ -1,5 +1,6 @@
 {{ config(
     materialized='incremental',
+    unique_key=['route_id', 'service_date_mst', 'precip_bin', 'snow_day'],
     partition_by={"field": "service_date_mst", "data_type": "date"},
     cluster_by=["route_id"],
     meta={"allow_in_app": true}
@@ -14,13 +15,7 @@ with e as (
     from {{ ref('int_rt_events_resolved') }}
     where true
     {% if is_incremental() %}
-        and service_date_mst >= (
-            select ifnull(
-                max(service_date_mst),
-                date_sub(current_date("America/Denver"), interval 35 day)
-            )
-            from {{ this }}
-        )
+        and service_date_mst >= date_sub(current_date("America/Denver"), interval 3 day)
     {% endif %}
 ),
 w as (
