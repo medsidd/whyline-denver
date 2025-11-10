@@ -1,7 +1,20 @@
-{{ config(materialized='view') }}
+{{
+    config(
+        materialized='incremental',
+        unique_key=['feed_ts_utc', 'trip_id'],
+        partition_by={'field': 'event_date_mst', 'data_type': 'date'},
+        cluster_by=['route_id', 'trip_id'],
+        incremental_strategy='merge'
+    )
+}}
 
-{# Limit historical scan to reduce BigQuery costs #}
+{#
+Cost optimization: Materialize as incremental table to avoid repeated scans of raw GTFS-RT data.
+- Full refresh: 45-day lookback
+- Incremental: Only process last 3 days to minimize overhead
+#}
 {% set lookback_days = var('rt_events_lookback_days', 45) %}
+{% set incremental_days = 3 %}
 
 with trips as (
     select
@@ -33,7 +46,7 @@ tu as (
         schedule_relationship,
         event_ts_utc as tu_event_ts_utc
     from {{ source('raw','raw_gtfsrt_trip_updates') }}
-    where feed_ts_utc >= timestamp_sub(current_timestamp(), interval {{ lookback_days }} day)
+    where feed_ts_utc >= timestamp_sub(current_timestamp(), interval {% if is_incremental() %}{{ incremental_days }}{% else %}{{ lookback_days }}{% endif %} day)
 ),
 vp as (
     select
@@ -49,7 +62,7 @@ vp as (
         speed_mps,
         event_ts_utc as vp_event_ts_utc
     from {{ source('raw','raw_gtfsrt_vehicle_positions') }}
-    where feed_ts_utc >= timestamp_sub(current_timestamp(), interval {{ lookback_days }} day)
+    where feed_ts_utc >= timestamp_sub(current_timestamp(), interval {% if is_incremental() %}{{ incremental_days }}{% else %}{{ lookback_days }}{% endif %} day)
 ),
 j as (
     select

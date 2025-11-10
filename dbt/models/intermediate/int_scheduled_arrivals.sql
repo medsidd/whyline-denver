@@ -1,11 +1,18 @@
-{{ config(materialized='view') }}
+{{
+    config(
+        materialized='table',
+        partition_by={'field': 'service_date_mst', 'data_type': 'date'},
+        cluster_by=['trip_id', 'stop_id']
+    )
+}}
 
 {#
 GTFS schedule expansion: Generate scheduled arrivals for all service dates.
 This expands trips across their entire service period based on calendar rules.
 
-Performance note: This generates ~80M+ rows (791K stop_times × ~100 service days).
-Views are efficient since BigQuery only scans what's needed by downstream queries.
+Cost optimization: Materialized as table to avoid re-expanding schedule on every query.
+- Generates ~22M rows (expanding schedule for 76 days)
+- Rebuild when GTFS static data is updated or via scheduled refresh
 #}
 
 {# Limit expansion to recent/future dates to control data volume #}

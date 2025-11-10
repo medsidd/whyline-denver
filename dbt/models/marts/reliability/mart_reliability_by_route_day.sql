@@ -1,5 +1,6 @@
 {{ config(
     materialized='incremental',
+    unique_key=['route_id', 'service_date_mst', 'precip_bin', 'snow_day'],
     partition_by={"field": "service_date_mst", "data_type": "date"},
     cluster_by=["route_id"],
     meta={"allow_in_app": true}
