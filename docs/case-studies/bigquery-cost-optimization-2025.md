@@ -909,6 +909,92 @@ FROM `whyline-denver.mart_denver.mart_reliability_by_route_day`
 -- Result: -1755 to +297 seconds (reasonable range)
 ```
 
+**Step 5: Post-Deployment Data Quality Issue - mart_reliability_by_stop_hour Duplicates**
+
+During comprehensive data quality verification after Phase 3 deployment, duplicate rows were discovered in `mart_reliability_by_stop_hour`:
+
+**Discovery Query:**
+```sql
+WITH duplicate_check AS (
+  SELECT
+    stop_id,
+    service_date_mst,
+    event_hour_mst,
+    COUNT(*) as duplicate_count
+  FROM `whyline-denver.mart_denver.mart_reliability_by_stop_hour`
+  GROUP BY stop_id, service_date_mst, event_hour_mst
+)
+SELECT
+  COUNT(*) as total_groups,
+  SUM(CASE WHEN duplicate_count > 1 THEN 1 ELSE 0 END) as groups_with_duplicates,
+  MAX(duplicate_count) as max_duplicate_count,
+  SUM(duplicate_count) as total_rows
+FROM duplicate_check
+```
+
+**Initial Results (Pre-Fix):**
+- Total rows: 2,077,980 (should have been ~73K)
+- Groups with duplicates: 20,088 (28.1% of unique groups)
+- Max duplicate count: 129 rows per group
+- Pattern: Each stop/date/hour had exactly 129 duplicates matching the number of Cloud Run executions
+
+**Root Cause Analysis:**
+
+The model configuration was missing the `unique_key` parameter:
+
+**Before (Causing Duplicates):**
+```sql
+{{ config(
+    materialized='incremental',
+    partition_by={"field": "service_date_mst", "data_type": "date"},
+    cluster_by=["stop_id"],
+    meta={"allow_in_app": true}
+) }}
+```
+
+**Issue:** Without `unique_key`, dbt uses INSERT operations instead of MERGE, causing duplicate rows to accumulate on each incremental run.
+
+**Fix Applied to [mart_reliability_by_stop_hour.sql](../../dbt/models/marts/reliability/mart_reliability_by_stop_hour.sql):**
+```sql
+{{ config(
+    materialized='incremental',
+    unique_key=['stop_id', 'service_date_mst', 'event_hour_mst'],
+    partition_by={"field": "service_date_mst", "data_type": "date"},
+    cluster_by=["stop_id"],
+    meta={"allow_in_app": true}
+) }}
+```
+
+**Deployment Process:**
+1. Updated configuration with `unique_key` composite key
+2. Committed changes to git (commit: ac60fcf)
+3. Built and deployed Docker image
+4. Updated Cloud Run job with new image
+5. Dropped production table: `bq rm -f -t whyline-denver:mart_denver.mart_reliability_by_stop_hour`
+6. Executed clean rebuild via Cloud Run job
+7. Monitored 4+ production executions to verify MERGE operations
+
+**Verification Results (Post-Fix):**
+```
+Total groups: 73,021
+Groups with duplicates: 0 (0.0%)
+Total rows: 73,021
+Max duplicate count: 1
+```
+
+**Logs Confirming MERGE Operations:**
+```
+[OK] created sql incremental model mart_denver.mart_reliability_by_stop_hour [MERGE (16.5k rows, 21.0 MiB processed) in 3.23s]
+```
+
+**Impact:**
+- Eliminated 2M+ duplicate rows (97% table size reduction)
+- Restored data quality to 100%
+- MERGE operations now prevent future duplicates
+- All dependent marts remain healthy
+
+This issue reinforced the critical importance of defining `unique_key` for ALL incremental mart models to ensure proper upsert behavior and prevent duplicate accumulation.
+
 ### Cost Monitoring and Results
 
 **Monitored 9 Cloud Run job executions** over 35 minutes to verify cost stability:

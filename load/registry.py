@@ -219,7 +219,7 @@ JOBS: tuple[JobSpec, ...] = (
             ("route_url", "STRING"),
             ("route_color", "STRING"),
             ("route_text_color", "STRING"),
-            ("network_id", "STRING"),
+            # network_id removed - RTD GTFS feed does not include this optional field
         ),
         clustering=Clustering(fields=("route_id",)),
     ),

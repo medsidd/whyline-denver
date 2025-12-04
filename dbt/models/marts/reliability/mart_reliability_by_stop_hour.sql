@@ -1,5 +1,6 @@
 {{ config(
     materialized='incremental',
+    unique_key=['stop_id', 'service_date_mst', 'event_hour_mst'],
     partition_by={"field": "service_date_mst", "data_type": "date"},
     cluster_by=["stop_id"],
     meta={"allow_in_app": true}
