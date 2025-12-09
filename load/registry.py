@@ -215,7 +215,10 @@ JOBS: tuple[JobSpec, ...] = (
             ("route_short_name", "STRING"),
             ("route_long_name", "STRING"),
             ("route_desc", "STRING"),
-            ("route_type", "INT64"),
+            (
+                "route_type",
+                "STRING",
+            ),  # Changed from INT64 - RTD now uses string route types like "LX2", "BOLT", etc.
             ("route_url", "STRING"),
             ("route_color", "STRING"),
             ("route_text_color", "STRING"),
