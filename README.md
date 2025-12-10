@@ -5,431 +5,218 @@
 ![Nightly BQ](https://github.com/medsidd/whyline-denver/actions/workflows/nightly-bq.yml/badge.svg)
 ![Nightly DuckDB](https://github.com/medsidd/whyline-denver/actions/workflows/nightly-duckdb.yml/badge.svg)
 
-**A dual-engine transit analytics platform for Denver's RTD system**. WhyLine Denver ingests GTFS schedules, real-time feeds, Denver crash and sidewalk data, NOAA weather, and Census demographics—then models them with **dbt** to publish curated analytical datasets in **BigQuery** and **DuckDB**. A guardrailed **LLM-to-SQL** interface lets anyone query these datasets using natural language, revealing **where reliability is weakest**, especially for transit-dependent neighborhoods, and where **safety and accessibility** investments could have the most impact.
+WhyLine Denver is a transit data platform that analyzes Denver's public transportation system using open data. It pulls together bus and train schedules, real-time vehicle positions, weather conditions, traffic crashes, sidewalk infrastructure, and demographic information to answer questions about where transit service breaks down and who gets affected the most.
 
-## What Makes This Project Unique
+The project combines automated data pipelines with a natural language query interface, so you can ask plain English questions like "Which routes run late during snowstorms?" and get back SQL, charts, and downloadable data. It's built for anyone who wants to understand how well public transit works—whether you're a transit planner, a data analyst, a journalist, or just someone who relies on the bus.
 
-Most transit analytics tools give you dashboards. WhyLine Denver gives you a **governed data platform** where:
+## What This Does
 
-- **Natural language becomes SQL** – Ask "Which routes run late during snowstorms?" and get back validated SQL, visualizations, and downloadable CSVs.
-- **Costs are capped** – BigQuery queries are limited by `MAX_BYTES_BILLED`; you see dry-run costs before execution.
-- **Data quality is enforced** – dbt tests validate every model; GitHub Actions run nightly to keep everything fresh.
-- **Dual-engine flexibility** – Use DuckDB locally for free exploration or switch to BigQuery for production-scale analysis.
-- **Equity-focused** – Purpose-built metrics identify where vulnerable populations face the worst service.
+At its core, WhyLine Denver takes messy, scattered public data and turns it into something you can actually use. Here's what happens:
 
-## Quickstart (DuckDB, local)
+**Data Collection**: Every five minutes, automated jobs grab real-time bus and train locations from RTD (Denver's transit agency). Every night, the system pulls updated schedules, weather reports from NOAA, traffic crash data from Denver's open data portal, sidewalk infrastructure maps, and census demographics.
+
+**Data Processing**: All that raw data flows through a series of transformations built with dbt (a SQL modeling tool). The pipeline cleans up duplicates, fixes timezones, matches real-time positions to scheduled stops, calculates delay metrics, and identifies patterns. It's structured as bronze (raw), silver (cleaned), and gold (analytics-ready) layers.
+
+**Query Interface**: A Streamlit web app lets you ask questions in natural language. An LLM converts your question into SQL, but the query gets validated before running—no DELETE or UPDATE statements allowed, only SELECT queries against pre-approved analytical tables. You can switch between BigQuery (cloud-based, scales well) or DuckDB (runs locally, completely free).
+
+**Analysis Ready**: The system produces seven analytical datasets focused on four areas: reliability (on-time performance), safety (crash proximity to stops), equity (service quality in low-income or car-free neighborhoods), and accessibility (sidewalk coverage near stops).
+
+## Why This Exists
+
+Public transit data is public, but it's not always accessible. GTFS feeds are technical and hard to parse. Real-time updates come in every few seconds but disappear unless you archive them. Weather, crashes, and demographics live in different databases with different formats.
+
+WhyLine Denver exists to bridge that gap. It makes transit data easier to work with, easier to analyze, and easier to share. You don't need to write complex SQL joins or figure out GTFS specifications—you can just ask questions and get answers.
+
+The project has a specific focus on equity. Transit-dependent populations—people without cars, people in poverty, people who rely on buses to get to work—often get worse service. WhyLine Denver makes those disparities visible by combining service reliability data with demographic information. It's designed to help advocates, planners, and policymakers see where improvements would matter most.
+
+## Who This Is For
+
+**Transit Planners and Agencies**: Analyze reliability patterns, identify problem routes, understand how weather impacts service, prioritize infrastructure investments based on ridership and vulnerability.
+
+**Data Analysts and Researchers**: Access clean, well-documented transit datasets without building your own pipeline. Export CSVs or query directly. All transformations are version-controlled and reproducible.
+
+**Journalists and Advocates**: Answer questions like "Which neighborhoods have the worst bus service?" or "How many crashes happen near transit stops?" without needing to know SQL. Download results as CSV and use them in your reporting.
+
+**Software Engineers**: Learn how to build a modern data platform with dbt, BigQuery, DuckDB, automated pipelines, and LLM-powered interfaces. The codebase follows clean architecture patterns and includes comprehensive documentation.
+
+**Anyone Curious About Transit**: Explore Denver's bus and train system. See which routes run on time, which ones don't, and whether your neighborhood gets good service.
+
+## Key Features
+
+**Natural Language Queries**: Ask questions in plain English. The system converts them to SQL, validates the query for safety, shows you the SQL before running it, and gives you results as tables, charts, and downloadable CSVs.
+
+**Dual-Engine Architecture**: Run queries against BigQuery (cloud warehouse, good for large datasets and production use) or DuckDB (embedded database, runs locally, completely free, good for exploration and development).
+
+**Automated Pipelines**: Real-time transit data gets captured every 5 minutes via Cloud Run jobs. Static data refreshes nightly via GitHub Actions. dbt runs transformations and validates data quality with 40+ tests.
+
+**Cost Controls**: BigQuery queries are capped at 2GB scanned by default. You see cost estimates before running anything. The entire platform costs about $60/month to run (mostly Cloud Run job executions processing ~600 million real-time events per year).
+
+**Data Quality Enforcement**: Every dataset passes through dbt tests that check for nulls, duplicates, valid foreign keys, and logical consistency. If a test fails, the pipeline stops and sends alerts.
+
+**Equity-Focused Metrics**: Composite vulnerability scores combine household car ownership, transit commute rates, and poverty levels. Priority hotspot analysis identifies stops where poor service overlaps with high vulnerability.
+
+**Fully Reproducible**: Clone the repo, run a few commands, and you have a working system. All dependencies are pinned. Environment setup is documented. Credentials are handled through standard GCP authentication.
+
+## What's Included
+
+The repository contains:
+
+- **Ingestion scripts** (Python): 7 CLIs that fetch data from public APIs (GTFS, weather, crashes, sidewalks, Census)
+- **dbt models** (SQL): 25 transformation models across staging (11), intermediate (7), and mart (7) layers
+- **BigQuery loader** (Python): Parametric script that loads raw files into BigQuery with metadata tracking
+- **Streamlit app** (Python): Web interface with natural language querying, visualizations, and CSV exports
+- **DuckDB sync** (Python): Export BigQuery marts to Parquet and materialize locally for offline use
+- **Automation**: Cloud Run Jobs (real-time every 5 min) + GitHub Actions workflows (nightly batch)
+- **Documentation**: Architecture guides, data contracts, lineage diagrams, cost optimization case studies
+- **Tests**: pytest unit/integration tests + 40+ dbt data quality tests
+
+## Tech Stack
+
+- **Languages**: Python 3.11, SQL
+- **Data Warehouse**: BigQuery (serverless, columnar, geospatial), DuckDB (embedded, local)
+- **Transformation**: dbt 1.8 (SQL modeling, testing framework)
+- **Orchestration**: Cloud Run Jobs + Cloud Scheduler (real-time), GitHub Actions (nightly)
+- **Storage**: Google Cloud Storage (object storage)
+- **App**: Streamlit 1.37, Google Gemini API (LLM-to-SQL)
+- **Testing**: pytest, dbt tests, pre-commit hooks
+
+## Use Cases
+
+Here are some questions you can answer with WhyLine Denver:
+
+- Which bus routes have the worst on-time performance?
+- How does snow affect transit reliability?
+- Which neighborhoods have high poverty and bad bus service?
+- How many traffic crashes happen within 100 meters of transit stops?
+- What's the average delay during rush hour versus midday?
+- Which stops have poor sidewalk access?
+- Where should the city invest in infrastructure improvements to help the most vulnerable riders?
+
+## Getting Started
+
+### Quick Local Setup
 
 ```bash
-# 1. Set up Python environment
+# 1. Clone and set up environment
+git clone https://github.com/medsidd/whyline-denver.git
+cd whyline-denver
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# 2. Copy environment template and configure credentials
+# 2. Configure credentials
 cp .env.example .env
-# Edit .env to add your GCP project, bucket, and optional API keys
+# Edit .env to add your GCP project, bucket, and API keys
 
-# 3. Sync latest data from BigQuery exports to local DuckDB
-make sync-duckdb
-
-# 4. Launch the Streamlit app
-make app
-# Opens at http://localhost:8501
+# 3. Sync data and launch app
+make sync-duckdb  # Download latest data snapshot
+make app          # Opens at http://localhost:8501
 ```
 
-That's it. You now have a local analytical database with 7 marts covering reliability, safety, equity, and accessibility—refreshed nightly by automated workflows.
+You now have a local analytical database with 7 marts covering reliability, safety, equity, and accessibility.
 
-## Exports & Badges
+### Production Deployment
 
-- Keep the per-query `Download Results as CSV` button for ad hoc answers.
-- Use the dedicated **Downloads** panel (available even before you ask a question) to export an entire mart with a safety row cap and optional date filters—columns such as `service_date_mst` or `as_of_date` are detected automatically, all routed through the same SQL guardrails.
-- Grab the latest `warehouse.duckdb` snapshot from the same panel for full offline exploration.
-- Sidebar freshness badges surface the most recent BigQuery dbt build and DuckDB sync timestamps so you know when each engine was updated.
-- DuckDB mirrors only the most recent 90 days of time-partitioned marts (configurable via `DUCKDB_MAX_AGE_DAYS`), keeping local storage lean while BigQuery retains the full corpus.
+For production deployment with Cloud Run and BigQuery:
+- **Cloud Run Jobs**: See [deploy/cloud-run/README.md](deploy/cloud-run/README.md) for real-time ingestion setup
+- **Streamlit App**: See [deploy/streamlit-service/README.md](deploy/streamlit-service/README.md) for app deployment
+- **Performance Tuning**: See [docs/guides/performance.md](docs/guides/performance.md) for optimization recommendations
 
-## Production Path (BigQuery)
+## Data Architecture
 
-For production workloads or larger teams:
+WhyLine Denver follows a medallion architecture (Bronze → Silver → Gold) to progressively refine raw data:
 
-1. **Authenticate with GCP:**
-   ```bash
-   gcloud auth application-default login
-   ```
+- **Bronze Layer**: 7 data sources → 13 raw tables in BigQuery
+- **Silver Layer**: 11 staging models (deduplication, normalization) + 7 intermediate models (derived metrics)
+- **Gold Layer**: 7 analytical marts organized by domain (Reliability, Safety, Equity, Access)
 
-2. **Configure `.env`:**
-   Set `GCP_PROJECT_ID`, `GCP_REGION`, `BQ_DATASET_RAW`, `BQ_DATASET_STG`, `BQ_DATASET_MART`, and `GCS_BUCKET`.
-
-3. **Switch engine in app sidebar:**
-   Select **BigQuery** as the query engine. Queries will show dry-run byte estimates and respect `MAX_BYTES_BILLED` limits.
-
-4. **Deploy to Hugging Face Spaces** (optional):
-   See [`deploy/hf-space/README.md`](deploy/hf-space/README.md) for deployment instructions.
-
-5. **Provision realtime Cloud Run jobs**:
-   Follow [`deploy/cloud-run/README.md`](deploy/cloud-run/README.md) to build the container, create Cloud Run jobs, and wire up Cloud Scheduler every 5 minutes.
-
-6. **Streamlit DuckDB artifact**:
-   Nightly syncs publish `warehouse.duckdb` to `gs://whylinedenver-raw/marts/duckdb/warehouse.duckdb` for the Cloud Run app volume mount.
-
-7. **Cloud Run app container**:
-   Build and smoke-test the nginx + Streamlit container locally with `make streamlit-run`, then deploy the image to Cloud Run with `/app` as the base path.
-
-   - Mount `gs://whylinedenver-raw` into the service (GCS Fuse) at `/mnt/gcs` and leave `DUCKDB_PARQUET_ROOT` at the default `data/marts`. The startup script symlinks `/app/data/marts` to the mount so DuckDB views resolve relative paths, keeping the warehouse portable across environments.
-   - Deploy via `make cloud-run-deploy-streamlit` (override `GCP_PROJECT_ID`, `CLOUD_RUN_STREAMLIT_REPO`, etc. as needed). The target builds the Artifact Registry image and runs `gcloud run deploy` with the cost-friendly settings: min instances 0, max 5, concurrency 80, 1 CPU, 2 GiB RAM, DuckDB + parquet mount at `/mnt/gcs`, and the service account `$(CLOUD_RUN_STREAMLIT_SERVICE)@$(GCP_PROJECT_ID).iam.gserviceaccount.com`.
-   - QA: `gcloud run services describe $(CLOUD_RUN_STREAMLIT_SERVICE) --region $(CLOUD_RUN_REGION)` confirms the public URL. Visiting it should 301 to `/app`, load the Streamlit UI, and DuckDB queries should read from `/mnt/gcs/marts/duckdb/warehouse.duckdb` with freshness badges sourced from `/mnt/gcs/state/sync_state.json`.
-
-   ```bash
-   # Optional: provide BigQuery + GCS credentials for local runs
-   export GOOGLE_APPLICATION_CREDENTIALS="$HOME/.config/gcloud/application_default_credentials.json"
-   make streamlit-run
-   ```
-
-### Performance tuning (Cloud Run)
-
-For best interactivity on Streamlit in Cloud Run, use:
-
-- Concurrency: 10
-- CPU: 2 vCPU
-- Memory: 2–4 GiB
-- Timeouts: 600s
-
-The DuckDB engine now reuses a thread-local connection and, by default, copies the database to ephemeral storage to avoid GCS FUSE latency. You can control this behavior via:
-
-- `DUCKDB_PATH` – path to the warehouse (e.g., `/mnt/gcs/marts/duckdb/warehouse.duckdb`)
-- `DUCKDB_COPY_LOCAL` – set `0` to disable local copy (default `1`)
-- `DUCKDB_LOCAL_PATH` – local destination (default `/tmp/warehouse.duckdb`)
-- `DUCKDB_THREADS`, `DUCKDB_MEMORY_LIMIT`, `DUCKDB_TEMP_DIR`
-
-See `docs/guides/performance.md` for more details.
-
-## LLM Provider (Gemini)
-
-The Streamlit app can swap between the stubbed SQL generator and Google Gemini while keeping the same guardrails. To enable Gemini:
-
-- Install dependencies with `pip install -r requirements.txt` (includes `google-generativeai`).
-- Set `LLM_PROVIDER=gemini` in `.env`.
-- Add `GEMINI_API_KEY=<your key>` and optionally override `GEMINI_MODEL` (default: `gemini-2.5-flash`).
-
-When Gemini is active, generated SQL still flows through `sanitize_sql` so any non-SELECT statements are rejected before execution.
-
-## App Theming & Branding
-
-WhyLine Denver features a custom **"Vintage Transit"** visual identity that goes beyond typical Streamlit aesthetics:
-
-**🎨 Design Philosophy:** Professional-fun retro aesthetic inspired by vintage transit signage and mid-century public infrastructure.
-
-**Color Palette:**
-- **Dusty Sky Blue** (`#87a7b3`) – Primary brand color, vintage transit-friendly
-- **Vintage Gold** (`#d4a574`) – Accent color, warm retro signage
-- **Sage Green** (`#a3b88c`) – Success/positive metrics
-- **Soft Amber** (`#e8b863`) – Warnings/attention
-- **Terra Cotta** (`#c77f6d`) – Errors/critical alerts
-- **Deep Plum-Gray** (`#232129`) – Background, easy on eyes
-- **Warm Cream** (`#e8d5c4`) – Text, like aged paper
-
-**Typography:**
-- **Headers:** Space Grotesk (geometric, retro-modern)
-- **Body:** Inter (clean, readable, professional)
-- **Code:** JetBrains Mono (SQL blocks)
-
-**Theming Features:**
-- Heavy custom CSS overrides to hide Streamlit branding
-- Branded header with logo and tagline
-- Consistent chart color palette across all visualizations
-- Google Fonts integration for custom typography
-- Gradient buttons with hover effects
-- Rounded corners, subtle shadows, and warm color transitions
-
-All brand colors are configurable via environment variables in [.env](.env):
-```bash
-APP_BRAND_NAME=WhyLine Denver
-APP_TAGLINE=Ask anything about Denver transit
-APP_PRIMARY_COLOR=#87a7b3
-APP_ACCENT_COLOR=#d4a574
-APP_SUCCESS_COLOR=#a3b88c
-APP_WARNING_COLOR=#e8b863
-APP_ERROR_COLOR=#c77f6d
-```
-
-Logo assets are stored in [`app/assets/`](app/assets/) with multiple resolutions (512px, 1024px, 2048px, 4096px) for responsive display.
-
-## Data Architecture: Bronze → Silver → Gold
-
-WhyLine Denver follows a **medallion architecture** to progressively refine raw data into trusted analytical datasets:
-
-```
-┌─── BRONZE LAYER ────────────────────────────────────────────┐
-│  Raw ingestion: Python CLIs fetch data from public APIs     │
-│  • GTFS Static (monthly): routes, stops, schedules          │
-│  • GTFS Realtime (micro-batch, every 5 min): trip delays, positions │
-│  • Weather (daily): NOAA temperature, precipitation, snow   │
-│  • Crashes (nightly): Denver 5-year traffic accident data   │
-│  • Sidewalks (nightly): pedestrian infrastructure segments  │
-│  • Census ACS (annual): demographics by tract               │
-│  • Tract Boundaries (annual): geographic polygons           │
-│                                                             │
-│  Storage: GCS (raw/*/extract_date=YYYY-MM-DD/)              │
-│  Loader: Parametric BigQuery loader with idempotency        │
-│  Output: 13 raw_* tables in BigQuery                        │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─── SILVER LAYER ────────────────────────────────────────────┐
-│  Staging & Intermediate: dbt models clean and enrich        │
-│  • Deduplication (latest extract wins)                      │
-│  • Geometry creation (POINT/LINE for spatial joins)         │
-│  • Timezone normalization (UTC → MST)                       │
-│  • Complex metrics (headway adherence, delay resolution)    │
-│  • GTFS schedule expansion (22.4M rows across 76 days)      │
-│                                                             │
-│  Staging Models (11): stg_gtfs_*, stg_rt_events, stg_...    │
-│  Intermediate Models (7): int_*_resolved, int_headway_*     │
-│  Storage: Strategic mix of VIEWs and incremental tables     │
-│    • stg_rt_events: Incremental table (3-day lookback)      │
-│    • int_scheduled_arrivals: Materialized table (22.4M rows)│
-│    • Others: VIEWs for lightweight transformations          │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─── GOLD LAYER ──────────────────────────────────────────────┐
-│  Marts: Final analytical tables for consumption             │
-│                                                             │
-│  RELIABILITY DOMAIN                                         │
-│  • mart_reliability_by_route_day: on-time %, delays by      │
-│    route + weather conditions (incremental, 30-day window)  │
-│  • mart_reliability_by_stop_hour: hourly stop performance   │
-│  • mart_weather_impacts: how precipitation degrades OTP     │
-│                                                             │
-│  SAFETY DOMAIN                                              │
-│  • mart_crash_proximity_by_stop: crashes within 100m/250m   │
-│    of each transit stop (spatial join, last 365 days)       │
-│                                                             │
-│  EQUITY DOMAIN                                              │
-│  • mart_vulnerability_by_stop: composite score (0-100)      │
-│    measuring % households without cars, % using transit,    │ 
-│    and % in poverty within 0.5mi walkable catchment         │
-│  • mart_priority_hotspots: stops where vulnerability,       │
-│    low reliability, and crash exposure intersect            │
-│                                                             │
-│  ACCESS DOMAIN                                              │
-│  • mart_access_score_by_stop: sidewalk density within       │
-│    200m buffer (pedestrian infrastructure quality)          │
-│                                                             │
-│  Storage: BigQuery tables (mart_denver dataset)             │
-│  Export: Parquet files in GCS → synced to local DuckDB      │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Pipeline Architecture Diagram
-
-![WhyLine Denver Pipeline Architecture](docs/diagrams/exports/pipeline.png)
-
-**[View full diagram](docs/diagrams/pipeline.drawio)** | **[Edit in draw.io](https://app.diagrams.net)**
-
-The pipeline architecture diagram shows the complete end-to-end data flow across 5 layers:
-- **Ingestion**: 7 data sources (GTFS, GTFS-RT, weather, crashes, sidewalks, Census)
-- **Bronze**: GCS raw storage + BigQuery raw tables (13 tables)
-- **Silver + Gold**: dbt transformations (11 staging, 7 intermediate, 7 marts)
-- **Sync**: Parquet export + DuckDB materialization
-- **Consumption**: Streamlit app + dbt docs
-
-## Data Lineage
-
-WhyLine Denver tracks complete lineage from source APIs through transformations to final marts. Every raw table includes metadata columns (`_ingested_at`, `_source_path`, `_extract_date`, `_hash_md5`) for traceability. dbt's built-in lineage graph shows dependencies between 29 models across staging, intermediate, and mart layers.
-
-**Key Lineage Paths:**
-
-1. **Reliability Analysis:**
-   ```
-   GTFS-RT APIs → raw_gtfsrt_trip_updates + raw_gtfsrt_vehicle_positions
-   → stg_rt_events (join + dedupe)
-   → int_rt_events_resolved (delay coalescing)
-   → mart_reliability_by_route_day (aggregate + weather join)
-   → mart_weather_impacts (delta from baseline)
-   ```
-
-2. **Equity Analysis:**
-   ```
-   Census API → raw_acs_tract → stg_acs_geo
-   TIGERweb API → raw_denver_tracts → stg_denver_tracts
-   GTFS → raw_gtfs_stops → stg_gtfs_stops
-   → mart_vulnerability_by_stop (spatial join, population-weighted averages)
-   ```
-
-3. **Safety Analysis:**
-   ```
-   Denver Open Data → raw_crashes → stg_denver_crashes
-   GTFS → raw_gtfs_stops → stg_gtfs_stops
-   → mart_crash_proximity_by_stop (ST_DISTANCE within 250m, last 365 days)
-   ```
-
-### Comprehensive Data Lineage Diagram
-
-![WhyLine Denver Comprehensive Data Lineage](docs/diagrams/exports/data_lineage_comprehensive.png)
-
-**[View full diagram](docs/diagrams/data_lineage_comprehensive.drawio)** | **[Edit in draw.io](https://app.diagrams.net)**
-
-This diagram visualizes all 29 models across the medallion architecture:
-- **Bronze**: 7 sources → 13 raw tables
-- **Silver**: 11 staging models + 7 intermediate models
-- **Gold**: 7 analytical marts (Reliability, Safety, Equity, Access domains)
-
-For domain-specific lineage diagrams and additional architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-### App Guardrails & Allow-List
-
-![WhyLine Denver App Guardrails](docs/diagrams/exports/app_guardrails.png)
-
-**[View full diagram](docs/diagrams/app_guardrails.drawio)** | **[Edit in draw.io](https://app.diagrams.net)**
-
-The app uses layered guardrails to keep LLM-generated SQL safe and predictable:
-- **Allow-listed marts only**: Queries are restricted to curated analytical tables that mirror dbt contracts.
-- **SQL sanitizer**: Blocks disallowed statements (DDL/DML), enforces `SELECT`-only semantics, and validates identifiers.
-- **Cost checks**: BigQuery runs require dry-run estimates below `MAX_BYTES_BILLED`; DuckDB requests stay local.
-- **Audit logging**: Every query is logged with latency, row counts, models touched, and cache hits for post-run review.
-
-These guardrails ensure that natural-language querying stays within compliance boundaries while preserving fast exploration.
-
-## Freshness & Automation
-
-All pipelines run on GitHub Actions:
-
-- **Every 5 minutes (24/7):** GTFS Realtime micro-batches run on Cloud Run Jobs triggered by Cloud Scheduler. Each run snapshots the feed, lands artifacts in GCS, and refreshes the BigQuery marts within ~8 minutes of publish.
-- **Nightly (8am UTC / 1-2am MST):** Static data refreshes (GTFS schedules, crashes, sidewalks, weather, demographics).
-- **Nightly (9am UTC / 2-3am MST):** dbt runs all staging → intermediate → marts, validates data quality with 40+ tests, then exports marts to GCS as Parquet.
-- **Nightly (9:30am UTC):** DuckDB sync downloads Parquet exports and materializes hot marts locally.
-
-For setup instructions see [`deploy/cloud-run/README.md`](deploy/cloud-run/README.md). The legacy GitHub Actions realtime workflows remain available for manual execution only.
-
-The app displays freshness timestamps:
-- "Built from mart_denver as of 2025-10-24 02:15 UTC"
-- "DuckDB last synced: 2025-10-24 02:45 UTC"
-
-If data is stale (>24 hours), the app shows a warning banner.
+For detailed architecture documentation, pipeline diagrams, and data lineage, see:
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - Full pipeline documentation
+- [dbt/models/README.md](dbt/models/README.md) - Complete model documentation
+- [Data Lineage Diagrams](docs/diagrams/) - Visual pipeline and lineage diagrams
+- [Interactive dbt Docs](https://medsidd.github.io/whyline-denver/) - Auto-generated documentation
 
 ## Data Sources & Licenses
 
 WhyLine Denver uses only public, non-PII data:
 
-| Source | Data | License | Attribution |
-|--------|------|---------|-------------|
-| **RTD (Regional Transportation District)** | GTFS Static, GTFS Realtime | [Open Data License](https://www.rtd-denver.com/open-data-license) | © 2025 Regional Transportation District |
-| **Denver Open Data** | Traffic crashes, sidewalk segments | [Open Database License](https://www.denvergov.org/opendata/terms) | © 2025 City and County of Denver |
-| **NOAA/NCEI** | Daily weather summaries (USC00053005) | Public domain | National Oceanic and Atmospheric Administration |
-| **U.S. Census Bureau** | ACS 5-year estimates, TIGER/Line boundaries | Public domain | U.S. Census Bureau, 2023 ACS |
+| Source | Data | License |
+|--------|------|---------|
+| **RTD (Regional Transportation District)** | GTFS Static, GTFS Realtime | [Open Data License](https://www.rtd-denver.com/open-data-license) |
+| **Denver Open Data** | Traffic crashes, sidewalk segments | [Open Database License](https://www.denvergov.org/opendata/terms) |
+| **NOAA/NCEI** | Daily weather summaries | Public domain |
+| **U.S. Census Bureau** | ACS 5-year estimates, TIGER/Line boundaries | Public domain |
 
 All attributions appear in the app footer and are linked in data model documentation.
 
 ## FAQ
 
-### Why DuckDB?
-
-DuckDB is a fast, embeddable analytical database that runs locally without servers. For WhyLine Denver, it means:
-- **Free exploration**: No BigQuery costs during development
-- **Offline capable**: Query marts without network access
-- **CI-friendly**: Tests run against materialized DuckDB in GitHub Actions
-- **Great demo UX**: Stakeholders can download a single `warehouse.duckdb` file and run queries immediately
-
-### Why guardrails?
-
-WhyLine Denver's LLM-to-SQL feature is powerful, but we enforce strict boundaries:
-- **SELECT-only**: No INSERT, UPDATE, DELETE, DROP, or DDL
-- **Allow-list**: Only pre-approved marts are queryable (no raw tables)
-- **Cost caps**: BigQuery queries fail if they exceed `MAX_BYTES_BILLED` (default: 2GB)
-- **Dry-run preview**: Users see estimated bytes scanned before execution
-
-This prevents runaway costs, accidental data corruption, and drift from the curated semantic layer.
-
-### Privacy & PII?
-
-WhyLine Denver ingests zero personally identifiable information. All datasets are aggregated or anonymized:
-- GTFS and GTFS-RT contain only trip/route/stop IDs (no passenger data)
-- Crash data has lat/lon but no names or license plates
-- Census ACS is aggregated to census tract level (typically 4,000 people)
-- Weather is from a single airport station
-
-### How fresh is the data?
-
-- **GTFS Static**: Updated monthly when RTD publishes new schedules
-- **GTFS Realtime**: ~8-minute lag from API publish to BigQuery (micro-batches every 5 minutes via Cloud Run)
-- **Weather**: 3-7 day lag (NOAA finalization period)
-- **Crashes**: 24-hour lag (nightly ingest of Denver Open Data)
-- **Demographics**: Annual (ACS 5-year estimates)
-
-The QA script ([docs/QA_Validation_Guide.md](docs/QA_Validation_Guide.md)) validates freshness and alerts if data falls behind SLAs.
-
 ### Can I use this for my city?
 
-Yes! WhyLine Denver is designed to be extensible. To adapt it:
+Yes. To adapt WhyLine Denver for another city:
 
-1. Replace RTD's GTFS URLs with your city's transit agency feeds
+1. Replace RTD's GTFS URLs with your transit agency's feeds
 2. Update crash/sidewalk ingestors to point to your city's open data portal
 3. Change NOAA station ID to your local weather station
 4. Adjust Census geography filters to your county/metro area
-5. Redeploy dbt models (most will work as-is if GTFS semantics are standard)
+5. Redeploy dbt models (most work as-is if GTFS semantics are standard)
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed adaptation guidelines.
 
-### What's the tech stack?
-
-| Layer | Technology | Why? |
-|-------|------------|------|
-| **Ingestion** | Python 3.11, Click CLIs | Flexible HTTP fetching, CSV writing, GCS uploads |
-| **Orchestration** | GitHub Actions (cron workflows) | Free, declarative, version-controlled pipelines |
-| **Storage (raw)** | Google Cloud Storage | Cheap object storage, partition-friendly paths |
-| **Warehouse** | BigQuery | Serverless, scales to TB, native geospatial support |
-| **Transformation** | dbt 1.8, Jinja, SQL | Standard data modeling framework, lineage graphs |
-| **Local Analytics** | DuckDB | Fast, embeddable, Parquet-native, free |
-| **App** | Streamlit 1.37, Pandas, PyDeck | Rapid prototyping, interactive widgets, map layers |
-| **LLM Integration** | Gemini (Google Generative AI) | SQL generation from natural language prompts |
-| **Testing** | pytest, dbt tests | Unit + integration tests, data quality contracts |
-| **Code Quality** | Ruff, Black, pre-commit | Fast linting, consistent formatting |
-
 ### What's the annual cost?
 
-Running WhyLine Denver costs approximately **$4,876/year** ($407/month):
+Running WhyLine Denver costs approximately **$709/year** ($59/month) based on current verified billing data:
 
-**Query Costs** (~$406/month):
-- Cloud Run realtime jobs: 288 executions/day × $0.047/execution = $13.54/day
-- Comprehensive GTFS schedule (76 days, 22.4M rows) + realtime processing (1.6M events/day)
-- Achieved through three-phase optimization (see [cost optimization case study](docs/case-studies/bigquery-cost-optimization-2025.md)):
-  - Phase 1: Client-side caching ($3,866 → $183/year via 99.8% query reduction)
-  - Phase 2: Partition filters ($183 → $73/year via VIEW architecture optimization)
-  - Phase 3: Strategic materialization ($73 → $407/month to support 28x data growth with scalability)
+**Monthly Costs** (~$59/month):
+- **Cloud Run**: $44/month (288 job executions/day processing real-time GTFS feeds)
+- **BigQuery**: $10/month ($6.50 query costs + $0.15 storage for 26.72 GB)
+- **Cloud Storage**: $4.50/month (4 GB for raw files and Parquet exports)
+- **Artifact Registry**: $2/month (Docker image storage)
+- **Other Services**: $0 (GitHub Actions free tier, Cloud Scheduler free tier)
 
-**Storage Costs** (~$0.35/month):
-- BigQuery storage (17.27 GB): $0.35/month
-  - raw_denver: 15.48 GB
-  - stg_denver: 1.78 GB (includes materialized staging tables)
-  - mart_denver: 0.01 GB
-- GCS storage: Minimal (<$0.10/month)
+**Total**: $59/month × 12 = **$709/year**
 
-**Infrastructure** ($0):
-- GitHub Actions (6 workflows, 105,120 snapshots/year): Free tier
-- Cloud Build: Minimal usage
-- Cloud Run: Scale-to-zero (min instances = 0)
+**Storage Breakdown**:
+- BigQuery: 26.72 GB (raw_denver: 24.61 GB, stg_denver: 2.09 GB, mart_denver: 0.02 GB)
+- GCS: 4 GB (raw extracts + Parquet exports)
 
-**Cost-Benefit Analysis:**
-The current architecture balances cost with capability - processing 593M+ annual events with 76-day schedule coverage for comprehensive historical analysis. For realtime-only monitoring (2-day schedule), costs can be reduced to $73/year with Phase 2 architecture, though this limits analytical depth.
+*Note: Costs verified via `gcloud billing` commands on December 4, 2025. The [Cost Optimization Case Study](docs/case-studies/bigquery-cost-optimization-2025.md) documents an earlier architecture with higher costs before November 2025 optimizations.*
 
-See [BigQuery Cost Optimization Case Study](docs/case-studies/bigquery-cost-optimization-2025.md) for detailed breakdown of optimization journey and trade-offs.
+### Why DuckDB?
 
-## Team Conventions
+DuckDB enables free local exploration, offline querying, CI-friendly testing, and easy data sharing—stakeholders can download a single `warehouse.duckdb` file and run queries immediately without cloud credentials.
+
+### How fresh is the data?
+
+- **GTFS Realtime**: ~8-minute lag from API publish to BigQuery (micro-batches every 5 minutes)
+- **GTFS Static**: Updated monthly when RTD publishes new schedules
+- **Weather**: 3-7 day lag (NOAA finalization period)
+- **Crashes**: 24-hour lag (nightly ingest)
+- **Demographics**: Annual (ACS 5-year estimates)
+
+Run `./scripts/qa_script.sh` to validate data freshness. See [docs/QA_Validation_Guide.md](docs/QA_Validation_Guide.md) for details.
+
+## Contributing
 
 If you're contributing:
 
-- **Imports**: Group as `stdlib` → blank line → `third-party` → blank line → `local`. Ruff enforces this.
-- **Type hints**: All functions must have complete annotations. We treat MyPy warnings as errors.
-- **Logging**: Use `src/whylinedenver/logs.py` helpers for structured JSON logs. Set `WLD_LOG_LEVEL=DEBUG` when diagnosing.
-- **Commits**: Follow [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `chore:`, `docs:`, etc.
-- **PRs**: Include a checklist: tests passed, lint clean, no secrets committed, screenshots for UI changes.
+- **Code Quality**: Use `make format` for linting (Ruff) and formatting (Black)
+- **Testing**: Run `make test` before submitting PRs
+- **Commits**: Follow [Conventional Commits](https://www.conventionalcommits.org/) format (`feat:`, `fix:`, `docs:`, etc.)
+- **Type Hints**: All functions must have complete type annotations
+
+See [.github/workflows/README.md](.github/workflows/README.md) for workflow documentation.
 
 ## Additional Resources
 
-- **[dbt Models Documentation](dbt/models/README.md)** – Detailed breakdown of all 29 models (staging, intermediate, marts), materialization strategies, and testing approach.
-- **[Model Lineage & Docs](https://medsidd.github.io/whyline-denver/)** – Interactive dbt documentation with full data lineage graphs, column-level descriptions, and test coverage (auto-deployed via GitHub Pages).
-- **[GitHub Workflows Documentation](.github/workflows/README.md)** – How the 6 automated workflows orchestrate ingestion, transformation, and sync.
-- **[Pipeline Architecture](docs/ARCHITECTURE.md)** – Deep dive into data flow, medallion layers, and system design decisions.
-- **[QA Validation Guide](docs/QA_Validation_Guide.md)** – How to run health checks, interpret results, and troubleshoot issues.
-- **[Data Contracts](docs/contracts/CONTRACTS.md)** – Schema specifications for all CSV outputs; breaking change policy.
+- **[Pipeline Architecture](docs/ARCHITECTURE.md)** - Deep dive into data flow and system design
+- **[dbt Models Documentation](dbt/models/README.md)** - All 25 models with materialization strategies
+- **[Interactive Data Catalog](https://medsidd.github.io/whyline-denver/)** - Auto-generated dbt documentation
+- **[GitHub Workflows](.github/workflows/README.md)** - CI/CD pipeline documentation
+- **[QA Validation Guide](docs/QA_Validation_Guide.md)** - Health check procedures
+- **[Data Contracts](docs/contracts/CONTRACTS.md)** - Schema specifications and versioning
+- **[App Configuration](docs/THEMING.md)** - Branding, theming, and LLM provider setup
+- **[Performance Guide](docs/guides/performance.md)** - Optimization recommendations
 
 ---
 
-**Questions?** Open an issue or check the workflow logs in GitHub Actions. For architectural decisions, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). For data quality validation, run `./scripts/qa_script.sh`.
+**Questions?** Open an issue or check the workflow logs in GitHub Actions. For architectural decisions, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
