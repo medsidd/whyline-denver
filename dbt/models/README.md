@@ -64,7 +64,6 @@ dbt/models/
 │   ├── int_stop_headways_scheduled.sql
 │   ├── int_headway_adherence.sql
 │   ├── int_scheduled_arrivals.sql
-│   ├── int_rt_daily_coverage.sql
 │   └── int_weather_by_date.sql
 │
 └── marts/                   # Gold layer: analytical tables
@@ -207,22 +206,6 @@ Staging models (`stg_*`) clean and standardize raw data. They handle deduplicati
 4. Apply timezone macros: `to_mst_date(event_ts_utc)` → `event_date_mst`
 
 **Macros Used**: `to_mst_date()`, `to_mst_hour()`, `make_point()`
-
----
-
-#### 6. `stg_rt_events_daily_stats`
-**Source**: `stg_rt_events`
-**Grain**: One row per service_date_mst
-**Materialization**: View
-
-**Purpose**: Summarize daily GTFS-RT capture coverage.
-
-**Key Columns**:
-- `service_date_mst`: Date in MST
-- `n_events`: Total event count
-- `n_unique_trips`: Distinct trip_id count
-
-**Usage**: QA validation to ensure 40+ snapshots/day and ~360K events.
 
 ---
 
@@ -447,22 +430,7 @@ Intermediate models (`int_*`) compute complex derived metrics that feed multiple
 
 ---
 
-#### 6. `int_rt_daily_coverage`
-**Source**: `stg_rt_events`
-**Grain**: One row per service_date_mst
-**Materialization**: View
-
-**Purpose**: Count unique trips captured per day for QA validation.
-
-**Key Logic**:
-- `n_trips = COUNT(DISTINCT trip_id)`
-- Group by `service_date_mst`
-
-**Usage**: QA script checks for ≥40 snapshots/day
-
----
-
-#### 7. `int_weather_by_date`
+#### 6. `int_weather_by_date`
 **Source**: `stg_weather`
 **Grain**: One row per service_date_mst
 **Materialization**: View
