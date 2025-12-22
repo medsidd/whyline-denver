@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Union
+
 import pandas as pd
 import requests
 
