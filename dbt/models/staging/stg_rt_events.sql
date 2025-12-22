@@ -11,10 +11,12 @@
 {#
 Cost optimization: Materialize as incremental table to avoid repeated scans of raw GTFS-RT data.
 - Full refresh: 45-day lookback
-- Incremental: Only process last 3 days to minimize overhead
+- Incremental: Only process last 12 hours to minimize overhead
+- Rationale: With 5-min refresh cycles, 12 hours provides ample buffer for late-arriving data
+  while reducing scan volume by ~83% (from 3 days to 12 hours)
 #}
 {% set lookback_days = var('rt_events_lookback_days', 45) %}
-{% set incremental_days = 3 %}
+{% set incremental_hours = var('rt_events_incremental_hours', 12) %}
 
 with trips as (
     select
@@ -46,7 +48,8 @@ tu as (
         schedule_relationship,
         event_ts_utc as tu_event_ts_utc
     from {{ source('raw','raw_gtfsrt_trip_updates') }}
-    where feed_ts_utc >= timestamp_sub(current_timestamp(), interval {% if is_incremental() %}{{ incremental_days }}{% else %}{{ lookback_days }}{% endif %} day)
+    where feed_ts_utc >= timestamp_sub(current_timestamp(), interval {% if is_incremental() %}{{ incremental_hours }} hour{% else %}{{ lookback_days }} day{% endif %})
+      and date(feed_ts_utc) >= date_sub(current_date(), interval {% if is_incremental() %}1{% else %}{{ lookback_days }}{% endif %} day)  -- Explicit partition filter
 ),
 vp as (
     select
@@ -62,7 +65,8 @@ vp as (
         speed_mps,
         event_ts_utc as vp_event_ts_utc
     from {{ source('raw','raw_gtfsrt_vehicle_positions') }}
-    where feed_ts_utc >= timestamp_sub(current_timestamp(), interval {% if is_incremental() %}{{ incremental_days }}{% else %}{{ lookback_days }}{% endif %} day)
+    where feed_ts_utc >= timestamp_sub(current_timestamp(), interval {% if is_incremental() %}{{ incremental_hours }} hour{% else %}{{ lookback_days }} day{% endif %})
+      and date(feed_ts_utc) >= date_sub(current_date(), interval {% if is_incremental() %}1{% else %}{{ lookback_days }}{% endif %} day)  -- Explicit partition filter
 ),
 j as (
     select

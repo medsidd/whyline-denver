@@ -17,17 +17,14 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 # Import from app components (add app directory to path if needed)
-import sys as _sys
-from pathlib import Path as _Path
-
 from whylinedenver.engines import bigquery_engine, duckdb_engine
 from whylinedenver.llm import adapt_sql_for_engine
 from whylinedenver.logs import log_query, query_cache
 from whylinedenver.semantics.dbt_artifacts import ModelInfo
 from whylinedenver.sql_guardrails import GuardrailConfig, SqlValidationError, sanitize_sql
 
-if str(_Path(__file__).parent.parent) not in _sys.path:
-    _sys.path.insert(0, str(_Path(__file__).parent.parent))
+if str(Path(__file__).parent.parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from components.charts import build_chart, build_map
 from utils.data_loaders import load_stop_lookup

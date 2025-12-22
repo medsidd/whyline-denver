@@ -12,8 +12,6 @@ from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Union
-from zoneinfo import ZoneInfo
-
 import pandas as pd
 import requests
 
@@ -188,32 +186,6 @@ def sizeof_bytes(data: bytes) -> int:
 def utc_now_iso() -> str:
     """Return current UTC time as ISO-8601 string with Z suffix."""
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-def parse_to_utc(ts: Any, tz: str = "America/Denver") -> str:
-    """
-    Parse an input timestamp and return an ISO-8601 UTC string.
-
-    Accepts strings, pandas Timestamps, or datetime objects. Naive inputs are
-    interpreted in the provided timezone (default America/Denver).
-    """
-    if ts is None:
-        raise ValueError("parse_to_utc requires a timestamp value")
-
-    if isinstance(ts, datetime):
-        dt = ts
-    else:
-        parsed = pd.to_datetime(ts)
-        if isinstance(parsed, pd.Timestamp):
-            dt = parsed.to_pydatetime()
-        else:
-            raise TypeError(f"Unsupported timestamp type: {type(ts)!r}")
-
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=ZoneInfo(tz))
-
-    dt_utc = dt.astimezone(UTC)
-    return dt_utc.replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _is_gcs_path(path: str) -> bool:

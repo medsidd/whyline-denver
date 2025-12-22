@@ -14,9 +14,6 @@ class ColumnInfo:
     type: str | None
     description: str | None
 
-    def to_dict(self) -> dict[str, Any]:
-        return {"type": self.type, "description": self.description}
-
 
 @dataclass(slots=True)
 class ModelInfo:
@@ -24,14 +21,6 @@ class ModelInfo:
     fq_name: str
     description: str | None
     columns: Dict[str, ColumnInfo] = field(default_factory=dict)
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "name": self.name,
-            "fq_name": self.fq_name,
-            "description": self.description,
-            "columns": {name: col.to_dict() for name, col in self.columns.items()},
-        }
 
 
 class DbtArtifacts:

@@ -8,20 +8,6 @@ from dotenv import load_dotenv
 load_dotenv(override=False)
 
 
-# Helper to safely parse integer env vars
-def _getenv_int(name: str, default: int) -> int:
-    """Return an int from env var `name`, falling back to `default` if unset or empty.
-    Accepts plain decimal strings. Any ValueError returns the default.
-    """
-    raw = os.getenv(name)
-    if raw is None or raw.strip() == "":
-        return default
-    try:
-        return int(raw)
-    except ValueError:
-        return default
-
-
 SERVICE_ACCOUNT_ENV: Final[str] = "GOOGLE_APPLICATION_CREDENTIALS"
 SERVICE_ACCOUNT_FILENAME: Final[str] = "whyline-service-account.json"
 
