@@ -76,9 +76,16 @@ dbt-compile:
 
 dbt-artifacts:
 	@if [ ! -f dbt/target/manifest.json ] || [ ! -f dbt/target/catalog.json ]; then \
-		$(DBT_CMD) compile --project-dir dbt --target $(DBT_TARGET); \
-		$(DBT_CMD) parse --project-dir dbt --target $(DBT_TARGET); \
-		$(DBT_CMD) docs generate --project-dir dbt --target $(DBT_TARGET); \
+		ADC_PATH="$${CLOUDSDK_CONFIG:-$$HOME/.config/gcloud}/application_default_credentials.json"; \
+		if { [ -n "$$GOOGLE_APPLICATION_CREDENTIALS" ] && [ -f "$$GOOGLE_APPLICATION_CREDENTIALS" ]; } \
+			|| ls -1 $$PWD/whyline-dbt-*.json >/dev/null 2>&1 \
+			|| [ -f "$$ADC_PATH" ]; then \
+			$(DBT_CMD) compile --project-dir dbt --target $(DBT_TARGET); \
+			$(DBT_CMD) parse --project-dir dbt --target $(DBT_TARGET); \
+			$(DBT_CMD) docs generate --project-dir dbt --target $(DBT_TARGET); \
+		else \
+			echo "Skipping dbt artifacts: no BigQuery credentials found."; \
+		fi; \
 	fi
 
 
