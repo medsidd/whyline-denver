@@ -1,6 +1,6 @@
 .SHELLFLAGS := -o pipefail -c
 SHELL := /bin/bash
-.PHONY: install lint format test test-ingest run app ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local bq-load-realtime bq-load-historical dbt-source-freshness dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dbt-run-realtime dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams
+.PHONY: install lint format test test-ingest run app ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local bq-load-realtime bq-load-historical dbt-source-freshness dbt-compile dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dbt-run-realtime dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams
 .PHONY: sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams dbt-run-realtime streamlit-build streamlit-run
 
 # Shared command helpers ------------------------------------------------------
@@ -13,11 +13,13 @@ INGEST_DEST   ?= local
 INGEST_MODE_ARGS := $(if $(filter $(INGEST_DEST),gcs),--gcs --bucket $(GCS_BUCKET),--local)
 
 DBT_PROFILES  := DBT_PROFILES_DIR=$$PWD/dbt/profiles
-DBT_CMD       := $(DBT_PROFILES) $(PY) -m scripts.dbt_with_env
 DBT_TARGET    ?= prod
 
 # Cloud Run app defaults keep a single instance hot when needed with scale-to-zero otherwise
 GCP_PROJECT_ID    ?= whyline-denver
+BQ_DATASET_RAW    ?= raw_denver
+BQ_DATASET_STG    ?= stg_denver
+BQ_DATASET_MART   ?= mart_denver
 CLOUD_RUN_REGION  ?= us-central1
 CLOUD_RUN_DUCKDB_BLOB ?= marts/duckdb/warehouse.duckdb
 CLOUD_RUN_MIN_INSTANCES ?= 0  # Allow scale-to-zero for low idle cost
@@ -47,6 +49,13 @@ CLOUD_RUN_STREAMLIT_CPU          ?= 8
 CLOUD_RUN_STREAMLIT_MEMORY       ?= 4Gi
 MAX_BYTES_BILLED ?= 2000000000  # 2 GB default max bytes billed for queries
 
+DBT_CMD       := $(DBT_PROFILES) \
+	GCP_PROJECT_ID=$(GCP_PROJECT_ID) \
+	BQ_DATASET_RAW=$(BQ_DATASET_RAW) \
+	BQ_DATASET_STG=$(BQ_DATASET_STG) \
+	BQ_DATASET_MART=$(BQ_DATASET_MART) \
+	$(PY) -m scripts.dbt_with_env
+
 # Tooling ---------------------------------------------------------------------
 install:
 	$(PIP) install --upgrade pip
@@ -62,8 +71,12 @@ format:
 test: dbt-artifacts
 	pytest
 
+dbt-compile:
+	$(DBT_CMD) compile --project-dir dbt --target $(DBT_TARGET)
+
 dbt-artifacts:
 	@if [ ! -f dbt/target/manifest.json ] || [ ! -f dbt/target/catalog.json ]; then \
+		$(DBT_CMD) compile --project-dir dbt --target $(DBT_TARGET); \
 		$(DBT_CMD) parse --project-dir dbt --target $(DBT_TARGET); \
 		$(DBT_CMD) docs generate --project-dir dbt --target $(DBT_TARGET); \
 	fi
