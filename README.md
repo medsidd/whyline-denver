@@ -13,7 +13,7 @@ The project combines automated data pipelines with a natural language query inte
 
 At its core, WhyLine Denver takes messy, scattered public data and turns it into something you can actually use. Here's what happens:
 
-**Data Collection**: Every five minutes, automated jobs grab real-time bus and train locations from RTD (Denver's transit agency). Every night, the system pulls updated schedules, weather reports from NOAA, traffic crash data from Denver's open data portal, sidewalk infrastructure maps, and census demographics.
+**Data Collection**: Every fifteen minutes, automated jobs grab real-time bus and train locations from RTD (Denver's transit agency). Every night, the system pulls updated schedules, weather reports from NOAA, traffic crash data from Denver's open data portal, sidewalk infrastructure maps, and census demographics.
 
 **Data Processing**: All that raw data flows through a series of transformations built with dbt (a SQL modeling tool). The pipeline cleans up duplicates, fixes timezones, matches real-time positions to scheduled stops, calculates delay metrics, and identifies patterns. It's structured as bronze (raw), silver (cleaned), and gold (analytics-ready) layers.
 
@@ -47,9 +47,9 @@ The project has a specific focus on equity. Transit-dependent populations—peop
 
 **Dual-Engine Architecture**: Run queries against BigQuery (cloud warehouse, good for large datasets and production use) or DuckDB (embedded database, runs locally, completely free, good for exploration and development).
 
-**Automated Pipelines**: Real-time transit data gets captured every 5 minutes via Cloud Run jobs. Static data refreshes nightly via GitHub Actions. dbt runs transformations and validates data quality with 40+ tests.
+**Automated Pipelines**: Real-time transit data gets captured every 15 minutes via Cloud Run jobs. Static data refreshes nightly via GitHub Actions. dbt runs transformations and validates data quality with 40+ tests.
 
-**Cost Controls**: BigQuery queries are capped at 2GB scanned by default. You see cost estimates before running anything. The entire platform costs about $60/month to run (mostly Cloud Run job executions processing ~600 million real-time events per year).
+**Cost Controls**: BigQuery queries are capped at 2GB scanned by default. You see cost estimates before running anything. The entire platform costs approximately $25/month to run after aggressive optimization of Cloud Run schedules and dbt incremental logic (reduced from $143/month).
 
 **Data Quality Enforcement**: Every dataset passes through dbt tests that check for nulls, duplicates, valid foreign keys, and logical consistency. If a test fails, the pipeline stops and sends alerts.
 
@@ -66,7 +66,7 @@ The repository contains:
 - **BigQuery loader** (Python): Parametric script that loads raw files into BigQuery with metadata tracking
 - **Streamlit app** (Python): Web interface with natural language querying, visualizations, and CSV exports
 - **DuckDB sync** (Python): Export BigQuery marts to Parquet and materialize locally for offline use
-- **Automation**: Cloud Run Jobs (real-time every 5 min) + GitHub Actions workflows (nightly batch)
+- **Automation**: Cloud Run Jobs (real-time every 15 min) + GitHub Actions workflows (nightly batch)
 - **Documentation**: Architecture guides, data contracts, lineage diagrams, cost optimization case studies
 - **Tests**: pytest unit/integration tests + 40+ dbt data quality tests
 
@@ -164,22 +164,37 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed adaptation guideli
 
 ### What's the annual cost?
 
-Running WhyLine Denver costs approximately **$709/year** ($59/month) based on current verified billing data:
+Running WhyLine Denver costs approximately **$298/year** ($25/month) after December 2025 optimizations:
 
-**Monthly Costs** (~$59/month):
-- **Cloud Run**: $44/month (288 job executions/day processing real-time GTFS feeds)
-- **BigQuery**: $10/month ($6.50 query costs + $0.15 storage for 26.72 GB)
-- **Cloud Storage**: $4.50/month (4 GB for raw files and Parquet exports)
-- **Artifact Registry**: $2/month (Docker image storage)
+**Actual Costs Before Optimization** (Dec 10-21, 2025 - verified via GCP billing):
+- BigQuery: $98.95/month ($1,203.89/year)
+- Cloud Run: $38.86/month ($472.75/year)
+- Cloud Storage: $2.72/month ($33.10/year)
+- Artifact Registry: $2.15/month ($26.19/year)
+- **Total: $142.68/month ($1,735.93/year)**
+
+**Projected Costs After Optimization** (Dec 22, 2025 - awaiting validation):
+- **Cloud Run**: $12.82/month (192 job executions/day, down from 576/day)
+- **BigQuery**: $7.18/month (data scanned reduced by 93%)
+- **Cloud Storage**: $2.72/month (unchanged)
+- **Artifact Registry**: $2.15/month (unchanged)
 - **Other Services**: $0 (GitHub Actions free tier, Cloud Scheduler free tier)
 
-**Total**: $59/month × 12 = **$709/year**
+**Total Projected**: $24.87/month × 12 = **$298/year**
 
-**Storage Breakdown**:
-- BigQuery: 26.72 GB (raw_denver: 24.61 GB, stg_denver: 2.09 GB, mart_denver: 0.02 GB)
-- GCS: 4 GB (raw extracts + Parquet exports)
+**Storage (Current)**:
+- BigQuery: 37 GB (raw_denver: 34.56 GB, stg_denver: 2.36 GB, mart_denver: 0.02 GB)
+- GCS: 5.35 GB (raw extracts + Parquet exports)
 
-*Note: Costs verified via `gcloud billing` commands on December 4, 2025. The [Cost Optimization Case Study](docs/case-studies/bigquery-cost-optimization-2025.md) documents an earlier architecture with higher costs before November 2025 optimizations.*
+**Cost Optimizations Applied** (December 22, 2025):
+- Reduced Cloud Run execution frequency: 5 min → 15 min (67% reduction in executions)
+- Optimized dbt incremental lookback: 3 days → 12 hours (83% reduction in data scanned per run)
+- Added explicit partition filters for better query pruning
+- **Result: Projected 82.6% cost reduction** from $142.68/month to $24.87/month
+
+**Validation Status**: ⏳ Changes deployed Dec 22, 2025 at 19:30 UTC. First full day of verified costs will be available Dec 23, 2025. Actual costs may vary slightly from projections.
+
+*Note: The [Cost Optimization Case Study](docs/case-studies/bigquery-cost-optimization-2025.md) documents the earlier architecture before December 2025 optimizations. See [Cost Optimization Dec 2025](docs/COST_OPTIMIZATION_DEC_2025.md) for detailed analysis.*
 
 ### Why DuckDB?
 
@@ -187,7 +202,7 @@ DuckDB enables free local exploration, offline querying, CI-friendly testing, an
 
 ### How fresh is the data?
 
-- **GTFS Realtime**: ~8-minute lag from API publish to BigQuery (micro-batches every 5 minutes)
+- **GTFS Realtime**: ~20-minute lag from API publish to BigQuery (micro-batches every 15 minutes)
 - **GTFS Static**: Updated monthly when RTD publishes new schedules
 - **Weather**: 3-7 day lag (NOAA finalization period)
 - **Crashes**: 24-hour lag (nightly ingest)

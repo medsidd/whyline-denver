@@ -10,7 +10,10 @@ from whylinedenver.semantics.dbt_artifacts import DbtArtifacts
 @pytest.fixture(scope="module")
 def artifacts() -> DbtArtifacts:
     target_path = Path("dbt/target")
-    assert target_path.exists(), "dbt artifacts are missing; run dbt compile first."
+    manifest_path = target_path / "manifest.json"
+    catalog_path = target_path / "catalog.json"
+    if not manifest_path.exists() or not catalog_path.exists():
+        pytest.skip("dbt artifacts are missing; run dbt compile first.")
     loader = DbtArtifacts(target_path=target_path)
     loader.load_artifacts()
     return loader

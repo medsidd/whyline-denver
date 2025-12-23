@@ -2,8 +2,8 @@
 
 This directory contains everything required to run the GTFS realtime ingest and load
 pipelines on **Cloud Run Jobs** triggered by **Cloud Scheduler**. Running in Cloud Run keeps
-the hosted execution within the Google Cloud free tier while maintaining the five-minute
-cadence expected by the product.
+the hosted execution within the Google Cloud free tier while maintaining the fifteen-minute
+cadence for cost-optimized real-time data collection.
 
 The build produces a container whose entrypoint is `deploy/cloud-run/entrypoint.sh`.
 `JOB_TYPE` switches between ingest and load behaviour at runtime.

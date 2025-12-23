@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import re
-from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Dict, Mapping
 
@@ -14,7 +13,7 @@ except ImportError:  # pragma: no cover - optional dependency for stub mode
 
 from whylinedenver.config import settings
 from whylinedenver.semantics.dbt_artifacts import ModelInfo
-from whylinedenver.sql_guardrails import CTE_PATTERN, GuardrailConfig, sanitize_sql
+from whylinedenver.sql_guardrails import CTE_PATTERN
 
 
 def build_schema_brief(models: Mapping[str, ModelInfo], *, max_columns: int = 7) -> str:
@@ -52,12 +51,6 @@ def build_prompt(question: str, filters: Mapping[str, Any] | None, schema_brief:
         "User filters (values only):\n"
         f"{filters_serialized}\n"
     )
-
-
-@dataclass(slots=True)
-class LlmResponse:
-    sql: str
-    explanation: str
 
 
 def call_provider(prompt: str) -> Dict[str, str]:
@@ -168,41 +161,6 @@ def _stubbed_response(prompt: str) -> Dict[str, str]:
     }
 
 
-def ask(
-    question: str,
-    *,
-    filters: Mapping[str, Any] | None,
-    models: Mapping[str, ModelInfo],
-    allowlist: set[str],
-    engine: str,
-) -> LlmResponse:
-    schema_brief = build_schema_brief(models)
-    prompt = build_prompt(question, filters, schema_brief)
-    raw_response = call_provider(prompt)
-    sql = raw_response.get("sql", "")
-    explanation = raw_response.get("explanation", "")
-    sql = adapt_sql_for_engine(sql, engine, models)
-    guardrail_kwargs: dict[str, set[str]] = {}
-    if engine == "bigquery":
-        projects: set[str] = set()
-        datasets: set[str] = set()
-        for info in models.values():
-            parts = [segment.strip("`") for segment in info.fq_name.split(".") if segment]
-            if len(parts) >= 3:
-                projects.add(parts[-3])
-            if len(parts) >= 2:
-                datasets.add(parts[-2])
-        if not projects and settings.GCP_PROJECT_ID:
-            projects.add(settings.GCP_PROJECT_ID)
-        if not datasets and settings.BQ_DATASET_MART:
-            datasets.add(settings.BQ_DATASET_MART)
-        guardrail_kwargs["allowed_projects"] = projects
-        guardrail_kwargs["allowed_datasets"] = datasets
-    config = GuardrailConfig(allowed_models=allowlist, engine=engine, **guardrail_kwargs)
-    sanitized_sql = sanitize_sql(sql, config)
-    return LlmResponse(sql=sanitized_sql, explanation=explanation)
-
-
 DATE_SUB_PATTERN = re.compile(
     r"DATE_SUB\(\s*(.+?)\s*,\s*INTERVAL\s+(\d+)\s+DAY\s*\)", re.IGNORECASE
 )
@@ -252,9 +210,7 @@ def _qualify_bigquery_tables(sql: str, models: Mapping[str, ModelInfo]) -> str:
 
 __all__ = [
     "adapt_sql_for_engine",
-    "ask",
     "build_prompt",
     "build_schema_brief",
     "call_provider",
-    "LlmResponse",
 ]
