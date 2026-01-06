@@ -1,10 +1,13 @@
 {{ config(
     materialized='incremental',
+    incremental_strategy='insert_overwrite',
     unique_key=['route_id', 'service_date_mst', 'precip_bin', 'snow_day'],
     partition_by={"field": "service_date_mst", "data_type": "date"},
     cluster_by=["route_id"],
     meta={"allow_in_app": true}
 ) }}
+
+{% set weather_lookback_days = var('weather_lookback_days', 30) %}
 
 with e as (
     select
@@ -15,7 +18,7 @@ with e as (
     from {{ ref('int_rt_events_resolved') }}
     where true
     {% if is_incremental() %}
-        and service_date_mst >= date_sub(current_date("America/Denver"), interval 3 day)
+        and service_date_mst >= date_sub(current_date("America/Denver"), interval {{ weather_lookback_days }} day)
     {% endif %}
 ),
 w as (
