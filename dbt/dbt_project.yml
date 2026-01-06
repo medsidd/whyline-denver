@@ -19,3 +19,4 @@ vars:
   headway_tol_ratio: 0.5
   sched_match_tol_sec: 1800
   weather_station: "USW00023062"
+  weather_lookback_days: 30

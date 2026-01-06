@@ -677,15 +677,16 @@ where feed_ts_utc >= timestamp_sub(current_timestamp(),
 - **Incremental**: Process only 3 days for daily updates
 - **Benefit**: Reduces incremental run cost from 5.32 GB → 0.35 GB (15x improvement)
 
-**Pattern 2: Fixed 3-Day Lookback (Marts)**
+**Pattern 2: Weather-Aware Lookback (Marts)**
 ```sql
+{% set weather_lookback_days = var('weather_lookback_days', 30) %}
 {% if is_incremental() %}
-  WHERE service_date_mst >= date_sub(current_date("America/Denver"), interval 3 day)
+  WHERE service_date_mst >= date_sub(current_date("America/Denver"), interval {{ weather_lookback_days }} day)
 {% endif %}
 ```
-- **Why 3 days?** Covers late-arriving GTFS-RT snapshots and delayed weather data
+- **Default 30 days**: Aligns with NOAA rolling re-ingest window (late weather finalization)
 - **Why not dynamic MAX(date)?** Expensive subquery scans entire table; fixed lookback uses partition pruning
-- **Cost impact**: Removed `SELECT MAX(service_date_mst) FROM table` subqueries saving ~0.5GB per MERGE
+- **Cost impact**: Use `weather_lookback_days` to balance freshness vs. cost
 
 **Pattern 3: Unique Keys for Proper MERGE**
 ```sql
