@@ -243,6 +243,7 @@ JOBS: tuple[JobSpec, ...] = (
             ("parent_station", "STRING"),
             ("stop_timezone", "STRING"),
             ("wheelchair_boarding", "INT64"),
+            ("platform_code", "STRING"),
         ),
         clustering=Clustering(fields=("stop_id",)),
     ),

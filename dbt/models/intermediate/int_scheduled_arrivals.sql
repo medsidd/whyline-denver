@@ -22,8 +22,8 @@ Cost optimization: Materialized as table to avoid re-expanding schedule on every
 with calendar as (
     select
         service_id,
-        case when start_date is null or start_date = '' then null else parse_date('%Y%m%d', start_date) end as start_date,
-        case when end_date is null or end_date = '' then null else parse_date('%Y%m%d', end_date) end as end_date,
+        safe.parse_date('%Y%m%d', start_date) as start_date,
+        safe.parse_date('%Y%m%d', end_date) as end_date,
         monday = 1 as runs_monday,
         tuesday = 1 as runs_tuesday,
         wednesday = 1 as runs_wednesday,
@@ -34,14 +34,23 @@ with calendar as (
     from {{ source('raw', 'raw_gtfs_calendar') }}
     where start_date is not null and start_date != ''
       and end_date is not null and end_date != ''
+      and safe.parse_date('%Y%m%d', start_date) is not null
+      and safe.parse_date('%Y%m%d', end_date) is not null
+      and _extract_date = (
+          select max(_extract_date) from {{ source('raw', 'raw_gtfs_calendar') }}
+      )
 ),
 calendar_dates as (
     select
         service_id,
-        case when date is null or date = '' then null else parse_date('%Y%m%d', date) end as exception_date,
+        safe.parse_date('%Y%m%d', date) as exception_date,
         exception_type
     from {{ source('raw', 'raw_gtfs_calendar_dates') }}
     where date is not null and date != ''
+      and safe.parse_date('%Y%m%d', date) is not null
+      and _extract_date = (
+          select max(_extract_date) from {{ source('raw', 'raw_gtfs_calendar_dates') }}
+      )
 ),
 date_spine as (
     -- Generate all dates in the expansion window
