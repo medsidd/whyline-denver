@@ -13,6 +13,9 @@ with cal as (
         saturday,
         sunday
     from {{ source('raw','raw_gtfs_calendar') }}
+    where _extract_date = (
+        select max(_extract_date) from {{ source('raw','raw_gtfs_calendar') }}
+    )
 ),
 ex as (
     select
@@ -20,6 +23,9 @@ ex as (
         array_agg(case when exception_type = 1 then date end ignore nulls) as added_service_dates,
         array_agg(case when exception_type = 2 then date end ignore nulls) as removed_service_dates
     from {{ source('raw','raw_gtfs_calendar_dates') }}
+    where _extract_date = (
+        select max(_extract_date) from {{ source('raw','raw_gtfs_calendar_dates') }}
+    )
     group by service_id
 ),
 tr as (
@@ -31,6 +37,9 @@ tr as (
         shape_id,
         trip_headsign
     from {{ source('raw','raw_gtfs_trips') }}
+    where _extract_date = (
+        select max(_extract_date) from {{ source('raw','raw_gtfs_trips') }}
+    )
 )
 select
     tr.trip_id,

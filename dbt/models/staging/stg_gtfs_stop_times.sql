@@ -8,6 +8,9 @@ with base as (
         arrival_time,
         departure_time
     from {{ source('raw','raw_gtfs_stop_times') }}
+    where _extract_date = (
+        select max(_extract_date) from {{ source('raw','raw_gtfs_stop_times') }}
+    )
 ),
 norm as (
     select

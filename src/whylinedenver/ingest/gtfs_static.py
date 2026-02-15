@@ -129,7 +129,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _download_zip(url: str) -> bytes:
     context = ssl.create_default_context(cafile=certifi.where())
-    with request.urlopen(url, context=context) as resp:
+    # RTD requires a User-Agent header to prevent blocking
+    req = request.Request(
+        url,
+        headers={"User-Agent": "WhyLineDenver/1.0 (https://github.com/medsidd/whyline-denver)"},
+    )
+    with request.urlopen(req, context=context) as resp:
         return resp.read()
 
 
