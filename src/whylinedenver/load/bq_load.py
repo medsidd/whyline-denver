@@ -18,10 +18,10 @@ from typing import Iterable, Iterator, Sequence
 from google.api_core.exceptions import NotFound
 from google.cloud import bigquery, storage
 
-from load.registry import JOBS, META_COLUMNS, JobSpec
 from whylinedenver.config import settings
+from whylinedenver.load.registry import JOBS, META_COLUMNS, JobSpec
 
-LOGGER = logging.getLogger("load.bq_load")
+LOGGER = logging.getLogger("whylinedenver.load.bq_load")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s [%(levelname)s] %(message)s")
 
 RAW_ROOT_LOCAL = Path("data/raw")

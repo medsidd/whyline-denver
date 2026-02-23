@@ -23,10 +23,16 @@ src/whylinedenver/ingest/denver_tracts.py
 src/whylinedenver/ingest/gtfs_realtime.py
 src/whylinedenver/ingest/gtfs_static.py
 src/whylinedenver/ingest/noaa_daily.py
+src/whylinedenver/load/__init__.py
+src/whylinedenver/load/bq_load.py
+src/whylinedenver/load/registry.py
 src/whylinedenver/semantics/__init__.py
 src/whylinedenver/semantics/dbt_artifacts.py
 src/whylinedenver/sync/__init__.py
+src/whylinedenver/sync/constants.py
 src/whylinedenver/sync/export_bq_marts.py
 src/whylinedenver/sync/refresh_duckdb.py
 src/whylinedenver/sync/state.py
+src/whylinedenver/sync/state_store.py
+src/whylinedenver/sync/update_bq_timestamp.py
 tests/test_smoke.py

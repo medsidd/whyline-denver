@@ -78,7 +78,7 @@ dbt-artifacts:
 	@if [ ! -f dbt/target/manifest.json ] || [ ! -f dbt/target/catalog.json ]; then \
 		ADC_PATH="$${CLOUDSDK_CONFIG:-$$HOME/.config/gcloud}/application_default_credentials.json"; \
 		if { [ -n "$$GOOGLE_APPLICATION_CREDENTIALS" ] && [ -f "$$GOOGLE_APPLICATION_CREDENTIALS" ]; } \
-			|| ls -1 $$PWD/whyline-dbt-*.json >/dev/null 2>&1 \
+			|| ls -1 $$PWD/secrets/whyline-dbt-*.json >/dev/null 2>&1 \
 			|| [ -f "$$ADC_PATH" ]; then \
 			$(DBT_CMD) compile --project-dir dbt --target $(DBT_TARGET); \
 			$(DBT_CMD) parse --project-dir dbt --target $(DBT_TARGET); \
@@ -137,7 +137,7 @@ bq-load:
 	@$(MAKE) bq-load-realtime
 
 bq-load-local:
-	$(PY) -m load.bq_load --src local --bucket $(GCS_BUCKET) --from 2025-01-01
+	$(PY) -m whylinedenver.load.bq_load --src local --bucket $(GCS_BUCKET) --from 2025-01-01
 
 bq-load-realtime:
 	@set -euo pipefail; \
@@ -148,13 +148,13 @@ bq-load-realtime:
 		FROM_DATE=$$(date -u +%Y-%m-%d); \
 	fi; \
 	UNTIL_DATE=$$(date -u +%Y-%m-%d); \
-	$(PY) -m load.bq_load --src gcs --bucket $(GCS_BUCKET) --from $$FROM_DATE --until $$UNTIL_DATE
+	$(PY) -m whylinedenver.load.bq_load --src gcs --bucket $(GCS_BUCKET) --from $$FROM_DATE --until $$UNTIL_DATE
 
 bq-load-historical:
 	@set -euo pipefail; \
 	FROM_DATE=$${FROM:-2025-01-01}; \
 	UNTIL_DATE=$${UNTIL:-$$(date -u +%Y-%m-%d)}; \
-	$(PY) -m load.bq_load --src gcs --bucket $(GCS_BUCKET) --from $$FROM_DATE --until $$UNTIL_DATE; \
+	$(PY) -m whylinedenver.load.bq_load --src gcs --bucket $(GCS_BUCKET) --from $$FROM_DATE --until $$UNTIL_DATE; \
 	DBT_TARGET=prod $(DBT_CMD) run --project-dir dbt --target prod --select 'staging marts'; \
 	DBT_TARGET=prod $(DBT_CMD) test --project-dir dbt --target prod --select 'marts'
 

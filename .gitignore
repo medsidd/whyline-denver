@@ -10,6 +10,7 @@ data/marts/
 data/sync_state.json
 .env
 /*.json
+secrets/
 .DS_Store
 dbt/seeds/ingest_samples/
 dbt/logs/
