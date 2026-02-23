@@ -14,7 +14,7 @@ from typing import Any, Union
 
 import pandas as pd
 
-from whylinedenver.ingest import common
+from whyline.ingest import io
 
 DEFAULT_SOURCE_URL = (
     "https://services1.arcgis.com/zdB7qR0BtYrg0Xpl/arcgis/rest/services/"
@@ -44,7 +44,7 @@ COLUMNS = [
 
 PathLike = Union[str, Path]
 
-LOGGER = common.get_logger(__name__)
+LOGGER = io.get_logger(__name__)
 
 
 def run(args: argparse.Namespace) -> int:
@@ -67,7 +67,7 @@ def run(args: argparse.Namespace) -> int:
     output_path = _join_path(date_dir, OUTPUT_FILENAME)
     manifest_target = _ensure_directory_target(date_dir)
 
-    if common.exists(output_path):
+    if io.exists(output_path):
         LOGGER.info("Skipping ingest; %s already exists.", output_path)
         return 0
 
@@ -97,7 +97,7 @@ def run(args: argparse.Namespace) -> int:
         df=df,
         stats=stats,
     )
-    common.write_manifest(manifest_target, manifest)
+    io.write_manifest(manifest_target, manifest)
     LOGGER.info(
         "Wrote %d rows to %s (bytes=%d hash=%s)",
         len(df),
@@ -177,7 +177,7 @@ def fetch_features(source_url: str, since_date: str, timeout: int) -> list[dict[
             "resultOffset": offset,
             "resultRecordCount": BATCH_SIZE,
         }
-        response = common.http_get_with_retry(
+        response = io.http_get_with_retry(
             f"{source_url}/query",
             params=batch_params,
             timeout=timeout,
@@ -304,11 +304,11 @@ def build_manifest(
     return {
         "source": source_url,
         "extract_date": extract_date,
-        "written_at_utc": common.utc_now_iso(),
+        "written_at_utc": io.utc_now_iso(),
         "file_count": 1,
         "row_count": row_count,
-        "bytes": common.sizeof_bytes(payload),
-        "hash_md5": common.hash_bytes_md5(payload),
+        "bytes": io.sizeof_bytes(payload),
+        "hash_md5": io.hash_bytes_md5(payload),
         "schema_version": "v1",
         "notes": notes,
         "since": since_date,
@@ -323,8 +323,8 @@ def build_manifest(
         "files": {
             OUTPUT_FILENAME: {
                 "row_count": row_count,
-                "bytes": common.sizeof_bytes(payload),
-                "hash_md5": common.hash_bytes_md5(payload),
+                "bytes": io.sizeof_bytes(payload),
+                "hash_md5": io.hash_bytes_md5(payload),
             }
         },
     }
@@ -446,7 +446,7 @@ def _ensure_directory_target(path: PathLike) -> PathLike:
 def _write_bytes(path: PathLike, data: bytes, *, content_type: str) -> None:
     if isinstance(path, str) and path.startswith("gs://"):
         bucket, blob_path = _split_gcs_uri(path)
-        common.upload_bytes_gcs(bucket, blob_path, data, content_type)
+        io.upload_bytes_gcs(bucket, blob_path, data, content_type)
     else:
         path_obj = Path(path) if isinstance(path, str) else path
         path_obj.parent.mkdir(parents=True, exist_ok=True)

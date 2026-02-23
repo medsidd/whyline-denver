@@ -15,7 +15,7 @@ from urllib import request
 
 import certifi
 
-from whylinedenver.ingest import common
+from whyline.ingest import io as ingest_io
 
 DEFAULT_GTFS_URL = "https://www.rtd-denver.com/files/gtfs/google_transit.zip"
 CORE_REQUIRED_FILES = ["stops.txt", "routes.txt", "trips.txt", "stop_times.txt"]
@@ -29,7 +29,7 @@ REQUIRED_COLUMNS = {
     "stop_times.txt": {"trip_id", "arrival_time", "departure_time", "stop_id", "stop_sequence"},
 }
 
-LOGGER = common.get_logger(__name__)
+LOGGER = ingest_io.get_logger(__name__)
 PathLike = Union[str, Path]
 
 
@@ -54,14 +54,14 @@ def run(args: argparse.Namespace) -> int:
     gtfs_dir = _join_path(date_dir, "gtfs")
     current_zip_path = _join_path(root, "rtd_gtfs", "current", "gtfs.zip")
 
-    if common.exists(zip_path):
+    if ingest_io.exists(zip_path):
         LOGGER.info("Skipping download; %s already exists.", zip_path)
         return 0
 
     LOGGER.info("Downloading GTFS feed from %s", args.url)
     zip_bytes = _download_zip(args.url)
-    zip_md5 = common.hash_bytes_md5(zip_bytes)
-    zip_size = common.sizeof_bytes(zip_bytes)
+    zip_md5 = ingest_io.hash_bytes_md5(zip_bytes)
+    zip_size = ingest_io.sizeof_bytes(zip_bytes)
 
     LOGGER.info("Writing archive to %s", zip_path)
     _write_bytes(zip_path, zip_bytes, content_type="application/zip")
@@ -81,7 +81,7 @@ def run(args: argparse.Namespace) -> int:
     manifest_meta = {
         "source": args.url,
         "extract_date": extract_date,
-        "written_at_utc": common.utc_now_iso(),
+        "written_at_utc": ingest_io.utc_now_iso(),
         "file_count": 1 + len(extracted_files),
         "row_count": sum(row_counts.values()),
         "bytes": zip_size,
@@ -92,7 +92,7 @@ def run(args: argparse.Namespace) -> int:
     }
     LOGGER.info("Writing manifest with row counts: %s", row_counts)
     manifest_target = _ensure_directory_target(date_dir)
-    common.write_manifest(manifest_target, manifest_meta)
+    ingest_io.write_manifest(manifest_target, manifest_meta)
 
     LOGGER.info("GTFS static ingest complete.")
     return 0
@@ -189,7 +189,7 @@ def _count_rows(name: str, payload: bytes) -> int:
 def _write_bytes(path: PathLike, data: bytes, *, content_type: str) -> None:
     if _is_gcs_path(path):
         bucket, blob_path = _split_gcs_uri(path)
-        common.upload_bytes_gcs(bucket, blob_path, data, content_type)
+        ingest_io.upload_bytes_gcs(bucket, blob_path, data, content_type)
     else:
         path_obj = Path(path) if isinstance(path, str) else path
         path_obj.parent.mkdir(parents=True, exist_ok=True)

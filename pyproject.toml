@@ -24,7 +24,7 @@ requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "whylinedenver"
+name = "whyline"
 version = "0.0.0"
 description = "WhyLine Denver"
 requires-python = ">=3.11"

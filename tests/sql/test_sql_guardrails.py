@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from whylinedenver.sql_guardrails import GuardrailConfig, SqlValidationError, sanitize_sql
+from whyline.sql_guardrails import GuardrailConfig, SqlValidationError, sanitize_sql
 
 
 def test_valid_query_passes_without_modification():

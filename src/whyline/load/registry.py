@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from google.cloud import bigquery
 
-from whylinedenver.config import settings
+from whyline.config import settings
 
 
 @dataclass(frozen=True)

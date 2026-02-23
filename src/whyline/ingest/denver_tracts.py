@@ -13,7 +13,7 @@ from typing import Any
 
 import pandas as pd
 
-from whylinedenver.ingest import common
+from whyline.ingest import io
 
 # Denver open-data census tracts (2020) hosted on ArcGIS Online.
 DEFAULT_SOURCE_URL = (
@@ -25,7 +25,7 @@ DEFAULT_COUNTY_FIPS = "031"
 OUTPUT_FILENAME = "tracts.csv.gz"
 COLUMNS = ["geoid", "name", "aland_m2", "awater_m2", "geometry_geojson"]
 
-LOGGER = common.get_logger(__name__)
+LOGGER = io.get_logger(__name__)
 
 GEOID_CANDIDATES = ["GEOID", "GEOID20", "geoid", "GEOID10"]
 NAME_CANDIDATES = ["NAME", "NAMELSAD", "NAMELSAD20", "name"]
@@ -51,7 +51,7 @@ def run(args: argparse.Namespace) -> int:
     date_dir = _join_path(root, "denver_tracts", f"extract_date={extract_date}")
     output_path = _join_path(date_dir, OUTPUT_FILENAME)
 
-    if common.exists(output_path):
+    if io.exists(output_path):
         if _output_has_records(output_path):
             LOGGER.info("Skipping ingest; %s already populated.", output_path)
             return 0
@@ -109,7 +109,7 @@ def run(args: argparse.Namespace) -> int:
     LOGGER.info("Normalized tracts: %d rows; missing_geom=%d", stats.total, stats.missing_geometry)
 
     df = pd.DataFrame(records, columns=COLUMNS)
-    common.write_csv(df, output_path, compression="gzip")
+    io.write_csv(df, output_path, compression="gzip")
 
     manifest = build_manifest(
         extract_date=extract_date,
@@ -119,7 +119,7 @@ def run(args: argparse.Namespace) -> int:
         source_url=args.source_url,
         output_path=output_path,
     )
-    common.write_manifest(_ensure_dir_target(date_dir), manifest)
+    io.write_manifest(_ensure_dir_target(date_dir), manifest)
     LOGGER.info("Wrote %d tracts to %s", len(df), output_path)
     return 0
 
@@ -152,7 +152,7 @@ def fetch_features(
 
     while True:
         params = {**base_params, "resultOffset": offset, "resultRecordCount": page_size}
-        response = common.http_get_with_retry(
+        response = io.http_get_with_retry(
             f"{source_url}/query", params=params, timeout=timeout, logger=LOGGER
         )
         payload = response.json()
@@ -305,7 +305,7 @@ def build_manifest(
         "record_count": record_count,
         "missing_geometry": stats.missing_geometry,
         "output": str(output_path),
-        "generated_at": common.utc_now_iso(),
+        "generated_at": io.utc_now_iso(),
     }
 
 
@@ -391,7 +391,7 @@ def detect_field_mapping(*, source_url: str, timeout: int) -> FieldMapping:
         "resultRecordCount": 1,
         "f": "json",
     }
-    response = common.http_get_with_retry(
+    response = io.http_get_with_retry(
         f"{source_url}/query", params=params, timeout=timeout, logger=LOGGER
     )
     payload = response.json()

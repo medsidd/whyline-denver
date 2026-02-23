@@ -15,9 +15,9 @@ from google.api_core.exceptions import GoogleAPIError, NotFound
 from google.auth.exceptions import DefaultCredentialsError
 from google.cloud import storage
 
-from whylinedenver.config import Settings
-from whylinedenver.sync.constants import ALLOWLISTED_MARTS
-from whylinedenver.sync.state_store import SyncStateUploadError, load_sync_state, write_sync_state
+from whyline.config import Settings
+from whyline.sync.constants import ALLOWLISTED_MARTS
+from whyline.sync.state_store import SyncStateUploadError, load_sync_state, write_sync_state
 
 LOGGER = logging.getLogger(__name__)
 

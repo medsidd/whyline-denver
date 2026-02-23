@@ -421,7 +421,7 @@ def build_map(df: pd.DataFrame, engine_module=None) -> object | None:
             if engine_module is not None:
                 try:
                     # Load stop geometry from staging layer
-                    from whylinedenver.config import settings
+                    from whyline.config import settings
 
                     if hasattr(engine_module, "execute"):
                         # Determine table name based on engine

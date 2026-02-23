@@ -5,8 +5,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable
 
-from whylinedenver.config import Settings
-from whylinedenver.sync import ALLOWLISTED_MARTS
+from whyline.config import Settings
+from whyline.sync import ALLOWLISTED_MARTS
 
 
 @dataclass(slots=True)

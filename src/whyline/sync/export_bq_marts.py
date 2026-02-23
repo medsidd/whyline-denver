@@ -9,9 +9,9 @@ from typing import Optional
 
 from google.cloud import bigquery, storage
 
-from whylinedenver.config import Settings
-from whylinedenver.sync.constants import ALLOWLISTED_MARTS
-from whylinedenver.sync.state import (
+from whyline.config import Settings
+from whyline.sync.constants import ALLOWLISTED_MARTS
+from whyline.sync.state import (
     BQStateStore,
     CompositeStateStore,
     ExportState,

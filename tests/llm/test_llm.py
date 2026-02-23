@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from whylinedenver.llm import adapt_sql_for_engine
-from whylinedenver.semantics.dbt_artifacts import ModelInfo
+from whyline.llm import adapt_sql_for_engine
+from whyline.semantics.dbt_artifacts import ModelInfo
 
 
 def test_adapt_sql_for_duckdb_date_sub() -> None:

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from whylinedenver.semantics.dbt_artifacts import DbtArtifacts
+from whyline.semantics.dbt_artifacts import DbtArtifacts
 
 
 @pytest.fixture(scope="module")

@@ -115,13 +115,13 @@ WhyLine Denver uses GitHub Actions for **end-to-end pipeline orchestration**:
 > **Note**  
 > Automated scheduling now runs via Cloud Scheduler → Cloud Run Jobs. This workflow is
 > retained for manual invocation (`workflow_dispatch`) only. See
-> [`deploy/cloud-run/README.md`](../../deploy/cloud-run/README.md) for the production
+> [`infra/cloud-run/README.md`](../../infra/cloud-run/README.md) for the production
 > deployment pattern.
 
 **Purpose**: Ad hoc execution of the snapshot pipeline from the command palette.
 
 **Steps**: Same as before — checkout repo, install deps, run
-`python -m whylinedenver.ingest.gtfs_realtime`.
+`python -m whyline.ingest.gtfs_realtime`.
 
 **Success Criteria**: Manual run completes in <5 minutes and uploads snapshot artifacts.
 
@@ -215,7 +215,7 @@ schedule:
    # Expands to:
    #   DBT_TARGET=prod dbt run --project-dir dbt --target prod --select 'staging marts'
    #   DBT_TARGET=prod dbt test --project-dir dbt --target prod --select 'marts'
-   #   python -m whylinedenver.sync.export_bq_marts
+   #   python -m whyline.sync.export_bq_marts
    ```
 
 **dbt Execution Order**:
@@ -262,7 +262,7 @@ schedule:
    ```bash
    make nightly-duckdb
    # Expands to:
-   #   python -m whylinedenver.sync.refresh_duckdb
+   #   python -m whyline.sync.refresh_duckdb
    ```
 
 **Sync Logic**:
@@ -443,7 +443,7 @@ Green badge = recent runs succeeded. Red badge = investigate.
 
 ### QA Validation Script
 
-Run `./scripts/qa_script.sh` to validate:
+Run `./tools/qa_script.sh` to validate:
 - Workflow success rates (should be >80%)
 - Data freshness (GTFS-RT <10 minutes old, weather <7 days behind)
 - Row counts (~250+ snapshots/day)
@@ -570,4 +570,4 @@ In CI, this shouldn't happen since workflows don't overlap.
 
 ---
 
-**Questions?** Check workflow logs in GitHub Actions UI or run the QA script: `./scripts/qa_script.sh`.
+**Questions?** Check workflow logs in GitHub Actions UI or run the QA script: `./tools/qa_script.sh`.

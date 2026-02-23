@@ -8,7 +8,7 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from whylinedenver.sync.state_store import SyncStateUploadError, load_sync_state, write_sync_state
+from whyline.sync.state_store import SyncStateUploadError, load_sync_state, write_sync_state
 
 LOGGER = logging.getLogger(__name__)
 

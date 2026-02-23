@@ -1,7 +1,7 @@
 name: Realtime BigQuery Load
 
 on:
-  # Automated cadence handled by Cloud Scheduler → Cloud Run (see deploy/cloud-run/README.md)
+  # Automated cadence handled by Cloud Scheduler → Cloud Run (see infra/cloud-run/README.md)
   workflow_dispatch:
 
 jobs:

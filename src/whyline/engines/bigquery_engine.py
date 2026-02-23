@@ -6,8 +6,8 @@ from google.api_core import exceptions
 from google.auth.exceptions import DefaultCredentialsError
 from google.cloud import bigquery
 
-from whylinedenver.llm import adapt_sql_for_engine
-from whylinedenver.semantics.dbt_artifacts import DbtArtifacts
+from whyline.llm import adapt_sql_for_engine
+from whyline.semantics.dbt_artifacts import DbtArtifacts
 
 
 @lru_cache(maxsize=1)

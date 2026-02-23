@@ -15,7 +15,7 @@ import pandas as pd
 import requests
 from google.transit import gtfs_realtime_pb2
 
-from whylinedenver.ingest import common
+from whyline.ingest import io
 
 DEFAULT_TRIP_UPDATES_URL = "https://www.rtd-denver.com/files/gtfs-rt/TripUpdate.pb"
 DEFAULT_VEHICLE_POSITIONS_URL = "https://www.rtd-denver.com/files/gtfs-rt/VehiclePosition.pb"
@@ -54,7 +54,7 @@ VEHICLE_POSITIONS_COLUMNS = [
     "event_ts_utc",
 ]
 
-LOGGER = common.get_logger(__name__)
+LOGGER = io.get_logger(__name__)
 PathLike = Union[str, Path]
 
 
@@ -87,7 +87,7 @@ def run(args: argparse.Namespace) -> int:
 
         snapshot_dir = _join_path(root, "rtd_gtfsrt", f"snapshot_at={snapshot_label}")
         manifest_path = _join_path(snapshot_dir, "manifest.json")
-        if common.exists(manifest_path):
+        if io.exists(manifest_path):
             LOGGER.info("Skipping snapshot %s; manifest already present.", snapshot_label)
             continue
 
@@ -142,7 +142,7 @@ def run(args: argparse.Namespace) -> int:
             snapshots_expected=args.snapshots,
             coverage_ratio=coverage_ratio,
         )
-        common.write_manifest(_ensure_directory_target(snapshot_dir), manifest_meta)
+        io.write_manifest(_ensure_directory_target(snapshot_dir), manifest_meta)
         LOGGER.info(
             "Snapshot %s trip_updates=%d rows, vehicle_positions=%d rows in %.2fs.",
             snapshot_label,
@@ -231,7 +231,7 @@ def parse_route_filter(route_filter: str | None) -> set[str] | None:
 
 def fetch_feed(url: str, timeout_sec: int) -> tuple[bytes | None, str | None]:
     try:
-        response = common.http_get_with_retry(url, timeout=timeout_sec, logger=LOGGER)
+        response = io.http_get_with_retry(url, timeout=timeout_sec, logger=LOGGER)
     except requests.RequestException as exc:
         LOGGER.warning("Failed to fetch %s: %s", url, exc)
         return None, str(exc)
@@ -407,23 +407,23 @@ def build_manifest(
         "trip_updates.csv.gz": {
             "path": str(trip_updates_path),
             "row_count": int(len(trip_updates_df)),
-            "bytes": common.sizeof_bytes(trip_updates_payload),
-            "hash_md5": common.hash_bytes_md5(trip_updates_payload),
+            "bytes": io.sizeof_bytes(trip_updates_payload),
+            "hash_md5": io.hash_bytes_md5(trip_updates_payload),
             "status": "ok" if trip_updates_error is None else "error",
             "error": trip_updates_error,
         },
         "vehicle_positions.csv.gz": {
             "path": str(vehicle_positions_path),
             "row_count": int(len(vehicle_positions_df)),
-            "bytes": common.sizeof_bytes(vehicle_positions_payload),
-            "hash_md5": common.hash_bytes_md5(vehicle_positions_payload),
+            "bytes": io.sizeof_bytes(vehicle_positions_payload),
+            "hash_md5": io.hash_bytes_md5(vehicle_positions_payload),
             "status": "ok" if vehicle_positions_error is None else "error",
             "error": vehicle_positions_error,
         },
     }
 
     total_bytes = sum(meta["bytes"] for meta in files_meta.values())
-    combined_hash = common.hash_bytes_md5(trip_updates_payload + vehicle_positions_payload)
+    combined_hash = io.hash_bytes_md5(trip_updates_payload + vehicle_positions_payload)
 
     notes_parts: list[str] = []
     if trip_updates_error:
@@ -442,7 +442,7 @@ def build_manifest(
     return {
         "source": sources,
         "extract_date": feed_ts_iso[:10],
-        "written_at_utc": common.utc_now_iso(),
+        "written_at_utc": io.utc_now_iso(),
         "feed_ts_utc": feed_ts_iso,
         "snapshot_label": snapshot_label,
         "file_count": len(files_meta),
@@ -499,7 +499,7 @@ def _epoch_to_iso(epoch_seconds: int) -> str:
 def _write_bytes(path: PathLike, data: bytes, *, content_type: str) -> None:
     if _is_gcs_path(path):
         bucket, blob_path = _split_gcs_uri(path)
-        common.upload_bytes_gcs(bucket, blob_path, data, content_type)
+        io.upload_bytes_gcs(bucket, blob_path, data, content_type)
     else:
         path_obj = Path(path) if isinstance(path, str) else path
         path_obj.parent.mkdir(parents=True, exist_ok=True)

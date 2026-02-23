@@ -1,4 +1,4 @@
-whylinedenver:
+whyline_denver:
   outputs:
     prod:
       type: bigquery

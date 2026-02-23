@@ -15,13 +15,13 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from whylinedenver.config import settings
-from whylinedenver.engines import bigquery_engine, duckdb_engine
-from whylinedenver.llm import adapt_sql_for_engine
-from whylinedenver.semantics.dbt_artifacts import DbtArtifacts, ModelInfo
-from whylinedenver.sync.state_store import load_sync_state
+from whyline.config import settings
+from whyline.engines import bigquery_engine, duckdb_engine
+from whyline.llm import adapt_sql_for_engine
+from whyline.semantics.dbt_artifacts import DbtArtifacts, ModelInfo
+from whyline.sync.state_store import load_sync_state
 
-from .formatting import format_timestamp
+from .display import format_timestamp
 
 
 @st.cache_data

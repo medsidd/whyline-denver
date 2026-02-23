@@ -4,9 +4,9 @@ from datetime import UTC, date, datetime
 from typing import Dict, Iterable, Optional
 from unittest.mock import MagicMock
 
-from whylinedenver.config import Settings
-from whylinedenver.sync.export_bq_marts import ALLOWLISTED_MARTS, MartExporter
-from whylinedenver.sync.state import ExportState
+from whyline.config import Settings
+from whyline.sync.export_bq_marts import ALLOWLISTED_MARTS, MartExporter
+from whyline.sync.state import ExportState
 
 
 class FakeStateStore:

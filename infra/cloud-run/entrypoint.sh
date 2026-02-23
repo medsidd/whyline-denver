@@ -19,7 +19,7 @@ case "${JOB_TYPE}" in
     INTERVAL="${GTFS_INTERVAL_SEC:-120}"
     EXTRA_FLAGS="${GTFS_EXTRA_FLAGS:-}"
     log "Running GTFS-RT ingest snapshots=${SNAPSHOTS} interval=${INTERVAL}s bucket=${GCS_BUCKET} extra_flags='${EXTRA_FLAGS}'"
-    CMD=(python -m whylinedenver.ingest.gtfs_realtime
+    CMD=(python -m whyline.ingest.gtfs_realtime
       --gcs \
       --bucket "${GCS_BUCKET}" \
       --snapshots "${SNAPSHOTS}" \

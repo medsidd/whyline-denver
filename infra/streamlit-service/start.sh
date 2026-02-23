@@ -114,7 +114,7 @@ from pathlib import Path
 
 from google.cloud import storage
 
-from whylinedenver.sync.constants import ALLOWLISTED_MARTS
+from whyline.sync.constants import ALLOWLISTED_MARTS
 
 project = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCP_PROJECT_ID") or os.getenv("PROJECT_ID")
 bucket_name = os.getenv("GCS_BUCKET")

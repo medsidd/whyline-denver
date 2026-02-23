@@ -17,18 +17,18 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 # Import from app components (add app directory to path if needed)
-from whylinedenver.engines import bigquery_engine, duckdb_engine
-from whylinedenver.llm import adapt_sql_for_engine
-from whylinedenver.logs import log_query, query_cache
-from whylinedenver.semantics.dbt_artifacts import ModelInfo
-from whylinedenver.sql_guardrails import GuardrailConfig, SqlValidationError, sanitize_sql
+from whyline.engines import bigquery_engine, duckdb_engine
+from whyline.llm import adapt_sql_for_engine
+from whyline.logs import log_query, query_cache
+from whyline.semantics.dbt_artifacts import ModelInfo
+from whyline.sql_guardrails import GuardrailConfig, SqlValidationError, sanitize_sql
 
 if str(Path(__file__).parent.parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from components.charts import build_chart, build_map
-from utils.data_loaders import load_stop_lookup
-from utils.formatting import format_timestamp, human_readable_bytes
+from utils.widget_data import load_stop_lookup
+from utils.display import format_timestamp, human_readable_bytes
 
 MART_OPTIONS: list[tuple[str, str]] = [
     ("mart_reliability_by_route_day", "Reliability by route & day"),

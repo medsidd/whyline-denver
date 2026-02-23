@@ -16,7 +16,7 @@ import requests
 import yaml
 from dotenv import load_dotenv
 
-from whylinedenver.ingest import common
+from whyline.ingest import io
 
 load_dotenv(override=False)
 
@@ -42,7 +42,7 @@ COLUMNS_OUT = [
 ]
 
 PathLike = Union[str, Path]
-LOGGER = common.get_logger(__name__)
+LOGGER = io.get_logger(__name__)
 
 
 def run(args: argparse.Namespace) -> int:
@@ -64,7 +64,7 @@ def run(args: argparse.Namespace) -> int:
     date_dir = _join_path(root, "acs", f"extract_date={extract_date}")
     output_path = _join_path(date_dir, filename)
 
-    if common.exists(output_path):
+    if io.exists(output_path):
         LOGGER.info("Skipping ingest; %s already exists.", output_path)
         return 0
 
@@ -100,7 +100,7 @@ def run(args: argparse.Namespace) -> int:
         args=args,
         variables=var_config["vars"],
     )
-    common.write_manifest(_ensure_directory_target(date_dir), manifest)
+    io.write_manifest(_ensure_directory_target(date_dir), manifest)
 
     LOGGER.info(
         "Wrote %d rows to %s (denominator coverage %s)",
@@ -290,11 +290,11 @@ def build_manifest(
     return {
         "source": "https://api.census.gov",
         "extract_date": extract_date,
-        "written_at_utc": common.utc_now_iso(),
+        "written_at_utc": io.utc_now_iso(),
         "file_count": 1,
         "row_count": int(len(df)),
-        "bytes": common.sizeof_bytes(payload),
-        "hash_md5": common.hash_bytes_md5(payload),
+        "bytes": io.sizeof_bytes(payload),
+        "hash_md5": io.hash_bytes_md5(payload),
         "schema_version": "v1",
         "notes": f"ACS {args.year} {args.geo} level for state {args.state_fips} county {args.county_fips}",
         "year": int(args.year),
@@ -306,8 +306,8 @@ def build_manifest(
         "files": {
             filename: {
                 "row_count": int(len(df)),
-                "bytes": common.sizeof_bytes(payload),
-                "hash_md5": common.hash_bytes_md5(payload),
+                "bytes": io.sizeof_bytes(payload),
+                "hash_md5": io.hash_bytes_md5(payload),
             }
         },
     }
@@ -347,7 +347,7 @@ def _ensure_directory_target(path: PathLike) -> PathLike:
 def _write_bytes(path: PathLike, data: bytes, *, content_type: str) -> None:
     if isinstance(path, str) and path.startswith("gs://"):
         bucket, blob_path = _split_gcs_uri(path)
-        common.upload_bytes_gcs(bucket, blob_path, data, content_type)
+        io.upload_bytes_gcs(bucket, blob_path, data, content_type)
     else:
         path_obj = Path(path) if isinstance(path, str) else path
         path_obj.parent.mkdir(parents=True, exist_ok=True)

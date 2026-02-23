@@ -54,7 +54,7 @@ DBT_CMD       := $(DBT_PROFILES) \
 	BQ_DATASET_RAW=$(BQ_DATASET_RAW) \
 	BQ_DATASET_STG=$(BQ_DATASET_STG) \
 	BQ_DATASET_MART=$(BQ_DATASET_MART) \
-	$(PY) -m scripts.dbt_with_env
+	$(PY) -m tools.dbt_with_env
 
 # Tooling ---------------------------------------------------------------------
 install:
@@ -104,28 +104,28 @@ ingest-all: ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks in
 ingest-static: ingest-gtfs-static ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts
 
 ingest-gtfs-static:
-	$(PY) -m whylinedenver.ingest.gtfs_static $(INGEST_MODE_ARGS)
+	$(PY) -m whyline.ingest.gtfs_static $(INGEST_MODE_ARGS)
 
 ingest-gtfs-rt:
-	$(PY) -m whylinedenver.ingest.gtfs_realtime $(INGEST_MODE_ARGS) --snapshots 2 --interval-sec 90
+	$(PY) -m whyline.ingest.gtfs_realtime $(INGEST_MODE_ARGS) --snapshots 2 --interval-sec 90
 
 ingest-crashes:
-	$(PY) -m whylinedenver.ingest.denver_crashes $(INGEST_MODE_ARGS)
+	$(PY) -m whyline.ingest.denver_crashes $(INGEST_MODE_ARGS)
 
 ingest-sidewalks:
-	$(PY) -m whylinedenver.ingest.denver_sidewalks $(INGEST_MODE_ARGS)
+	$(PY) -m whyline.ingest.denver_sidewalks $(INGEST_MODE_ARGS)
 
 ingest-noaa:
 	@set -euo pipefail; \
 	START_DATE=$$(date -u -v-30d +%Y-%m-%d 2>/dev/null || date -u -d '30 days ago' +%Y-%m-%d); \
 	END_DATE=$$(date -u -v-1d +%Y-%m-%d 2>/dev/null || date -u -d 'yesterday' +%Y-%m-%d); \
-	$(PY) -m whylinedenver.ingest.noaa_daily $(INGEST_MODE_ARGS) --start $$START_DATE --end $$END_DATE
+	$(PY) -m whyline.ingest.noaa_daily $(INGEST_MODE_ARGS) --start $$START_DATE --end $$END_DATE
 
 ingest-acs:
-	$(PY) -m whylinedenver.ingest.acs $(INGEST_MODE_ARGS) --year 2023 --geo tract
+	$(PY) -m whyline.ingest.acs $(INGEST_MODE_ARGS) --year 2023 --geo tract
 
 ingest-tracts:
-	$(PY) -m whylinedenver.ingest.denver_tracts $(INGEST_MODE_ARGS)
+	$(PY) -m whyline.ingest.denver_tracts $(INGEST_MODE_ARGS)
 
 ingest-all-local:
 	@$(MAKE) INGEST_DEST=local ingest-all
@@ -137,7 +137,7 @@ bq-load:
 	@$(MAKE) bq-load-realtime
 
 bq-load-local:
-	$(PY) -m whylinedenver.load.bq_load --src local --bucket $(GCS_BUCKET) --from 2025-01-01
+	$(PY) -m whyline.load.bq_load --src local --bucket $(GCS_BUCKET) --from 2025-01-01
 
 bq-load-realtime:
 	@set -euo pipefail; \
@@ -148,13 +148,13 @@ bq-load-realtime:
 		FROM_DATE=$$(date -u +%Y-%m-%d); \
 	fi; \
 	UNTIL_DATE=$$(date -u +%Y-%m-%d); \
-	$(PY) -m whylinedenver.load.bq_load --src gcs --bucket $(GCS_BUCKET) --from $$FROM_DATE --until $$UNTIL_DATE
+	$(PY) -m whyline.load.bq_load --src gcs --bucket $(GCS_BUCKET) --from $$FROM_DATE --until $$UNTIL_DATE
 
 bq-load-historical:
 	@set -euo pipefail; \
 	FROM_DATE=$${FROM:-2025-01-01}; \
 	UNTIL_DATE=$${UNTIL:-$$(date -u +%Y-%m-%d)}; \
-	$(PY) -m whylinedenver.load.bq_load --src gcs --bucket $(GCS_BUCKET) --from $$FROM_DATE --until $$UNTIL_DATE; \
+	$(PY) -m whyline.load.bq_load --src gcs --bucket $(GCS_BUCKET) --from $$FROM_DATE --until $$UNTIL_DATE; \
 	DBT_TARGET=prod $(DBT_CMD) run --project-dir dbt --target prod --select 'staging marts'; \
 	DBT_TARGET=prod $(DBT_CMD) test --project-dir dbt --target prod --select 'marts'
 
@@ -169,7 +169,7 @@ sync-export:
 			ARGS="$$ARGS --mart $$MART"; \
 		done; \
 	fi; \
-	$(PY) -m whylinedenver.sync.export_bq_marts $$ARGS
+	$(PY) -m whyline.sync.export_bq_marts $$ARGS
 
 sync-refresh:
 	@set -euo pipefail; \
@@ -187,7 +187,7 @@ sync-refresh:
 	if [ -n "$${DRY_RUN:-}" ]; then \
 		ARGS="$$ARGS --dry-run"; \
 	fi; \
-	$(PY) -m whylinedenver.sync.refresh_duckdb $$ARGS
+	$(PY) -m whyline.sync.refresh_duckdb $$ARGS
 
 sync-duckdb: sync-export sync-refresh
 
@@ -241,7 +241,7 @@ dbt-run-static:
 
 # Update BigQuery freshness timestamp in sync_state.json after dbt runs
 update-bq-timestamp:
-	$(PY) -m whylinedenver.sync.update_bq_timestamp
+	$(PY) -m whyline.sync.update_bq_timestamp
 
 # Workflows -------------------------------------------------------------------
 dev-loop-local:
@@ -284,10 +284,10 @@ pages-build:
 
 export-diagrams:
 	@echo "Exporting draw.io diagrams to SVG/PNG..."
-	@bash scripts/export_diagrams.sh
+	@bash tools/export_diagrams.sh
 
 cloud-run-build:
-	@docker build -t $(CLOUD_RUN_IMAGE) -f deploy/cloud-run/Dockerfile .
+	@docker build -t $(CLOUD_RUN_IMAGE) -f infra/cloud-run/Dockerfile .
 
 cloud-run-tag:
 	@docker tag $(CLOUD_RUN_IMAGE) $(CLOUD_RUN_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(CLOUD_RUN_REPO)/$(CLOUD_RUN_IMAGE)

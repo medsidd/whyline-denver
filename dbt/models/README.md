@@ -886,7 +886,7 @@ dbt models are built nightly via GitHub Actions (see [.github/workflows/README.m
 3. Run intermediate models (`dbt run --select intermediate.*`)
 4. Run mart models (`dbt run --select marts.*`)
 5. Run tests (`dbt test`)
-6. Export marts to GCS (`python -m whylinedenver.sync.export_bq_marts`)
+6. Export marts to GCS (`python -m whyline.sync.export_bq_marts`)
 7. Upload artifacts (manifest.json, catalog.json) for dbt docs
 
 **Duration**: ~10-15 minutes

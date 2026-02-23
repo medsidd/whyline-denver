@@ -11,9 +11,9 @@ try:
 except ImportError:  # pragma: no cover - optional dependency for stub mode
     genai = None
 
-from whylinedenver.config import settings
-from whylinedenver.semantics.dbt_artifacts import ModelInfo
-from whylinedenver.sql_guardrails import CTE_PATTERN
+from whyline.config import settings
+from whyline.semantics.dbt_artifacts import ModelInfo
+from whyline.sql_guardrails import CTE_PATTERN
 
 
 def build_schema_brief(models: Mapping[str, ModelInfo], *, max_columns: int = 7) -> str:
