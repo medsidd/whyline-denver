@@ -14,11 +14,11 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 # Import from app utils (add app directory to path if needed)
-from whylinedenver.config import settings
+from whyline.config import settings
 
 if str(Path(__file__).parent.parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils.data_loaders import (
+from utils.widget_data import (
     load_route_options,
     load_service_date_range,
     load_weather_bins,

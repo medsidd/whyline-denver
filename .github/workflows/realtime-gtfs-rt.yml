@@ -1,7 +1,7 @@
 name: Realtime GTFS-RT Snapshots
 
 on:
-  # Automated cadence handled by Cloud Scheduler → Cloud Run (see deploy/cloud-run/README.md)
+  # Automated cadence handled by Cloud Scheduler → Cloud Run (see infra/cloud-run/README.md)
   workflow_dispatch:
 
 jobs:
@@ -40,6 +40,6 @@ jobs:
         env:
           GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
         run: |
-          PYTHONPATH=$PWD/src python -m whylinedenver.ingest.gtfs_realtime \
+          PYTHONPATH=$PWD/src python -m whyline.ingest.gtfs_realtime \
             --gcs --bucket $GCS_BUCKET \
             --snapshots 1

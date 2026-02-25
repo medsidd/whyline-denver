@@ -20,9 +20,9 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from whylinedenver.config import settings
-from whylinedenver.llm import build_schema_brief
-from whylinedenver.sql_guardrails import GuardrailConfig
+from whyline.config import settings
+from whyline.llm import build_schema_brief
+from whyline.sql_guardrails import GuardrailConfig
 
 # Import components
 from components import (
@@ -33,7 +33,7 @@ from components import (
     sidebar,
     sql_editor,
 )
-from utils import data_loaders, session
+from utils import widget_data, session
 
 # ═══════════════════════════════════════════════════════════════════════════
 # PAGE CONFIGURATION
@@ -247,7 +247,7 @@ branding.render_header()
 session.initialize()
 
 # Load allowed models and build guardrail config
-models = data_loaders.load_allowed_models()
+models = widget_data.load_allowed_models()
 allowlist = set(models.keys())
 
 # Build allowed projects and datasets for BigQuery

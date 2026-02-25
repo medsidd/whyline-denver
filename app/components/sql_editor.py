@@ -13,14 +13,14 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 # Import from app utils (add app directory to path if needed)
-from whylinedenver.engines import bigquery_engine
-from whylinedenver.llm import adapt_sql_for_engine
-from whylinedenver.semantics.dbt_artifacts import ModelInfo
-from whylinedenver.sql_guardrails import GuardrailConfig, SqlValidationError, sanitize_sql
+from whyline.engines import bigquery_engine
+from whyline.llm import adapt_sql_for_engine
+from whyline.semantics.dbt_artifacts import ModelInfo
+from whyline.sql_guardrails import GuardrailConfig, SqlValidationError, sanitize_sql
 
 if str(Path(__file__).parent.parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils.formatting import human_readable_bytes
+from utils.display import human_readable_bytes
 
 
 def render(

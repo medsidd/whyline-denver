@@ -6,8 +6,8 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from whylinedenver.config import Settings
-from whylinedenver.sync import refresh_duckdb
+from whyline.config import Settings
+from whyline.sync import refresh_duckdb
 
 
 def _write_parquet(path: Path, rows: int) -> None:

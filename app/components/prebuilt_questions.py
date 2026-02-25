@@ -11,9 +11,9 @@ import streamlit as st
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from whylinedenver.llm import adapt_sql_for_engine
-from whylinedenver.semantics.dbt_artifacts import ModelInfo
-from whylinedenver.sql_guardrails import GuardrailConfig, SqlValidationError, sanitize_sql
+from whyline.llm import adapt_sql_for_engine
+from whyline.semantics.dbt_artifacts import ModelInfo
+from whyline.sql_guardrails import GuardrailConfig, SqlValidationError, sanitize_sql
 
 # ═══════════════════════════════════════════════════════════════════════════
 # PREBUILT QUESTIONS - Fast demos and guardrails-friendly starting points

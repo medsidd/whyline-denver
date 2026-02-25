@@ -3,11 +3,11 @@ repos:
     rev: v0.6.3
     hooks:
       - id: ruff
-        exclude: ^src/whylinedenver/ingest/common\.py$
+        exclude: ^src/whyline/ingest/io\.py$
       - id: ruff-format
-        exclude: ^src/whylinedenver/ingest/common\.py$
+        exclude: ^src/whyline/ingest/io\.py$
   - repo: https://github.com/psf/black
     rev: 24.8.0
     hooks:
       - id: black
-        exclude: ^src/whylinedenver/ingest/common\.py$
+        exclude: ^src/whyline/ingest/io\.py$

@@ -1,7 +1,7 @@
 version: 2
 
 exposures:
-  - name: whylinedenver_app
+  - name: whyline_denver_app
     type: application
     maturity: low
     url: https://whylinedenver.com

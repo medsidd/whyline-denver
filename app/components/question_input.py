@@ -14,14 +14,14 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 # Import from app utils (add app directory to path if needed)
-from whylinedenver.llm import adapt_sql_for_engine, build_prompt, call_provider
-from whylinedenver.logs import prompt_cache
-from whylinedenver.semantics.dbt_artifacts import ModelInfo
-from whylinedenver.sql_guardrails import GuardrailConfig, SqlValidationError, sanitize_sql
+from whyline.llm import adapt_sql_for_engine, build_prompt, call_provider
+from whyline.logs import prompt_cache
+from whyline.semantics.dbt_artifacts import ModelInfo
+from whyline.sql_guardrails import GuardrailConfig, SqlValidationError, sanitize_sql
 
 if str(Path(__file__).parent.parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils.filters import add_filter_clauses
+from utils.sql_filters import add_filter_clauses
 
 
 def render(

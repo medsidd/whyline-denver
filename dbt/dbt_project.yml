@@ -1,11 +1,11 @@
-name: 'whylinedenver_dbt'
+name: 'whyline_denver_dbt'
 version: '1.0'
-profile: 'whylinedenver'
+profile: 'whyline_denver'
 model-paths: ['models']
 target-path: 'target'
 clean-targets: ['target']
 models:
-  whylinedenver_dbt:
+  whyline_denver_dbt:
     +materialized: view
     staging:
       +schema: "{{ env_var('BQ_DATASET_STG', 'stg_denver') }}"
