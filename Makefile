@@ -101,7 +101,10 @@ app:
 ingest-all: ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts
 
 # Ingest without realtime (realtime handled by cloud run workflow)
-ingest-static: ingest-gtfs-static ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts
+# ingest-tracts is non-fatal (-) because census tract geometry is static reference data
+# (changes every 10 years) and BQ already holds data from prior runs.
+ingest-static: ingest-gtfs-static ingest-crashes ingest-sidewalks ingest-noaa ingest-acs
+	-$(MAKE) ingest-tracts
 
 ingest-gtfs-static:
 	$(PY) -m whyline.ingest.gtfs_static $(INGEST_MODE_ARGS)
