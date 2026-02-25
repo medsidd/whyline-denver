@@ -65,7 +65,7 @@ class Settings:
     BQ_DATASET_RAW: str = os.getenv("BQ_DATASET_RAW", "raw_denver")
     BQ_DATASET_STG: str = os.getenv("BQ_DATASET_STG", "stg_denver")
     BQ_DATASET_MART: str = os.getenv("BQ_DATASET_MART", "mart_denver")
-    ENGINE: str = os.getenv("ENGINE", "duckdb")  # duckdb|bigquery
+    ENGINE: str = os.getenv("ENGINE", "bigquery")  # duckdb|bigquery
     DBT_TARGET: str = os.getenv("DBT_TARGET", "prod")
     MAX_BYTES_BILLED: int = int(os.getenv("MAX_BYTES_BILLED", "2000000000"))  # 2GB
     GOOGLE_APPLICATION_CREDENTIALS: str = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
