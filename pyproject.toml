@@ -10,10 +10,11 @@ lint.ignore = ["E501"]                                # handled by black
 exclude = ["dbt/target","dbt/.dbt"]
 
 # S608 (Possible SQL injection) is ignored because all SQL queries are parameterized and inputs are sanitized elsewhere.
-# E402 (module level import not at top) is ignored for app/ files due to necessary sys.path manipulation for Streamlit
+# E402 (module level import not at top) is ignored for app/ and api/ files due to necessary sys.path manipulation before whyline imports
 [tool.ruff.lint.per-file-ignores]
 "*.py" = ["S101", "UP007", "UP035", "UP006", "B904", "N802", "S310", "S608"]
 "app/**/*.py" = ["E402", "C901"]
+"api/**/*.py" = ["E402", "S110"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

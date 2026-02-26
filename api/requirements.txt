@@ -1,0 +1,27 @@
+# FastAPI + ASGI server
+fastapi>=0.112.0
+uvicorn[standard]>=0.30.0
+
+# Core data / query dependencies (same pins as main requirements.txt)
+pandas==2.2.2
+pyarrow==16.1.0
+duckdb==1.4.1
+google-cloud-storage==2.18.2
+google-cloud-bigquery==3.25.0
+google-cloud-bigquery-storage
+protobuf==4.25.3
+
+# dbt artifacts parsing
+dbt-core==1.8.5
+dbt-bigquery==1.8.2
+
+# LLM provider
+google-generativeai>=0.7
+
+# Utility
+requests==2.32.3
+certifi
+python-dotenv==1.0.1
+
+# Install the whyline package from the monorepo root
+-e .

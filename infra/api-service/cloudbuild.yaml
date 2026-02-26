@@ -1,0 +1,16 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--file=api/Dockerfile'
+      - '--tag=$_IMAGE_URI'
+      - '.'
+
+images:
+  - '$_IMAGE_URI'
+
+substitutions:
+  _IMAGE_URI: 'us-central1-docker.pkg.dev/${PROJECT_ID}/api-service/whylinedenver-api:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

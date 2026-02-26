@@ -1,7 +1,7 @@
 .SHELLFLAGS := -o pipefail -c
 SHELL := /bin/bash
 .PHONY: install lint format test test-ingest run app ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local bq-load-realtime bq-load-historical dbt-source-freshness dbt-compile dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dbt-run-realtime dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams
-.PHONY: sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams dbt-run-realtime streamlit-build streamlit-run
+.PHONY: sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams dbt-run-realtime streamlit-build streamlit-run api-dev api-test api-build api-deploy artifact-repo-create-api frontend-dev frontend-build frontend-test
 
 # Shared command helpers ------------------------------------------------------
 PYTHON        := python
@@ -48,6 +48,18 @@ CLOUD_RUN_STREAMLIT_CONCURRENCY  ?= 10
 CLOUD_RUN_STREAMLIT_CPU          ?= 8
 CLOUD_RUN_STREAMLIT_MEMORY       ?= 4Gi
 MAX_BYTES_BILLED ?= 2000000000  # 2 GB default max bytes billed for queries
+
+# FastAPI service defaults
+CLOUD_RUN_API_REPO          ?= api-service
+CLOUD_RUN_API_IMAGE         ?= whylinedenver-api
+CLOUD_RUN_API_SERVICE       ?= whylinedenver-api
+CLOUD_RUN_API_SA            ?= streamlit-app@$(GCP_PROJECT_ID).iam.gserviceaccount.com
+CLOUD_RUN_API_MIN_INSTANCES ?= 0
+CLOUD_RUN_API_MAX_INSTANCES ?= 3
+CLOUD_RUN_API_CONCURRENCY   ?= 80
+CLOUD_RUN_API_CPU           ?= 2
+CLOUD_RUN_API_MEMORY        ?= 2Gi
+CLOUD_RUN_API_IMAGE_URI     ?= $(CLOUD_RUN_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(CLOUD_RUN_API_REPO)/$(CLOUD_RUN_API_IMAGE):latest
 
 DBT_CMD       := $(DBT_PROFILES) \
 	GCP_PROJECT_ID=$(GCP_PROJECT_ID) \
@@ -380,8 +392,71 @@ cloud-run-deploy-streamlit: cloud-run-build-streamlit
 		--add-volume=name=duckdb-bucket,type=cloud-storage,bucket=$(GCS_BUCKET) \
 		--add-volume-mount=volume=duckdb-bucket,mount-path=/mnt/gcs
 
+# ── FastAPI API service ────────────────────────────────────────────────────
+api-dev:
+	PYTHONPATH=src uvicorn api.main:app --reload --port 8000
+
+api-test:
+	$(PY) -m pytest api/tests/ -v
+
+artifact-repo-create-api:
+	gcloud artifacts repositories create $(CLOUD_RUN_API_REPO) \
+	  --project $(GCP_PROJECT_ID) \
+	  --repository-format=docker \
+	  --location $(CLOUD_RUN_REGION) \
+	  --description "WhyLine FastAPI service images"
+
+api-build:
+	gcloud builds submit \
+		--project $(GCP_PROJECT_ID) \
+		--region $(CLOUD_RUN_REGION) \
+		--config infra/api-service/cloudbuild.yaml \
+		--substitutions _IMAGE_URI=$(CLOUD_RUN_API_IMAGE_URI) \
+		.
+
+api-deploy: api-build
+	gcloud run deploy $(CLOUD_RUN_API_SERVICE) \
+		--project $(GCP_PROJECT_ID) \
+		--region $(CLOUD_RUN_REGION) \
+		--image $(CLOUD_RUN_API_IMAGE_URI) \
+		--allow-unauthenticated \
+		--min-instances $(CLOUD_RUN_API_MIN_INSTANCES) \
+		--max-instances $(CLOUD_RUN_API_MAX_INSTANCES) \
+		--concurrency $(CLOUD_RUN_API_CONCURRENCY) \
+		--cpu $(CLOUD_RUN_API_CPU) \
+		--memory $(CLOUD_RUN_API_MEMORY) \
+		--execution-environment gen2 \
+		--service-account $(CLOUD_RUN_API_SA) \
+		--set-env-vars GCP_PROJECT_ID=$(GCP_PROJECT_ID) \
+		--set-env-vars GCS_BUCKET=$(GCS_BUCKET) \
+		--set-env-vars BQ_DATASET_RAW=$(BQ_DATASET_RAW) \
+		--set-env-vars BQ_DATASET_STG=$(BQ_DATASET_STG) \
+		--set-env-vars BQ_DATASET_MART=$(BQ_DATASET_MART) \
+		--set-env-vars SYNC_STATE_GCS_BUCKET=$(GCS_BUCKET) \
+		--set-env-vars SYNC_STATE_GCS_BLOB=state/sync_state.json \
+		--set-env-vars DUCKDB_GCS_BLOB=$(CLOUD_RUN_DUCKDB_BLOB) \
+		--set-env-vars DUCKDB_PATH=/mnt/gcs/$(CLOUD_RUN_DUCKDB_BLOB) \
+		--set-env-vars DUCKDB_COPY_LOCAL=0 \
+		--set-env-vars ENGINE=duckdb \
+		--set-env-vars LLM_PROVIDER=$(LLM_PROVIDER) \
+		--set-env-vars GEMINI_MODEL=$(GEMINI_MODEL) \
+		$(CLOUD_RUN_STREAMLIT_GEMINI_FLAG) \
+		--set-env-vars MAX_BYTES_BILLED=$(MAX_BYTES_BILLED) \
+		--add-volume=name=duckdb-bucket,type=cloud-storage,bucket=$(GCS_BUCKET) \
+		--add-volume-mount=volume=duckdb-bucket,mount-path=/mnt/gcs
+
+# ── Next.js Frontend ───────────────────────────────────────────────────────
+frontend-dev:
+	cd frontend && npm run dev
+
+frontend-build:
+	cd frontend && npm run build
+
+frontend-test:
+	cd frontend && npx playwright test
+
 ci-help:
-	@echo "Targets: install | lint | format | test | run | ingest-* | bq-load(-local|-realtime|-historical) | dbt-* | dev-loop | export-diagrams | cloud-run-(build|push|deploy-streamlit) | streamlit-(build|run)"
+	@echo "Targets: install | lint | format | test | run | ingest-* | bq-load(-local|-realtime|-historical) | dbt-* | dev-loop | export-diagrams | cloud-run-(build|push|deploy-streamlit) | streamlit-(build|run) | api-(dev|test|build|deploy) | frontend-(dev|build|test)"
 
 .SHELLFLAGS := -o pipefail -c
 SHELL := /bin/bash
