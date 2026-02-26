@@ -21,7 +21,7 @@ interface Props {
  * One LineChart per weather (precip_bin) condition.
  */
 export function WeatherSmallMultiples({ data, title }: Props) {
-  const bins = [...new Set(data.map((r) => String(r.precip_bin)))];
+  const bins = Array.from(new Set(data.map((r) => String(r.precip_bin))));
 
   return (
     <div className="w-full">

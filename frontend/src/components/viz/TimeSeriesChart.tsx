@@ -24,9 +24,9 @@ interface Props {
 export function TimeSeriesChart({ data, xKey, yKey, groupKey, title }: Props) {
   // If groupKey present, pivot to grouped line chart (top 5 groups)
   if (groupKey) {
-    const groups = [
-      ...new Set(data.map((r) => String(r[groupKey]))),
-    ].slice(0, 5);
+    const groups = Array.from(
+      new Set(data.map((r) => String(r[groupKey]))),
+    ).slice(0, 5);
 
     // Pivot: { [date]: { [group]: value } }
     const pivoted: Record<string, Record<string, unknown>> = {};
