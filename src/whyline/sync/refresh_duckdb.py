@@ -454,7 +454,12 @@ def _refresh_gtfs_stops_from_zip(
     try:
         with zipfile.ZipFile(gtfs_zip) as zf:
             with zf.open("stops.txt") as f:
-                df = pd.read_csv(f, dtype={"stop_id": str}, usecols=["stop_id", "stop_name"])
+                df = pd.read_csv(
+                    f,
+                    dtype={"stop_id": str},
+                    usecols=["stop_id", "stop_name", "stop_lat", "stop_lon"],
+                )
+        df = df.rename(columns={"stop_lat": "lat", "stop_lon": "lon"})
         LOGGER.info("Creating mart_gtfs_stops from GTFS zip (%d stops)", len(df))
         if not dry_run:
             row = con.execute(
@@ -463,7 +468,7 @@ def _refresh_gtfs_stops_from_zip(
             if row and row[0] == "VIEW":
                 con.execute("DROP VIEW mart_gtfs_stops")
             con.execute(
-                "CREATE OR REPLACE TABLE mart_gtfs_stops AS SELECT stop_id, stop_name FROM df"
+                "CREATE OR REPLACE TABLE mart_gtfs_stops AS SELECT stop_id, stop_name, lat, lon FROM df"
             )
     except Exception as exc:
         LOGGER.warning("Failed to create mart_gtfs_stops from GTFS zip: %s", exc)
