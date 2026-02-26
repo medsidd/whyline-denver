@@ -197,6 +197,18 @@ class FieldMapping:
     county_field: str | None
 
 
+# Known-good fallback for TIGER Web 2020 census tracts (MapServer/0).
+# Used when the metadata endpoint returns an empty or non-JSON response.
+_DEFAULT_FIELD_MAPPING = FieldMapping(
+    geoid_field="GEOID20",
+    name_field="NAMELSAD20",
+    aland_field="ALAND20",
+    awater_field="AWATER20",
+    state_field="STATEFP20",
+    county_field="COUNTYFP20",
+)
+
+
 @dataclass
 class Stats:
     total: int
@@ -383,7 +395,11 @@ def _output_has_records(path: str | Path) -> bool:
 
 
 def detect_field_mapping(*, source_url: str, timeout: int) -> FieldMapping:
-    """Inspect the layer to determine attribute field names."""
+    """Inspect the layer to determine attribute field names.
+
+    Falls back to _DEFAULT_FIELD_MAPPING when the metadata endpoint returns an
+    empty or non-JSON response (e.g. transient TIGER API outage).
+    """
     params = {
         "where": "1=1",
         "outFields": "*",
@@ -394,10 +410,20 @@ def detect_field_mapping(*, source_url: str, timeout: int) -> FieldMapping:
     response = io.http_get_with_retry(
         f"{source_url}/query", params=params, timeout=timeout, logger=LOGGER
     )
-    payload = response.json()
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        LOGGER.warning(
+            "Metadata response was empty or non-JSON (%s); using default TIGER 2020 field mapping.",
+            exc,
+        )
+        return _DEFAULT_FIELD_MAPPING
     features = payload.get("features") or []
     if not features:
-        raise RuntimeError("Layer returned no rows for metadata inspection.")
+        LOGGER.warning(
+            "Layer returned no rows for metadata inspection; using default field mapping."
+        )
+        return _DEFAULT_FIELD_MAPPING
 
     attrs: dict[str, Any] = features[0].get("attributes", {})
     if not attrs:

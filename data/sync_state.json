@@ -1,15 +1,15 @@
 {
-  "bigquery_updated_at_utc": "2026-02-05T18:50:00.403321Z",
-  "duckdb_synced_at_utc": "2026-02-05T19:12:39.070895+00:00",
+  "bigquery_updated_at_utc": "2026-02-25T10:03:18.800465Z",
+  "duckdb_synced_at_utc": "2026-02-26T00:20:50.115162+00:00",
   "marts": {
-    "mart_access_score_by_stop": "2026-02-05",
+    "mart_access_score_by_stop": "2026-02-26",
     "mart_cold": "2025-10-23",
-    "mart_crash_proximity_by_stop": "2026-02-05",
+    "mart_crash_proximity_by_stop": "2026-02-26",
     "mart_hot": "2025-10-22",
-    "mart_priority_hotspots": "2026-02-05",
-    "mart_reliability_by_route_day": "2026-02-05",
-    "mart_reliability_by_stop_hour": "2026-02-05",
-    "mart_vulnerability_by_stop": "2026-02-05",
-    "mart_weather_impacts": "2026-02-05"
+    "mart_priority_hotspots": "2026-02-26",
+    "mart_reliability_by_route_day": "2026-02-25",
+    "mart_reliability_by_stop_hour": "2026-02-25",
+    "mart_vulnerability_by_stop": "2026-02-26",
+    "mart_weather_impacts": "2026-02-26"
   }
 }

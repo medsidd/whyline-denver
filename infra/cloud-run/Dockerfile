@@ -16,4 +16,4 @@ COPY . /app
 
 RUN pip install -r requirements.txt
 
-ENTRYPOINT ["/bin/bash", "/app/deploy/cloud-run/entrypoint.sh"]
+ENTRYPOINT ["/bin/bash", "/app/infra/cloud-run/entrypoint.sh"]

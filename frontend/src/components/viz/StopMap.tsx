@@ -1,0 +1,103 @@
+"use client";
+
+import { useMemo } from "react";
+import DeckGL from "@deck.gl/react";
+import { ScatterplotLayer } from "@deck.gl/layers";
+import { Map } from "react-map-gl/maplibre";
+import "maplibre-gl/dist/maplibre-gl.css";
+import { tokens, rgbaTokens } from "@/lib/tokens";
+import { detectMapMetric } from "@/lib/chartLogic";
+
+// Denver center coordinates (same as Pydeck default in charts.py)
+const DENVER_VIEW = {
+  longitude: -104.9903,
+  latitude: 39.7392,
+  zoom: 11,
+  pitch: 0,
+  bearing: 0,
+};
+
+// Free dark map style (no token required — same visual as mapbox dark-v10)
+const MAP_STYLE = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+
+interface StopPoint {
+  stop_id?: string;
+  stop_name?: string;
+  lat: number;
+  lon: number;
+  [key: string]: unknown;
+}
+
+interface Props {
+  data: Record<string, unknown>[];
+}
+
+export function StopMap({ data }: Props) {
+  const columns = Object.keys(data[0] ?? {});
+  const metricKey = detectMapMetric(columns);
+
+  // Filter to valid coordinates, limit to 500 points (mirrors build_map)
+  const points: StopPoint[] = useMemo(() => {
+    return data
+      .filter((r) => {
+        const lat = Number(r.lat);
+        const lon = Number(r.lon);
+        return !isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0;
+      })
+      .slice(0, 500)
+      .map((r) => ({
+        ...r,
+        lat: Number(r.lat),
+        lon: Number(r.lon),
+      })) as StopPoint[];
+  }, [data]);
+
+  // Compute radius scale (mirrors Pydeck radius in build_map)
+  const metricValues = metricKey
+    ? points.map((p) => Number(p[metricKey] ?? 0)).filter((v) => !isNaN(v))
+    : [];
+  const maxVal = metricValues.length ? Math.max(...metricValues) : 1;
+
+  const layer = new ScatterplotLayer<StopPoint>({
+    id: "stops",
+    data: points,
+    getPosition: (d) => [d.lon, d.lat],
+    getRadius: (d) => {
+      if (!metricKey) return 80;
+      const val = Number(d[metricKey] ?? 0);
+      return Math.max(30, Math.min(250, (val / maxVal) * 200 + 30));
+    },
+    getFillColor: rgbaTokens.error.concat([160]) as [number, number, number, number],
+    pickable: true,
+    autoHighlight: true,
+    highlightColor: [255, 255, 255, 120],
+    radiusUnits: "pixels",
+  });
+
+  if (points.length === 0) return null;
+
+  return (
+    <div className="w-full rounded-xl overflow-hidden border" style={{ height: 420, borderColor: tokens.border }}>
+      <DeckGL
+        initialViewState={DENVER_VIEW}
+        controller
+        layers={[layer]}
+        getTooltip={({ object }) => {
+          if (!object) return null;
+          const point = object as StopPoint;
+          const label = point.stop_name ? `${point.stop_name} (${point.stop_id})` : String(point.stop_id ?? "");
+          const metric = metricKey
+            ? `${metricKey}: ${Number(point[metricKey] ?? 0).toFixed(2)}`
+            : "";
+          return {
+            html: `<div style="font-size:12px;color:#e8d5c4;background:#322e38;padding:8px;border-radius:6px">
+              <b>${label}</b>${metric ? `<br/>${metric}` : ""}
+            </div>`,
+          };
+        }}
+      >
+        <Map mapStyle={MAP_STYLE} />
+      </DeckGL>
+    </div>
+  );
+}

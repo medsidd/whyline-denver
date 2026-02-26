@@ -1,26 +1,41 @@
+# Python
 .venv/
 __pycache__/
 *.pyc
+*.egg-info
+.pytest_cache/
+.ruff_cache/
+
+# Environment & secrets
+.env
+.env.local
+secrets/
+
+# Data & build artifacts
 dbt/target/compiled/
 dbt/target/run/
 dbt/.dbt/
+dbt/logs/
+dbt/seeds/
+dbt/seeds/ingest_samples/
 data/warehouse.duckdb
 data/raw
 data/marts/
 data/sync_state.json
-.env
-/*.json
-secrets/
-.DS_Store
-dbt/seeds/ingest_samples/
-dbt/logs/
-dbt/seeds/
-*.egg-info
 logs/
+*.log
 *.logs
-.pytest_cache/
-.ruff_cache/
-src/whylinedenver/__pycache__/
+
+# Frontend (Next.js)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+frontend/.vercel/
+./node_modules/
+
+# Misc
+/*.json
+.DS_Store
 .vscode/
 site/
-
