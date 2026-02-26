@@ -5,7 +5,10 @@ from __future__ import annotations
 import sys
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 from fastapi import Depends
 
@@ -32,6 +35,27 @@ def _load_models() -> dict[str, WhylineModelInfo]:
 def _build_schema_brief_cached() -> str:
     """Build schema brief exactly once per process."""
     return build_schema_brief(_load_models())
+
+
+@lru_cache(maxsize=1)
+def get_stop_lookup() -> pd.DataFrame | None:
+    """Load stop geometry from local GTFS zip. Cached once per process."""
+    import zipfile
+
+    import pandas as pd
+
+    gtfs_zip = ROOT / "data" / "raw" / "rtd_gtfs" / "current" / "gtfs.zip"
+    try:
+        with zipfile.ZipFile(gtfs_zip) as zf:
+            with zf.open("stops.txt") as f:
+                df = pd.read_csv(
+                    f,
+                    dtype={"stop_id": str},
+                    usecols=["stop_id", "stop_name", "stop_lat", "stop_lon"],
+                )
+        return df.rename(columns={"stop_lat": "lat", "stop_lon": "lon"})
+    except Exception:
+        return None
 
 
 def get_models() -> dict[str, WhylineModelInfo]:

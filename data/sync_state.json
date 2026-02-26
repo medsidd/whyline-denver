@@ -1,6 +1,6 @@
 {
-  "bigquery_updated_at_utc": "2026-02-25T10:03:18.800465Z",
-  "duckdb_synced_at_utc": "2026-02-26T00:20:50.115162+00:00",
+  "bigquery_updated_at_utc": "2026-02-26T06:19:55.518547Z",
+  "duckdb_synced_at_utc": "2026-02-26T06:32:49.317090+00:00",
   "marts": {
     "mart_access_score_by_stop": "2026-02-26",
     "mart_cold": "2025-10-23",

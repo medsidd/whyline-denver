@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
-from api.deps import get_allowlist, get_guardrail_config, get_models
+from api.deps import get_allowlist, get_guardrail_config, get_models, get_stop_lookup
 from api.models import RunQueryRequest, RunQueryResponse
 from whyline.engines import bigquery_engine, duckdb_engine
 from whyline.llm import adapt_sql_for_engine
@@ -75,6 +75,14 @@ def run_query(req: RunQueryRequest) -> RunQueryResponse:
         total_rows = len(df)
         display_df = df.head(_MAX_DISPLAY_ROWS)
 
+        # Enrich with stop geometry if result has stop_id but not lat/lon
+        if "stop_id" in display_df.columns and "lat" not in display_df.columns:
+            stop_lookup = get_stop_lookup()
+            if stop_lookup is not None and not stop_lookup.empty:
+                display_df = display_df.copy()
+                display_df["stop_id"] = display_df["stop_id"].astype(str)
+                display_df = display_df.merge(stop_lookup, on="stop_id", how="left")
+
         # Ensure JSON-serializable types
         for col in display_df.columns:
             if display_df[col].dtype.name.startswith("datetime"):
@@ -83,7 +91,7 @@ def run_query(req: RunQueryRequest) -> RunQueryResponse:
 
         return RunQueryResponse(
             rows=min(total_rows, _MAX_DISPLAY_ROWS),
-            columns=list(df.columns),
+            columns=list(display_df.columns),
             data=display_df.to_dict(orient="records"),
             total_rows=total_rows,
             stats=stats,
