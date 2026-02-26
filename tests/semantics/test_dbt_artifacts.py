@@ -30,6 +30,7 @@ def test_allowed_models_include_week4_marts(artifacts: DbtArtifacts) -> None:
         "mart_priority_hotspots",
         "mart_weather_impacts",
         "mart_gtfs_stops",
+        "mart_gtfs_routes",
     }
     assert set(models) == expected
 

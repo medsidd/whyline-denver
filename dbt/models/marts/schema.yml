@@ -172,6 +172,23 @@ models:
           - accepted_range:
               min_value: 0
               max_value: 1
+  - name: mart_gtfs_routes
+    description: "GTFS route lookup: join on route_id to filter or label routes by name."
+    columns:
+      - name: route_id
+        description: "GTFS route identifier (e.g. 'A', 'BOLT', '0')."
+        data_tests:
+          - not_null
+          - unique
+      - name: route_name
+        description: "Short display name for the route (e.g. 'A', 'BOLT', 'Broadway')."
+        data_tests:
+          - not_null
+      - name: route_long_name
+        description: "Full route description (e.g. 'Union Station to Denver Airport Station')."
+      - name: route_type
+        description: "GTFS route type integer (0=light rail, 2=commuter rail, 3=bus)."
+
   - name: mart_gtfs_stops
     description: "GTFS stop lookup: join on stop_id to filter or label stops by name."
     columns:
