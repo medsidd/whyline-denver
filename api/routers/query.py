@@ -75,13 +75,18 @@ def run_query(req: RunQueryRequest) -> RunQueryResponse:
         total_rows = len(df)
         display_df = df.head(_MAX_DISPLAY_ROWS)
 
-        # Enrich with stop geometry if result has stop_id but not lat/lon
-        if "stop_id" in display_df.columns and "lat" not in display_df.columns:
+        # Enrich with stop name and geometry for any result that has stop_id.
+        # Only merge columns not already present to avoid duplicate-column conflicts.
+        if "stop_id" in display_df.columns:
             stop_lookup = get_stop_lookup()
             if stop_lookup is not None and not stop_lookup.empty:
-                display_df = display_df.copy()
-                display_df["stop_id"] = display_df["stop_id"].astype(str)
-                display_df = display_df.merge(stop_lookup, on="stop_id", how="left")
+                missing = [c for c in ["stop_name", "lat", "lon"] if c not in display_df.columns]
+                if missing:
+                    display_df = display_df.copy()
+                    display_df["stop_id"] = display_df["stop_id"].astype(str)
+                    display_df = display_df.merge(
+                        stop_lookup[["stop_id"] + missing], on="stop_id", how="left"
+                    )
 
         # Ensure JSON-serializable types
         for col in display_df.columns:
