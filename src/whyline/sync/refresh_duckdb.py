@@ -33,6 +33,10 @@ HOT_MARTS = {
     "mart_reliability_by_route_day",
     "mart_reliability_by_stop_hour",
     "mart_weather_impacts",
+    "mart_crash_proximity_by_stop",
+    "mart_access_score_by_stop",
+    "mart_vulnerability_by_stop",
+    "mart_priority_hotspots",
 }
 
 # Snapshot marts without time dimensions should only sync the latest run_date
@@ -405,6 +409,18 @@ def _refresh_mart(
     )
     LOGGER.debug("Statement:\n%s", statement)
     if not dry_run:
+        # CREATE OR REPLACE only works for same-type replacement; drop any conflicting
+        # object of a different type first (e.g. VIEW → TABLE transition).
+        row = con.execute(
+            "SELECT table_type FROM information_schema.tables WHERE table_name = ?",
+            [mart_name],
+        ).fetchone()
+        if row:
+            existing_type = row[0]  # 'VIEW' or 'BASE TABLE'
+            if materialize and existing_type == "VIEW":
+                con.execute(f"DROP VIEW {mart_name}")
+            elif not materialize and existing_type == "BASE TABLE":
+                con.execute(f"DROP TABLE {mart_name}")
         con.execute(statement)
     return RefreshResult(mart_name=mart_name, run_dates=run_dates, materialized=materialize)
 
