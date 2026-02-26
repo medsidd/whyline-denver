@@ -28,7 +28,7 @@ DUCKDB_GCS_REQUIRED_ENV = "DUCKDB_GCS_REQUIRED"
 
 DUCKDB_MAX_AGE_DAYS = int(os.getenv("DUCKDB_MAX_AGE_DAYS", "90"))
 
-# Materialize hot tables; keep colder marts as views.
+# Materialize all allowlisted marts as tables.
 HOT_MARTS = {
     "mart_reliability_by_route_day",
     "mart_reliability_by_stop_hour",
@@ -37,11 +37,13 @@ HOT_MARTS = {
     "mart_access_score_by_stop",
     "mart_vulnerability_by_stop",
     "mart_priority_hotspots",
+    "mart_gtfs_stops",
 }
 
 # Marts loaded from local GTFS zip rather than the parquet export pipeline.
-# These are skipped in _refresh_all_marts and handled by dedicated loaders.
-GTFS_LOADED_MARTS = {"mart_gtfs_stops"}
+# Empty: mart_gtfs_stops is now exported from BigQuery via nightly-bq (sync-export)
+# and loaded from GCS parquet like all other marts.
+GTFS_LOADED_MARTS: set[str] = set()
 
 # Snapshot marts without time dimensions should only sync the latest run_date
 # to avoid duplicating the same data (only build_run_at differs between exports).
@@ -53,6 +55,7 @@ LATEST_RUN_DATE_ONLY_MARTS = {
     "mart_priority_hotspots",
     "mart_crash_proximity_by_stop",
     "mart_weather_impacts",
+    "mart_gtfs_stops",
 }
 
 
@@ -431,49 +434,6 @@ def _refresh_mart(
     return RefreshResult(mart_name=mart_name, run_dates=run_dates, materialized=materialize)
 
 
-def _refresh_gtfs_stops_from_zip(
-    con: duckdb.DuckDBPyConnection,
-    project_root: Path,
-    *,
-    dry_run: bool,
-) -> None:
-    """Create mart_gtfs_stops in DuckDB from the local GTFS zip.
-
-    This bypasses the normal parquet-based pipeline because mart_gtfs_stops is
-    not exported to GCS as parquet — it is derived directly from the local GTFS
-    static feed, which is always available on the sync host.
-    """
-    import zipfile
-
-    import pandas as pd
-
-    gtfs_zip = project_root / "data" / "raw" / "rtd_gtfs" / "current" / "gtfs.zip"
-    if not gtfs_zip.exists():
-        LOGGER.warning("GTFS zip not found at %s; skipping mart_gtfs_stops", gtfs_zip)
-        return
-    try:
-        with zipfile.ZipFile(gtfs_zip) as zf:
-            with zf.open("stops.txt") as f:
-                df = pd.read_csv(
-                    f,
-                    dtype={"stop_id": str},
-                    usecols=["stop_id", "stop_name", "stop_lat", "stop_lon"],
-                )
-        df = df.rename(columns={"stop_lat": "lat", "stop_lon": "lon"})
-        LOGGER.info("Creating mart_gtfs_stops from GTFS zip (%d stops)", len(df))
-        if not dry_run:
-            row = con.execute(
-                "SELECT table_type FROM information_schema.tables WHERE table_name = 'mart_gtfs_stops'",
-            ).fetchone()
-            if row and row[0] == "VIEW":
-                con.execute("DROP VIEW mart_gtfs_stops")
-            con.execute(
-                "CREATE OR REPLACE TABLE mart_gtfs_stops AS SELECT stop_id, stop_name, lat, lon FROM df"
-            )
-    except Exception as exc:
-        LOGGER.warning("Failed to create mart_gtfs_stops from GTFS zip: %s", exc)
-
-
 def _require_duckdb_upload() -> bool:
     return os.getenv(DUCKDB_GCS_REQUIRED_ENV, "").strip().lower() in {
         "1",
@@ -519,8 +479,6 @@ def refresh(
             marts_state=marts_state,
             dry_run=dry_run,
         )
-        project_root = Path(__file__).resolve().parents[3]
-        _refresh_gtfs_stops_from_zip(con, project_root, dry_run=dry_run)
         if not dry_run:
             _update_sync_state(state, bigquery_updated_at)
     finally:

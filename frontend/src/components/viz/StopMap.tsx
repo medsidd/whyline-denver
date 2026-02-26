@@ -73,9 +73,9 @@ export function StopMap({ data }: Props) {
     data: points,
     getPosition: (d) => [d.lon, d.lat],
     getRadius: (d) => {
-      if (!metricKey) return 80;
+      if (!metricKey) return 5;
       const val = Number(d[metricKey] ?? 0);
-      return Math.max(30, Math.min(250, (val / maxVal) * 200 + 30));
+      return Math.max(3, Math.min(14, (val / maxVal) * 11 + 3));
     },
     getFillColor: rgbaTokens.error.concat([160]) as [number, number, number, number],
     pickable: true,
