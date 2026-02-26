@@ -184,3 +184,7 @@ models:
         description: "Human-readable stop name (e.g. 'Union Station')."
         data_tests:
           - not_null
+      - name: lat
+        description: "Stop latitude (WGS84)."
+      - name: lon
+        description: "Stop longitude (WGS84)."

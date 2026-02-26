@@ -39,11 +39,23 @@ def _build_schema_brief_cached() -> str:
 
 @lru_cache(maxsize=1)
 def get_stop_lookup() -> pd.DataFrame | None:
-    """Load stop geometry from local GTFS zip. Cached once per process."""
+    """Load stop geometry from mart_gtfs_stops in DuckDB, falling back to local GTFS zip."""
     import zipfile
 
     import pandas as pd
 
+    # Primary: query DuckDB warehouse (works in Cloud Run where GTFS zip is not bundled)
+    try:
+        from whyline.engines import duckdb_engine
+
+        _, df = duckdb_engine.execute("SELECT stop_id, stop_name, lat, lon FROM mart_gtfs_stops")
+        if not df.empty:
+            df["stop_id"] = df["stop_id"].astype(str)
+            return df
+    except Exception:
+        pass
+
+    # Fallback: read from local GTFS zip (local dev without warehouse)
     gtfs_zip = ROOT / "data" / "raw" / "rtd_gtfs" / "current" / "gtfs.zip"
     try:
         with zipfile.ZipFile(gtfs_zip) as zf:

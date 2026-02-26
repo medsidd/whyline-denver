@@ -58,6 +58,8 @@ class DbtArtifacts:
         models: Dict[str, ModelInfo] = {}
         manifest_nodes = self.manifest.get("nodes", {})
         catalog_nodes = self.catalog.get("nodes", {})
+        # Index catalog by model name to survive project renames (unique_id prefix changes)
+        catalog_by_name = {k.split(".")[-1]: v for k, v in catalog_nodes.items()}
         for unique_id, node in manifest_nodes.items():
             if not unique_id.startswith("model."):
                 continue
@@ -67,7 +69,7 @@ class DbtArtifacts:
             model_name = node.get("name")
             if ALLOWLISTED_MARTS and model_name not in ALLOWLISTED_MARTS:
                 continue
-            models[model_name] = self._build_model_info(node, catalog_nodes.get(unique_id))
+            models[model_name] = self._build_model_info(node, catalog_by_name.get(model_name))
         return models
 
     def _build_model_info(
