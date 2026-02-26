@@ -436,7 +436,7 @@ api-deploy: api-build
 		--set-env-vars SYNC_STATE_GCS_BLOB=state/sync_state.json \
 		--set-env-vars DUCKDB_GCS_BLOB=$(CLOUD_RUN_DUCKDB_BLOB) \
 		--set-env-vars DUCKDB_PATH=/mnt/gcs/$(CLOUD_RUN_DUCKDB_BLOB) \
-		--set-env-vars DUCKDB_COPY_LOCAL=0 \
+		--set-env-vars DUCKDB_COPY_LOCAL=1 \
 		--set-env-vars ENGINE=duckdb \
 		--set-env-vars LLM_PROVIDER=$(LLM_PROVIDER) \
 		--set-env-vars GEMINI_MODEL=$(GEMINI_MODEL) \

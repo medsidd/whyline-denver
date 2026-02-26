@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import DeckGL from "@deck.gl/react";
 import { ScatterplotLayer } from "@deck.gl/layers";
 import { Map } from "react-map-gl/maplibre";
@@ -33,6 +33,16 @@ interface Props {
 }
 
 export function StopMap({ data }: Props) {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isFullscreen) setIsFullscreen(false);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [isFullscreen]);
+
   const columns = Object.keys(data[0] ?? {});
   const metricKey = detectMapMetric(columns);
 
@@ -76,8 +86,15 @@ export function StopMap({ data }: Props) {
 
   if (points.length === 0) return null;
 
+  const containerStyle: React.CSSProperties = isFullscreen
+    ? { position: "fixed", inset: 0, zIndex: 50, background: tokens.surfaceDark }
+    : { height: 260, position: "relative", borderColor: tokens.border };
+
   return (
-    <div className="w-full rounded-xl overflow-hidden border" style={{ height: 420, borderColor: tokens.border }}>
+    <div
+      className={`w-full overflow-hidden border${isFullscreen ? " border-0 rounded-none" : " rounded-xl"}`}
+      style={containerStyle}
+    >
       <DeckGL
         initialViewState={DENVER_VIEW}
         controller
@@ -98,6 +115,28 @@ export function StopMap({ data }: Props) {
       >
         <Map mapStyle={MAP_STYLE} />
       </DeckGL>
+
+      {/* Fullscreen toggle button */}
+      <button
+        onClick={() => setIsFullscreen((f) => !f)}
+        title={isFullscreen ? "Exit fullscreen (Esc)" : "Fullscreen"}
+        style={{
+          position: "absolute",
+          top: 8,
+          right: 8,
+          zIndex: 51,
+          padding: "4px 8px",
+          borderRadius: 6,
+          fontSize: 12,
+          fontWeight: 600,
+          background: "rgba(50,46,56,0.85)",
+          color: tokens.muted,
+          border: `1px solid ${tokens.border}`,
+          cursor: "pointer",
+        }}
+      >
+        {isFullscreen ? "✕ Exit" : "⛶ Fullscreen"}
+      </button>
     </div>
   );
 }
