@@ -172,3 +172,15 @@ models:
           - accepted_range:
               min_value: 0
               max_value: 1
+  - name: mart_gtfs_stops
+    description: "GTFS stop lookup: join on stop_id to filter or label stops by name."
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier."
+        data_tests:
+          - not_null
+          - unique
+      - name: stop_name
+        description: "Human-readable stop name (e.g. 'Union Station')."
+        data_tests:
+          - not_null
