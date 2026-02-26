@@ -38,6 +38,7 @@ HOT_MARTS = {
     "mart_vulnerability_by_stop",
     "mart_priority_hotspots",
     "mart_gtfs_stops",
+    "mart_gtfs_routes",
 }
 
 # Marts loaded from local GTFS zip rather than the parquet export pipeline.
@@ -56,6 +57,7 @@ LATEST_RUN_DATE_ONLY_MARTS = {
     "mart_crash_proximity_by_stop",
     "mart_weather_impacts",
     "mart_gtfs_stops",
+    "mart_gtfs_routes",
 }
 
 

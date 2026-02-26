@@ -9,6 +9,7 @@ ALLOWLISTED_MARTS: tuple[str, ...] = (
     "mart_priority_hotspots",
     "mart_weather_impacts",
     "mart_gtfs_stops",
+    "mart_gtfs_routes",
 )
 
 __all__ = ["ALLOWLISTED_MARTS"]

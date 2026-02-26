@@ -12,7 +12,13 @@ ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
-from api.deps import get_allowlist, get_guardrail_config, get_models, get_stop_lookup
+from api.deps import (
+    get_allowlist,
+    get_guardrail_config,
+    get_models,
+    get_route_lookup,
+    get_stop_lookup,
+)
 from api.models import RunQueryRequest, RunQueryResponse
 from whyline.engines import bigquery_engine, duckdb_engine
 from whyline.llm import adapt_sql_for_engine
@@ -22,6 +28,33 @@ from whyline.sql_guardrails import SqlValidationError, sanitize_sql
 router = APIRouter()
 
 _MAX_DISPLAY_ROWS = 10_000
+
+
+def _enrich_result(display_df):  # type: ignore[no-untyped-def]
+    """Left-join stop and route metadata columns that are missing from the result."""
+    if "stop_id" in display_df.columns:
+        stop_lookup = get_stop_lookup()
+        if stop_lookup is not None and not stop_lookup.empty:
+            missing = [c for c in ["stop_name", "lat", "lon"] if c not in display_df.columns]
+            if missing:
+                display_df = display_df.copy()
+                display_df["stop_id"] = display_df["stop_id"].astype(str)
+                display_df = display_df.merge(
+                    stop_lookup[["stop_id"] + missing], on="stop_id", how="left"
+                )
+
+    if "route_id" in display_df.columns:
+        route_lookup = get_route_lookup()
+        if route_lookup is not None and not route_lookup.empty:
+            missing = [c for c in ["route_name", "route_long_name"] if c not in display_df.columns]
+            if missing:
+                display_df = display_df.copy()
+                display_df["route_id"] = display_df["route_id"].astype(str)
+                display_df = display_df.merge(
+                    route_lookup[["route_id"] + missing], on="route_id", how="left"
+                )
+
+    return display_df
 
 
 @router.post("/query/run", response_model=RunQueryResponse)
@@ -73,20 +106,7 @@ def run_query(req: RunQueryRequest) -> RunQueryResponse:
         )
 
         total_rows = len(df)
-        display_df = df.head(_MAX_DISPLAY_ROWS)
-
-        # Enrich with stop name and geometry for any result that has stop_id.
-        # Only merge columns not already present to avoid duplicate-column conflicts.
-        if "stop_id" in display_df.columns:
-            stop_lookup = get_stop_lookup()
-            if stop_lookup is not None and not stop_lookup.empty:
-                missing = [c for c in ["stop_name", "lat", "lon"] if c not in display_df.columns]
-                if missing:
-                    display_df = display_df.copy()
-                    display_df["stop_id"] = display_df["stop_id"].astype(str)
-                    display_df = display_df.merge(
-                        stop_lookup[["stop_id"] + missing], on="stop_id", how="left"
-                    )
+        display_df = _enrich_result(df.head(_MAX_DISPLAY_ROWS))
 
         # Ensure JSON-serializable types
         for col in display_df.columns:

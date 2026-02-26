@@ -70,6 +70,23 @@ def get_stop_lookup() -> pd.DataFrame | None:
         return None
 
 
+@lru_cache(maxsize=1)
+def get_route_lookup() -> pd.DataFrame | None:
+    """Load route metadata from mart_gtfs_routes in DuckDB."""
+    try:
+        from whyline.engines import duckdb_engine
+
+        _, df = duckdb_engine.execute(
+            "SELECT route_id, route_name, route_long_name, route_type FROM mart_gtfs_routes"
+        )
+        if not df.empty:
+            df["route_id"] = df["route_id"].astype(str)
+            return df
+    except Exception:
+        pass
+    return None
+
+
 def get_models() -> dict[str, WhylineModelInfo]:
     return _load_models()
 
