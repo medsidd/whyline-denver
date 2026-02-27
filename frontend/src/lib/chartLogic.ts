@@ -53,7 +53,7 @@ export function detectChartType(columns: string[]): ChartType {
 /** Detect whether data has lat/lon for map rendering */
 export function detectMapData(columns: string[]): boolean {
   const cols = new Set(columns.map((c) => c.toLowerCase()));
-  return cols.has("lat") && cols.has("lon");
+  return (cols.has("lat") && cols.has("lon")) || cols.has("stop_id");
 }
 
 /** Find the best metric column for map radius/color scaling — mirrors build_map() priority */
