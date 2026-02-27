@@ -22,7 +22,7 @@
     "@uiw/react-codemirror": "^4.23.0",
     "@codemirror/lang-sql": "^6.8.0",
     "@codemirror/theme-one-dark": "^6.1.2",
-    "react-map-gl": "^7.1.7",
+    "react-map-gl": "^8.0.0",
     "maplibre-gl": "^4.5.2",
     "date-fns": "^3.6.0"
   },
