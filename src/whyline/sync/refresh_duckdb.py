@@ -372,7 +372,10 @@ def _resolve_mart_sources(
             suffix = Path(mart_name) / f"run_date={rd}" / "**" / "*"
             paths.append(str((base_path / suffix).resolve()))
             relative_globs.append(str(suffix).replace("\\", "/"))
-    else:
+    elif local_parquet_root:
+        # Local mode only: use wildcard when run_dates is unknown (files may still exist).
+        # In GCS mode, empty run_dates means no blobs were found — leave paths empty so
+        # _refresh_all_marts skips this mart cleanly instead of letting DuckDB error.
         suffix = Path(mart_name) / "run_date=*" / "**" / "*"
         paths.append(str((base_path / suffix).resolve()))
         relative_globs.append(str(suffix).replace("\\", "/"))

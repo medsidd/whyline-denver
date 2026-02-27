@@ -5,11 +5,9 @@ from __future__ import annotations
 import sys
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
-if TYPE_CHECKING:
-    import pandas as pd
-
+import pandas as pd
 from fastapi import Depends
 
 # Ensure src/ is on the path when running from the project root
@@ -37,12 +35,21 @@ def _build_schema_brief_cached() -> str:
     return build_schema_brief(_load_models())
 
 
-@lru_cache(maxsize=1)
-def get_stop_lookup() -> pd.DataFrame | None:
-    """Load stop geometry from mart_gtfs_stops in DuckDB, falling back to local GTFS zip."""
-    import zipfile
+_stop_lookup_df: pd.DataFrame | None = None
+_route_lookup_df: pd.DataFrame | None = None
 
-    import pandas as pd
+
+def get_stop_lookup() -> pd.DataFrame | None:
+    """Load stop geometry from mart_gtfs_stops in DuckDB, falling back to local GTFS zip.
+
+    Caches the result on first successful load; retries on every call if the previous
+    attempt returned None (avoids permanently caching a transient failure).
+    """
+    global _stop_lookup_df
+    if _stop_lookup_df is not None:
+        return _stop_lookup_df
+
+    import zipfile
 
     # Primary: query DuckDB warehouse (works in Cloud Run where GTFS zip is not bundled)
     try:
@@ -51,7 +58,8 @@ def get_stop_lookup() -> pd.DataFrame | None:
         _, df = duckdb_engine.execute("SELECT stop_id, stop_name, lat, lon FROM mart_gtfs_stops")
         if not df.empty:
             df["stop_id"] = df["stop_id"].astype(str)
-            return df
+            _stop_lookup_df = df
+            return _stop_lookup_df
     except Exception:
         pass
 
@@ -65,14 +73,23 @@ def get_stop_lookup() -> pd.DataFrame | None:
                     dtype={"stop_id": str},
                     usecols=["stop_id", "stop_name", "stop_lat", "stop_lon"],
                 )
-        return df.rename(columns={"stop_lat": "lat", "stop_lon": "lon"})
+        result = df.rename(columns={"stop_lat": "lat", "stop_lon": "lon"})
+        _stop_lookup_df = result
+        return _stop_lookup_df
     except Exception:
         return None
 
 
-@lru_cache(maxsize=1)
 def get_route_lookup() -> pd.DataFrame | None:
-    """Load route metadata from mart_gtfs_routes in DuckDB."""
+    """Load route metadata from mart_gtfs_routes in DuckDB.
+
+    Caches the result on first successful load; retries on every call if the previous
+    attempt returned None (avoids permanently caching a transient failure).
+    """
+    global _route_lookup_df
+    if _route_lookup_df is not None:
+        return _route_lookup_df
+
     try:
         from whyline.engines import duckdb_engine
 
@@ -81,7 +98,8 @@ def get_route_lookup() -> pd.DataFrame | None:
         )
         if not df.empty:
             df["route_id"] = df["route_id"].astype(str)
-            return df
+            _route_lookup_df = df
+            return _route_lookup_df
     except Exception:
         pass
     return None
