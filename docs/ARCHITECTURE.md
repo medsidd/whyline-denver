@@ -38,7 +38,7 @@ WhyLine Denver is a **dual-engine transit analytics platform** built on modern c
 | **Transformation** | dbt 1.8 (SQL + Jinja templating) |
 | **Ingestion** | Python 3.11 CLIs (click framework) |
 | **Storage** | Google Cloud Storage (object storage) |
-| **App Layer** | Streamlit 1.37 (interactive Python dashboard) |
+| **App Layer** | Next.js 14 + FastAPI (interactive dashboard) |
 | **Annual Cost** | ~$25 (storage + compute) |
 | **Data Latency** | 2 minutes (GTFS-RT), 24 hours (static data), 3-7 days (weather) |
 | **Data Volume** | ~20GB raw, ~5GB marts, ~593M GTFS-RT events/year |
@@ -47,7 +47,7 @@ WhyLine Denver is a **dual-engine transit analytics platform** built on modern c
 
 ```
 ┌─ PRESENTATION ────┐
-│ Streamlit App     │ ← Natural language queries (Gemini LLM)
+│ Next.js Dashboard │ ← Natural language queries (Gemini LLM)
 │ CSV Exports       │ ← Downloadable datasets
 │ dbt Docs (Pages)  │ ← Auto-generated data catalog
 └───────────────────┘
@@ -516,9 +516,7 @@ def refresh_duckdb(duckdb_path='data/warehouse.duckdb'):
 
 **Why differentiate?** Hot marts are queried frequently in app (need fast response); cold marts are referenced less often (view over Parquet is acceptable).
 
-Nightly syncs mirror the consolidated DuckDB file to `gs://whylinedenver-raw/marts/duckdb/warehouse.duckdb`. The Cloud Run Streamlit service mounts that blob (read-only) via GCS Fuse, keeping cold-starts fast without maintaining a dedicated database. Streamlit also symlinks `/app/data/marts` to the mounted bucket so DuckDB views resolve parquet directly from GCS.
-
-At runtime a lightweight nginx sidecar (same container) terminates HTTP, proxies `/app/*` to the internal Streamlit server (running with `--server.baseUrlPath=/app`), redirects `/ → /app`, and serves static placeholders for `/docs` and `/data`. This keeps routing consistent with Cloudflare's apex redirect while letting us swap in real docs/downloads later.
+Nightly syncs mirror the consolidated DuckDB file to `gs://whylinedenver-raw/marts/duckdb/warehouse.duckdb`. The Cloud Run FastAPI service mounts that blob (read-only) via GCS Fuse at `/mnt/gcs`, keeping cold-starts fast without maintaining a dedicated database. DuckDB reads parquet marts directly from the GCS mount.
 
 ---
 
@@ -538,7 +536,7 @@ This diagram shows:
 - **Silver Layer**: dbt staging (11 models) + intermediate (7 models) transformations
 - **Gold Layer**: 7 analytical marts organized by domain (Reliability, Safety, Equity, Access)
 - **Sync Layer**: Parquet export to GCS + DuckDB materialization
-- **Consumption Layer**: Streamlit app + dbt docs on GitHub Pages
+- **Consumption Layer**: Next.js dashboard (Vercel) + dbt docs on GitHub Pages
 
 ### App Guardrails Diagram
 
@@ -668,7 +666,7 @@ All diagrams use vibrant Material Design colors and include detailed annotations
           │ SQL queries
           ↓
 ┌────────────────────┐
-│ Streamlit App      │  ← Natural language interface
+│ Next.js Dashboard  │  ← Natural language interface
 │ • Charts           │
 │ • Maps             │
 │ • CSV exports      │
@@ -742,7 +740,7 @@ BigQuery: raw_gtfsrt_trip_updates (partitioned by feed_ts_utc)
 | **BigQuery** | Data warehouse (silver + gold layers) | Project: `whyline-denver`, Datasets: `raw_denver`, `stg_denver`, `mart_denver` |
 | **Cloud Scheduler + Cloud Run Jobs** | Realtime orchestration | 2 jobs, 5-minute cadence (fits Always Free) |
 | **GitHub Actions** | Nightly orchestration & CI | 2,000 free minutes/month (using ~400) |
-| **Hugging Face Spaces** (planned) | Streamlit app hosting | Free tier (CPU, 16GB storage) |
+| **Vercel** | Next.js dashboard hosting | Free tier (Hobby) |
 
 ### Authentication
 
@@ -1016,9 +1014,9 @@ def validate_schema(df, required_columns):
 
 ### Phase 3: Deployment & Hosting
 
-- [ ] Streamlit app on Hugging Face Spaces (default DuckDB engine)
-- [ ] Optional BigQuery engine via secrets
-- [ ] Custom domain + Cloudflare TLS proxy
+- [x] Next.js dashboard on Vercel (DuckDB engine default)
+- [x] Optional BigQuery engine via engine toggle
+- [x] Custom domain + Cloudflare DNS → Vercel
 - [ ] Health check workflow + status badge
 
 ### Phase 4: Documentation & Discoverability

@@ -1,8 +1,6 @@
 # WhyLine Denver – dbt Models Documentation
 
-**Last Updated**: October 25, 2025
-
-This document describes all 29 dbt models that transform WhyLine Denver's raw transit, weather, crash, and demographic data into analytical marts. These models implement a **medallion architecture** (Bronze → Silver → Gold) using staging, intermediate, and mart layers.
+This document describes all 25 dbt models that transform WhyLine Denver's raw transit, weather, crash, and demographic data into analytical marts. These models implement a **medallion architecture** (Bronze → Silver → Gold) using staging, intermediate, and mart layers.
 
 ---
 
@@ -36,7 +34,7 @@ MART MODELS (Gold) - Domain-specific analytical tables
 ```
 
 **Key Metrics:**
-- **29 total models**: 11 staging + 7 intermediate + 7 marts + 4 exposures
+- **25 total models**: 10 staging + 6 intermediate + 9 marts
 - **4 analytical domains**: Reliability, Safety, Equity, Access
 - **40+ dbt tests**: Uniqueness, referential integrity, value ranges, freshness
 - **Nightly builds**: Full refresh via GitHub Actions at 9am UTC (2-3am MST)
@@ -48,7 +46,7 @@ MART MODELS (Gold) - Domain-specific analytical tables
 ```
 dbt/models/
 ├── sources_raw.yml          # 13 raw table definitions with freshness checks
-├── exposures.yml            # 4 exposures (Streamlit app, exports, docs)
+├── exposures.yml            # 4 exposures (dashboard app, exports, docs)
 │
 ├── staging/                 # Silver layer: clean raw data
 │   ├── gtfs/               # GTFS static models (routes, stops, trips, etc.)
@@ -90,16 +88,17 @@ Staging models (`stg_*`) clean and standardize raw data. They handle deduplicati
 
 **Key Columns**:
 - `route_id` (PK): Route identifier
-- `route_short_name`: Display name (e.g., "15L", "A Line")
+- `route_name`: Display name — `COALESCE(route_short_name, route_long_name)` (e.g., "15L", "A Line")
 - `route_long_name`: Full descriptive name
 - `route_type`: GTFS route type enum (bus, rail, etc.)
-- `route_color`, `route_text_color`: Hex colors for UI
+- `route_desc`: Route description
+- `is_active`: Always `TRUE` (future use for soft-deletes)
 
 **Tests**:
 - `unique(route_id)`
 - `not_null(route_id)`
 
-**Logic**: Ranks by `_extract_date` DESC and takes `rank = 1` to get latest definition.
+**Logic**: Deduplicates by `route_id` using `ROW_NUMBER()` ordered by name columns; takes `route_rank = 1`.
 
 ---
 
@@ -445,7 +444,7 @@ Intermediate models (`int_*`) compute complex derived metrics that feed multiple
 
 ## Mart Models (Gold Layer)
 
-Mart models (`mart_*`) are the final analytical tables consumed by the Streamlit app, exports, and downstream analysis. They live in the `mart_denver` BigQuery dataset.
+Mart models (`mart_*`) are the final analytical tables consumed by the dashboard app, exports, and downstream analysis. They live in the `mart_denver` BigQuery dataset.
 
 ### Reliability Domain
 
@@ -647,6 +646,43 @@ Mart models (`mart_*`) are the final analytical tables consumed by the Streamlit
 - `accepted_range(access_score_0_100: [0, 100])`
 
 **Usage**: First-mile/last-mile analysis, ADA compliance planning
+
+---
+
+### Reference Domain
+
+#### 8. `mart_gtfs_stops`
+**Source**: `stg_gtfs_stops`
+**Grain**: stop_id (one row per stop)
+**Materialization**: **Table** (full refresh nightly)
+
+**Purpose**: Gold-layer exposure of stop reference data for the dashboard's SQL allowlist and LLM context.
+
+**Key Columns**:
+- `stop_id` (PK): Stop identifier
+- `stop_name`: Human-readable name
+- `lat`, `lon`: WGS84 coordinates
+
+**Meta**: `allow_in_app: true` — this table appears in the app's LLM-queryable table allowlist, enabling the dashboard to join stop names and locations with reliability/safety/equity marts.
+
+**Tests**: Inherits uniqueness and not-null from `stg_gtfs_stops`.
+
+---
+
+#### 9. `mart_gtfs_routes`
+**Source**: `stg_gtfs_routes`
+**Grain**: route_id (one row per route)
+**Materialization**: **Table** (full refresh nightly)
+
+**Purpose**: Gold-layer exposure of route reference data for the dashboard's SQL allowlist.
+
+**Key Columns**:
+- `route_id` (PK): Route identifier
+- `route_name`: Display name (e.g., "15L", "A Line")
+- `route_long_name`: Full descriptive name
+- `route_type`: GTFS route type (3 = bus, 0 = tram, 2 = rail)
+
+**Meta**: `allow_in_app: true` — enables the LLM to join route names into reliability and weather impact queries.
 
 ---
 
@@ -908,10 +944,10 @@ dbt models are built nightly via GitHub Actions (see [.github/workflows/README.m
 - **[Interactive Model Lineage & Docs](https://medsidd.github.io/whyline-denver/)** – Browse all models, view lineage graphs, and explore column-level documentation (auto-deployed from CI)
 - **[Root README](../../README.md)** – Project overview, quickstart, FAQ
 - **[GitHub Workflows Documentation](../../.github/workflows/README.md)** – How ingestion, dbt, and sync workflows orchestrate
-- **[Pipeline Architecture](../../docs/ARCHITECTURE.md)** – Full data flow from ingestion to marts
+- **[Pipeline Architecture](../../docs/technical/ARCHITECTURE.md)** – Full data flow from ingestion to marts
 - **[QA Validation Guide](../../docs/QA_Validation_Guide.md)** – How to validate pipeline health
 - **[Data Contracts](../../docs/contracts/CONTRACTS.md)** – Schema specifications for raw ingestion outputs
 
 ---
 
-**Questions?** Check the [interactive documentation](https://medsidd.github.io/whyline-denver/) or build locally with `make dbt-docs`. For data quality issues, run the QA script: `./scripts/qa_script.sh`.
+**Questions?** Check the [interactive documentation](https://medsidd.github.io/whyline-denver/) or build locally with `make dbt-docs`. For data quality issues, see the [QA Validation Guide](../../docs/QA_Validation_Guide.md).

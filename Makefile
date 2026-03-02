@@ -1,7 +1,7 @@
 .SHELLFLAGS := -o pipefail -c
 SHELL := /bin/bash
 .PHONY: install lint format test test-ingest run app ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local bq-load-realtime bq-load-historical dbt-source-freshness dbt-compile dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dbt-run-realtime dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams
-.PHONY: sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams dbt-run-realtime streamlit-build streamlit-run api-dev api-test api-build api-deploy artifact-repo-create-api frontend-dev frontend-build frontend-test
+.PHONY: sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams dbt-run-realtime api-dev api-test api-build api-deploy artifact-repo-create-api frontend-dev frontend-build frontend-test
 
 # Shared command helpers ------------------------------------------------------
 PYTHON        := python
@@ -28,25 +28,11 @@ CLOUD_RUN_CONCURRENCY ?= 80   # High per-instance concurrency keeps a single ins
 CLOUD_RUN_IMAGE  ?= whylinedenver-realtime
 CLOUD_RUN_REPO   ?= realtime-jobs
 GCS_BUCKET       ?= whylinedenver-raw
-STREAMLIT_IMAGE  ?= whylinedenver-app
 LLM_PROVIDER     ?= gemini
 GEMINI_MODEL     ?= gemini-2.5-flash
 GEMINI_API_KEY   ?=
 GEMINI_API_KEY_SECRET ?= gemini-api-key:latest
 
-CLOUD_RUN_STREAMLIT_GEMINI_FLAG := $(if $(strip $(GEMINI_API_KEY_SECRET)),--set-secrets GEMINI_API_KEY=$(GEMINI_API_KEY_SECRET),--set-env-vars GEMINI_API_KEY=$(GEMINI_API_KEY))
-
-# Cloud Run Streamlit deployment defaults
-CLOUD_RUN_STREAMLIT_REPO      ?= streamlit-app
-CLOUD_RUN_STREAMLIT_IMAGE     ?= whylinedenver-app:latest
-CLOUD_RUN_STREAMLIT_IMAGE_URI ?= $(CLOUD_RUN_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(CLOUD_RUN_STREAMLIT_REPO)/$(CLOUD_RUN_STREAMLIT_IMAGE)
-CLOUD_RUN_STREAMLIT_SERVICE   ?= whylinedenver-app
-CLOUD_RUN_STREAMLIT_SA        ?= streamlit-app@$(GCP_PROJECT_ID).iam.gserviceaccount.com
-CLOUD_RUN_STREAMLIT_MIN_INSTANCES ?= 0
-CLOUD_RUN_STREAMLIT_MAX_INSTANCES ?= 3
-CLOUD_RUN_STREAMLIT_CONCURRENCY  ?= 10
-CLOUD_RUN_STREAMLIT_CPU          ?= 8
-CLOUD_RUN_STREAMLIT_MEMORY       ?= 4Gi
 MAX_BYTES_BILLED ?= 2000000000  # 2 GB default max bytes billed for queries
 
 # FastAPI service defaults
@@ -60,6 +46,7 @@ CLOUD_RUN_API_CONCURRENCY   ?= 80
 CLOUD_RUN_API_CPU           ?= 2
 CLOUD_RUN_API_MEMORY        ?= 2Gi
 CLOUD_RUN_API_IMAGE_URI     ?= $(CLOUD_RUN_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(CLOUD_RUN_API_REPO)/$(CLOUD_RUN_API_IMAGE):latest
+CLOUD_RUN_API_GEMINI_FLAG   := $(if $(strip $(GEMINI_API_KEY_SECRET)),--set-secrets GEMINI_API_KEY=$(GEMINI_API_KEY_SECRET),--set-env-vars GEMINI_API_KEY=$(GEMINI_API_KEY))
 
 DBT_CMD       := $(DBT_PROFILES) \
 	GCP_PROJECT_ID=$(GCP_PROJECT_ID) \
@@ -103,11 +90,6 @@ dbt-artifacts:
 
 test-ingest:
 	pytest -k ingest
-
-run: app
-
-app:
-	STREAMLIT_SERVER_BASEURLPATH="" $(PY) -m streamlit run app/streamlit_app.py
 
 # Ingest ----------------------------------------------------------------------
 ingest-all: ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts
@@ -310,88 +292,6 @@ cloud-run-tag:
 cloud-run-push: cloud-run-tag
 	@docker push $(CLOUD_RUN_REGION)-docker.pkg.dev/$(GCP_PROJECT_ID)/$(CLOUD_RUN_REPO)/$(CLOUD_RUN_IMAGE)
 
-streamlit-build:
-	docker build -t $(STREAMLIT_IMAGE) .
-
-streamlit-run: streamlit-build
-	@ENV_MOUNT=""; \
-	if [ -f .env ]; then \
-		ENV_MOUNT="-v $$PWD/.env:/app/.env:ro"; \
-	fi; \
-	if [ -n "$$GOOGLE_APPLICATION_CREDENTIALS" ]; then \
-		echo "→ Mounting GOOGLE_APPLICATION_CREDENTIALS from $$GOOGLE_APPLICATION_CREDENTIALS"; \
-			docker run --rm \
-			$$ENV_MOUNT \
-			-p 8080:8080 \
-			-e GCP_PROJECT_ID=$(GCP_PROJECT_ID) \
-			-e GCP_REGION=$(CLOUD_RUN_REGION) \
-			-e GCS_BUCKET=$(GCS_BUCKET) \
-			-e DUCKDB_GCS_BLOB=$(CLOUD_RUN_DUCKDB_BLOB) \
-			-e DUCKDB_PARQUET_ROOT=data/marts \
-			-e SYNC_STATE_GCS_BUCKET=$(GCS_BUCKET) \
-			-e SYNC_STATE_GCS_BLOB=state/sync_state.json \
-			-e GOOGLE_APPLICATION_CREDENTIALS=/var/secrets/sa.json \
-			-v "$$GOOGLE_APPLICATION_CREDENTIALS":/var/secrets/sa.json:ro \
-			$(STREAMLIT_IMAGE); \
-	else \
-		echo "⚠️  GOOGLE_APPLICATION_CREDENTIALS not set; running without BigQuery access."; \
-			docker run --rm \
-			$$ENV_MOUNT \
-			-p 8080:8080 \
-			-e GCP_PROJECT_ID=$(GCP_PROJECT_ID) \
-			-e GCP_REGION=$(CLOUD_RUN_REGION) \
-			-e GCS_BUCKET=$(GCS_BUCKET) \
-			-e DUCKDB_GCS_BLOB=$(CLOUD_RUN_DUCKDB_BLOB) \
-			-e DUCKDB_PARQUET_ROOT=data/marts \
-			-e SYNC_STATE_GCS_BUCKET=$(GCS_BUCKET) \
-			-e SYNC_STATE_GCS_BLOB=state/sync_state.json \
-			$(STREAMLIT_IMAGE); \
-	fi
-
-artifact-repo-create-streamlit:
-	gcloud artifacts repositories create $(CLOUD_RUN_STREAMLIT_REPO) \
-	  --project $(GCP_PROJECT_ID) \
-	  --repository-format=docker \
-	  --location $(CLOUD_RUN_REGION) \
-	  --description "WhyLine Streamlit images"
-
-cloud-run-build-streamlit:
-	gcloud builds submit \
-		--tag $(CLOUD_RUN_STREAMLIT_IMAGE_URI) \
-		--project $(GCP_PROJECT_ID) \
-		--region $(CLOUD_RUN_REGION) \
-		.
-
-cloud-run-deploy-streamlit: cloud-run-build-streamlit
-	gcloud run deploy $(CLOUD_RUN_STREAMLIT_SERVICE) \
-		--project $(GCP_PROJECT_ID) \
-		--region $(CLOUD_RUN_REGION) \
-		--image $(CLOUD_RUN_STREAMLIT_IMAGE_URI) \
-		--allow-unauthenticated \
-		--min-instances $(CLOUD_RUN_STREAMLIT_MIN_INSTANCES) \
-		--max-instances $(CLOUD_RUN_STREAMLIT_MAX_INSTANCES) \
-		--concurrency $(CLOUD_RUN_STREAMLIT_CONCURRENCY) \
-		--cpu $(CLOUD_RUN_STREAMLIT_CPU) \
-		--memory $(CLOUD_RUN_STREAMLIT_MEMORY) \
-		--execution-environment gen2 \
-		--service-account $(CLOUD_RUN_STREAMLIT_SA) \
-		--set-env-vars GCP_PROJECT_ID=$(GCP_PROJECT_ID) \
-		--set-env-vars GCS_BUCKET=$(GCS_BUCKET) \
-		--set-env-vars SYNC_STATE_GCS_BUCKET=$(GCS_BUCKET) \
-		--set-env-vars SYNC_STATE_GCS_BLOB=state/sync_state.json \
-		--set-env-vars DUCKDB_GCS_BLOB=$(CLOUD_RUN_DUCKDB_BLOB) \
-		--set-env-vars DUCKDB_PATH=/app/data/warehouse.duckdb \
-		--set-env-vars DUCKDB_COPY_LOCAL=0 \
-		--set-env-vars GCS_MOUNT_ROOT=/mnt/gcs \
-		--set-env-vars ENGINE=duckdb \
-		--set-env-vars LLM_PROVIDER=$(LLM_PROVIDER) \
-		--set-env-vars GEMINI_MODEL=$(GEMINI_MODEL) \
-		$(CLOUD_RUN_STREAMLIT_GEMINI_FLAG) \
-		--set-env-vars MAX_BYTES_BILLED=$(MAX_BYTES_BILLED) \
-		--set-env-vars APP_BRAND_NAME="WhyLine Denver" \
-		--add-volume=name=duckdb-bucket,type=cloud-storage,bucket=$(GCS_BUCKET) \
-		--add-volume-mount=volume=duckdb-bucket,mount-path=/mnt/gcs
-
 # ── FastAPI API service ────────────────────────────────────────────────────
 api-dev:
 	PYTHONPATH=src uvicorn api.main:app --reload --port 8000
@@ -440,7 +340,7 @@ api-deploy: api-build
 		--set-env-vars ENGINE=duckdb \
 		--set-env-vars LLM_PROVIDER=$(LLM_PROVIDER) \
 		--set-env-vars GEMINI_MODEL=$(GEMINI_MODEL) \
-		$(CLOUD_RUN_STREAMLIT_GEMINI_FLAG) \
+		$(CLOUD_RUN_API_GEMINI_FLAG) \
 		--set-env-vars MAX_BYTES_BILLED=$(MAX_BYTES_BILLED) \
 		--add-volume=name=duckdb-bucket,type=cloud-storage,bucket=$(GCS_BUCKET) \
 		--add-volume-mount=volume=duckdb-bucket,mount-path=/mnt/gcs
@@ -456,7 +356,7 @@ frontend-test:
 	cd frontend && npx playwright test
 
 ci-help:
-	@echo "Targets: install | lint | format | test | run | ingest-* | bq-load(-local|-realtime|-historical) | dbt-* | dev-loop | export-diagrams | cloud-run-(build|push|deploy-streamlit) | streamlit-(build|run) | api-(dev|test|build|deploy) | frontend-(dev|build|test)"
+	@echo "Targets: install | lint | format | test | ingest-* | bq-load(-local|-realtime|-historical) | dbt-* | dev-loop | export-diagrams | cloud-run-(build|push) | api-(dev|test|build|deploy) | frontend-(dev|build|test)"
 
 .SHELLFLAGS := -o pipefail -c
 SHELL := /bin/bash
