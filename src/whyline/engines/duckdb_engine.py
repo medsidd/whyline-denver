@@ -11,15 +11,6 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 
-# Conditionally import streamlit for caching
-try:
-    import streamlit as st
-
-    HAS_STREAMLIT = True
-except ImportError:
-    HAS_STREAMLIT = False
-
-
 _thread_local = threading.local()
 _logger = logging.getLogger(__name__)
 
@@ -107,34 +98,13 @@ def _create_connection_internal(db_path: Path) -> duckdb.DuckDBPyConnection:
     return con
 
 
-# Streamlit-cached version for long-lived connections
-if HAS_STREAMLIT:
-
-    @st.cache_resource
-    def _get_cached_connection() -> duckdb.DuckDBPyConnection:
-        """Get a cached DuckDB connection (Streamlit only).
-
-        This connection is cached across Streamlit reruns for the lifetime
-        of the process, avoiding repeated connection overhead.
-        """
-        src = _resolve_duckdb_source()
-        db_path = _ensure_local_copy(src)
-        return _create_connection_internal(db_path)
-
-
 def _get_connection() -> duckdb.DuckDBPyConnection:
     """Get a DuckDB connection with sane PRAGMAs set.
 
-    - In Streamlit: uses st.cache_resource for process-lifetime caching
-    - Otherwise: uses thread-local storage to avoid thread-safety issues
-    - Opens database in read-only mode by default
-    - Applies conservative resource limits for Cloud Run
+    Uses thread-local storage to avoid thread-safety issues. Opens database
+    in read-only mode by default and applies conservative resource limits
+    for Cloud Run.
     """
-    # Use Streamlit cache if available for better performance
-    if HAS_STREAMLIT:
-        return _get_cached_connection()
-
-    # Fallback to thread-local for non-Streamlit environments
     con = getattr(_thread_local, "con", None)
     if con is not None:
         return con
