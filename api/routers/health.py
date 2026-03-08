@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 import os
 import sys
+from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter
 
@@ -20,21 +22,25 @@ from whyline.sync.state_store import load_sync_state
 
 router = APIRouter()
 
+_DENVER_TZ = ZoneInfo("America/Denver")
+
 
 def _format_ts(ts: str | None) -> str:
     if not ts:
         return "Unavailable"
     try:
-        from datetime import datetime
-
         if ts.endswith("Z"):
             ts = ts.replace("Z", "+00:00")
         parsed = datetime.fromisoformat(ts)
-        return parsed.strftime("%Y-%m-%d %H:%M UTC")
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        denver = parsed.astimezone(_DENVER_TZ)
+        return denver.strftime("%Y-%m-%d %H:%M %Z")
     except (ValueError, TypeError):
         try:
-            parsed = datetime.utcfromtimestamp(float(ts))
-            return parsed.strftime("%Y-%m-%d %H:%M UTC")
+            parsed = datetime.utcfromtimestamp(float(ts)).replace(tzinfo=UTC)
+            denver = parsed.astimezone(_DENVER_TZ)
+            return denver.strftime("%Y-%m-%d %H:%M %Z")
         except (ValueError, TypeError):
             return ts
 
