@@ -1,6 +1,38 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+
+const _MT_FMT = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Denver",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+  timeZoneName: "short",
+});
+
+function toMountainTime(raw: string): string {
+  if (
+    !raw ||
+    raw.startsWith("Loading") ||
+    raw.startsWith("Unavailable") ||
+    raw.startsWith("Awaiting") ||
+    raw.startsWith("Latest run_date") ||
+    raw.includes("MST") ||
+    raw.includes("MDT")
+  ) return raw;
+
+  // Normalize "2026-03-08 20:05 UTC" → "2026-03-08T20:05Z"
+  const normalized = raw.replace(" UTC", "Z").replace(/^(\d{4}-\d{2}-\d{2}) /, "$1T");
+  const d = new Date(normalized);
+  if (isNaN(d.getTime())) return raw;
+
+  const p = Object.fromEntries(_MT_FMT.formatToParts(d).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${p.timeZoneName}`;
+}
+
 import { fetchFilters, fetchFreshness } from "@/lib/api";
 import { useDashboardStore } from "@/store/dashboardStore";
 import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
@@ -30,8 +62,8 @@ export function Sidebar() {
   });
 
   // Derive freshness badge variants
-  const bqFreshness = freshness?.bigquery_freshness ?? "Loading…";
-  const duckFreshness = freshness?.duckdb_freshness ?? "Loading…";
+  const bqFreshness = toMountainTime(freshness?.bigquery_freshness ?? "Loading…");
+  const duckFreshness = toMountainTime(freshness?.duckdb_freshness ?? "Loading…");
   const bqVariant = bqFreshness.includes("Unavailable") ? "warning" : "success";
   const duckVariant = duckFreshness.includes("Unavailable") || duckFreshness.includes("Awaiting")
     ? "warning"
