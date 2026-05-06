@@ -88,7 +88,7 @@ export function DataTable({ columns, data, totalRows, maxDisplayRows = 10_000 }:
 
       {/* Pagination */}
       {pageCount > 1 && (
-        <div className="flex items-center justify-between mt-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-3">
           <span className="text-xs" style={{ color: tokens.muted }}>
             Showing rows {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, data.length)} of{" "}
             {data.length.toLocaleString()} displayed

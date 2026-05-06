@@ -42,8 +42,10 @@ import type { Engine } from "@/types/api";
 /**
  * Sidebar component — mirrors sidebar.py::render().
  * Contains: freshness badges, engine selector, date range, routes, stop ID, weather.
+ * On mobile: renders as a slide-in drawer controlled by isOpen/onClose props.
+ * On desktop (md+): always visible as a static left panel.
  */
-export function Sidebar() {
+export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { engine, filters, setEngine, setFilters } = useDashboardStore();
 
   // Filter options — refetched when engine changes
@@ -82,14 +84,29 @@ export function Sidebar() {
 
   return (
     <aside
-      className="flex flex-col h-full overflow-y-auto p-5 gap-4"
+      className={[
+        "fixed md:relative inset-y-0 left-0 z-50",
+        "flex flex-col h-full overflow-y-auto p-5 gap-4",
+        "transition-transform duration-300 ease-in-out",
+        isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+      ].join(" ")}
       style={{
-        width: "440px",
+        width: "min(440px, 85vw)",
         minWidth: "280px",
         backgroundColor: tokens.surfaceDark,
         borderRight: `1px solid ${tokens.border}`,
       }}
     >
+      {/* Close button — mobile only */}
+      <button
+        className="md:hidden self-end px-3 py-1 rounded text-sm"
+        onClick={onClose}
+        style={{ color: tokens.muted, border: `1px solid ${tokens.border}` }}
+        aria-label="Close filters"
+      >
+        ✕ Close
+      </button>
+
       {/* ── Freshness ───────────────────────────────────────── */}
       <section>
         <h2
