@@ -189,8 +189,170 @@ models:
       - name: route_type
         description: "GTFS route type integer (0=light rail, 2=commuter rail, 3=bus)."
 
+  # ── New dimensional marts (Phase 4) ──────────────────────────────────────
+
+  - name: mart_stop_reliability_score
+    description: "Internal reliability scoring helper. Grain: stop_id. 35-day rolling unreliability index feeding mart_stop_priority. Not user-queryable."
+    config:
+      meta:
+        allow_in_app: false
+        layer: mart
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier (PK)."
+        data_tests:
+          - not_null
+          - unique
+      - name: reliability_score_0_100
+        description: "Unreliability index 0–100 (higher = worse on-time performance over 35 days)."
+        data_tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 100
+
+  - name: mart_stop_safety
+    description: "Crash exposure scores per stop. Grain: stop_id. JOIN dim_stop ON stop_id for stop attributes."
+    config:
+      meta:
+        allow_in_app: true
+        layer: mart
+        relationships:
+          - to: dim_stop
+            join_on: stop_id
+    columns:
+      - name: stop_id
+        description: "Foreign key to dim_stop (PK)."
+        data_tests:
+          - not_null
+          - unique
+          - relationships:
+              to: ref('dim_stop')
+              field: stop_id
+      - name: crash_100m_cnt
+        description: "Crashes within 100 m in snapshot window."
+        data_tests:
+          - accepted_range:
+              min_value: 0
+      - name: crash_250m_cnt
+        description: "Crashes within 250 m in snapshot window."
+        data_tests:
+          - accepted_range:
+              min_value: 0
+      - name: crash_score_0_100
+        description: "Min–max normalized crash exposure score (0 = safest, 100 = most exposed)."
+        data_tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 100
+
+  - name: mart_stop_access
+    description: "Sidewalk access scores per stop. Grain: stop_id. JOIN dim_stop ON stop_id for stop attributes."
+    config:
+      meta:
+        allow_in_app: true
+        layer: mart
+        relationships:
+          - to: dim_stop
+            join_on: stop_id
+    columns:
+      - name: stop_id
+        description: "Foreign key to dim_stop (PK)."
+        data_tests:
+          - not_null
+          - unique
+          - relationships:
+              to: ref('dim_stop')
+              field: stop_id
+      - name: sidewalk_len_m_within_200m
+        description: "Total sidewalk length (m) within 200 m buffer."
+        data_tests:
+          - accepted_range:
+              min_value: 0
+      - name: access_score_0_100
+        description: "Min–max normalized sidewalk coverage score (0 = least, 100 = most)."
+        data_tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 100
+
+  - name: mart_stop_equity
+    description: "Demographic vulnerability scores per stop. Grain: stop_id. JOIN dim_stop ON stop_id for stop attributes."
+    config:
+      meta:
+        allow_in_app: true
+        layer: mart
+        relationships:
+          - to: dim_stop
+            join_on: stop_id
+    columns:
+      - name: stop_id
+        description: "Foreign key to dim_stop (PK)."
+        data_tests:
+          - not_null
+          - unique
+          - relationships:
+              to: ref('dim_stop')
+              field: stop_id
+      - name: pct_hh_no_vehicle_w
+        description: "Population-weighted share of households without a vehicle (0–1)."
+        data_tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1
+              severity: warn
+      - name: pct_transit_commute_w
+        description: "Population-weighted share of workers commuting by transit (0–1)."
+        data_tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1
+              severity: warn
+      - name: pct_poverty_w
+        description: "Population-weighted share below poverty line (0–1)."
+        data_tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1
+              severity: warn
+      - name: vuln_score_0_100
+        description: "Composite vulnerability index 0–100."
+        data_tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 100
+
+  - name: mart_stop_priority
+    description: "Composite stop priority ranking. Grain: stop_id. Weights configurable via priority_weight_* dbt vars. JOIN dim_stop ON stop_id for stop attributes."
+    config:
+      meta:
+        allow_in_app: true
+        layer: mart
+        relationships:
+          - to: dim_stop
+            join_on: stop_id
+    columns:
+      - name: stop_id
+        description: "Foreign key to dim_stop (PK)."
+        data_tests:
+          - not_null
+          - unique
+          - relationships:
+              to: ref('dim_stop')
+              field: stop_id
+      - name: priority_score
+        description: "Weighted composite score (equity * weight_equity + safety * weight_safety + reliability * weight_reliability)."
+        data_tests:
+          - accepted_range:
+              min_value: 0
+      - name: priority_rank
+        description: "Dense rank by priority_score descending (1 = highest priority)."
+        data_tests:
+          - not_null
+
+  # ── Deprecated compat views (Phase 4b) ───────────────────────────────────
+
   - name: mart_gtfs_stops
-    description: "GTFS stop lookup: join on stop_id to filter or label stops by name."
+    description: "Deprecated compat view → dim_stop. Use dim_stop directly."
     columns:
       - name: stop_id
         description: "GTFS stop identifier."

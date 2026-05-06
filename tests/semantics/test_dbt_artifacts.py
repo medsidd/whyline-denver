@@ -19,9 +19,28 @@ def artifacts() -> DbtArtifacts:
     return loader
 
 
-def test_allowed_models_include_week4_marts(artifacts: DbtArtifacts) -> None:
-    models = artifacts.allowed_models()
+def test_prompt_models_are_new_dimensional_set(artifacts: DbtArtifacts) -> None:
+    models = artifacts.prompt_models()
     expected = {
+        "dim_stop",
+        "dim_route",
+        "dim_date",
+        "dim_weather",
+        "agg_reliability_by_route_day",
+        "agg_reliability_by_stop_hour",
+        "agg_weather_impacts_by_route",
+        "mart_stop_safety",
+        "mart_stop_access",
+        "mart_stop_equity",
+        "mart_stop_priority",
+    }
+    assert set(models) == expected
+
+
+def test_sql_models_include_deprecated(artifacts: DbtArtifacts) -> None:
+    """sql_models() must include deprecated compat views so old cached SQL validates."""
+    models = artifacts.sql_models()
+    deprecated = {
         "mart_reliability_by_route_day",
         "mart_reliability_by_stop_hour",
         "mart_crash_proximity_by_stop",
@@ -32,15 +51,22 @@ def test_allowed_models_include_week4_marts(artifacts: DbtArtifacts) -> None:
         "mart_gtfs_stops",
         "mart_gtfs_routes",
     }
-    assert set(models) == expected
+    assert deprecated.issubset(set(models))
 
 
 def test_columns_and_descriptions_loaded(artifacts: DbtArtifacts) -> None:
-    models = artifacts.allowed_models()
-    reliability = models["mart_reliability_by_route_day"]
+    models = artifacts.prompt_models()
+    reliability = models["agg_reliability_by_route_day"]
     assert reliability.description
     columns = reliability.columns
     assert "service_date_mst" in columns
     assert columns["service_date_mst"].type in {"DATE", "DATE32"}
     assert "route_id" in columns
     assert columns["route_id"].description
+
+
+def test_model_layer_populated(artifacts: DbtArtifacts) -> None:
+    models = artifacts.prompt_models()
+    assert models["dim_stop"].layer == "dim"
+    assert models["agg_reliability_by_route_day"].layer == "agg"
+    assert models["mart_stop_priority"].layer == "mart"

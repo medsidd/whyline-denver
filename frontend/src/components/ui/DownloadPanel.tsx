@@ -1,29 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { downloadMartCsv, downloadWarehouse, triggerDownload } from "@/lib/api";
 import { tokens } from "@/lib/tokens";
-import type { Engine } from "@/types/api";
-
-const MART_OPTIONS = [
-  { value: "mart_reliability_by_route_day", label: "Reliability by route & day" },
-  { value: "mart_reliability_by_stop_hour", label: "Reliability by stop & hour" },
-  { value: "mart_crash_proximity_by_stop", label: "Crash proximity by stop" },
-  { value: "mart_access_score_by_stop", label: "Access score by stop" },
-  { value: "mart_vulnerability_by_stop", label: "Vulnerability by stop" },
-  { value: "mart_priority_hotspots", label: "Priority hotspots" },
-  { value: "mart_weather_impacts", label: "Weather impacts" },
-];
+import type { DownloadOption, Engine } from "@/types/api";
 
 interface Props {
   engine: Engine;
 }
 
-/** Downloads section — mirrors _render_downloads_section in results_viewer.py */
+/** Downloads section — options fetched from /api/downloads/options */
 export function DownloadPanel({ engine }: Props) {
   const [open, setOpen] = useState(false);
-  const [mart, setMart] = useState(MART_OPTIONS[0].value);
+  const [martOptions, setMartOptions] = useState<DownloadOption[]>([]);
+  const [mart, setMart] = useState("");
   const [limitRows, setLimitRows] = useState(200_000);
+  useEffect(() => {
+    fetch("/api/downloads/options")
+      .then((r) => r.json())
+      .then((opts: DownloadOption[]) => {
+        setMartOptions(opts);
+        if (opts.length > 0) setMart(opts[0].value);
+      })
+      .catch(() => {});
+  }, []);
+
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [warehouseStatus, setWarehouseStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -95,7 +96,7 @@ export function DownloadPanel({ engine }: Props) {
               className="w-full rounded-lg px-3 py-2 text-sm border outline-none"
               style={{ backgroundColor: tokens.surfaceDark, borderColor: tokens.border, color: tokens.text }}
             >
-              {MART_OPTIONS.map((o) => (
+              {martOptions.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>

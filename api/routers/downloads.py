@@ -17,25 +17,16 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from api.deps import get_guardrail_config, get_models
-from api.models import MartDownloadRequest
+from api.models import DownloadOption, MartDownloadRequest
 from whyline.engines import bigquery_engine, duckdb_engine
 from whyline.llm import adapt_sql_for_engine
 from whyline.logs import log_query, query_cache
 from whyline.sql_guardrails import SqlValidationError, sanitize_sql
+from whyline.sync.constants import DOWNLOAD_MARTS, MART_BY_NAME
 
 router = APIRouter()
 
-# Keep in sync with app/components/results_viewer.py::MART_OPTIONS
-MART_OPTIONS: list[tuple[str, str]] = [
-    ("mart_reliability_by_route_day", "Reliability by route & day"),
-    ("mart_reliability_by_stop_hour", "Reliability by stop & hour"),
-    ("mart_crash_proximity_by_stop", "Crash proximity by stop"),
-    ("mart_access_score_by_stop", "Access score by stop"),
-    ("mart_vulnerability_by_stop", "Vulnerability by stop"),
-    ("mart_priority_hotspots", "Priority hotspots"),
-    ("mart_weather_impacts", "Weather impacts"),
-]
-ALLOWED_MARTS = {name for name, _ in MART_OPTIONS}
+ALLOWED_MART_SET = set(DOWNLOAD_MARTS)
 
 _warehouse_env = os.getenv("DUCKDB_PATH", "data/warehouse.duckdb")
 WAREHOUSE_PATH = Path(_warehouse_env).expanduser()
@@ -52,10 +43,20 @@ def _build_filename(mart: str, engine: str, date_filter: tuple | None) -> str:
     return f"{mart}_{engine}{suffix}_{ts}.csv"
 
 
+@router.get("/downloads/options", response_model=list[DownloadOption])
+def download_options() -> list[DownloadOption]:
+    """Return downloadable marts with human-readable labels, driven by the registry."""
+    return [
+        DownloadOption(value=name, label=MART_BY_NAME[name].download_label)
+        for name in DOWNLOAD_MARTS
+        if name in MART_BY_NAME
+    ]
+
+
 @router.post("/downloads/mart")
 def download_mart(req: MartDownloadRequest) -> StreamingResponse:
     """Build a guarded SELECT * FROM {mart} and return as a streaming CSV."""
-    if req.mart not in ALLOWED_MARTS:
+    if req.mart not in ALLOWED_MART_SET:
         raise HTTPException(status_code=400, detail=f"Mart '{req.mart}' is not in the allow list")
 
     models = get_models()

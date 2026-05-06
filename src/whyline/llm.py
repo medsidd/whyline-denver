@@ -17,13 +17,17 @@ from whyline.sql_guardrails import CTE_PATTERN
 
 
 def build_schema_brief(models: Mapping[str, ModelInfo], *, max_columns: int = 7) -> str:
-    """Condense model metadata for prompt conditioning."""
-
+    """Condense model metadata for prompt conditioning, with layer prefix and JOIN hints."""
     lines: list[str] = []
     for model in sorted(models.values(), key=lambda m: m.name):
+        layer_tag = f"[{model.layer}] " if model.layer else ""
         description = (model.description or "")[:80]
         column_names = ", ".join(list(model.columns.keys())[:max_columns])
-        line = f"{model.name}: {description} | cols: {column_names}"
+        join_hints = ""
+        if model.relationships:
+            hints = ", ".join(f"JOIN {r.to_model} ON {r.join_on}" for r in model.relationships)
+            join_hints = f" → {hints}"
+        line = f"{layer_tag}{model.name}: {description}{join_hints} | cols: {column_names}"
         lines.append(line.strip())
     return "\n".join(lines)
 
@@ -35,6 +39,9 @@ def build_prompt(question: str, filters: Mapping[str, Any] | None, schema_brief:
         "You are a SQL generation assistant for the WhyLine Denver transit analytics platform.\n"
         "You may query ONLY these models:\n"
         f"{schema_brief}\n\n"
+        "Dimension tables (prefix dim_) are the ONLY source for entity attributes like "
+        "stop_name, lat, lon, route_name. Always JOIN dim_stop ON stop_id or "
+        "dim_route ON route_id; never select these attributes from aggregate or mart tables.\n\n"
         "Return a JSON object with keys 'sql' and 'explanation'.\n"
         "- 'sql' must contain a single DuckDB/BigQuery compatible SELECT statement.\n"
         "- Do not include semicolons or additional statements.\n"
@@ -44,7 +51,6 @@ def build_prompt(question: str, filters: Mapping[str, Any] | None, schema_brief:
         "- Keep results under 5,000 rows and honor recency cues by filtering service_date_mst within 30-90 days when appropriate.\n"
         "- Treat the user filters below as scalar values only—never reference them as tables or views.\n"
         "- Do not invent placeholder tables (e.g., filters, zero, baseline); name any CTEs you create based on the metrics being calculated.\n"
-        "- When analyzing crash trends described as 'this month', 'recent', or 'last few days', default to window_days = 30 on mart_crash_proximity_by_stop and anchor comparisons on the latest as_of_date values.\n"
         "- Prefer analytic window functions such as LAG() and ROW_NUMBER() to calculate change over time instead of fabricating previous_* tables.\n"
         "- Include severity metrics (fatal and severe crash counts) alongside total crashes when the question focuses on risk or hotspots.\n\n"
         f"Question: {question}\n"
@@ -141,12 +147,13 @@ def _stubbed_response(prompt: str) -> Dict[str, str]:
     if "worst" in lower_prompt and "route" in lower_prompt:
         return {
             "sql": (
-                "SELECT route_id,\n"
-                "       AVG(1 - pct_on_time) AS avg_delay_ratio,\n"
-                "       AVG(mean_delay_sec) AS avg_delay_seconds\n"
-                "FROM mart_reliability_by_route_day\n"
-                "WHERE service_date_mst >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)\n"
-                "GROUP BY route_id\n"
+                "SELECT r.route_id, d.route_name,\n"
+                "       AVG(1 - r.pct_on_time) AS avg_delay_ratio,\n"
+                "       AVG(r.mean_delay_sec) AS avg_delay_seconds\n"
+                "FROM agg_reliability_by_route_day r\n"
+                "JOIN dim_route d USING (route_id)\n"
+                "WHERE r.service_date_mst >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)\n"
+                "GROUP BY r.route_id, d.route_name\n"
                 "ORDER BY avg_delay_ratio DESC\n"
                 "LIMIT 10"
             ),
@@ -156,8 +163,13 @@ def _stubbed_response(prompt: str) -> Dict[str, str]:
             ),
         }
     return {
-        "sql": ("SELECT *\n" "FROM mart_access_score_by_stop\n" "LIMIT 100"),
-        "explanation": "Default stub query returning access scores.",
+        "sql": (
+            "SELECT a.stop_id, d.stop_name, a.access_score_0_100\n"
+            "FROM mart_stop_access a\n"
+            "JOIN dim_stop d USING (stop_id)\n"
+            "LIMIT 100"
+        ),
+        "explanation": "Default stub query returning stop access scores with stop names.",
     }
 
 
@@ -196,13 +208,14 @@ def _qualify_bigquery_tables(sql: str, models: Mapping[str, ModelInfo]) -> str:
         table_token = match.group("table")
         alias = match.group("alias") or ""
         raw_table = table_token.strip("`")
-        if raw_table.lower() in cte_names:
-            return match.group(0)
-        if "." in raw_table:
+        if raw_table.lower() in cte_names or "." in raw_table:
             return match.group(0)
         model = models.get(raw_table)
-        table_name = model.name if model else raw_table
-        qualified = f"`{settings.GCP_PROJECT_ID}.{settings.BQ_DATASET_MART}.{table_name}`"
+        if model and model.fq_name:
+            # fq_name carries the correct project.dataset from the dbt manifest
+            qualified = f"`{model.fq_name}`"
+        else:
+            qualified = f"`{settings.GCP_PROJECT_ID}.{settings.BQ_DATASET_MART}.{raw_table}`"
         return f"{match.group('clause')} {qualified}{alias}"
 
     return TABLE_PATTERN.sub(replacer, sql)

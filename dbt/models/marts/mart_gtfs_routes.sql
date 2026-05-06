@@ -1,8 +1,3 @@
-{{ config(materialized='table', meta={"allow_in_app": true}) }}
-
-SELECT
-    route_id,
-    route_name,
-    route_long_name,
-    route_type
-FROM {{ ref('stg_gtfs_routes') }}
+{{ config(materialized='view', meta={"allow_in_app": false}) }}
+select route_id, route_name, route_long_name, route_type
+from {{ ref('dim_route') }}

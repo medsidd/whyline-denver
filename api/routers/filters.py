@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
-from api.deps import get_models
+from api.deps import get_models, get_prompt_models
 from api.models import FilterOptionsResponse, ModelColumnInfo, ModelInfo, ModelsResponse
 from whyline.config import settings
 from whyline.engines import bigquery_engine, duckdb_engine
@@ -127,8 +127,8 @@ def get_stops(engine_name: str) -> list[dict]:
 
 @router.get("/models", response_model=ModelsResponse)
 def list_models() -> ModelsResponse:
-    """Return the list of allowed dbt models with column metadata."""
-    raw_models = get_models()
+    """Return the self-serve dbt models with column metadata (no deprecated compat views)."""
+    raw_models = get_prompt_models()
     result: list[ModelInfo] = []
     for name, info in raw_models.items():
         cols = {}
@@ -143,6 +143,7 @@ def list_models() -> ModelsResponse:
                 name=name,
                 fq_name=info.fq_name,
                 description=getattr(info, "description", None),
+                layer=getattr(info, "layer", None),
                 columns=cols,
             )
         )

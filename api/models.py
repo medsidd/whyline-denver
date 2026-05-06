@@ -66,7 +66,13 @@ class ModelInfo(BaseModel):
     name: str
     fq_name: str
     description: str | None = None
+    layer: str | None = None  # "dim" | "fct" | "agg" | "mart"
     columns: dict[str, ModelColumnInfo] = Field(default_factory=dict)
+
+
+class DownloadOption(BaseModel):
+    value: str  # mart name
+    label: str  # human-readable label
 
 
 class ModelsResponse(BaseModel):

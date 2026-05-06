@@ -1,0 +1,108 @@
+version: 2
+
+models:
+  - name: fct_transit_events
+    description: "Atomic transit event fact. Grain: one row per (GTFS-RT feed snapshot, trip, stop). PK: transit_event_id (SHA256 surrogate). stop_id may be NULL for vehicle-position-only records. Rolling window only: default full-refresh covers rt_events_lookback_days (default 45). Full historical load requires --var '{rt_events_lookback_days: <days>}'."
+    config:
+      meta:
+        allow_in_app: false
+        layer: fct
+    columns:
+      - name: transit_event_id
+        description: "SHA256 surrogate key — TO_HEX(SHA256(feed_ts_utc|trip_id|coalesce(stop_id,'__null__')))."
+        data_tests:
+          - not_null
+          - unique
+      - name: feed_ts_utc
+        description: "GTFS-RT feed snapshot timestamp (UTC)."
+        data_tests:
+          - not_null
+      - name: route_id
+        description: "Foreign key to dim_route. NULL for vehicle-position-only records where route could not be resolved."
+        meta:
+          fk_table: dim_route
+          fk_column: route_id
+        data_tests:
+          - relationships:
+              to: ref('dim_route')
+              field: route_id
+              config:
+                where: "route_id is not null"
+      - name: trip_id
+        description: "GTFS trip identifier."
+      - name: stop_id
+        description: "Foreign key to dim_stop. NULL for vehicle-position-only records."
+        meta:
+          fk_table: dim_stop
+          fk_column: stop_id
+        data_tests:
+          - relationships:
+              to: ref('dim_stop')
+              field: stop_id
+              config:
+                where: "stop_id is not null"
+      - name: direction_id
+        description: "GTFS direction (0 or 1)."
+      - name: service_date_mst
+        description: "Service date in Mountain Time."
+        data_tests:
+          - not_null
+      - name: event_hour_mst
+        description: "Hour of event in Mountain Time (0–23)."
+      - name: event_ts_utc
+        description: "Event timestamp (UTC)."
+      - name: delay_sec
+        description: "Signed delay in seconds (coalesced; 0 if unreported)."
+      - name: delay_sec_raw
+        description: "Signed delay in seconds (NULL if not reported by GTFS-RT)."
+      - name: is_on_time
+        description: "1 if abs(delay_sec) <= on_time_sec threshold, else 0."
+
+  - name: fct_headway_adherence
+    description: "Headway adherence fact. Grain: one row per (route, direction, stop, service_date, event_ts). PK: headway_event_id (SHA256 surrogate)."
+    config:
+      meta:
+        allow_in_app: false
+        layer: fct
+    columns:
+      - name: headway_event_id
+        description: "SHA256 surrogate key — TO_HEX(SHA256(route_id|coalesce(direction_id,'__null__')|stop_id|service_date_mst|event_ts_utc))."
+        data_tests:
+          - not_null
+          - unique
+      - name: route_id
+        description: "Foreign key to dim_route."
+        meta:
+          fk_table: dim_route
+          fk_column: route_id
+        data_tests:
+          - relationships:
+              to: ref('dim_route')
+              field: route_id
+      - name: direction_id
+        description: "GTFS direction (0, 1, or NULL)."
+      - name: stop_id
+        description: "Foreign key to dim_stop."
+        meta:
+          fk_table: dim_stop
+          fk_column: stop_id
+        data_tests:
+          - relationships:
+              to: ref('dim_stop')
+              field: stop_id
+      - name: service_date_mst
+        description: "Service date in Mountain Time."
+        data_tests:
+          - not_null
+      - name: event_ts_utc
+        description: "Event timestamp (UTC)."
+        data_tests:
+          - not_null
+      - name: obs_headway_sec
+        description: "Observed headway in seconds."
+      - name: sch_headway_sec
+        description: "Scheduled headway in seconds."
+      - name: dt_abs
+        description: "Absolute time difference (seconds) between observed event and nearest scheduled arrival."
+      - name: headway_adherent
+        description: "1 if headway within headway_tol_ratio of scheduled, else 0."

@@ -7,7 +7,8 @@ line-length = 100
 target-version = "py311"
 lint.select = ["E","F","I","B","UP","N","S","C90"]   # style + bugs + security + complexity
 lint.ignore = ["E501"]                                # handled by black
-exclude = ["dbt/target","dbt/.dbt"]
+exclude = ["dbt/target","dbt/.dbt","dbt/dbt_internal_packages"]
+force-exclude = true
 
 # S608 (Possible SQL injection) is ignored because all SQL queries are parameterized and inputs are sanitized elsewhere.
 # E402 (module level import not at top) is ignored for app/ and api/ files due to necessary sys.path manipulation before whyline imports

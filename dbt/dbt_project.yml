@@ -11,6 +11,16 @@ models:
       +schema: "{{ env_var('BQ_DATASET_STG', 'stg_denver') }}"
     intermediate:
       +schema: "{{ env_var('BQ_DATASET_STG', 'stg_denver') }}"
+    dimensions:
+      +schema: "{{ env_var('BQ_DATASET_STG', 'stg_denver') }}"
+      +materialized: table
+      +tags: ["dimensions"]
+    facts:
+      +schema: "{{ env_var('BQ_DATASET_STG', 'stg_denver') }}"
+      +tags: ["facts"]
+    aggregates:
+      +schema: "{{ env_var('BQ_DATASET_MART', 'mart_denver') }}"
+      +tags: ["aggregates"]
     marts:
       +schema: "{{ env_var('BQ_DATASET_MART', 'mart_denver') }}"
       +tags: ["marts"]
@@ -20,3 +30,8 @@ vars:
   sched_match_tol_sec: 1800
   weather_station: "USW00023062"
   weather_lookback_days: 30
+  dim_date_start: "2022-01-01"
+  dim_date_end_offset_days: 365
+  priority_weight_equity: 0.5
+  priority_weight_safety: 0.3
+  priority_weight_reliability: 0.2

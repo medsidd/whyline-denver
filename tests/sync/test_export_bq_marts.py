@@ -5,7 +5,8 @@ from typing import Dict, Iterable, Optional
 from unittest.mock import MagicMock
 
 from whyline.config import Settings
-from whyline.sync.export_bq_marts import ALLOWLISTED_MARTS, MartExporter
+from whyline.sync.constants import EXPORT_MARTS
+from whyline.sync.export_bq_marts import MartExporter
 from whyline.sync.state import ExportState
 
 
@@ -35,7 +36,7 @@ class FakeQueryJob:
 
 def test_partitioned_mart_exports_new_partitions(monkeypatch):
     settings = Settings()
-    mart_name = "mart_reliability_by_route_day"
+    mart_name = "agg_reliability_by_route_day"
     initial_state = ExportState(
         mart_name=mart_name,
         last_service_date=date(2025, 1, 2),
@@ -58,7 +59,7 @@ def test_partitioned_mart_exports_new_partitions(monkeypatch):
         bq_client=bq_client,
         storage_client=MagicMock(),
         state_store=state_store,
-        allowlisted_marts=ALLOWLISTED_MARTS,
+        allowlisted_marts=EXPORT_MARTS,
     )
 
     timestamps = [
@@ -81,7 +82,7 @@ def test_partitioned_mart_exports_new_partitions(monkeypatch):
 
 def test_snapshot_mart_skips_if_already_exported_today():
     settings = Settings()
-    mart_name = "mart_access_score_by_stop"
+    mart_name = "mart_stop_access"
     frozen_now = datetime(2025, 1, 20, 9, 30, tzinfo=UTC)
     state_store = FakeStateStore(
         {
@@ -98,7 +99,7 @@ def test_snapshot_mart_skips_if_already_exported_today():
         bq_client=MagicMock(),
         storage_client=MagicMock(),
         state_store=state_store,
-        allowlisted_marts=ALLOWLISTED_MARTS,
+        allowlisted_marts=EXPORT_MARTS,
     )
     exporter._now = MagicMock(return_value=frozen_now)  # type: ignore[assignment]
 

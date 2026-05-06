@@ -1,8 +1,3 @@
-{{ config(materialized='table', meta={"allow_in_app": true}) }}
-
-SELECT
-    stop_id,
-    stop_name,
-    stop_lat AS lat,
-    stop_lon AS lon
-FROM {{ ref('stg_gtfs_stops') }}
+{{ config(materialized='view', meta={"allow_in_app": false}) }}
+select stop_id, stop_name, lat, lon
+from {{ ref('dim_stop') }}

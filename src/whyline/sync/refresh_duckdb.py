@@ -16,7 +16,7 @@ from google.auth.exceptions import DefaultCredentialsError
 from google.cloud import storage
 
 from whyline.config import Settings
-from whyline.sync.constants import ALLOWLISTED_MARTS
+from whyline.sync.constants import HOT_MARTS, LATEST_RUN_DATE_ONLY, SYNC_MARTS
 from whyline.sync.state_store import SyncStateUploadError, load_sync_state, write_sync_state
 
 LOGGER = logging.getLogger(__name__)
@@ -28,36 +28,56 @@ DUCKDB_GCS_REQUIRED_ENV = "DUCKDB_GCS_REQUIRED"
 
 DUCKDB_MAX_AGE_DAYS = int(os.getenv("DUCKDB_MAX_AGE_DAYS", "90"))
 
-# Materialize all allowlisted marts as tables.
-HOT_MARTS = {
-    "mart_reliability_by_route_day",
-    "mart_reliability_by_stop_hour",
-    "mart_weather_impacts",
-    "mart_crash_proximity_by_stop",
-    "mart_access_score_by_stop",
-    "mart_vulnerability_by_stop",
-    "mart_priority_hotspots",
-    "mart_gtfs_stops",
-    "mart_gtfs_routes",
-}
+# HOT_MARTS and LATEST_RUN_DATE_ONLY are derived from the registry in constants.py.
 
 # Marts loaded from local GTFS zip rather than the parquet export pipeline.
-# Empty: mart_gtfs_stops is now exported from BigQuery via nightly-bq (sync-export)
-# and loaded from GCS parquet like all other marts.
+# Empty: all dimension tables are exported from BigQuery and loaded from GCS parquet.
 GTFS_LOADED_MARTS: set[str] = set()
 
-# Snapshot marts without time dimensions should only sync the latest run_date
-# to avoid duplicating the same data (only build_run_at differs between exports).
-# Partitioned marts and snapshot marts with time dimensions (e.g., as_of_date)
-# should sync all run_dates to maintain historical data.
-LATEST_RUN_DATE_ONLY_MARTS = {
-    "mart_access_score_by_stop",
-    "mart_vulnerability_by_stop",
-    "mart_priority_hotspots",
-    "mart_crash_proximity_by_stop",
-    "mart_weather_impacts",
-    "mart_gtfs_stops",
-    "mart_gtfs_routes",
+# DuckDB compat views for old mart names — column lists match the BigQuery compat views.
+# These are created after all parquet-based marts are loaded so the references resolve.
+DEPRECATED_DUCKDB_ALIASES: dict[str, str] = {
+    "mart_gtfs_stops": ("SELECT stop_id, stop_name, lat, lon FROM dim_stop"),
+    "mart_gtfs_routes": ("SELECT route_id, route_name, route_long_name, route_type FROM dim_route"),
+    "mart_reliability_by_route_day": (
+        "SELECT route_id, service_date_mst, precip_bin, snow_day, "
+        "n_events, n_reported_events, pct_on_time, "
+        "mean_delay_sec, median_delay_sec, p90_delay_sec, build_run_at "
+        "FROM agg_reliability_by_route_day"
+    ),
+    "mart_reliability_by_stop_hour": (
+        "SELECT stop_id, service_date_mst, event_hour_mst, "
+        "n_events, pct_on_time, mean_delay_sec, p90_delay_sec, "
+        "route_id_mode, headway_adherence_rate, "
+        "obs_headway_sec_p50, obs_headway_sec_p90, build_run_at "
+        "FROM agg_reliability_by_stop_hour"
+    ),
+    "mart_weather_impacts": (
+        "SELECT route_id, precip_bin, pct_on_time_avg, pct_on_time_normal, "
+        "delta_pct_on_time, build_run_at "
+        "FROM agg_weather_impacts_by_route"
+    ),
+    "mart_crash_proximity_by_stop": (
+        "SELECT stop_id, as_of_date, window_days, "
+        "crash_100m_cnt, severe_100m_cnt, fatal_100m_cnt, "
+        "crash_250m_cnt, severe_250m_cnt, fatal_250m_cnt, build_run_at "
+        "FROM mart_stop_safety"
+    ),
+    "mart_access_score_by_stop": (
+        "SELECT stop_id, buffer_m, sidewalk_len_m_within_200m, "
+        "access_score_0_100, build_run_at "
+        "FROM mart_stop_access"
+    ),
+    "mart_vulnerability_by_stop": (
+        "SELECT stop_id, pct_hh_no_vehicle_w, pct_transit_commute_w, "
+        "pct_poverty_w, vuln_score_0_100, build_run_at "
+        "FROM mart_stop_equity"
+    ),
+    "mart_priority_hotspots": (
+        "SELECT stop_id, vuln_score_0_100, crash_score_0_100, "
+        "reliability_score_0_100, priority_score, priority_rank, build_run_at "
+        "FROM mart_stop_priority"
+    ),
 }
 
 
@@ -180,11 +200,11 @@ def _refresh_all_marts(
 ) -> list[RefreshResult]:
     results: list[RefreshResult] = []
 
-    for mart_name in ALLOWLISTED_MARTS:
+    for mart_name in SYNC_MARTS:
         if mart_name in GTFS_LOADED_MARTS:
             continue  # handled separately by _refresh_gtfs_stops_from_zip
         marker_date = ""
-        use_latest_only = mart_name in LATEST_RUN_DATE_ONLY_MARTS
+        use_latest_only = mart_name in LATEST_RUN_DATE_ONLY
         run_dates, paths, marker_date, relative_globs = _resolve_mart_sources(
             mart_name=mart_name,
             local_parquet_root=local_parquet_root,
@@ -198,7 +218,7 @@ def _refresh_all_marts(
             LOGGER.warning("Skipping %s; no parquet files discovered", mart_name)
             continue
 
-        materialize = mart_name in HOT_MARTS
+        materialize = mart_name in HOT_MARTS  # registry-derived frozenset
         sync_strategy = "latest run_date only" if use_latest_only else "all run_dates"
         result = _refresh_mart(
             con=con,
@@ -222,7 +242,24 @@ def _refresh_all_marts(
         if latest:
             marts_state[mart_name] = latest
 
+    _create_deprecated_aliases(con=con, dry_run=dry_run)
     return results
+
+
+def _create_deprecated_aliases(*, con: duckdb.DuckDBPyConnection, dry_run: bool) -> None:
+    """Create DuckDB views for deprecated mart names pointing to new tables."""
+    for old_name, select_sql in DEPRECATED_DUCKDB_ALIASES.items():
+        stmt = f"CREATE OR REPLACE VIEW {old_name} AS {select_sql}"
+        LOGGER.info("Creating deprecated alias view: %s", old_name)
+        LOGGER.debug("Statement:\n%s", stmt)
+        if not dry_run:
+            row = con.execute(
+                "SELECT table_type FROM information_schema.tables WHERE table_name = ?",
+                [old_name],
+            ).fetchone()
+            if row and row[0] == "BASE TABLE":
+                con.execute(f"DROP TABLE {old_name}")
+            con.execute(stmt)
 
 
 def _cache_gcs_parquet(

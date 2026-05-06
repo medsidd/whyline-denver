@@ -24,43 +24,41 @@ from whyline.llm import adapt_sql_for_engine, build_prompt, call_provider
 from whyline.logs import prompt_cache
 from whyline.sql_guardrails import SqlValidationError, sanitize_sql
 
-# Prebuilt queries — identical to app/components/prebuilt_questions.py::PREBUILT
+# Prebuilt queries — new table names (dimensional model, Phase 5+)
 PREBUILT: list[tuple[str, str]] = [
     (
         "Worst 10 routes (last 30 days)",
-        "SELECT route_id, AVG(pct_on_time) AS avg_pct_on_time\n"
-        "FROM mart_reliability_by_route_day\n"
-        "WHERE service_date_mst >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)\n"
-        "GROUP BY route_id\n"
+        "SELECT r.route_id, d.route_name, AVG(r.pct_on_time) AS avg_pct_on_time\n"
+        "FROM agg_reliability_by_route_day r\n"
+        "JOIN dim_route d USING (route_id)\n"
+        "WHERE r.service_date_mst >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)\n"
+        "GROUP BY r.route_id, d.route_name\n"
         "ORDER BY avg_pct_on_time ASC\n"
         "LIMIT 10",
     ),
     (
         "Stops with highest crash exposure",
-        "SELECT stop_id, crash_250m_cnt\n"
-        "FROM mart_crash_proximity_by_stop\n"
-        "ORDER BY crash_250m_cnt DESC\n"
+        "SELECT s.stop_id, d.stop_name, s.crash_250m_cnt, s.crash_score_0_100\n"
+        "FROM mart_stop_safety s\n"
+        "JOIN dim_stop d USING (stop_id)\n"
+        "ORDER BY s.crash_250m_cnt DESC\n"
         "LIMIT 20",
     ),
     (
         "Where snow hurts reliability most",
-        "SELECT route_id, delta_pct_on_time\n"
-        "FROM mart_weather_impacts\n"
-        "WHERE precip_bin IN ('mod', 'heavy')\n"
-        "ORDER BY delta_pct_on_time ASC\n"
+        "SELECT w.route_id, d.route_name, w.delta_pct_on_time\n"
+        "FROM agg_weather_impacts_by_route w\n"
+        "JOIN dim_route d USING (route_id)\n"
+        "WHERE w.precip_bin IN ('mod', 'heavy')\n"
+        "ORDER BY w.delta_pct_on_time ASC\n"
         "LIMIT 10",
     ),
     (
         "Equity gaps (high vulnerability, low reliability)",
-        "SELECT p.stop_id, v.vuln_score_0_100, r.reliability_score_0_100, p.priority_score\n"
-        "FROM mart_priority_hotspots p\n"
-        "JOIN mart_vulnerability_by_stop v USING(stop_id)\n"
-        "JOIN (\n"
-        "  SELECT stop_id, 100 * (1 - AVG(pct_on_time)) AS reliability_score_0_100\n"
-        "  FROM mart_reliability_by_stop_hour\n"
-        "  WHERE service_date_mst >= DATE_SUB(CURRENT_DATE, INTERVAL 35 DAY)\n"
-        "  GROUP BY stop_id\n"
-        ") r USING(stop_id)\n"
+        "SELECT p.stop_id, d.stop_name, p.vuln_score_0_100,\n"
+        "       p.reliability_score_0_100, p.priority_score\n"
+        "FROM mart_stop_priority p\n"
+        "JOIN dim_stop d USING (stop_id)\n"
         "ORDER BY p.priority_score DESC\n"
         "LIMIT 20",
     ),

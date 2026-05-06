@@ -36,7 +36,13 @@ export interface ModelInfo {
   name: string;
   fq_name: string;
   description: string | null;
+  layer: string | null;   // "dim" | "fct" | "agg" | "mart"
   columns: Record<string, ModelColumnInfo>;
+}
+
+export interface DownloadOption {
+  value: string;   // mart name
+  label: string;   // human-readable label
 }
 
 export interface ModelsResponse {

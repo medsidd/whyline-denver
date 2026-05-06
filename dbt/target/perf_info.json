@@ -1,15 +1,15 @@
 {
-    "path_count": 190,
+    "path_count": 210,
     "parsed_path_count": 0,
     "static_analysis_path_count": 0,
     "static_analysis_parsed_path_count": 0,
     "is_partial_parse_enabled": true,
     "is_static_analysis_enabled": true,
-    "read_files_elapsed": 0.03150779101997614,
-    "load_all_elapsed": 0.11499566701240838,
+    "read_files_elapsed": 0.03885925002396107,
+    "load_all_elapsed": 0.13859008299186826,
     "projects": [
         {
-            "project_name": "whylinedenver_dbt",
+            "project_name": "whyline_denver_dbt",
             "elapsed": 0,
             "parsers": [],
             "parsed_path_count": 0

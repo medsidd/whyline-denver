@@ -2,6 +2,7 @@
 
 with base as (
     select
+        feed_ts_utc,
         route_id,
         trip_id,
         stop_id,
@@ -17,6 +18,7 @@ with base as (
 )
 
 select
+    feed_ts_utc,
     route_id,
     trip_id,
     stop_id,

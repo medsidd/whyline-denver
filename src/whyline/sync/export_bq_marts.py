@@ -10,7 +10,12 @@ from typing import Optional
 from google.cloud import bigquery, storage
 
 from whyline.config import Settings
-from whyline.sync.constants import ALLOWLISTED_MARTS
+from whyline.sync.constants import (
+    EXPORT_MARTS,
+    MART_BY_NAME,
+    PARTITIONED_MARTS,
+    resolve_bq_dataset,
+)
 from whyline.sync.state import (
     BQStateStore,
     CompositeStateStore,
@@ -19,10 +24,6 @@ from whyline.sync.state import (
 )
 
 LOGGER = logging.getLogger(__name__)
-
-PARTITIONED_MARTS: frozenset[str] = frozenset(
-    {"mart_reliability_by_route_day", "mart_reliability_by_stop_hour"}
-)
 
 
 @dataclass(slots=True, frozen=True)
@@ -42,12 +43,12 @@ class MartExporter:
         *,
         bq_client: Optional[bigquery.Client] = None,
         storage_client: Optional[storage.Client] = None,
-        allowlisted_marts: Sequence[str] = ALLOWLISTED_MARTS,
+        allowlisted_marts: Sequence[str] = EXPORT_MARTS,
         state_store: Optional[CompositeStateStore] = None,
     ) -> None:
         self.settings = settings
         self.project = settings.GCP_PROJECT_ID
-        self.dataset = settings.BQ_DATASET_MART
+        self.dataset = settings.BQ_DATASET_MART  # used only for the state store
         self.bucket = settings.GCS_BUCKET
         self.allowlisted_marts = tuple(allowlisted_marts)
 
@@ -92,6 +93,12 @@ class MartExporter:
             seen.add(mart)
             ordered.append(mart)
         return ordered
+
+    def _mart_dataset(self, mart_name: str) -> str:
+        entry = MART_BY_NAME.get(mart_name)
+        if entry is None:
+            return self.settings.BQ_DATASET_MART
+        return resolve_bq_dataset(entry, self.settings)
 
     def _export_partitioned_mart(
         self, mart_name: str, since: Optional[date]
@@ -178,6 +185,7 @@ class MartExporter:
             mart_name,
             cutoff.isoformat() if cutoff else "start",
         )
+        dataset = self._mart_dataset(mart_name)
         params = []
         predicate = ""
         if cutoff:
@@ -185,13 +193,13 @@ class MartExporter:
             params.append(bigquery.ScalarQueryParameter("cutoff", "DATE", cutoff))
         query = f"""
             SELECT DISTINCT service_date_mst
-            FROM `{self.project}.{self.dataset}.{mart_name}`
+            FROM `{self.project}.{dataset}.{mart_name}`
             WHERE service_date_mst IS NOT NULL
         """
         if predicate:
             query = f"""
                 SELECT DISTINCT service_date_mst
-                FROM `{self.project}.{self.dataset}.{mart_name}`
+                FROM `{self.project}.{dataset}.{mart_name}`
                 WHERE service_date_mst IS NOT NULL
                   AND service_date_mst >= @cutoff
             """
@@ -215,7 +223,7 @@ class MartExporter:
     def _build_partition_export_sql(
         self, mart_name: str, run_date: date, destination_uri: str
     ) -> str:
-        table_ref = f"`{self.project}.{self.dataset}.{mart_name}`"
+        table_ref = f"`{self.project}.{self._mart_dataset(mart_name)}.{mart_name}`"
         return f"""
             EXPORT DATA OPTIONS(
               uri='{destination_uri}',
@@ -227,7 +235,7 @@ class MartExporter:
         """
 
     def _build_snapshot_export_sql(self, mart_name: str, destination_uri: str) -> str:
-        table_ref = f"`{self.project}.{self.dataset}.{mart_name}`"
+        table_ref = f"`{self.project}.{self._mart_dataset(mart_name)}.{mart_name}`"
         return f"""
             EXPORT DATA OPTIONS(
               uri='{destination_uri}',

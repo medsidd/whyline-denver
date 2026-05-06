@@ -35,8 +35,9 @@ def test_refresh_creates_tables_and_views(
     duckdb_path = tmp_path / "warehouse.duckdb"
     state_path = tmp_path / "sync_state.json"
 
-    monkeypatch.setattr(refresh_duckdb, "ALLOWLISTED_MARTS", ("mart_hot", "mart_cold"))
+    monkeypatch.setattr(refresh_duckdb, "SYNC_MARTS", ("mart_hot", "mart_cold"))
     monkeypatch.setattr(refresh_duckdb, "HOT_MARTS", {"mart_hot"})
+    monkeypatch.setattr(refresh_duckdb, "DEPRECATED_DUCKDB_ALIASES", {})
     monkeypatch.setattr(refresh_duckdb, "SYNC_STATE_PATH", state_path)
 
     settings = Settings()
@@ -83,11 +84,10 @@ def test_latest_run_date_only_prevents_duplicates(
     duckdb_path = tmp_path / "warehouse.duckdb"
     state_path = tmp_path / "sync_state.json"
 
-    monkeypatch.setattr(refresh_duckdb, "ALLOWLISTED_MARTS", ("mart_vulnerability_by_stop",))
+    monkeypatch.setattr(refresh_duckdb, "SYNC_MARTS", ("mart_vulnerability_by_stop",))
     monkeypatch.setattr(refresh_duckdb, "HOT_MARTS", set())
-    monkeypatch.setattr(
-        refresh_duckdb, "LATEST_RUN_DATE_ONLY_MARTS", {"mart_vulnerability_by_stop"}
-    )
+    monkeypatch.setattr(refresh_duckdb, "LATEST_RUN_DATE_ONLY", {"mart_vulnerability_by_stop"})
+    monkeypatch.setattr(refresh_duckdb, "DEPRECATED_DUCKDB_ALIASES", {})
     monkeypatch.setattr(refresh_duckdb, "SYNC_STATE_PATH", state_path)
 
     settings = Settings()

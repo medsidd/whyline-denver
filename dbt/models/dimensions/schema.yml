@@ -1,0 +1,146 @@
+version: 2
+
+models:
+  - name: dim_stop
+    description: "Conformed stop dimension. PK: stop_id. Source of truth for stop_name, lat, lon — all aggregate and mart tables should JOIN here for stop attributes."
+    config:
+      meta:
+        allow_in_app: true
+        layer: dim
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier (primary key)."
+        data_tests:
+          - not_null
+          - unique
+      - name: stop_name
+        description: "Human-readable stop name."
+        data_tests:
+          - not_null
+      - name: lat
+        description: "Stop latitude (WGS84)."
+        data_tests:
+          - not_null
+      - name: lon
+        description: "Stop longitude (WGS84)."
+        data_tests:
+          - not_null
+      - name: wheelchair_boarding
+        description: "GTFS wheelchair boarding code (0=unknown, 1=accessible, 2=not accessible)."
+
+  - name: dim_route
+    description: "Conformed route dimension. PK: route_id. Source of truth for route_name, route_long_name — all aggregate and mart tables should JOIN here for route attributes."
+    config:
+      meta:
+        allow_in_app: true
+        layer: dim
+    columns:
+      - name: route_id
+        description: "GTFS route identifier (primary key)."
+        data_tests:
+          - not_null
+          - unique
+      - name: route_name
+        description: "Short route name (falls back to route_long_name if short_name is blank)."
+        data_tests:
+          - not_null
+      - name: route_long_name
+        description: "Full route name from GTFS."
+      - name: route_type
+        description: "GTFS route type code (3 = bus)."
+      - name: route_desc
+        description: "Freeform route description from GTFS."
+
+  - name: dim_date
+    description: "Calendar date spine. PK: service_date_mst. Covers dim_date_start through current_date + dim_date_end_offset_days."
+    config:
+      meta:
+        allow_in_app: true
+        layer: dim
+    columns:
+      - name: service_date_mst
+        description: "Calendar date in Mountain Time (primary key)."
+        data_tests:
+          - not_null
+          - unique
+      - name: day_of_week
+        description: "Day-of-week integer (1=Sunday … 7=Saturday, matching BigQuery EXTRACT)."
+        data_tests:
+          - not_null
+      - name: day_name
+        description: "Proper-cased day name (e.g. 'Monday')."
+        data_tests:
+          - not_null
+      - name: is_weekend
+        description: "True if Saturday or Sunday."
+        data_tests:
+          - not_null
+      - name: month_num
+        description: "Month number (1–12)."
+      - name: month_name
+        description: "Full month name (e.g. 'January')."
+      - name: quarter
+        description: "Calendar quarter (1–4)."
+      - name: year
+        description: "Calendar year."
+      - name: season
+        description: "Meteorological season (winter/spring/summer/fall)."
+
+  - name: dim_weather
+    description: "Daily weather dimension. PK: service_date_mst. Filtered to the configured weather station; requires weather_station dbt var."
+    config:
+      meta:
+        allow_in_app: true
+        layer: dim
+    columns:
+      - name: service_date_mst
+        description: "Observation date (primary key). FK → dim_date.service_date_mst."
+        data_tests:
+          - not_null
+          - unique
+          - relationships:
+              to: ref('dim_date')
+              field: service_date_mst
+      - name: snow_day
+        description: "True if snowfall was recorded on this date."
+      - name: precip_bin
+        description: "Precipitation category for the day (none/rain/snow)."
+        data_tests:
+          - not_null
+      - name: tmin_c
+        description: "Minimum temperature in Celsius."
+      - name: tmax_c
+        description: "Maximum temperature in Celsius."
+      - name: tavg_c
+        description: "Average temperature in Celsius."
+      - name: snow_mm
+        description: "Snowfall in millimetres."
+      - name: precip_mm
+        description: "Total precipitation in millimetres."
+
+  - name: dim_census_tract
+    description: "Merged census tract geometry and ACS demographics. PK: geoid (normalized FIPS, 14000US prefix stripped). BigQuery-only; not synced to DuckDB."
+    config:
+      meta:
+        allow_in_app: false
+        layer: dim
+    columns:
+      - name: geoid
+        description: "Normalized Census FIPS code (primary key, 14000US prefix stripped from both sources)."
+        data_tests:
+          - not_null
+          - unique
+      - name: name
+        description: "Census tract name."
+      - name: aland_m2
+        description: "Land area in square metres."
+      - name: geom
+        description: "Tract boundary geometry (BigQuery GEOGRAPHY). Used for spatial joins at mart build time; excluded from parquet export."
+      - name: pct_hh_no_vehicle
+        description: "Share of households with no vehicle (ACS)."
+      - name: pct_transit_commute
+        description: "Share of workers commuting by transit (ACS)."
+      - name: pct_poverty
+        description: "Share of persons below poverty line (ACS)."
+      - name: pop_total
+        description: "Total tract population (ACS)."
