@@ -16,7 +16,8 @@ with e as (
         delay_sec,
         delay_sec_raw
     from {{ ref('int_rt_events_resolved') }}
-    where true
+    -- Unassigned events remain in staging but cannot contribute to route metrics.
+    where route_id is not null
     {% if is_incremental() %}
         and service_date_mst >= date_sub(current_date("America/Denver"), interval {{ weather_lookback_days }} day)
     {% endif %}
