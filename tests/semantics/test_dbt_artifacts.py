@@ -21,7 +21,14 @@ def artifacts(tmp_path_factory) -> DbtArtifacts:
         "      type: bigquery\n      method: oauth\n"
         "      project: offline-test\n      dataset: test\n"
     )
-    env = {**os.environ, "DBT_SEND_ANONYMOUS_USAGE_STATS": "false"}
+    env = {
+        **os.environ,
+        "DBT_SEND_ANONYMOUS_USAGE_STATS": "false",
+        "GCP_PROJECT_ID": "offline-test",
+        "BQ_DATASET_RAW": "raw_test",
+        "BQ_DATASET_STG": "stg_test",
+        "BQ_DATASET_MART": "mart_test",
+    }
     result = subprocess.run(  # noqa: S603
         [
             sys.executable,
