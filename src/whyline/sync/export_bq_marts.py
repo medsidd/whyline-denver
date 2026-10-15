@@ -59,7 +59,11 @@ class MartExporter:
         )
 
     def run(
-        self, *, since: Optional[date] = None, marts: Optional[Iterable[str]] = None
+        self,
+        *,
+        since: Optional[date] = None,
+        marts: Optional[Iterable[str]] = None,
+        force: bool = False,
     ) -> list[ExportResult]:
         marts_to_process = tuple(self._validate_marts(marts))
         LOGGER.info(
@@ -70,9 +74,9 @@ class MartExporter:
         results: list[ExportResult] = []
         for mart_name in marts_to_process:
             if mart_name in PARTITIONED_MARTS:
-                result = self._export_partitioned_mart(mart_name, since)
+                result = self._export_partitioned_mart(mart_name, since, force=force)
             else:
-                result = self._export_snapshot_mart(mart_name)
+                result = self._export_snapshot_mart(mart_name, force=force)
             if result:
                 results.append(result)
         return results
@@ -94,9 +98,9 @@ class MartExporter:
         return ordered
 
     def _export_partitioned_mart(
-        self, mart_name: str, since: Optional[date]
+        self, mart_name: str, since: Optional[date], *, force: bool = False
     ) -> Optional[ExportResult]:
-        state = self._state_store.load(mart_name)
+        state = None if force else self._state_store.load(mart_name)
         LOGGER.info("Loaded state for %s: %s", mart_name, state)
         partitions = self._list_partitions_to_export(mart_name, state, since)
         if not partitions:
@@ -123,10 +127,12 @@ class MartExporter:
             last_run_ts=final_state.last_run_ts or self._now(),
         )
 
-    def _export_snapshot_mart(self, mart_name: str) -> Optional[ExportResult]:
+    def _export_snapshot_mart(
+        self, mart_name: str, *, force: bool = False
+    ) -> Optional[ExportResult]:
         today = self._now().date()
         state = self._state_store.load(mart_name)
-        if state and state.last_run_ts and state.last_run_ts.date() >= today:
+        if not force and state and state.last_run_ts and state.last_run_ts.date() >= today:
             LOGGER.info("Snapshot mart %s already exported today; skipping", mart_name)
             return None
 
@@ -181,8 +187,18 @@ class MartExporter:
         params = []
         predicate = ""
         if cutoff:
-            predicate = "WHERE service_date_mst >= @cutoff"
+            predicate = "service_date_mst >= @cutoff"
             params.append(bigquery.ScalarQueryParameter("cutoff", "DATE", cutoff))
+            # Late weather observations rebuild existing service dates. Re-export those
+            # partitions instead of only advancing to unseen dates.
+            if state and state.last_run_ts:
+                predicate = f"({predicate} OR build_run_at > @updated_after)"
+                params.append(
+                    bigquery.ScalarQueryParameter("updated_after", "TIMESTAMP", state.last_run_ts)
+                )
+            if since:
+                predicate += " AND service_date_mst >= @since"
+                params.append(bigquery.ScalarQueryParameter("since", "DATE", since))
         query = f"""
             SELECT DISTINCT service_date_mst
             FROM `{self.project}.{self.dataset}.{mart_name}`
@@ -193,7 +209,7 @@ class MartExporter:
                 SELECT DISTINCT service_date_mst
                 FROM `{self.project}.{self.dataset}.{mart_name}`
                 WHERE service_date_mst IS NOT NULL
-                  AND service_date_mst >= @cutoff
+                  AND {predicate}
             """
         job = self._bq_client.query(
             query,
@@ -261,6 +277,11 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         help="Limit export to specific mart(s). Can be specified multiple times.",
     )
     parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-export selected marts even if already exported; --since bounds partitions.",
+    )
+    parser.add_argument(
         "--log-level",
         default="INFO",
         choices={"DEBUG", "INFO", "WARNING", "ERROR"},
@@ -285,7 +306,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     settings = Settings()
     exporter = MartExporter(settings)
     try:
-        exporter.run(since=args.since, marts=args.marts)
+        exporter.run(since=args.since, marts=args.marts, force=args.force)
     except Exception:  # pragma: no cover - CLI top-level guard
         LOGGER.exception("Export failed")
         return 1

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import base64
-import fnmatch
 import hashlib
 import json
 import logging
@@ -12,7 +11,7 @@ import sys
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Iterable, Iterator, Sequence
 
 from google.api_core.exceptions import NotFound
@@ -306,7 +305,7 @@ def discover_gcs_files(
                     if blob.name.startswith(f"{RAW_ROOT_GCS}/")
                     else blob.name
                 )
-                if not fnmatch.fnmatch(relative, pattern):
+                if not PurePosixPath(relative).match(pattern):
                     continue
                 extract = infer_extract_date(relative)
                 size = blob.size

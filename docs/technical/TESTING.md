@@ -7,15 +7,16 @@ WhyLine Denver has three testing layers: a Python pytest suite, dbt data quality
 ## Python Tests (pytest)
 
 **Location**: `tests/`
-**Count**: 28 tests
 **Command**: `make test`
 
 ### Prerequisites
 
-dbt artifacts must exist before running tests:
+The artifact tests parse the current dbt project into a temporary directory,
+using an offline profile and a small catalog fixture. They do not require
+BigQuery credentials or the checked-in `dbt/target` snapshot. `make test` does
+not generate production artifacts or query BigQuery:
 
 ```bash
-make dbt-artifacts   # Generates dbt/target/manifest.json and catalog.json
 make test
 ```
 
@@ -86,7 +87,7 @@ The CI workflow (`ci.yml`) runs on every pull request and push to `main`:
 ```
 Lint (ruff + black)
     ↓
-pytest (28 tests)
+pytest (offline suite)
     ↓
 Ingest smoke tests
     ↓ (only on push to main)

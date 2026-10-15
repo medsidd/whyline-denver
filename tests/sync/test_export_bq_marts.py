@@ -107,3 +107,39 @@ def test_snapshot_mart_skips_if_already_exported_today():
     assert results == []
     exporter._bq_client.query.assert_not_called()
     assert len(state_store.written) == 0
+
+
+def test_late_weather_reexports_an_existing_partition():
+    mart = "mart_reliability_by_route_day"
+    state = ExportState(mart, date(2026, 10, 15), datetime(2026, 10, 15, tzinfo=UTC))
+    client = MagicMock()
+    client.query.return_value = FakeQueryJob([(date(2026, 10, 10),)])
+    exporter = MartExporter(
+        Settings(), bq_client=client, storage_client=MagicMock(), state_store=FakeStateStore()
+    )
+    assert exporter._list_partitions_to_export(mart, state, None) == [date(2026, 10, 10)]
+    sql = client.query.call_args.args[0]
+    parameters = {
+        p.name: p.value for p in client.query.call_args.kwargs["job_config"].query_parameters
+    }
+    assert "OR build_run_at > @updated_after" in sql
+    assert parameters["updated_after"] == state.last_run_ts
+
+
+def test_force_reexports_snapshot_and_bounds_partition_backfill():
+    mart = "mart_weather_impacts"
+    state = ExportState(mart, date(2026, 10, 15), datetime(2026, 10, 15, tzinfo=UTC))
+    client = MagicMock()
+    client.query.return_value = FakeQueryJob()
+    store = FakeStateStore({mart: state})
+    exporter = MartExporter(
+        Settings(), bq_client=client, storage_client=MagicMock(), state_store=store
+    )
+    exporter._now = MagicMock(return_value=state.last_run_ts)
+    assert len(exporter.run(marts=[mart], force=True)) == 1
+    client.query.assert_called_once()
+    exporter._list_partitions_to_export("mart_reliability_by_route_day", None, date(2026, 9, 15))
+    parameters = {
+        p.name: p.value for p in client.query.call_args.kwargs["job_config"].query_parameters
+    }
+    assert parameters["cutoff"] == date(2026, 9, 15)

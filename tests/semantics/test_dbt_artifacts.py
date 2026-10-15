@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -8,12 +12,52 @@ from whyline.semantics.dbt_artifacts import DbtArtifacts
 
 
 @pytest.fixture(scope="module")
-def artifacts() -> DbtArtifacts:
-    target_path = Path("dbt/target")
-    manifest_path = target_path / "manifest.json"
-    catalog_path = target_path / "catalog.json"
-    if not manifest_path.exists() or not catalog_path.exists():
-        pytest.skip("dbt artifacts are missing; run dbt compile first.")
+def artifacts(tmp_path_factory) -> DbtArtifacts:
+    target_path = tmp_path_factory.mktemp("dbt-artifacts")
+    project = Path(__file__).resolve().parents[2] / "dbt"
+    # Parse real model definitions offline; never reuse the checked-in runtime snapshot.
+    (target_path / "profiles.yml").write_text(
+        "whyline_denver:\n  target: test\n  outputs:\n    test:\n"
+        "      type: bigquery\n      method: oauth\n"
+        "      project: offline-test\n      dataset: test\n"
+    )
+    env = {**os.environ, "DBT_SEND_ANONYMOUS_USAGE_STATS": "false"}
+    result = subprocess.run(  # noqa: S603
+        [
+            sys.executable,
+            "-m",
+            "dbt.cli.main",
+            "parse",
+            "--project-dir",
+            str(project),
+            "--profiles-dir",
+            str(target_path),
+            "--target-path",
+            str(target_path),
+            "--log-path",
+            str(target_path / "logs"),
+            "--no-partial-parse",
+            "--target",
+            "test",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    # A minimal catalog fixture exercises warehouse type merging without contacting BQ.
+    (target_path / "catalog.json").write_text(
+        json.dumps(
+            {
+                "nodes": {
+                    "model.previous_project.mart_reliability_by_route_day": {
+                        "columns": {"service_date_mst": {"type": "DATE"}}
+                    }
+                }
+            }
+        )
+    )
     loader = DbtArtifacts(target_path=target_path)
     loader.load_artifacts()
     return loader

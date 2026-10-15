@@ -22,7 +22,7 @@ from whyline.ingest import io
 load_dotenv(override=False)
 
 CDO_API_URL = "https://www.ncei.noaa.gov/cdo-web/api/v2/data"
-DEFAULT_STATION = "USW00023062"
+DEFAULT_STATION = "USW00003017"
 DEFAULT_DATASET = "GHCND"
 DATATYPES = ["SNOW", "PRCP", "TMIN", "TMAX", "TAVG"]
 DEFAULT_LOCAL_SOURCE = Path("data/external/noaa_raw.csv")
@@ -55,7 +55,11 @@ def run(args: argparse.Namespace) -> int:
         bucket = args.bucket[5:] if args.bucket.startswith("gs://") else args.bucket
         root = f"gs://{bucket.strip('/')}/raw"
 
-    date_dir = _join_path(root, "noaa_daily", f"extract_date={extract_date}")
+    # Keep earlier station extracts intact when the configured station changes.
+    args.station = _extract_station_code(args.station, DEFAULT_STATION)
+    date_dir = _join_path(
+        root, "noaa_daily", f"extract_date={extract_date}", f"station={args.station}"
+    )
     output_path = _join_path(date_dir, OUTPUT_FILENAME)
 
     if io.exists(output_path):
@@ -91,6 +95,11 @@ def run(args: argparse.Namespace) -> int:
         source_descriptor = str(source_path)
 
     df = build_dataframe(raw_records, args.start, args.end, args.station)
+    if df["precip_mm"].isna().all():
+        raise RuntimeError(
+            f"No precipitation observations for {args.station} in {args.start}–{args.end}; "
+            "refusing to publish an empty weather extract. Check NOAA station coverage."
+        )
 
     csv_bytes = df.to_csv(index=False).encode("utf-8")
     payload = gzip_compress(csv_bytes)
@@ -141,7 +150,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--start", required=True, help="Start date (inclusive) YYYY-MM-DD.")
     parser.add_argument("--end", required=True, help="End date (inclusive) YYYY-MM-DD.")
     parser.add_argument(
-        "--station", default=DEFAULT_STATION, help="NOAA station ID (e.g., USW00023062)."
+        "--station", default=DEFAULT_STATION, help="NOAA station ID (default: Denver airport)."
     )
     parser.add_argument(
         "--token",
@@ -149,7 +158,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--source-path",
-        help=f"Path to local fallback CSV (default {DEFAULT_LOCAL_SOURCE}). Used when --token absent.",
+        help=f"Metric-unit local CSV (default {DEFAULT_LOCAL_SOURCE}). Used when --token absent.",
     )
     parser.add_argument(
         "--timeout-sec", type=int, default=30, help="HTTP timeout for API requests."
@@ -259,7 +268,9 @@ def build_dataframe(
         rows.append(row)
 
     df = pd.DataFrame(rows)
-    df = _normalize_units(df)
+    # CDO units=metric already returns mm and Celsius; never infer scale from magnitude.
+    for column in ["snow_mm", "precip_mm", "tmin_c", "tmax_c", "tavg_c"]:
+        df[column] = df[column].astype(float)
     df["tavg_c"] = df["tavg_c"].combine_first((df["tmin_c"] + df["tmax_c"]) / 2)
     # Use Int64 (nullable integer) to preserve integer format even with NULLs
     df["snow_day"] = (
@@ -323,29 +334,6 @@ def gzip_compress(data: bytes) -> bytes:
     with gzip.GzipFile(fileobj=buffer, mode="wb") as gz:
         gz.write(data)
     return buffer.getvalue()
-
-
-def _normalize_units(df: pd.DataFrame) -> pd.DataFrame:
-    # NOAA CDO metric units are millimeters for precip/snow and Celsius for temperatures.
-    # Some local CSV drops may retain tenths; detect by looking for integer-only columns.
-    for column in ["snow_mm", "precip_mm"]:
-        if column in df:
-            df[column] = _maybe_scale(df[column], factor=0.1, threshold=200)
-    for column in ["tmin_c", "tmax_c", "tavg_c"]:
-        if column in df:
-            df[column] = _maybe_scale(df[column], factor=0.1, threshold=100)
-    return df
-
-
-def _maybe_scale(series: pd.Series, *, factor: float, threshold: float) -> pd.Series:
-    series = series.astype(float)
-    non_null = series.dropna()
-    if non_null.empty:
-        return series
-    max_abs = non_null.abs().max()
-    if max_abs >= threshold:
-        return series * factor
-    return series
 
 
 def _precip_category(value: float | None) -> str | None:

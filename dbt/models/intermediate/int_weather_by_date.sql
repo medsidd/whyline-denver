@@ -15,12 +15,12 @@ with base as (
 aggregated as (
     select
         date as service_date_mst,
-        max(coalesce(snow_day, 0)) as snow_day_flag,
+        max(snow_day) as snow_day_flag,
         array_agg(
             precip_bin
             ignore nulls
             order by precip_mm desc
-        )[offset(0)] as precip_bin
+        )[safe_offset(0)] as precip_bin
     from base
     group by service_date_mst
 )

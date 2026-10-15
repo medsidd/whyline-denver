@@ -67,7 +67,7 @@ lint:
 format:
 	ruff check . --fix && black .
 
-test: dbt-artifacts
+test:
 	pytest
 
 dbt-compile:

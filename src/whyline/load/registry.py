@@ -190,7 +190,10 @@ JOBS: tuple[JobSpec, ...] = (
     ),
     JobSpec(
         name="noaa_daily",
-        patterns=("noaa_daily/extract_date=*/weather.csv.gz",),
+        patterns=(
+            "noaa_daily/extract_date=*/weather.csv.gz",
+            "noaa_daily/extract_date=*/station=*/weather.csv.gz",
+        ),
         table="raw_weather_daily",
         columns=_cols(
             ("date", "DATE"),

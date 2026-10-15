@@ -51,7 +51,7 @@ Seven independent ingestion scripts live in `src/whyline/ingest/`. Each is a sta
 | `gtfs_realtime` | `ingest-gtfs-rt` | `https://www.rtd-denver.com/files/gtfs-rt/TripUpdate.pb` + `VehiclePosition.pb` | `raw/rtd_gtfsrt/snapshot_at={datetime}/` | Every 5 min via Cloud Scheduler |
 | `denver_crashes` | `ingest-crashes` | Denver Open Data ArcGIS FeatureServer (5-year rolling window) | `raw/denver_crashes/extract_date={date}/` | Nightly (8 AM UTC) |
 | `denver_sidewalks` | `ingest-sidewalks` | Denver Open Data ArcGIS FeatureServer | `raw/denver_sidewalks/extract_date={date}/` | Nightly (8 AM UTC) |
-| `noaa_daily` | `ingest-noaa` | `https://www.ncei.noaa.gov/cdo-web/api/v2/data` (station USW00023062) | `raw/noaa_daily/extract_date={date}/` | Nightly (8 AM UTC) |
+| `noaa_daily` | `ingest-noaa` | `https://www.ncei.noaa.gov/cdo-web/api/v2/data` (station USW00003017) | `raw/noaa_daily/extract_date={date}/station={station}/` | Nightly (8 AM UTC) |
 | `acs` | `ingest-acs` | `https://api.census.gov/data` (ACS 5-year, 2023 vintage, Denver County tracts) | `raw/acs/extract_date={date}/` | Annually (manual or nightly) |
 | `denver_tracts` | `ingest-tracts` | Census TIGER Web ArcGIS (2020 tract boundaries) | `raw/denver_tracts/extract_date={date}/` | Manually |
 
@@ -72,6 +72,25 @@ Every ingestor is idempotent: if a manifest or output file already exists at the
 ```
 
 MD5 hashes enable downstream deduplication in the BigQuery loader.
+
+### Weather coverage and corrections
+
+Weather uses Denver International Airport (`USW00003017`) consistently in ingestion
+and dbt. The former Central Park station returned no observations for the September
+15–October 14, 2026 window. New station extracts live in separate subdirectories;
+legacy raw files are retained and both layouts are loadable.
+
+CDO is requested in metric units (mm and Celsius); local fallback CSVs must use the
+same units. An extract with no precipitation observations fails before writing.
+NOAA publication lag can leave recent dates missing: those dates remain null in raw
+weather and become `precip_bin = 'unknown'` in route metrics, never dry weather.
+Weather-impact comparisons exclude unknown days and use the configured 30-day window.
+
+Mart export also picks up partitions whose `build_run_at` is newer than the last
+export, so late weather corrections reach DuckDB. For a bounded manual repair,
+`python -m whyline.sync.export_bq_marts --mart mart_reliability_by_route_day --mart
+mart_weather_impacts --since YYYY-MM-DD --force` bypasses the export checkpoint.
+This overwrites derived exports, not retained raw source data.
 
 ### GTFS-RT details
 
@@ -171,7 +190,7 @@ Derived metrics and aggregations that serve as inputs to marts.
 | `int_stop_headways_scheduled` | View | Calculates scheduled headway intervals between arrivals at each stop using window functions. |
 | `int_stop_headways_observed` | View | Calculates observed headway intervals from realtime events (45-day window). |
 | `int_headway_adherence` | **Incremental table** (partitioned by service_date_mst) | Joins observed vs scheduled headways; flags adherence within 50% tolerance. 3-day incremental lookback. |
-| `int_weather_by_date` | View | Aggregates weather to daily level by service date; filters to configured station (USW00023062). |
+| `int_weather_by_date` | View | Aggregates weather to daily level by service date; filters to configured station (USW00003017). |
 
 ### Layer 3: Marts (9 models)
 
@@ -230,7 +249,7 @@ Key columns: `route_id`, `route_name`, `route_long_name`, `route_type`
 | `on_time_sec` | `300` | Seconds threshold for on-time classification (5 min) |
 | `headway_tol_ratio` | `0.5` | Tolerance ratio for headway adherence |
 | `sched_match_tol_sec` | `1800` | Window (seconds) to match realtime events to schedule |
-| `weather_station` | `USW00023062` | NOAA station for weather filtering |
+| `weather_station` | `USW00003017` | NOAA station for weather filtering |
 | `weather_lookback_days` | `30` | Rolling window for weather impact calculations |
 
 ### Running dbt

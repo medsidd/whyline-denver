@@ -33,8 +33,8 @@ w as (
 select
     e.route_id,
     e.service_date_mst,
-    coalesce(w.precip_bin, 'none') as precip_bin,
-    coalesce(w.snow_day, false) as snow_day,
+    coalesce(w.precip_bin, 'unknown') as precip_bin,
+    w.snow_day as snow_day,
     count(*) as n_events,
     countif(delay_sec_raw is not null) as n_reported_events,
     avg(case when abs(delay_sec) <= {{ var('on_time_sec', 300) }} then 1 else 0 end) as pct_on_time,
