@@ -12,7 +12,9 @@ with base as (
         on_route,
         off_route,
         bike_involved,
-        ped_involved
+        ped_involved,
+        _extract_date,
+        _ingested_at
     from {{ source('raw', 'raw_crashes') }}
     where lon is not null
       and lat is not null
@@ -22,7 +24,8 @@ deduped as (
         *,
         row_number() over (
             partition by crash_id
-            order by event_ts_utc desc, severity desc
+            -- Extracts revise severity and location; the latest extract wins, fully ordered so reruns agree
+            order by _extract_date desc, _ingested_at desc, event_ts_utc desc, severity desc, lon, lat
         ) as crash_rank
     from base
 )
