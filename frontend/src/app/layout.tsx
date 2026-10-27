@@ -1,19 +1,14 @@
 import type { Metadata } from "next";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Nunito } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
-const inter = Inter({
+const nunito = Nunito({
   subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-space-grotesk",
+  weight: ["500", "600", "700", "800", "900"],
+  variable: "--font-nunito",
   display: "swap",
 });
 
@@ -48,7 +43,7 @@ export const metadata: Metadata = {
       { url: "/assets/logo.svg", type: "image/svg+xml" },
     ],
     apple: [{ url: "/apple-touch-icon.png", sizes: "512x512", type: "image/png" }],
-    other: [{ rel: "mask-icon", url: "/assets/pinned-tab.svg", color: "#d4a574" }],
+    other: [{ rel: "mask-icon", url: "/assets/pinned-tab.svg", color: "#042F54" }],
   },
   other: {
     "geo.region": "US-CO",
@@ -64,8 +59,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable}`}>
-      <body className="bg-background text-text antialiased">
+    <html lang="en" className={nunito.variable}>
+      <body className="bg-wl-canvas text-wl-navy font-rounded antialiased">
         <Providers>{children}</Providers>
         <Analytics />
         <SpeedInsights />

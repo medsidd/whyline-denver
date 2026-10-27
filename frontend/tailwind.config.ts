@@ -9,28 +9,26 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: "#87a7b3",
-        accent: "#d4a574",
-        success: "#a3b88c",
-        warning: "#e8b863",
-        error: "#c77f6d",
-        background: "#232129",
-        surface: "#322e38",
-        border: "#433f4c",
-        text: "#e8d5c4",
-        muted: "#9a8e7e",
-        "surface-dark": "#1a171d",
+        // WhyLine design language (the logo's colors)
+        wl: {
+          navy: "#042F54",
+          "navy-deep": "#021F38",
+          gold: "#F0B616",
+          red: "#D9191C",
+          teal: "#0D657F",
+          canvas: "#F4F8FB",
+          ink2: "#4A5F73",
+          rule: "#E3EAF1",
+          road: "#C9D6E3",
+          "teal-tint": "#DFF0F4",
+          "gold-tint": "#FFF0C7",
+          "red-tint": "#FDE4E3",
+          "navy-tint": "#E5EDF5",
+        },
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
-        heading: ["var(--font-space-grotesk)", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "Courier New", "monospace"],
-      },
-      backgroundImage: {
-        stripe:
-          "linear-gradient(90deg, #87a7b3 0%, #d4a574 25%, #a3b88c 50%, #e8b863 75%, #c77f6d 100%)",
-        "brand-gradient":
-          "linear-gradient(135deg, #87a7b3 0%, #d4a574 100%)",
+        rounded: ["var(--font-nunito)", "ui-rounded", "system-ui", "sans-serif"],
+        mono: ["ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"],
       },
     },
   },

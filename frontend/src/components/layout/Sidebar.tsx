@@ -1,292 +1,246 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-
-const _MT_FMT = new Intl.DateTimeFormat("en-US", {
-  timeZone: "America/Denver",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
-  timeZoneName: "short",
-});
-
-function toMountainTime(raw: string): string {
-  if (
-    !raw ||
-    raw.startsWith("Loading") ||
-    raw.startsWith("Unavailable") ||
-    raw.startsWith("Awaiting") ||
-    raw.startsWith("Latest run_date") ||
-    raw.includes("MST") ||
-    raw.includes("MDT")
-  ) return raw;
-
-  // Normalize "2026-03-08 20:05 UTC" → "2026-03-08T20:05Z"
-  const normalized = raw.replace(" UTC", "Z").replace(/^(\d{4}-\d{2}-\d{2}) /, "$1T");
-  const d = new Date(normalized);
-  if (isNaN(d.getTime())) return raw;
-
-  const p = Object.fromEntries(_MT_FMT.formatToParts(d).map((x) => [x.type, x.value]));
-  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${p.timeZoneName}`;
-}
-
-import { fetchFilters, fetchFreshness } from "@/lib/api";
-import { useDashboardStore } from "@/store/dashboardStore";
-import { FreshnessBadge } from "@/components/ui/FreshnessBadge";
-import { tokens } from "@/lib/tokens";
+import { fetchFilters } from "@/lib/api";
+import { defaultFilters, useDashboardStore } from "@/store/dashboardStore";
+import { useFreshness } from "@/components/layout/Header";
 import type { Engine } from "@/types/api";
 
-/**
- * Sidebar component — mirrors sidebar.py::render().
- * Contains: freshness badges, engine selector, date range, routes, stop ID, weather.
- */
+const ENGINES: { id: Engine; name: string; scope: string }[] = [
+  { id: "duckdb", name: "DuckDB", scope: "Last ~90 days, fast" },
+  { id: "bigquery", name: "BigQuery", scope: "Full history, slower" },
+];
+
+const WEATHER_LABELS: Record<string, string> = { none: "Dry", rain: "Rain", snow: "Snow" };
+
+const label = "block text-sm font-extrabold text-wl-navy mb-1.5";
+const hint = "mt-1.5 text-[13px] font-semibold text-wl-ink2";
+
+/** Filter rail: engine, dates, routes, stop and weather. Collapses behind a toggle below lg. */
 export function Sidebar() {
   const { engine, filters, setEngine, setFilters } = useDashboardStore();
+  const freshness = useFreshness();
+  const [open, setOpen] = useState(false);
+  const [routeDraft, setRouteDraft] = useState("");
 
-  // Filter options — refetched when engine changes
   const { data: filterData } = useQuery({
     queryKey: ["filters", engine],
     queryFn: () => fetchFilters(engine),
     staleTime: 5 * 60 * 1000,
   });
 
-  // Freshness — refetched every 60s
-  const { data: freshness } = useQuery({
-    queryKey: ["freshness"],
-    queryFn: fetchFreshness,
-    refetchInterval: 60_000,
-    staleTime: 30_000,
-  });
+  const { date_min: min, date_max: max } = filterData ?? {};
+  const outOfRange =
+    !!min && !!max && !!filters.start_date && !!filters.end_date && (filters.start_date > max || filters.end_date < min);
 
-  // Derive freshness badge variants
-  const bqFreshness = toMountainTime(freshness?.bigquery_freshness ?? "Loading…");
-  const duckFreshness = toMountainTime(freshness?.duckdb_freshness ?? "Loading…");
-  const bqVariant = bqFreshness.includes("Unavailable") ? "warning" : "success";
-  const duckVariant = duckFreshness.includes("Unavailable") || duckFreshness.includes("Awaiting")
-    ? "warning"
-    : "accent";
+  const activeCount =
+    filters.routes.length + (filters.stop_id.trim() ? 1 : 0) + filters.weather.length;
 
-  // Active filter summary items
-  const activeFilters: string[] = [];
-  if (filters.start_date && filters.end_date)
-    activeFilters.push(`📅 ${filters.start_date} → ${filters.end_date}`);
-  if (filters.routes.length)
-    activeFilters.push(`🚌 Routes: ${filters.routes.slice(0, 3).join(", ")}${filters.routes.length > 3 ? "…" : ""}`);
-  if (filters.stop_id)
-    activeFilters.push(`🚏 Stop: ${filters.stop_id}`);
-  if (filters.weather.length)
-    activeFilters.push(`🌦️ Weather: ${filters.weather.join(", ")}`);
+  const addRoute = (value: string) => {
+    const route = (filterData?.routes ?? []).find((r) => r.toLowerCase() === value.trim().toLowerCase());
+    if (!route) return false;
+    if (!filters.routes.includes(route)) setFilters({ routes: [...filters.routes, route] });
+    setRouteDraft("");
+    return true;
+  };
+
+  const pickLatestWeek = () => {
+    if (!max) return;
+    const start = new Date(`${max}T00:00:00Z`);
+    start.setUTCDate(start.getUTCDate() - 7);
+    const iso = start.toISOString().slice(0, 10);
+    setFilters({ start_date: min && iso < min ? min : iso, end_date: max });
+  };
 
   return (
-    <aside
-      className="flex flex-col h-full overflow-y-auto p-5 gap-4"
-      style={{
-        width: "440px",
-        minWidth: "280px",
-        backgroundColor: tokens.surfaceDark,
-        borderRight: `1px solid ${tokens.border}`,
-      }}
-    >
-      {/* ── Freshness ───────────────────────────────────────── */}
-      <section>
-        <h2
-          className="text-lg font-semibold mb-3"
-          style={{ fontFamily: "var(--font-space-grotesk)", color: tokens.accent }}
-        >
-          Data Freshness
-        </h2>
-        <FreshnessBadge label="dbt (BigQuery)" value={bqFreshness} variant={bqVariant} />
-        <FreshnessBadge label="DuckDB sync" value={duckFreshness} variant={duckVariant} />
-        <p className="text-xs mt-1" style={{ color: tokens.muted }}>
-          DuckDB holds ~90 days; BigQuery has the full corpus.
+    <aside aria-label="Filters" className="lg:sticky lg:top-[88px] lg:max-h-[calc(100vh-104px)] lg:overflow-y-auto rounded-[28px] bg-white wl-shadow">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls="wl-filters"
+        className="lg:hidden w-full flex items-center justify-between gap-3 min-h-[56px] px-5 font-black text-lg"
+      >
+        <span>
+          Filters
+          {activeCount > 0 && <span className="ml-2 text-sm font-extrabold text-wl-teal">{activeCount} active</span>}
+        </span>
+        <span aria-hidden="true" className={`wl-plus w-8 h-8 rounded-full bg-wl-navy-tint flex items-center justify-center text-xl ${open ? "rotate-45 bg-wl-gold" : ""}`}>
+          +
+        </span>
+      </button>
+
+      <div id="wl-filters" className={`${open ? "flex" : "hidden"} lg:flex flex-col gap-6 p-5 pt-1 lg:pt-6`}>
+        {/* Engine */}
+        <fieldset>
+          <legend className={label}>Data source</legend>
+          <div className="grid grid-cols-2 gap-1 p-1 rounded-[18px] bg-wl-canvas">
+            {ENGINES.map((e) => {
+              const on = engine === e.id;
+              return (
+                <button
+                  key={e.id}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setEngine(e.id)}
+                  className={`min-h-[52px] px-3 py-2 rounded-[14px] text-left transition-colors ${
+                    on ? "bg-wl-navy text-white shadow-[0_3px_0_#021A30]" : "text-wl-navy hover:bg-white"
+                  }`}
+                >
+                  <span className="block font-black text-[15px] leading-tight">{e.name}</span>
+                  <span className={`block text-xs font-bold leading-tight mt-0.5 ${on ? "text-white/75" : "text-wl-ink2"}`}>
+                    {e.scope}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {!freshness[engine].startsWith("Loading") && <p className={hint}>Updated {freshness[engine]}</p>}
+        </fieldset>
+
+        <p className="-mt-2 -mb-1 text-[13px] font-semibold text-wl-ink2 border-t border-wl-rule pt-4">
+          These filters are added to the SQL WhyLine writes for your question.
         </p>
-      </section>
 
-      <hr className="section-separator" />
-
-      {/* ── Controls ────────────────────────────────────────── */}
-      <section className="flex flex-col gap-4">
-        <h2
-          className="text-lg font-semibold mb-1"
-          style={{ fontFamily: "var(--font-space-grotesk)", color: tokens.accent }}
-        >
-          Controls
-        </h2>
-
-        {/* Engine selector */}
-        <label className="block">
-          <span className="block text-sm font-medium mb-1" style={{ color: tokens.muted }}>
-            Query Engine
-          </span>
-          <div
-            className="flex rounded-lg overflow-hidden border"
-            style={{ borderColor: tokens.border, backgroundColor: tokens.surface }}
-          >
-            {(["duckdb", "bigquery"] as Engine[]).map((e) => (
-              <button
-                key={e}
-                onClick={() => setEngine(e)}
-                className="flex-1 py-2 px-3 text-sm font-semibold transition-colors"
-                style={{
-                  backgroundColor: engine === e ? tokens.primary : "transparent",
-                  color: engine === e ? tokens.surfaceDark : tokens.text,
-                  fontFamily: "var(--font-space-grotesk)",
-                }}
-              >
-                {e === "duckdb" ? "DuckDB" : "BigQuery"}
+        {/* Dates */}
+        <fieldset>
+          <legend className={label}>Dates</legend>
+          <div className="grid gap-2">
+            <label className="grid grid-cols-[40px_minmax(0,1fr)] items-center">
+              <span className="text-[13px] font-extrabold text-wl-ink2">From</span>
+              <input
+                type="date"
+                value={filters.start_date ?? ""}
+                min={min ?? undefined}
+                max={max ?? undefined}
+                onChange={(e) => setFilters({ start_date: e.target.value || null })}
+                className="wl-field"
+              />
+            </label>
+            <label className="grid grid-cols-[40px_minmax(0,1fr)] items-center">
+              <span className="text-[13px] font-extrabold text-wl-ink2">To</span>
+              <input
+                type="date"
+                value={filters.end_date ?? ""}
+                min={min ?? undefined}
+                max={max ?? undefined}
+                onChange={(e) => setFilters({ end_date: e.target.value || null })}
+                className="wl-field"
+              />
+            </label>
+          </div>
+          {outOfRange ? (
+            <p role="status" className="mt-2 px-3 py-2.5 rounded-2xl bg-wl-gold-tint text-[13px] font-bold text-wl-navy">
+              These dates have no data. Data runs from {min} to {max}.{" "}
+              <button type="button" onClick={pickLatestWeek} className="underline font-extrabold">
+                Use the latest week
               </button>
-            ))}
-          </div>
-          <p className="text-xs mt-1" style={{ color: tokens.muted }}>
-            {engine === "duckdb"
-              ? "Fast local queries (~90 days)"
-              : "Full cloud dataset — may be slower"}
-          </p>
-        </label>
-
-        {/* Date range */}
-        <label className="block">
-          <span className="block text-sm font-medium mb-1" style={{ color: tokens.muted }}>
-            Date Range
-          </span>
-          <div className="flex gap-2">
-            <input
-              type="date"
-              value={filters.start_date ?? ""}
-              min={filterData?.date_min ?? undefined}
-              max={filterData?.date_max ?? undefined}
-              onChange={(e) => setFilters({ start_date: e.target.value || null })}
-              className="flex-1 rounded-lg px-3 py-2 text-sm border outline-none focus:ring-2"
-              style={{
-                backgroundColor: tokens.surface,
-                borderColor: tokens.border,
-                color: tokens.text,
-              }}
-            />
-            <input
-              type="date"
-              value={filters.end_date ?? ""}
-              min={filterData?.date_min ?? undefined}
-              max={filterData?.date_max ?? undefined}
-              onChange={(e) => setFilters({ end_date: e.target.value || null })}
-              className="flex-1 rounded-lg px-3 py-2 text-sm border outline-none focus:ring-2"
-              style={{
-                backgroundColor: tokens.surface,
-                borderColor: tokens.border,
-                color: tokens.text,
-              }}
-            />
-          </div>
-          {filterData?.date_min && filterData?.date_max && (
-            <p className="text-xs mt-1" style={{ color: tokens.muted }}>
-              Available: {filterData.date_min} → {filterData.date_max}
             </p>
+          ) : (
+            min && max && <p className={hint}>Data runs from {min} to {max}.</p>
           )}
-        </label>
+        </fieldset>
 
-        {/* Routes multi-select */}
-        <label className="block">
-          <span className="block text-sm font-medium mb-1" style={{ color: tokens.muted }}>
+        {/* Routes */}
+        <div>
+          <label htmlFor="wl-route" className={label}>
             Routes
-          </span>
-          <select
-            multiple
-            value={filters.routes}
-            onChange={(e) => {
-              const selected = Array.from(e.target.selectedOptions, (o) => o.value);
-              setFilters({ routes: selected });
-            }}
-            className="w-full rounded-lg px-3 py-2 text-sm border outline-none"
-            style={{
-              backgroundColor: tokens.surface,
-              borderColor: tokens.border,
-              color: tokens.text,
-              minHeight: "80px",
-              maxHeight: "120px",
-            }}
-          >
-            {(filterData?.routes ?? []).map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs mt-1" style={{ color: tokens.muted }}>
-            Hold Ctrl/Cmd to select multiple. Leave blank for all routes.
-          </p>
-        </label>
-
-        {/* Stop ID */}
-        <label className="block">
-          <span className="block text-sm font-medium mb-1" style={{ color: tokens.muted }}>
-            Stop ID
-          </span>
+          </label>
           <input
-            type="text"
-            value={filters.stop_id}
-            placeholder="e.g. 12345"
-            onChange={(e) => setFilters({ stop_id: e.target.value })}
-            className="w-full rounded-lg px-3 py-2 text-sm border outline-none focus:ring-2"
-            style={{
-              backgroundColor: tokens.surface,
-              borderColor: tokens.border,
-              color: tokens.text,
+            id="wl-route"
+            list="wl-route-options"
+            value={routeDraft}
+            placeholder="Type a route, like 15"
+            autoComplete="off"
+            onChange={(e) => {
+              // Picking from the list fires a change with the exact value
+              if (!addRoute(e.target.value)) setRouteDraft(e.target.value);
             }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addRoute(routeDraft);
+              }
+            }}
+            className="wl-field"
           />
-        </label>
-
-        {/* Weather bins */}
-        <label className="block">
-          <span className="block text-sm font-medium mb-1" style={{ color: tokens.muted }}>
-            Weather
-          </span>
-          <div className="flex flex-wrap gap-2">
-            {(filterData?.weather_bins ?? ["none", "rain", "snow"]).map((bin) => (
-              <button
-                key={bin}
-                onClick={() => {
-                  const next = filters.weather.includes(bin)
-                    ? filters.weather.filter((w) => w !== bin)
-                    : [...filters.weather, bin];
-                  setFilters({ weather: next });
-                }}
-                className="px-3 py-1 rounded-full text-xs font-semibold border transition-colors"
-                style={{
-                  backgroundColor: filters.weather.includes(bin)
-                    ? tokens.primary
-                    : tokens.surface,
-                  borderColor: filters.weather.includes(bin) ? tokens.primary : tokens.border,
-                  color: filters.weather.includes(bin) ? tokens.surfaceDark : tokens.text,
-                }}
-              >
-                {bin}
-              </button>
+          <datalist id="wl-route-options">
+            {(filterData?.routes ?? []).map((r) => (
+              <option key={r} value={r} />
             ))}
-          </div>
-        </label>
-      </section>
-
-      {/* ── Active Filters Summary ───────────────────────────── */}
-      {activeFilters.length > 0 && (
-        <>
-          <hr className="section-separator" />
-          <section>
-            <p className="text-xs font-semibold mb-2" style={{ color: tokens.muted }}>
-              Active Filters
-            </p>
-            <ul className="flex flex-col gap-1">
-              {activeFilters.map((f) => (
-                <li key={f} className="text-xs" style={{ color: tokens.primary }}>
-                  {f}
+          </datalist>
+          {filters.routes.length > 0 ? (
+            <ul className="mt-2 flex flex-wrap gap-1.5">
+              {filters.routes.map((r) => (
+                <li key={r}>
+                  <button
+                    type="button"
+                    onClick={() => setFilters({ routes: filters.routes.filter((x) => x !== r) })}
+                    aria-label={`Remove route ${r}`}
+                    className="inline-flex items-center gap-1.5 h-8 pl-3 pr-2 rounded-full bg-wl-teal-tint text-sm font-extrabold text-wl-navy hover:bg-wl-red-tint"
+                  >
+                    {r}
+                    <span aria-hidden="true" className="text-base leading-none text-wl-ink2">×</span>
+                  </button>
                 </li>
               ))}
             </ul>
-          </section>
-        </>
-      )}
+          ) : (
+            <p className={hint}>All routes</p>
+          )}
+        </div>
+
+        {/* Stop */}
+        <div>
+          <label htmlFor="wl-stop" className={label}>
+            Stop ID
+          </label>
+          <input
+            id="wl-stop"
+            type="text"
+            inputMode="numeric"
+            value={filters.stop_id}
+            placeholder="Any stop"
+            onChange={(e) => setFilters({ stop_id: e.target.value })}
+            className="wl-field"
+          />
+        </div>
+
+        {/* Weather */}
+        <fieldset>
+          <legend className={label}>Weather</legend>
+          <div className="flex flex-wrap gap-1.5">
+            {(filterData?.weather_bins ?? ["none", "rain", "snow"]).map((bin) => {
+              const on = filters.weather.includes(bin);
+              return (
+                <button
+                  key={bin}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() =>
+                    setFilters({ weather: on ? filters.weather.filter((w) => w !== bin) : [...filters.weather, bin] })
+                  }
+                  className={`h-9 px-4 rounded-full text-sm font-extrabold transition-colors ${
+                    on ? "bg-wl-gold text-wl-navy shadow-[0_3px_0_#B88500]" : "bg-wl-canvas text-wl-navy hover:bg-wl-gold-tint"
+                  }`}
+                >
+                  {WEATHER_LABELS[bin] ?? bin}
+                </button>
+              );
+            })}
+          </div>
+          {filters.weather.length === 0 && <p className={hint}>Any weather</p>}
+        </fieldset>
+
+        <button
+          type="button"
+          onClick={() => setFilters(defaultFilters())}
+          className="self-start h-10 px-4 -ml-1 rounded-full text-sm font-extrabold text-wl-teal hover:bg-wl-teal-tint"
+        >
+          Reset filters
+        </button>
+      </div>
     </aside>
   );
 }

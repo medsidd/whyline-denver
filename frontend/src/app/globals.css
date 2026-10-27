@@ -2,179 +2,126 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Brand CSS Custom Properties ─────────────────────────────────────────── */
-:root {
-  --color-primary:    #87a7b3;
-  --color-accent:     #d4a574;
-  --color-success:    #a3b88c;
-  --color-warning:    #e8b863;
-  --color-error:      #c77f6d;
-  --color-background: #232129;
-  --color-surface:    #322e38;
-  --color-surface-dark: #1a171d;
-  --color-border:     #433f4c;
-  --color-text:       #e8d5c4;
-  --color-muted:      #9a8e7e;
-  --stripe-gradient:  linear-gradient(90deg, #87a7b3 0%, #d4a574 25%, #a3b88c 50%, #e8b863 75%, #c77f6d 100%);
-}
-
-/* ─── Base Reset ─────────────────────────────────────────────────────────── */
-*, *::before, *::after {
-  box-sizing: border-box;
-}
+/* ─── Base ─────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
 
 html, body {
-  background-color: var(--color-background);
-  color: var(--color-text);
-  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
   margin: 0;
   padding: 0;
+  background-color: #F4F8FB;
+  color: #042F54;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-space-grotesk), sans-serif;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: var(--color-accent);
+/* ─── WhyLine design language (landing, legal pages, dashboard) ─────────── */
+html:has(.wl) { scroll-behavior: smooth; scroll-padding-top: 150px; }
+.wl :is(h1, h2, h3) { font-family: inherit; }
+.wl :focus-visible { outline: 3px solid #0D657F; outline-offset: 3px; }
+
+.wl-nav {
+  background: rgba(244, 248, 251, 0.82);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  backdrop-filter: blur(18px) saturate(170%);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .wl-nav { background: #F4F8FB; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
 
-/* ─── Status Badges ──────────────────────────────────────────────────────── */
-/* Mirrors .status-badge in branding.py */
-.status-badge {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
-  background-color: rgba(135, 167, 179, 0.08);
-  border-left: 4px solid rgba(135, 167, 179, 0.3);
-  border-radius: 10px;
-  padding: 0.6rem 0.85rem;
-  margin-bottom: 0.6rem;
-  flex-wrap: nowrap;
-  white-space: nowrap;
-  overflow: hidden;
+/* Capsule buttons with a pressable lip */
+.wl-btn { transition: transform .12s ease, box-shadow .12s ease, background-color .15s ease; }
+.wl-btn:hover { transform: translateY(-2px); }
+.wl-btn:active { transform: translateY(2px); }
+.wl-btn:disabled { transform: none; box-shadow: none; opacity: .45; cursor: not-allowed; }
+.wl-btn-red { box-shadow: 0 4px 0 #A80F12; }
+.wl-btn-red:hover { box-shadow: 0 6px 0 #A80F12; }
+.wl-btn-red:active { box-shadow: 0 1px 0 #A80F12; }
+.wl-btn-navy { box-shadow: 0 4px 0 #021A30; }
+.wl-btn-navy:hover { box-shadow: 0 6px 0 #021A30; }
+.wl-btn-navy:active { box-shadow: 0 1px 0 #021A30; }
+.wl-btn-gold { box-shadow: 0 4px 0 #B88500; }
+.wl-btn-gold:hover { box-shadow: 0 6px 0 #B88500; }
+.wl-btn-gold:active { box-shadow: 0 1px 0 #B88500; }
+
+.wl-chip { transition: transform .15s cubic-bezier(.34, 1.56, .64, 1); }
+.wl-chip:hover { transform: translateY(-3px) rotate(-1deg); }
+.wl-ask { transition: box-shadow .2s ease; }
+.wl-ask:focus-within { box-shadow: 0 0 0 4px rgba(13, 101, 127, .22), 0 18px 40px -16px rgba(4, 47, 84, .35); }
+.wl-ask :is(input, textarea):focus-visible { outline: none; }
+.wl-card { transition: transform .25s cubic-bezier(.34, 1.56, .64, 1), box-shadow .25s ease; }
+.wl-card:hover { transform: translateY(-6px); box-shadow: 0 2px 0 rgba(4, 47, 84, .04), 0 28px 48px -20px rgba(4, 47, 84, .32); }
+.wl-shadow { box-shadow: 0 2px 0 rgba(4, 47, 84, .04), 0 20px 40px -24px rgba(4, 47, 84, .28); }
+
+.wl-faq summary { list-style: none; cursor: pointer; }
+.wl-faq summary::-webkit-details-marker { display: none; }
+.wl-plus { transition: transform .3s cubic-bezier(.34, 1.56, .64, 1), background-color .2s; }
+.wl-faq[open] .wl-plus { transform: rotate(45deg); background: #F0B616; }
+.wl-faq[open] { box-shadow: 0 2px 0 rgba(4, 47, 84, .04), 0 22px 40px -22px rgba(4, 47, 84, .3); }
+
+/* Hero map: lines draw, stops pop, sun rises — once, on load */
+.wl-case { fill: none; stroke: #FFFFFF; stroke-width: 20; stroke-linecap: round; stroke-linejoin: round; }
+.wl-line { fill: none; stroke-width: 12; stroke-linecap: round; stroke-linejoin: round; }
+.wl-stop { fill: #FFFFFF; stroke: #042F54; stroke-width: 4; }
+.wl-draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: wl-draw 1.2s cubic-bezier(.65, 0, .35, 1) forwards; }
+.wl-pop { transform-box: fill-box; transform-origin: center; transform: scale(0); animation: wl-pop .5s cubic-bezier(.34, 1.56, .64, 1) forwards; }
+.wl-sun { animation: wl-rise-sun 1.4s cubic-bezier(.22, 1, .36, 1) both; }
+@keyframes wl-draw { to { stroke-dashoffset: 0; } }
+@keyframes wl-pop { to { transform: scale(1); } }
+@keyframes wl-rise-sun { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Scroll route: the bus drives with the page */
+.wl-stopbtn { position: absolute; top: 19px; width: 44px; height: 44px; margin-left: -22px; display: flex; align-items: center; justify-content: center; border-radius: 50%; z-index: 2; }
+.wl-dot { width: 18px; height: 18px; border-radius: 50%; border: 4px solid #042F54; transition: background-color .2s ease, transform .35s cubic-bezier(.34, 1.56, .64, 1); }
+.wl-stopbtn.is-current .wl-dot, .wl-stopbtn:hover .wl-dot { transform: scale(1.3); }
+.wl-tip { position: absolute; top: 46px; left: 50%; transform: translate(-50%, -4px); white-space: nowrap; padding: 6px 12px; border-radius: 999px; background: #042F54; color: #FFFFFF; font-size: 13px; font-weight: 800; opacity: 0; pointer-events: none; transition: opacity .15s ease, transform .2s cubic-bezier(.34, 1.56, .64, 1); }
+.wl-stopbtn:hover .wl-tip, .wl-stopbtn:focus-visible .wl-tip { opacity: 1; transform: translate(-50%, 0); }
+/* Edge stops anchor their tip inward so it never runs off-screen */
+.wl-tip.is-start { left: 0; transform: translateY(-4px); }
+.wl-tip.is-end { left: auto; right: 0; transform: translateY(-4px); }
+.wl-stopbtn:hover .wl-tip.is-start, .wl-stopbtn:focus-visible .wl-tip.is-start, .wl-stopbtn:hover .wl-tip.is-end, .wl-stopbtn:focus-visible .wl-tip.is-end { transform: none; }
+.wl-nextstop { transition: background-color .3s ease, color .3s ease; }
+.wl-busflip { transition: transform .35s cubic-bezier(.34, 1.56, .64, 1); }
+.wl-bus.is-moving { animation: wl-bob .28s ease-in-out infinite alternate; }
+@keyframes wl-bob { from { transform: translateY(0); } to { transform: translateY(-2px); } }
+
+@supports (animation-timeline: view()) {
+  .wl-reveal { animation: wl-rise linear both; animation-timeline: view(); animation-range: entry 0% entry 45%; }
+  @keyframes wl-rise { from { opacity: 0; transform: translateY(28px) scale(.97); } to { opacity: 1; transform: none; } }
 }
 
-.status-badge__label {
-  font-family: var(--font-space-grotesk), sans-serif;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+@media (prefers-reduced-motion: reduce) {
+  html:has(.wl) { scroll-behavior: auto; }
+  .wl-draw { animation: none; stroke-dashoffset: 0; }
+  .wl-pop { animation: none; transform: none; }
+  .wl-sun, .wl-reveal, .wl-bus.is-moving { animation: none; }
+  .wl-busflip, .wl-btn, .wl-chip, .wl-card, .wl-plus, .wl-dot { transition: none; }
+  .wl-btn:hover, .wl-chip:hover, .wl-card:hover { transform: none; }
 }
 
-.status-badge__value {
-  font-family: var(--font-space-grotesk), sans-serif;
-  font-weight: 600;
-  font-size: 0.9rem;
-  letter-spacing: 0.02em;
-  color: var(--color-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* Legal pages: readable prose inside the landing shell */
+.wl-legal h2 { margin: 2.5rem 0 0; font-size: 1.5rem; line-height: 1.25; font-weight: 900; letter-spacing: -0.02em; color: #042F54; }
+.wl-legal h3 { margin: 1.5rem 0 0; font-size: 1.125rem; font-weight: 800; color: #042F54; }
+.wl-legal p, .wl-legal ul { margin: 0.75rem 0 0; color: #33475A; max-width: 68ch; }
+.wl-legal ul { padding-left: 1.25rem; list-style: disc; }
+.wl-legal li + li { margin-top: 0.4rem; }
+.wl-legal a { color: #0D657F; font-weight: 800; text-decoration: underline; text-underline-offset: 2px; }
+.wl-legal a:hover { color: #D9191C; }
+.wl-legal strong { color: #042F54; font-weight: 800; }
 
-.status-badge--success {
-  background-color: rgba(163, 184, 140, 0.16);
-  border-left-color: var(--color-success);
-}
-.status-badge--success .status-badge__value { color: var(--color-success); }
-
-.status-badge--accent {
-  background-color: rgba(212, 165, 116, 0.16);
-  border-left-color: var(--color-accent);
-}
-.status-badge--accent .status-badge__value { color: var(--color-accent); }
-
-.status-badge--warning {
-  background-color: rgba(232, 184, 99, 0.18);
-  border-left-color: var(--color-warning);
-}
-.status-badge--warning .status-badge__value { color: var(--color-warning); }
-
-/* ─── Retro Banner ───────────────────────────────────────────────────────── */
-/* Mirrors .retro-banner in branding.py */
-.retro-banner {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 2.5rem;
-  margin-bottom: 2.5rem;
-  padding: 2.5rem;
-  background: linear-gradient(135deg, rgba(135, 167, 179, 0.15) 0%, rgba(212, 165, 116, 0.12) 100%);
-  border-radius: 16px;
-  border: 4px solid rgba(135, 167, 179, 0.3);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  overflow: hidden;
-}
-
-.retro-banner__stripe {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 6px;
-  background: var(--stripe-gradient);
-}
-
-.retro-banner__logo-img {
-  height: 140px;
-  width: auto;
-  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.5));
-  flex: 0 0 auto;
-}
-
-.retro-banner__title {
-  margin: 0;
-  font-size: 3.5rem;
-  font-weight: 800;
-  font-family: var(--font-space-grotesk), sans-serif;
-  background: linear-gradient(135deg, #87a7b3 0%, #d4a574 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-}
-
-.retro-banner__tagline {
-  margin: 0.75rem 0 0;
-  color: var(--color-accent);
-  font-size: 1.3rem;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-}
-
-/* ─── Section Separator ──────────────────────────────────────────────────── */
-.section-separator {
-  border: none;
-  border-top: 1px solid rgba(135, 167, 179, 0.25);
-  margin: 1.5rem 0 1rem;
-}
-
-/* ─── Scrollbar Styling ──────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: var(--color-surface-dark); }
-::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--color-primary); }
-
-/* ─── Responsive Banner ──────────────────────────────────────────────────── */
-@media (max-width: 1200px) {
-  .retro-banner { gap: 1.75rem; padding: 2rem; }
-  .retro-banner__logo-img { height: 120px; }
-  .retro-banner__title { font-size: 3rem; }
-}
-
-@media (max-width: 680px) {
-  .retro-banner { flex-direction: column; align-items: flex-start; padding: 1.5rem; }
-  .retro-banner__logo-img { height: 90px; }
-  .retro-banner__title { font-size: 2.3rem; }
-  .retro-banner__tagline { font-size: 1rem; margin-top: 0.5rem; }
-  .status-badge { flex-direction: column; align-items: flex-start; gap: 0.25rem; }
+/* Dashboard */
+.wl-field { width: 100%; min-height: 44px; padding: 0 14px; border-radius: 14px; border: 2px solid #E3EAF1; background: #F4F8FB; color: #042F54; font-size: 15px; font-weight: 700; transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease; }
+.wl-field:hover { border-color: #C9D6E3; }
+.wl .wl-field:focus-visible, .wl .wl-field:focus { outline: none; border-color: #0D657F; background: #FFFFFF; box-shadow: 0 0 0 4px rgba(13, 101, 127, .18); }
+.wl-field::placeholder { color: #6B7E90; font-weight: 600; }
+textarea.wl-field { padding: 14px 16px; line-height: 1.5; resize: vertical; }
+/* A step's stop pops when it's reached; results slide in once */
+.wl-stopnum.is-done { animation: wl-pop-in .45s cubic-bezier(.34, 1.56, .64, 1); }
+@keyframes wl-pop-in { from { transform: scale(.6); } to { transform: scale(1); } }
+.wl-enter { animation: wl-rise-in .4s cubic-bezier(.22, 1, .36, 1) both; }
+@keyframes wl-rise-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.wl ::-webkit-scrollbar { width: 10px; height: 10px; }
+.wl ::-webkit-scrollbar-thumb { background: #C9D6E3; border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+@media (prefers-reduced-motion: reduce) {
+  .wl-stopnum.is-done, .wl-enter { animation: none; }
+  .wl-field { transition: none; }
 }

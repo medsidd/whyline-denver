@@ -2,26 +2,31 @@
 
 import { useState } from "react";
 import { downloadMartCsv, downloadWarehouse, triggerDownload } from "@/lib/api";
-import { tokens } from "@/lib/tokens";
-import type { Engine } from "@/types/api";
+import { useDashboardStore } from "@/store/dashboardStore";
 
 const MART_OPTIONS = [
-  { value: "mart_reliability_by_route_day", label: "Reliability by route & day" },
-  { value: "mart_reliability_by_stop_hour", label: "Reliability by stop & hour" },
-  { value: "mart_crash_proximity_by_stop", label: "Crash proximity by stop" },
+  { value: "mart_reliability_by_route_day", label: "Reliability by route and day" },
+  { value: "mart_reliability_by_stop_hour", label: "Reliability by stop and hour" },
+  { value: "mart_crash_proximity_by_stop", label: "Crashes near each stop" },
   { value: "mart_access_score_by_stop", label: "Access score by stop" },
   { value: "mart_vulnerability_by_stop", label: "Vulnerability by stop" },
   { value: "mart_priority_hotspots", label: "Priority hotspots" },
   { value: "mart_weather_impacts", label: "Weather impacts" },
 ];
 
-interface Props {
-  engine: Engine;
-}
+const label = "block text-sm font-extrabold text-wl-navy mb-1.5";
+const outlineBtn =
+  "wl-btn inline-flex items-center justify-center gap-2 h-11 px-5 rounded-full border-2 border-wl-navy bg-white text-wl-navy font-black text-[15px] hover:bg-wl-navy-tint";
 
-/** Downloads section — mirrors _render_downloads_section in results_viewer.py */
-export function DownloadPanel({ engine }: Props) {
-  const [open, setOpen] = useState(false);
+const DownloadIcon = () => (
+  <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 4v11M7 10.5l5 5 5-5M5 20h14" />
+  </svg>
+);
+
+/** Whole-table downloads that don't need a question: a mart as CSV, or the DuckDB file. */
+export function DownloadPanel() {
+  const engine = useDashboardStore((s) => s.engine);
   const [mart, setMart] = useState(MART_OPTIONS[0].value);
   const [limitRows, setLimitRows] = useState(200_000);
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
@@ -61,110 +66,76 @@ export function DownloadPanel({ engine }: Props) {
   };
 
   return (
-    <div className="mt-8">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border w-full"
-        style={{
-          backgroundColor: tokens.surface,
-          borderColor: tokens.border,
-          color: tokens.accent,
-          fontFamily: "var(--font-space-grotesk)",
-        }}
-      >
-        <span>{open ? "▾" : "▸"}</span> Downloads
-      </button>
+    <section aria-labelledby="wl-downloads" className="mt-14 bg-wl-navy-tint rounded-[32px] p-[clamp(20px,3vw,36px)]">
+      <h2 id="wl-downloads" className="m-0 font-black text-2xl tracking-[-0.01em]">
+        Download whole tables
+      </h2>
+      <p className="mt-1.5 mb-0 text-[15px] font-semibold text-wl-ink2 max-w-[60ch]">
+        No question needed. Take a full table as CSV, or the whole DuckDB file to query on your own computer.
+      </p>
 
-      {open && (
-        <div
-          className="mt-3 p-5 rounded-xl border"
-          style={{ backgroundColor: tokens.surface, borderColor: tokens.border }}
-        >
-          {/* Full mart CSV exports */}
-          <h4 className="text-sm font-bold mb-3" style={{ color: tokens.accent, fontFamily: "var(--font-space-grotesk)" }}>
-            Full mart CSV exports
-          </h4>
-
-          <label className="block mb-3">
-            <span className="text-xs font-medium block mb-1" style={{ color: tokens.muted }}>
-              Choose mart
+      <div className="mt-6 grid gap-4 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div className="bg-white rounded-[24px] p-5">
+          <h3 className="m-0 font-black text-lg">One table as CSV</h3>
+          <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px]">
+            <label>
+              <span className={label}>Table</span>
+              <select value={mart} onChange={(e) => setMart(e.target.value)} className="wl-field">
+                {MART_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span className={label}>Row limit</span>
+              <input
+                type="number"
+                value={limitRows}
+                min={1000}
+                max={2_000_000}
+                step={1000}
+                onChange={(e) => setLimitRows(Number(e.target.value))}
+                className="wl-field tabular-nums"
+              />
+            </label>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button type="button" onClick={handleMartDownload} disabled={status === "loading"} className={outlineBtn}>
+              <DownloadIcon />
+              {status === "loading" ? "Preparing…" : "Download CSV"}
+            </button>
+            <span role="status" className="text-[13px] font-bold">
+              {status === "done" && <span className="text-wl-teal">Download started</span>}
+              {error && <span className="text-[#A80F12]">The download failed: {error}</span>}
             </span>
-            <select
-              value={mart}
-              onChange={(e) => setMart(e.target.value)}
-              className="w-full rounded-lg px-3 py-2 text-sm border outline-none"
-              style={{ backgroundColor: tokens.surfaceDark, borderColor: tokens.border, color: tokens.text }}
-            >
-              {MART_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block mb-4">
-            <span className="text-xs font-medium block mb-1" style={{ color: tokens.muted }}>
-              Row cap (safety)
-            </span>
-            <input
-              type="number"
-              value={limitRows}
-              min={1000}
-              max={2_000_000}
-              step={1000}
-              onChange={(e) => setLimitRows(Number(e.target.value))}
-              className="w-full rounded-lg px-3 py-2 text-sm border outline-none"
-              style={{ backgroundColor: tokens.surfaceDark, borderColor: tokens.border, color: tokens.text }}
-            />
-          </label>
-
-          <button
-            onClick={handleMartDownload}
-            disabled={status === "loading"}
-            className="w-full py-2 rounded-xl text-sm font-semibold border transition-colors disabled:opacity-50"
-            style={{
-              backgroundColor: tokens.surfaceDark,
-              borderColor: tokens.success,
-              color: tokens.success,
-              fontFamily: "var(--font-space-grotesk)",
-            }}
-          >
-            {status === "loading" ? "Preparing…" : "⬇️ Download Mart CSV"}
-          </button>
-
-          {status === "done" && (
-            <p className="text-xs mt-2" style={{ color: tokens.success }}>✓ Download started</p>
-          )}
-          {error && (
-            <p className="text-xs mt-2" style={{ color: tokens.error }}>❌ {error}</p>
-          )}
-
-          <hr className="section-separator my-4" />
-
-          {/* DuckDB warehouse */}
-          <h4 className="text-sm font-bold mb-3" style={{ color: tokens.accent, fontFamily: "var(--font-space-grotesk)" }}>
-            DuckDB warehouse snapshot
-          </h4>
-
-          <button
-            onClick={handleWarehouseDownload}
-            disabled={warehouseStatus === "loading"}
-            className="w-full py-2 rounded-xl text-sm font-semibold border transition-colors disabled:opacity-50"
-            style={{
-              backgroundColor: tokens.surfaceDark,
-              borderColor: tokens.success,
-              color: tokens.success,
-              fontFamily: "var(--font-space-grotesk)",
-            }}
-          >
-            {warehouseStatus === "loading" ? "Downloading…" : "🦆📦 Download DuckDB warehouse"}
-          </button>
-          {warehouseStatus === "error" && (
-            <p className="text-xs mt-2" style={{ color: tokens.warning }}>
-              ⚠️ Warehouse not available. Run make sync-duckdb first.
-            </p>
-          )}
+          </div>
         </div>
-      )}
-    </div>
+
+        <div className="bg-white rounded-[24px] p-5 flex flex-col">
+          <h3 className="m-0 font-black text-lg">DuckDB warehouse</h3>
+          <p className="mt-1.5 mb-4 text-sm font-semibold text-wl-ink2">
+            The recent ~90 days of every table in one file. Open it with DuckDB.
+          </p>
+          <div className="mt-auto flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleWarehouseDownload}
+              disabled={warehouseStatus === "loading"}
+              className={outlineBtn}
+            >
+              <DownloadIcon />
+              {warehouseStatus === "loading" ? "Downloading…" : "Download .duckdb"}
+            </button>
+            {warehouseStatus === "error" && (
+              <span role="status" className="text-[13px] font-bold text-[#A80F12]">
+                The warehouse file isn’t available right now.
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }

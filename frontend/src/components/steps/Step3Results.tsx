@@ -1,41 +1,37 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useMutation } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
 import { runQuery, triggerDownload } from "@/lib/api";
 import { useDashboardStore } from "@/store/dashboardStore";
-import { tokens } from "@/lib/tokens";
 import { detectChartType, detectMapData } from "@/lib/chartLogic";
-import dynamic from "next/dynamic";
+import { StepShell, type StepStatus } from "@/components/steps/StepShell";
 import { DataTable } from "@/components/ui/DataTable";
-import { DownloadPanel } from "@/components/ui/DownloadPanel";
 import { RouteBarChart } from "@/components/viz/RouteBarChart";
 import { TimeSeriesChart } from "@/components/viz/TimeSeriesChart";
 import { WeatherSmallMultiples } from "@/components/viz/WeatherSmallMultiples";
 
 const StopMap = dynamic(
   () => import("@/components/viz/StopMap").then((m) => m.StopMap),
-  { ssr: false, loading: () => <div style={{ height: 400, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--color-muted)" }}>Loading map…</div> }
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[420px] rounded-[22px] bg-wl-canvas flex items-center justify-center font-bold text-wl-ink2">Loading map…</div>
+    ),
+  }
 );
 
-/**
- * Step 3: Query execution and results display.
- * Mirrors results_viewer.py::render().
- */
-export function Step3Results() {
-  const {
-    engine,
-    editedSql,
-    sanitizedSql,
-    generatedSql,
-    question,
-    sqlError,
-    queryResult,
-    runError,
-    setQueryResult,
-  } = useDashboardStore();
+type View = "chart" | "map" | "table";
+const VIEW_LABELS: Record<View, string> = { chart: "Chart", map: "Map", table: "Table" };
 
-  const [showStats, setShowStats] = useState(false);
+/** Step 3: run the query, then see the result as a chart, map or table and download it. */
+export function Step3Results({ status }: { status: StepStatus }) {
+  const { engine, editedSql, sanitizedSql, generatedSql, question, sqlError, queryResult, runError, setQueryResult } =
+    useDashboardStore();
+  const [picked, setPicked] = useState<View | null>(null);
+  // A new result opens on its best view (chart, then map, then table).
+  useEffect(() => setPicked(null), [queryResult]);
 
   const mutation = useMutation({
     mutationFn: () => runQuery(sanitizedSql ?? editedSql, engine, question),
@@ -49,14 +45,15 @@ export function Step3Results() {
 
   const canRun = !!generatedSql && !sqlError;
 
-  const chartType = useMemo(
-    () => (queryResult ? detectChartType(queryResult.columns) : "none"),
-    [queryResult]
-  );
-  const hasMap = useMemo(
-    () => (queryResult ? detectMapData(queryResult.columns) : false),
-    [queryResult]
-  );
+  const chartType = useMemo(() => (queryResult ? detectChartType(queryResult.columns) : "none"), [queryResult]);
+  const hasMap = useMemo(() => (queryResult ? detectMapData(queryResult.columns) : false), [queryResult]);
+
+  const views: View[] = [
+    ...(chartType !== "none" ? (["chart"] as const) : []),
+    ...(hasMap ? (["map"] as const) : []),
+    "table",
+  ];
+  const view = picked && views.includes(picked) ? picked : views[0];
 
   const handleCsvDownload = () => {
     if (!queryResult) return;
@@ -73,128 +70,100 @@ export function Step3Results() {
     triggerDownload(blob, "whylinedenver_results.csv");
   };
 
-  // Show downloads-only view when no SQL has been generated
-  if (!generatedSql && !queryResult) {
-    return (
-      <section className="mb-8">
-        <h3 className="text-xl font-bold mb-2" style={{ fontFamily: "var(--font-space-grotesk)", color: tokens.accent }}>
-          Downloads
-        </h3>
-        <p className="text-sm mb-4" style={{ color: tokens.muted }}>
-          Retrieve full marts or the DuckDB warehouse without generating SQL first.
-        </p>
-        <DownloadPanel engine={engine} />
-      </section>
-    );
-  }
+  const result = queryResult && !queryResult.error ? queryResult : null;
+  const isEmpty = result?.total_rows === 0;
 
   return (
-    <section className="mb-8">
-      <h3 className="text-xl font-bold mb-4" style={{ fontFamily: "var(--font-space-grotesk)", color: tokens.accent }}>
-        Step 3: Results
-      </h3>
-
-      {/* Run button */}
-      <div className="flex items-center gap-4 mb-4">
-        <button
-          onClick={() => mutation.mutate()}
-          disabled={!canRun || mutation.isPending}
-          className="px-6 py-2.5 rounded-xl font-bold text-sm uppercase tracking-wide transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            background: `linear-gradient(135deg, ${tokens.accent} 0%, ${tokens.warning} 100%)`,
-            color: tokens.surfaceDark,
-            fontFamily: "var(--font-space-grotesk)",
-            boxShadow: `0 4px 16px rgba(212, 165, 116, 0.3)`,
-          }}
-        >
-          {mutation.isPending ? "Running…" : "Run Query"}
-        </button>
-
-        {queryResult && !runError && (
-          <span className="text-sm font-medium" style={{ color: tokens.success }}>
-            ✓ Query executed successfully ({queryResult.total_rows.toLocaleString()} rows)
-          </span>
-        )}
-      </div>
-
-      {/* Errors */}
-      {runError && (
-        <div className="mb-4 px-4 py-3 rounded-xl text-sm border" style={{ backgroundColor: `rgba(199,127,109,0.1)`, borderColor: tokens.error, color: tokens.error }}>
-          ❌ Query failed: {runError}
+    <StepShell n={3} title="See the results" status={status} last>
+      {!canRun && !result ? (
+        <p className="m-0 px-5 py-4 rounded-[22px] border-2 border-dashed border-wl-road text-[15px] font-bold text-wl-ink2">
+          Run the checked SQL to see a table, plus a chart or map when the result has the right columns.
+        </p>
+      ) : (
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => mutation.mutate()}
+            disabled={!canRun || mutation.isPending}
+            className={`wl-btn h-12 px-7 rounded-full font-black text-base text-white ${
+              status === "current" ? "wl-btn-red bg-wl-red" : "wl-btn-navy bg-wl-navy"
+            }`}
+          >
+            {mutation.isPending ? "Running…" : result ? "Run again" : "Run query"}
+          </button>
+          {result && (
+            <span aria-live="polite" className="text-[15px] font-bold text-wl-ink2">
+              {result.total_rows.toLocaleString()} {result.total_rows === 1 ? "row" : "rows"} from{" "}
+              {engine === "duckdb" ? "DuckDB" : "BigQuery"}
+            </span>
+          )}
         </div>
       )}
 
-      {/* Results */}
-      {queryResult && !queryResult.error && (
-        <>
-          {/* Execution stats (collapsible) */}
-          <details className="mb-4">
-            <summary
-              className="cursor-pointer text-sm font-medium px-4 py-2 rounded-lg"
-              style={{ backgroundColor: tokens.surface, color: tokens.muted }}
-              onClick={() => setShowStats(!showStats)}
-            >
-              Execution Statistics
-            </summary>
-            <pre
-              className="mt-2 p-4 rounded-xl text-xs overflow-auto"
-              style={{ backgroundColor: tokens.surfaceDark, color: tokens.text, border: `1px solid ${tokens.border}` }}
-            >
-              {JSON.stringify(queryResult.stats, null, 2)}
-            </pre>
-          </details>
+      {runError && (
+        <p role="alert" className="mt-4 px-4 py-3 rounded-2xl bg-wl-red-tint text-[15px] font-bold text-wl-navy">
+          The query didn’t run: {runError}
+        </p>
+      )}
 
-          {/* Data table */}
-          <DataTable
-            columns={queryResult.columns}
-            data={queryResult.data}
-            totalRows={queryResult.total_rows}
-          />
+      {result && isEmpty && (
+        <p className="wl-enter mt-4 px-5 py-4 rounded-[22px] bg-wl-gold-tint text-[15px] font-bold text-wl-navy">
+          No rows matched. Check the dates in the SQL against the data range in Filters, or try another question.
+        </p>
+      )}
 
-          {/* Chart visualization */}
-          {chartType !== "none" && (
-            <div className="mt-6">
-              <ChartRenderer chartType={chartType} data={queryResult.data} />
-            </div>
-          )}
-
-          {/* Map */}
-          {hasMap && (
-            <div className="mt-6">
-              {queryResult.total_rows > 1000 && (
-                <p className="text-xs mb-2" style={{ color: tokens.muted }}>
-                  ℹ️ Map showing top 1,000 of {queryResult.total_rows.toLocaleString()} points
-                </p>
-              )}
-              <StopMap data={queryResult.data.slice(0, 1000)} />
-            </div>
-          )}
-
-          {/* CSV Download */}
-          <div className="mt-4">
+      {result && !isEmpty && (
+        <div className="wl-enter mt-4 bg-white rounded-[28px] p-2 wl-shadow">
+          <div className="flex flex-wrap items-center gap-2 p-2">
+            {views.length > 1 && (
+              <div role="tablist" aria-label="Result view" className="inline-flex p-1 rounded-full bg-wl-canvas">
+                {views.map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    role="tab"
+                    id={`wl-tab-${v}`}
+                    aria-selected={view === v}
+                    aria-controls="wl-result-panel"
+                    onClick={() => setPicked(v)}
+                    className={`h-10 px-5 rounded-full text-[15px] font-extrabold transition-colors ${
+                      view === v ? "bg-wl-navy text-white" : "text-wl-navy hover:bg-white"
+                    }`}
+                  >
+                    {VIEW_LABELS[v]}
+                  </button>
+                ))}
+              </div>
+            )}
             <button
+              type="button"
               onClick={handleCsvDownload}
-              className="w-full py-2.5 rounded-xl text-sm font-semibold border transition-colors"
-              style={{
-                backgroundColor: tokens.surfaceDark,
-                borderColor: tokens.success,
-                color: tokens.success,
-                fontFamily: "var(--font-space-grotesk)",
-              }}
+              className="wl-btn wl-btn-gold ml-auto inline-flex items-center gap-2 h-11 px-5 rounded-full bg-wl-gold text-wl-navy font-black text-[15px]"
             >
-              📥 Download Results as CSV
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 4v11M7 10.5l5 5 5-5M5 20h14" />
+              </svg>
+              Download CSV
             </button>
           </div>
-        </>
-      )}
 
-      {!queryResult && !runError && canRun && (
-        <p className="text-sm" style={{ color: tokens.muted }}>👆 Run the query to see results</p>
+          <div id="wl-result-panel" role={views.length > 1 ? "tabpanel" : undefined} aria-labelledby={views.length > 1 ? `wl-tab-${view}` : undefined} className="p-2 sm:p-3">
+            {view === "chart" && <ChartRenderer chartType={chartType} data={result.data} />}
+            {view === "map" && (
+              <>
+                {result.total_rows > 1000 && (
+                  <p className="mt-0 mb-2 text-[13px] font-bold text-wl-ink2">
+                    Showing the first 1,000 of {result.total_rows.toLocaleString()} points.
+                  </p>
+                )}
+                <StopMap data={result.data.slice(0, 1000)} />
+              </>
+            )}
+            {view === "table" && <DataTable columns={result.columns} data={result.data} totalRows={result.total_rows} />}
+          </div>
+        </div>
       )}
-
-      {/* Downloads panel always available */}
-      <DownloadPanel engine={engine} />
-    </section>
+    </StepShell>
   );
 }
 
@@ -216,7 +185,7 @@ function ChartRenderer({
           xKey="service_date_mst"
           yKey="pct_on_time"
           groupKey={hasRoute ? "route_id" : hasStop ? "stop_id" : undefined}
-          title="On-Time % Over Time"
+          title="On-time share over time"
         />
       );
     }
@@ -226,11 +195,11 @@ function ChartRenderer({
           data={data}
           xKey="route_id"
           yKey="avg_delay_ratio"
-          title="Route Delay Ratio (Top 15)"
+          title="Delay ratio by route, top 15"
         />
       );
     case "weather_multiples":
-      return <WeatherSmallMultiples data={data} title="On-Time % by Weather Condition" />;
+      return <WeatherSmallMultiples data={data} title="On-time share by weather" />;
     case "heatmap":
       // Simplified: render as grouped bar chart (full heatmap requires custom SVG)
       return (
@@ -238,7 +207,7 @@ function ChartRenderer({
           data={data.slice(0, 15)}
           xKey="stop_id"
           yKey="pct_on_time"
-          title="On-Time % by Stop"
+          title="On-time share by stop, first 15"
         />
       );
     case "generic_bar": {
@@ -250,7 +219,7 @@ function ChartRenderer({
         ["avg", "count", "sum", "pct", "score", "ratio"].some((kw) => c.toLowerCase().includes(kw))
       ) ?? cols[1];
       if (!catCol || !numCol) return null;
-      return <RouteBarChart data={data} xKey={catCol} yKey={numCol} />;
+      return <RouteBarChart data={data} xKey={catCol} yKey={numCol} title={`${numCol} by ${catCol}`} />;
     }
     default:
       return null;

@@ -61,7 +61,7 @@ interface DashboardState {
   resetForNewQuestion: () => void;
 }
 
-function defaultFilters(): FilterState {
+export function defaultFilters(): FilterState {
   const today = new Date();
   const sevenDaysAgo = new Date(today);
   sevenDaysAgo.setDate(today.getDate() - 7);
