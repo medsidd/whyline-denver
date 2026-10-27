@@ -49,8 +49,9 @@ sch as (
     from {{ ref('int_stop_headways_scheduled') }}
     where sch_headway_sec is not null
     {% if is_incremental() %}
-        -- Same window as obs; the join is on service_date_mst
-        and service_date_mst >= date_sub(current_date("America/Denver"), interval {{ incremental_days }} day)
+        -- Same window as obs (the schedule extends ~30 days ahead); the join is on service_date_mst
+        and service_date_mst between date_sub(current_date("America/Denver"), interval {{ incremental_days }} day)
+            and date_add(current_date("America/Denver"), interval 1 day)
     {% endif %}
 ),
 nearest as (
