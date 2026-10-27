@@ -58,7 +58,7 @@ export default function AttributionPage() {
       <h2>Software</h2>
       <p>
         WhyLine Denver’s code is released under the MIT License on <a href={GITHUB}>GitHub</a>. It is built with open-source
-        software, including Next.js, React, DuckDB, dbt, MapLibre and deck.gl, each under its own license. Dashboard base
+        software, including Next.js, React, dbt, MapLibre and deck.gl, each under its own license. Dashboard base
         maps are © <a href="https://carto.com/attributions">CARTO</a> and ©{" "}
         <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, credited on the map itself.
       </p>

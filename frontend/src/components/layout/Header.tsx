@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { fetchFreshness } from "@/lib/api";
 import { DOCS, GLOSSARY } from "@/lib/links";
-import { useDashboardStore } from "@/store/dashboardStore";
 
 const _MT_FMT = new Intl.DateTimeFormat("en-US", {
   timeZone: "America/Denver",
@@ -38,7 +37,7 @@ function toMountainTime(raw: string): string {
   return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${p.timeZoneName}`;
 }
 
-/** Freshness for both engines, refetched every 60s; shared by the header and the filter rail. */
+/** When the BigQuery data was last updated, refetched every 60s; shared by the header and the filter rail. */
 export function useFreshness() {
   const { data } = useQuery({
     queryKey: ["freshness"],
@@ -46,16 +45,12 @@ export function useFreshness() {
     refetchInterval: 60_000,
     staleTime: 30_000,
   });
-  return {
-    duckdb: toMountainTime(data?.duckdb_freshness ?? "Loading…"),
-    bigquery: toMountainTime(data?.bigquery_freshness ?? "Loading…"),
-  };
+  return toMountainTime(data?.bigquery_freshness ?? "Loading…");
 }
 
 /** Sticky glass nav for the dashboard, matching the landing page. */
 export function Header() {
-  const engine = useDashboardStore((s) => s.engine);
-  const value = useFreshness()[engine];
+  const value = useFreshness();
   const loading = value.startsWith("Loading");
   const stale = /Unavailable|Awaiting/.test(value);
 
@@ -67,7 +62,6 @@ export function Header() {
           <span className="font-black text-[17px] sm:text-xl tracking-[-0.01em] whitespace-nowrap">WhyLine Denver</span>
         </Link>
         <span
-          title={`${engine === "duckdb" ? "DuckDB" : "BigQuery"} data last updated`}
           className="hidden md:inline-flex items-center gap-2 h-9 px-3.5 rounded-full bg-white text-[13px] font-extrabold text-wl-ink2 wl-shadow"
         >
           <span aria-hidden="true" className={`w-2.5 h-2.5 rounded-full ${loading ? "bg-wl-road" : stale ? "bg-wl-gold" : "bg-wl-teal"}`} />

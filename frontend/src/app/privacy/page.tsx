@@ -41,7 +41,7 @@ export default function PrivacyPage() {
 
       <h3>Information stored in your browser</h3>
       <p>
-        The dashboard saves your selected engine, filters, question, generated and edited SQL, and its explanation in your
+        The dashboard saves your filters, question, generated and edited SQL, and its explanation in your
         browser’s local storage under the key <code>whyline-dashboard</code>. This lets the dashboard pick up where you left
         off. It stays on your device, is not a cookie, and is not sent to us except when you use the dashboard. You can
         remove it by clearing this site’s data in your browser settings.

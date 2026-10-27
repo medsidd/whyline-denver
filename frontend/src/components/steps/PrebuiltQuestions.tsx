@@ -18,11 +18,11 @@ const CHIP_COLORS = [
  * the editor directly, without calling the language model.
  */
 export function PrebuiltQuestions() {
-  const { engine, setQuestion, setSqlFromGeneration } = useDashboardStore();
+  const { setQuestion, setSqlFromGeneration } = useDashboardStore();
 
   const mutation = useMutation({
     mutationFn: async ({ index }: { index: number; label: string }) => {
-      const data = await fetchPrebuilt(index, engine);
+      const data = await fetchPrebuilt(index);
       if (data.error) throw new Error(data.error);
       return data;
     },
