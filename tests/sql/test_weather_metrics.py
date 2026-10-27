@@ -26,19 +26,25 @@ def test_missing_weather_is_unknown_and_excluded_from_weather_comparison():
     with duckdb.connect() as con:
         con.execute(
             """
-            CREATE TABLE int_rt_events_resolved AS
+            CREATE TABLE fct_trip_observation AS
             SELECT * FROM (VALUES
                 ('15', DATE '2026-10-01', 0, 0),
                 ('15', DATE '2026-10-02', 600, 600),
                 ('15', DATE '2026-10-03', 600, 600),
                 ('15', DATE '2026-10-04', 600, 600)
             ) e(route_id, service_date_mst, delay_sec, delay_sec_raw);
-            CREATE TABLE int_weather_by_date AS
+            CREATE TABLE fct_weather_daily AS
             SELECT * FROM (VALUES
-                (DATE '2026-10-01', 'none', false),
-                (DATE '2026-10-02', 'light', false),
-                (DATE '2026-10-04', NULL, NULL)
-            ) w(service_date_mst, precip_bin, snow_day);
+                (DATE '2026-10-01', 'USW00003017', 'none', false),
+                (DATE '2026-10-02', 'USW00003017', 'light', false),
+                (DATE '2026-10-03', 'OTHER', 'heavy', true),
+                (DATE '2026-10-04', 'USW00003017', NULL, NULL)
+            ) w(weather_date, station, precip_bin, snow_day);
+            CREATE TABLE dim_route AS
+            SELECT * FROM (VALUES
+                ('15', '15', 'Old name', false),
+                ('15', '15', 'East Colfax', true)
+            ) r(route_id, route_name, route_long_name, is_latest_version);
         """
         )
         con.execute(
@@ -46,10 +52,16 @@ def test_missing_weather_is_unknown_and_excluded_from_weather_comparison():
             + render_model("mart_reliability_by_route_day")
         )
         rows = con.execute(
-            "SELECT precip_bin, snow_day FROM mart_reliability_by_route_day "
+            "SELECT precip_bin, snow_day, route_long_name FROM mart_reliability_by_route_day "
             "ORDER BY service_date_mst"
         ).fetchall()
-        assert rows == [("none", False), ("light", False), ("unknown", None), ("unknown", None)]
+        # Other stations are ignored; names come from the latest route version only.
+        assert rows == [
+            ("none", False, "East Colfax"),
+            ("light", False, "East Colfax"),
+            ("unknown", None, "East Colfax"),
+            ("unknown", None, "East Colfax"),
+        ]
         con.execute(
             "INSERT INTO mart_reliability_by_route_day "
             "BY NAME SELECT '15' AS route_id, DATE '2026-01-01' AS service_date_mst, "

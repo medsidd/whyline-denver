@@ -4,18 +4,20 @@ models:
   - name: stg_gtfs_routes
     data_tests:
       - unique_combination:
-          column_names: ['route_id']
+          column_names: ['_extract_date', 'route_id']
     columns:
       - name: route_id
         data_tests:
           - not_null
 
   - name: stg_gtfs_stops
+    data_tests:
+      - unique_combination:
+          column_names: ['_extract_date', 'stop_id']
     columns:
       - name: stop_id
         data_tests:
           - not_null
-          - unique
       - name: geom
         data_tests:
           - not_null
@@ -98,11 +100,13 @@ models:
           - not_null
 
   - name: stg_acs_geo
+    data_tests:
+      - unique_combination:
+          column_names: ['geoid', 'year']
     columns:
       - name: geoid
         data_tests:
           - not_null
-          - unique
       - name: pct_hh_no_vehicle
         data_tests:
           - accepted_range:

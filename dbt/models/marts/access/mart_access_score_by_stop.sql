@@ -1,18 +1,24 @@
 {{ config(materialized='table', meta={"allow_in_app": true}) }}
 
-with buffers as (
+with current_stops as (
+    select stop_id, stop_name, lat, lon, geom
+    from {{ ref('dim_stop') }}
+    where is_current
+),
+buffers as (
     select
         stop_id,
         st_buffer(geom, 200) as buf
-    from {{ ref('stg_gtfs_stops') }}
+    from current_stops
 ),
 sidewalk_len as (
     select
         b.stop_id,
         sum(st_length(st_intersection(sw.geom, b.buf))) as tot_len_m
     from buffers as b
-    join {{ ref('stg_sidewalks') }} as sw
+    join {{ ref('dim_sidewalk_segment') }} as sw
         on st_intersects(sw.geom, b.buf)
+    where sw.sidewalk_key != -1
     group by
         b.stop_id
 ),
@@ -46,5 +52,10 @@ select
             1
         ) as float64
     ) as access_score_0_100,
-    current_timestamp() as build_run_at
+    current_timestamp() as build_run_at,
+    cs.stop_name,
+    cs.lat,
+    cs.lon
 from stops
+left join current_stops as cs
+    using (stop_id)

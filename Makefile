@@ -19,6 +19,7 @@ DBT_TARGET    ?= prod
 GCP_PROJECT_ID    ?= whyline-denver
 BQ_DATASET_RAW    ?= raw_denver
 BQ_DATASET_STG    ?= stg_denver
+BQ_DATASET_CORE   ?= core_denver
 BQ_DATASET_MART   ?= mart_denver
 CLOUD_RUN_REGION  ?= us-central1
 CLOUD_RUN_DUCKDB_BLOB ?= marts/duckdb/warehouse.duckdb
@@ -52,6 +53,7 @@ DBT_CMD       := $(DBT_PROFILES) \
 	GCP_PROJECT_ID=$(GCP_PROJECT_ID) \
 	BQ_DATASET_RAW=$(BQ_DATASET_RAW) \
 	BQ_DATASET_STG=$(BQ_DATASET_STG) \
+	BQ_DATASET_CORE=$(BQ_DATASET_CORE) \
 	BQ_DATASET_MART=$(BQ_DATASET_MART) \
 	$(PY) -m tools.dbt_with_env
 
@@ -152,8 +154,8 @@ bq-load-historical:
 	FROM_DATE=$${FROM:-2025-01-01}; \
 	UNTIL_DATE=$${UNTIL:-$$(date -u +%Y-%m-%d)}; \
 	$(PY) -m whyline.load.bq_load --src gcs --bucket $(GCS_BUCKET) --from $$FROM_DATE --until $$UNTIL_DATE; \
-	DBT_TARGET=prod $(DBT_CMD) run --project-dir dbt --target prod --select 'staging marts int_scheduled_arrivals'; \
-	DBT_TARGET=prod $(DBT_CMD) test --project-dir dbt --target prod --select 'marts'
+	DBT_TARGET=prod $(DBT_CMD) run --project-dir dbt --target prod --select 'staging core marts'; \
+	DBT_TARGET=prod $(DBT_CMD) test --project-dir dbt --target prod --select 'core marts'
 
 sync-export:
 	@set -euo pipefail; \
@@ -198,8 +200,8 @@ nightly-ingest-bq-full:
 
 nightly-bq:
 	@set -euo pipefail; \
-	DBT_TARGET=prod $(DBT_CMD) run --project-dir dbt --target prod --select 'staging marts int_scheduled_arrivals'; \
-	DBT_TARGET=prod $(DBT_CMD) test --project-dir dbt --target prod --select 'marts'; \
+	DBT_TARGET=prod $(DBT_CMD) run --project-dir dbt --target prod --select 'staging core marts'; \
+	DBT_TARGET=prod $(DBT_CMD) test --project-dir dbt --target prod --select 'core marts'; \
 	$(MAKE) sync-export
 
 nightly-duckdb:
@@ -215,8 +217,8 @@ dbt-parse:
 dbt-run-staging:
 	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select 'staging.*'
 
-dbt-run-intermediate:
-	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select 'intermediate.*'
+dbt-run-core:
+	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select 'core.*'
 
 dbt-run-marts:
 	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select 'marts.*'
@@ -231,10 +233,7 @@ dbt-docs:
 	$(DBT_CMD) docs generate --project-dir dbt --target $(DBT_TARGET)
 
 dbt-run-realtime:
-	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select stg_rt_events int_rt_events_resolved int_headway_adherence int_stop_headways_observed int_weather_by_date mart_reliability_by_stop_hour mart_reliability_by_route_day
-
-dbt-run-static:
-	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select int_scheduled_arrivals --full-refresh
+	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select stg_rt_events fct_trip_observation fct_stop_arrival mart_reliability_by_stop_hour mart_reliability_by_route_day --vars '{route_day_window_days: 2}'
 
 # Update BigQuery freshness timestamp in sync_state.json after dbt runs
 update-bq-timestamp:
@@ -248,7 +247,7 @@ dev-loop-local:
 	$(MAKE) bq-load
 	DBT_TARGET=prod $(MAKE) dbt-parse
 	DBT_TARGET=prod $(MAKE) dbt-run-staging
-	DBT_TARGET=prod $(MAKE) dbt-run-intermediate
+	DBT_TARGET=prod $(MAKE) dbt-run-core
 	DBT_TARGET=prod $(MAKE) dbt-run-marts
 	DBT_TARGET=prod $(MAKE) dbt-test-staging
 	DBT_TARGET=prod $(MAKE) dbt-test-marts
@@ -262,7 +261,7 @@ dev-loop-gcs:
 	$(MAKE) bq-load
 	DBT_TARGET=prod $(MAKE) dbt-parse
 	DBT_TARGET=prod $(MAKE) dbt-run-staging
-	DBT_TARGET=prod $(MAKE) dbt-run-intermediate
+	DBT_TARGET=prod $(MAKE) dbt-run-core
 	DBT_TARGET=prod $(MAKE) dbt-run-marts
 	DBT_TARGET=prod $(MAKE) dbt-test-staging
 	DBT_TARGET=prod $(MAKE) dbt-test-marts

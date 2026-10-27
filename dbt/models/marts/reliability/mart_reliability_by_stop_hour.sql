@@ -4,6 +4,7 @@
     partition_by={"field": "service_date_mst", "data_type": "date"},
     cluster_by=["stop_id"],
     incremental_predicates=["DBT_INTERNAL_DEST.service_date_mst >= date_sub(current_date('America/Denver'), interval 4 day)"],
+    on_schema_change='append_new_columns',
     meta={"allow_in_app": true}
 ) }}
 
@@ -14,7 +15,7 @@ with base as (
         service_date_mst,
         event_hour_mst,
         delay_sec
-    from {{ ref('int_rt_events_resolved') }}
+    from {{ ref('fct_trip_observation') }}
     where stop_id is not null
     {% if is_incremental() %}
         and service_date_mst >= date_sub(current_date("America/Denver"), interval 3 day)
@@ -28,7 +29,7 @@ head AS (
         avg(headway_adherent) as headway_adherence_rate,
         approx_quantiles(obs_headway_sec, 100)[offset(50)] as obs_headway_sec_p50,
         approx_quantiles(obs_headway_sec, 100)[offset(90)] as obs_headway_sec_p90
-    from {{ ref('int_headway_adherence') }}
+    from {{ ref('fct_stop_arrival') }}
     {% if is_incremental() %}
     where service_date_mst >= date_sub(current_date("America/Denver"), interval 3 day)
     {% endif %}
@@ -91,9 +92,19 @@ select
     h.headway_adherence_rate,
     h.obs_headway_sec_p50,
     h.obs_headway_sec_p90,
-    current_timestamp() as build_run_at
+    current_timestamp() as build_run_at,
+    s.stop_name,
+    s.lat,
+    s.lon,
+    r.route_name as route_name_mode
 from agg as a
 left join head as h
     using (stop_id, service_date_mst, event_hour_mst)
 left join route_mode as rm
     using (stop_id, service_date_mst, event_hour_mst)
+left join {{ ref('dim_stop') }} as s
+    on s.stop_id = a.stop_id
+    and s.is_latest_version
+left join {{ ref('dim_route') }} as r
+    on r.route_id = rm.route_id_mode
+    and r.is_latest_version

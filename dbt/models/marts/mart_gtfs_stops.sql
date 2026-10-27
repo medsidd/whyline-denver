@@ -1,8 +1,10 @@
 {{ config(materialized='table', meta={"allow_in_app": true}) }}
 
-SELECT
+{# Last known version of every stop ever published, so historical stop_ids keep their names #}
+select
     stop_id,
     stop_name,
-    stop_lat AS lat,
-    stop_lon AS lon
-FROM {{ ref('stg_gtfs_stops') }}
+    lat,
+    lon
+from {{ ref('dim_stop') }}
+where is_latest_version

@@ -31,12 +31,6 @@ def _qualify_table(engine_name: str, table: str) -> str:
     return table
 
 
-def _qualify_stg_table(engine_name: str, table: str) -> str:
-    if engine_name == "bigquery":
-        return f"`{settings.GCP_PROJECT_ID}.{settings.BQ_DATASET_STG}.{table}`"
-    return table
-
-
 @router.get("/filters/{engine_name}", response_model=FilterOptionsResponse)
 def get_filters(engine_name: str) -> FilterOptionsResponse:
     """Return routes, weather bins, and date range for the selected engine."""
@@ -112,8 +106,8 @@ def get_stops(engine_name: str) -> list[dict]:
         return []
 
     models = get_models()
-    table = _qualify_stg_table(engine_name, "stg_gtfs_stops")
-    sql = f"SELECT stop_id, stop_name, stop_lat, stop_lon FROM {table}"
+    table = _qualify_table(engine_name, "mart_gtfs_stops")
+    sql = f"SELECT stop_id, stop_name, lat AS stop_lat, lon AS stop_lon FROM {table}"
     sql = adapt_sql_for_engine(sql, engine_name, models)
     try:
         _, df = bigquery_engine.execute(sql)

@@ -1,8 +1,11 @@
 {{ config(materialized='view') }}
 
+{# One row per tract and ACS vintage; fct_tract_demographics keeps every vintage #}
+
 with base as (
     select
-        geoid,
+        -- Conformed to the tract GEOID used by the tract boundaries
+        regexp_replace(geoid, '^14000US', '') as geoid,
         name,
         year,
         hh_no_vehicle,
@@ -21,8 +24,8 @@ deduped as (
     select
         *,
         row_number() over (
-            partition by geoid
-            order by year desc, _ingested_at desc
+            partition by geoid, year
+            order by _ingested_at desc
         ) as tract_rank
     from base
 )

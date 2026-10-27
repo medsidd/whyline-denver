@@ -404,10 +404,11 @@ def _refresh_mart(
             query_paths.append(joined)
 
     if len(query_paths) == 1:
-        source_expr = f"read_parquet('{query_paths[0]}')"
+        source_expr = f"read_parquet('{query_paths[0]}', union_by_name=true)"
     else:
         array_literal = ", ".join(f"'{path}'" for path in query_paths)
-        source_expr = f"read_parquet(ARRAY[{array_literal}])"
+        # Marts gain appended columns over time, so older partitions have fewer columns.
+        source_expr = f"read_parquet(ARRAY[{array_literal}], union_by_name=true)"
 
     statement = (
         f"CREATE OR REPLACE TABLE {mart_name} AS SELECT * FROM {source_expr}"

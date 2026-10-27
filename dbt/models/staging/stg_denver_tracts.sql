@@ -19,6 +19,7 @@ with ranked as (
             order by _ingested_at desc
         ) as record_rank
     from {{ source('raw', 'raw_denver_tracts') }}
+    where _extract_date = {{ latest_extract_date(source('raw', 'raw_denver_tracts')) }}
 )
 
 select
