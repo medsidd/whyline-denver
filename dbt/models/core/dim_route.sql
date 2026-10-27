@@ -2,7 +2,7 @@
 
 {# Type 2 over GTFS extracts; the -1 member covers events without a route #}
 with versions as (
-    {{ scd2_from_extracts(ref('stg_gtfs_routes'), 'route_id',
+    {{ scd2_from_extracts('(select * from ' ~ ref('stg_gtfs_routes') ~ ' where is_valid)', 'route_id',
         ['route_name', 'route_long_name', 'route_type', 'route_desc'], 'route_key') }}
 )
 

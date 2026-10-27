@@ -2,7 +2,7 @@
 
 {# Type 2 over GTFS extracts; facts resolve the version valid on their service date #}
 with versions as (
-    {{ scd2_from_extracts(ref('stg_gtfs_stops'), 'stop_id',
+    {{ scd2_from_extracts('(select * from ' ~ ref('stg_gtfs_stops') ~ ' where is_valid)', 'stop_id',
         ['stop_name', 'stop_lat', 'stop_lon', 'wheelchair_boarding'], 'stop_key') }}
 )
 

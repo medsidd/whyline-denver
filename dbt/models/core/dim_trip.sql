@@ -2,7 +2,7 @@
 
 {# Type 2 over GTFS extracts #}
 with versions as (
-    {{ scd2_from_extracts(ref('stg_gtfs_trips'), 'trip_id',
+    {{ scd2_from_extracts('(select * from ' ~ ref('stg_gtfs_trips') ~ ' where is_valid)', 'trip_id',
         ['route_id', 'service_id', 'direction_id', 'trip_headsign', 'shape_id'], 'trip_key') }}
 )
 

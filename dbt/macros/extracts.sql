@@ -19,6 +19,30 @@ to the subquery while parsing or when the table is not partitioned by extract da
 {% endmacro %}
 
 
+{% macro recent_extracts_filter(relation, n) %}
+{#
+`_extract_date >= <date of the table's n-th most recent extract partition>` as a constant, so
+BigQuery prunes while a bad latest load can still fall back to an earlier one. Unchanged
+files are not reloaded, so counting partitions (not days) keeps every file covered.
+#}
+    {%- if not execute -%}
+        {{ return('true') }}
+    {%- endif -%}
+    {%- set query -%}
+        select min(extract_date) from (
+            select parse_date('%Y%m%d', partition_id) as extract_date
+            from `{{ relation.database }}.{{ relation.schema }}.INFORMATION_SCHEMA.PARTITIONS`
+            where table_name = '{{ relation.identifier }}'
+              and regexp_contains(partition_id, r'^[0-9]{8}$')
+            order by extract_date desc
+            limit {{ n }}
+        )
+    {%- endset -%}
+    {%- set floor = run_query(query).columns[0].values()[0] -%}
+    {{ return("_extract_date >= date '" ~ floor ~ "'" if floor else 'true') }}
+{% endmacro %}
+
+
 {% macro scd2_from_extracts(relation, key, attrs, sk_name) %}
 {#
 Type 2 versions of `key` from a silver model that keeps every GTFS extract (`_extract_date`).
