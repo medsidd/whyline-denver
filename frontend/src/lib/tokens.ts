@@ -1,37 +1,39 @@
 /**
- * Brand color tokens — mirrors branding.py's BRAND_* constants.
+ * Brand color tokens (the logo's palette, same as the `wl-*` Tailwind colors).
  * Use these in chart configs and components that can't use Tailwind classes.
  */
 export const tokens = {
-  primary: "#87a7b3",   // Dusty Sky Blue
-  accent: "#d4a574",    // Vintage Gold
-  success: "#a3b88c",   // Sage Green
-  warning: "#e8b863",   // Soft Amber
-  error: "#c77f6d",     // Terra Cotta
-  background: "#232129",
-  surface: "#322e38",
-  surfaceDark: "#1a171d",
-  border: "#433f4c",
-  text: "#e8d5c4",
-  muted: "#9a8e7e",
+  navy: "#042F54",
+  navyDeep: "#021F38",
+  teal: "#0D657F",
+  gold: "#F0B616",
+  red: "#D9191C",
+  ink2: "#4A5F73",
+  rule: "#E3EAF1",
+  canvas: "#F4F8FB",
+  white: "#FFFFFF",
 } as const;
 
-/** Chart color sequence — same order as CHART_COLORS in branding.py */
-export const chartColors = [
-  tokens.primary,
-  tokens.success,
-  tokens.accent,
-  tokens.warning,
-  tokens.error,
-] as const;
+/**
+ * Categorical chart hues in fixed order, brand-adjacent steps that pass the
+ * dataviz validator (lightness, chroma, CVD) on white. Gold is under 3:1, so
+ * charts always ship a legend or a table view.
+ */
+export const chartColors = ["#0A7FA0", "#D99A00", "#D9191C", "#3557B8", "#7D8C1F"] as const;
 
-/** RGBA versions for deck.gl layers */
-export const rgbaTokens = {
-  error: [199, 127, 109] as [number, number, number],
-  primary: [135, 167, 179] as [number, number, number],
-  accent: [212, 165, 116] as [number, number, number],
-  success: [163, 184, 140] as [number, number, number],
+/** Shared Recharts styling: recessive axes and grid, white tooltip. */
+export const chartTheme = {
+  grid: { stroke: tokens.rule, vertical: false },
+  tick: { fill: tokens.ink2, fontSize: 12, fontWeight: 600 },
+  tooltip: {
+    contentStyle: {
+      backgroundColor: tokens.white,
+      border: "none",
+      borderRadius: 14,
+      boxShadow: "0 12px 32px -12px rgba(4,47,84,.35)",
+      fontWeight: 700,
+    },
+    labelStyle: { color: tokens.navy, fontWeight: 900 },
+    itemStyle: { color: tokens.ink2 },
+  },
 } as const;
-
-export const stripeGradient =
-  "linear-gradient(90deg, #87a7b3 0%, #d4a574 25%, #a3b88c 50%, #e8b863 75%, #c77f6d 100%)";
