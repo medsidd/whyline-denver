@@ -1,4 +1,5 @@
-{{ config(materialized='view') }}
+{# Table, not view: stg_rt_events reads this every 15 minutes and the view rescans every raw extract #}
+{{ config(materialized='table') }}
 
 with cal as (
     select

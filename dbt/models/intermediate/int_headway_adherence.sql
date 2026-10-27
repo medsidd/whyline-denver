@@ -8,7 +8,8 @@
             'data_type': 'date',
             'granularity': 'day'
         },
-        cluster_by=['route_id', 'stop_id']
+        cluster_by=['route_id', 'stop_id'],
+        incremental_predicates=["DBT_INTERNAL_DEST.service_date_mst >= date_sub(current_date('America/Denver'), interval 4 day)"]
     )
 }}
 
@@ -47,7 +48,10 @@ sch as (
         sch_headway_sec
     from {{ ref('int_stop_headways_scheduled') }}
     where sch_headway_sec is not null
-    {# No date filter on schedule data - it's static #}
+    {% if is_incremental() %}
+        -- Same window as obs; the join is on service_date_mst
+        and service_date_mst >= date_sub(current_date("America/Denver"), interval {{ incremental_days }} day)
+    {% endif %}
 ),
 nearest as (
     select
