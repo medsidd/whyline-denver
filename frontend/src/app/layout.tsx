@@ -15,7 +15,7 @@ const nunito = Nunito({
 export const metadata: Metadata = {
   title: "WhyLine Denver | RTD Reliability Analytics",
   description:
-    "WhyLine Denver — Ask anything about Denver transit. Analyze RTD bus reliability, delays, safety, and equity gaps using natural language powered by DuckDB and BigQuery.",
+    "WhyLine Denver — Ask anything about Denver transit. Analyze RTD bus reliability, delays, safety, and equity gaps using natural language powered by BigQuery.",
   keywords: [
     "WhyLine Denver", "Denver transit analytics", "RTD bus delays",
     "Denver public transportation", "transit reliability dashboard",
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     url: "https://www.whylinedenver.com/app/",
     title: "WhyLine Denver | RTD Reliability Analytics",
     description:
-      "Ask questions about Denver transit in plain English. Powered by DuckDB and BigQuery.",
+      "Ask questions about Denver transit in plain English. Powered by BigQuery.",
     images: [{ url: "https://www.whylinedenver.com/assets/og-image.png", width: 1200, height: 630 }],
     siteName: "WhyLine Denver",
     locale: "en_US",

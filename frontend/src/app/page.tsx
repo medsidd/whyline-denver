@@ -63,7 +63,7 @@ const TOPICS = [
 const STEPS = [
   { title: "Ask", body: "Type a question, or pick a ready-made one. Date, route and stop filters narrow it down." },
   { title: "Check the SQL", body: "WhyLine writes the query and shows it to you. Edit it if you like. Only read-only queries on approved tables can run." },
-  { title: "Explore and download", body: "See the result as a table, chart or map. Download it as CSV, or take the whole DuckDB warehouse." },
+  { title: "Explore and download", body: "See the result as a table, chart or map. Download it as CSV, or download a whole table." },
 ];
 
 const LIMITS = [
@@ -108,7 +108,7 @@ const FAQ = [
   },
   {
     q: "Can I use the data elsewhere?",
-    a: "Yes. Download any result as CSV or the full DuckDB warehouse. The code is MIT-licensed on GitHub. Check each source’s terms before redistributing its data.",
+    a: "Yes. Download any result, or a whole table, as CSV. The code is MIT-licensed on GitHub. Check each source’s terms before redistributing its data.",
   },
 ];
 
@@ -163,8 +163,8 @@ async function getSnapshot(): Promise<string | null> {
       signal: AbortSignal.timeout(3000),
     });
     if (!res.ok) return null;
-    const { duckdb_freshness } = (await res.json()) as FreshnessResponse;
-    return duckdb_freshness && duckdb_freshness !== "Unavailable" ? duckdb_freshness : null;
+    const { bigquery_freshness } = (await res.json()) as FreshnessResponse;
+    return bigquery_freshness && bigquery_freshness !== "Unavailable" ? bigquery_freshness : null;
   } catch {
     return null;
   }

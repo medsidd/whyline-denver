@@ -66,7 +66,6 @@ const pill = "inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full text-[13p
  */
 export function Step2SqlEditor({ status }: { status: StepStatus }) {
   const {
-    engine,
     generatedSql,
     editedSql,
     explanation,
@@ -79,7 +78,7 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const validateMutation = useMutation({
-    mutationFn: (s: string) => validateSql(s, engine),
+    mutationFn: (s: string) => validateSql(s),
     onSuccess: (data) => {
       setValidation(data.sanitized_sql, data.bq_est_bytes, data.error);
     },
@@ -97,16 +96,16 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
       }, 500);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [engine]
+    []
   );
 
-  // Re-validate when engine changes (different guardrails)
+  // Validate SQL restored from the last visit, so the scan estimate shows
   useEffect(() => {
     if (editedSql) {
       validateMutation.mutate(editedSql);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engine]);
+  }, []);
 
   if (!generatedSql) {
     return (
@@ -156,7 +155,7 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
         />
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-3 pt-3 pb-2 text-[13px] font-bold text-wl-ink2">
           <span>Edit freely. Only read-only queries on approved tables can run.</span>
-          {engine === "bigquery" && bqEstBytes !== null && (
+          {bqEstBytes !== null && (
             <span className={`${pill} bg-wl-gold-tint text-wl-navy ml-auto`}>
               Scans about {humanBytes(bqEstBytes)} of {humanBytes(MAX_BYTES_BILLED)} allowed
             </span>

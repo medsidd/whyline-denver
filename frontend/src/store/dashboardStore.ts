@@ -5,11 +5,10 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { Engine, FilterState, RunQueryResponse } from "@/types/api";
+import type { FilterState, RunQueryResponse } from "@/types/api";
 
 interface DashboardState {
   // ─── Sidebar ───────────────────────────────────────────────────────────
-  engine: Engine;
   filters: FilterState;
 
   // ─── Step 1: Question Input ────────────────────────────────────────────
@@ -30,7 +29,6 @@ interface DashboardState {
 
   // ─── Actions ──────────────────────────────────────────────────────────
 
-  setEngine: (engine: Engine) => void;
   setFilters: (filters: Partial<FilterState>) => void;
   setQuestion: (q: string) => void;
 
@@ -54,9 +52,6 @@ interface DashboardState {
   /** Called after /api/query/run returns */
   setQueryResult: (result: RunQueryResponse | null, error: string | null) => void;
 
-  /** Reset Steps 2+3 when engine changes (mirrors Streamlit engine-switch behavior) */
-  resetForEngineChange: () => void;
-
   /** Reset all query-related state when user starts a new question */
   resetForNewQuestion: () => void;
 }
@@ -78,7 +73,6 @@ export const useDashboardStore = create<DashboardState>()(
   persist(
     (set) => ({
   // Initial values
-  engine: "duckdb",
   filters: defaultFilters(),
   question: "",
   generatedSql: null,
@@ -92,24 +86,6 @@ export const useDashboardStore = create<DashboardState>()(
   runError: null,
 
   // Actions
-  setEngine: (engine) =>
-    set((s) => {
-      if (s.engine === engine) return {};
-      // Mirror Streamlit: engine change clears Steps 2+3 but keeps question (Step 1)
-      return {
-        engine,
-        generatedSql: null,
-        editedSql: "",
-        sanitizedSql: null,
-        explanation: "",
-        sqlError: null,
-        sqlCacheHit: false,
-        bqEstBytes: null,
-        queryResult: null,
-        runError: null,
-      };
-    }),
-
   setFilters: (partial) =>
     set((s) => ({ filters: { ...s.filters, ...partial } })),
 
@@ -140,19 +116,6 @@ export const useDashboardStore = create<DashboardState>()(
 
   setQueryResult: (queryResult, runError) => set({ queryResult, runError }),
 
-  resetForEngineChange: () =>
-    set({
-      generatedSql: null,
-      editedSql: "",
-      sanitizedSql: null,
-      explanation: "",
-      sqlError: null,
-      sqlCacheHit: false,
-      bqEstBytes: null,
-      queryResult: null,
-      runError: null,
-    }),
-
   resetForNewQuestion: () =>
     set({
       generatedSql: null,
@@ -168,9 +131,11 @@ export const useDashboardStore = create<DashboardState>()(
     }),
     {
       name: "whyline-dashboard",
+      // v1: BigQuery only. Drop older saved state, which can hold DuckDB-dialect SQL.
+      version: 1,
+      migrate: () => ({}) as DashboardState,
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
-        engine: s.engine,
         filters: s.filters,
         question: s.question,
         generatedSql: s.generatedSql,

@@ -5,28 +5,22 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchFilters } from "@/lib/api";
 import { defaultFilters, useDashboardStore } from "@/store/dashboardStore";
 import { useFreshness } from "@/components/layout/Header";
-import type { Engine } from "@/types/api";
-
-const ENGINES: { id: Engine; name: string; scope: string }[] = [
-  { id: "duckdb", name: "DuckDB", scope: "Last ~90 days, fast" },
-  { id: "bigquery", name: "BigQuery", scope: "Full history, slower" },
-];
 
 const WEATHER_LABELS: Record<string, string> = { none: "Dry", rain: "Rain", snow: "Snow" };
 
 const label = "block text-sm font-extrabold text-wl-navy mb-1.5";
 const hint = "mt-1.5 text-[13px] font-semibold text-wl-ink2";
 
-/** Filter rail: engine, dates, routes, stop and weather. Collapses behind a toggle below lg. */
+/** Filter rail: dates, routes, stop and weather. Collapses behind a toggle below lg. */
 export function Sidebar() {
-  const { engine, filters, setEngine, setFilters } = useDashboardStore();
+  const { filters, setFilters } = useDashboardStore();
   const freshness = useFreshness();
   const [open, setOpen] = useState(false);
   const [routeDraft, setRouteDraft] = useState("");
 
   const { data: filterData } = useQuery({
-    queryKey: ["filters", engine],
-    queryFn: () => fetchFilters(engine),
+    queryKey: ["filters"],
+    queryFn: fetchFilters,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -72,35 +66,10 @@ export function Sidebar() {
       </button>
 
       <div id="wl-filters" className={`${open ? "flex" : "hidden"} lg:flex flex-col gap-6 p-5 pt-1 lg:pt-6`}>
-        {/* Engine */}
-        <fieldset>
-          <legend className={label}>Data source</legend>
-          <div className="grid grid-cols-2 gap-1 p-1 rounded-[18px] bg-wl-canvas">
-            {ENGINES.map((e) => {
-              const on = engine === e.id;
-              return (
-                <button
-                  key={e.id}
-                  type="button"
-                  aria-pressed={on}
-                  onClick={() => setEngine(e.id)}
-                  className={`min-h-[52px] px-3 py-2 rounded-[14px] text-left transition-colors ${
-                    on ? "bg-wl-navy text-white shadow-[0_3px_0_#021A30]" : "text-wl-navy hover:bg-white"
-                  }`}
-                >
-                  <span className="block font-black text-[15px] leading-tight">{e.name}</span>
-                  <span className={`block text-xs font-bold leading-tight mt-0.5 ${on ? "text-white/75" : "text-wl-ink2"}`}>
-                    {e.scope}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          {!freshness[engine].startsWith("Loading") && <p className={hint}>Updated {freshness[engine]}</p>}
-        </fieldset>
-
-        <p className="-mt-2 -mb-1 text-[13px] font-semibold text-wl-ink2 border-t border-wl-rule pt-4">
+        <p className="m-0 text-[13px] font-semibold text-wl-ink2">
           These filters are added to the SQL WhyLine writes for your question.
+          {/* The header shows this from md up */}
+          {/^\d{4}-/.test(freshness) && <span className="md:hidden"> Data updated {freshness}.</span>}
         </p>
 
         {/* Dates */}

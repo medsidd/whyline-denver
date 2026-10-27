@@ -27,14 +27,14 @@ const VIEW_LABELS: Record<View, string> = { chart: "Chart", map: "Map", table: "
 
 /** Step 3: run the query, then see the result as a chart, map or table and download it. */
 export function Step3Results({ status }: { status: StepStatus }) {
-  const { engine, editedSql, sanitizedSql, generatedSql, question, sqlError, queryResult, runError, setQueryResult } =
+  const { editedSql, sanitizedSql, generatedSql, question, sqlError, queryResult, runError, setQueryResult } =
     useDashboardStore();
   const [picked, setPicked] = useState<View | null>(null);
   // A new result opens on its best view (chart, then map, then table).
   useEffect(() => setPicked(null), [queryResult]);
 
   const mutation = useMutation({
-    mutationFn: () => runQuery(sanitizedSql ?? editedSql, engine, question),
+    mutationFn: () => runQuery(sanitizedSql ?? editedSql, question),
     onSuccess: (data) => {
       setQueryResult(data.error ? null : data, data.error ?? null);
     },
@@ -93,8 +93,7 @@ export function Step3Results({ status }: { status: StepStatus }) {
           </button>
           {result && (
             <span aria-live="polite" className="text-[15px] font-bold text-wl-ink2">
-              {result.total_rows.toLocaleString()} {result.total_rows === 1 ? "row" : "rows"} from{" "}
-              {engine === "duckdb" ? "DuckDB" : "BigQuery"}
+              {result.total_rows.toLocaleString()} {result.total_rows === 1 ? "row" : "rows"}
             </span>
           )}
         </div>

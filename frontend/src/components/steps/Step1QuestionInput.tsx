@@ -10,7 +10,6 @@ import { StepShell, type StepStatus } from "@/components/steps/StepShell";
 /** Step 1: ask in plain English, or load a ready-made question. */
 export function Step1QuestionInput({ status }: { status: StepStatus }) {
   const {
-    engine,
     filters,
     question,
     generatedSql,
@@ -33,7 +32,7 @@ export function Step1QuestionInput({ status }: { status: StepStatus }) {
   }, [resetForNewQuestion, setQuestion]);
 
   const mutation = useMutation({
-    mutationFn: () => generateSql(question, engine, filters),
+    mutationFn: () => generateSql(question, filters),
     onMutate: () => {
       resetForNewQuestion();
     },
