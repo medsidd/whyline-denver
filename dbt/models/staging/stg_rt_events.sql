@@ -36,8 +36,9 @@ scheduled as (
         service_date_mst
     from {{ ref('int_scheduled_arrivals') }}
     {% if is_incremental() %}
-    -- Constant bound so BigQuery prunes partitions; the join below is on service date
-    where service_date_mst >= date_sub(current_date('America/Denver'), interval 2 day)
+    -- Constant bounds so BigQuery prunes partitions; the schedule extends ~30 days ahead and the join below is on service date
+    where service_date_mst between date_sub(current_date('America/Denver'), interval 2 day)
+        and date_add(current_date('America/Denver'), interval 1 day)
     {% endif %}
 ),
 tu as (
