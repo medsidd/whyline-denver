@@ -4,7 +4,8 @@
         unique_key=['feed_ts_utc', 'trip_id'],
         partition_by={'field': 'event_date_mst', 'data_type': 'date'},
         cluster_by=['route_id', 'trip_id'],
-        incremental_strategy='merge'
+        incremental_strategy='merge',
+        incremental_predicates=["DBT_INTERNAL_DEST.event_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"]
     )
 }}
 
@@ -34,6 +35,10 @@ scheduled as (
         sched_departure_ts_mst,
         service_date_mst
     from {{ ref('int_scheduled_arrivals') }}
+    {% if is_incremental() %}
+    -- Constant bound so BigQuery prunes partitions; the join below is on service date
+    where service_date_mst >= date_sub(current_date('America/Denver'), interval 2 day)
+    {% endif %}
 ),
 tu as (
     select

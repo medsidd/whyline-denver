@@ -3,6 +3,7 @@
     unique_key=['stop_id', 'service_date_mst', 'event_hour_mst'],
     partition_by={"field": "service_date_mst", "data_type": "date"},
     cluster_by=["stop_id"],
+    incremental_predicates=["DBT_INTERNAL_DEST.service_date_mst >= date_sub(current_date('America/Denver'), interval 4 day)"],
     meta={"allow_in_app": true}
 ) }}
 
@@ -28,6 +29,9 @@ head AS (
         approx_quantiles(obs_headway_sec, 100)[offset(50)] as obs_headway_sec_p50,
         approx_quantiles(obs_headway_sec, 100)[offset(90)] as obs_headway_sec_p90
     from {{ ref('int_headway_adherence') }}
+    {% if is_incremental() %}
+    where service_date_mst >= date_sub(current_date("America/Denver"), interval 3 day)
+    {% endif %}
     group by
         stop_id,
         service_date_mst,

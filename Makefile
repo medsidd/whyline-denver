@@ -152,7 +152,7 @@ bq-load-historical:
 	FROM_DATE=$${FROM:-2025-01-01}; \
 	UNTIL_DATE=$${UNTIL:-$$(date -u +%Y-%m-%d)}; \
 	$(PY) -m whyline.load.bq_load --src gcs --bucket $(GCS_BUCKET) --from $$FROM_DATE --until $$UNTIL_DATE; \
-	DBT_TARGET=prod $(DBT_CMD) run --project-dir dbt --target prod --select 'staging marts'; \
+	DBT_TARGET=prod $(DBT_CMD) run --project-dir dbt --target prod --select 'staging marts int_scheduled_arrivals'; \
 	DBT_TARGET=prod $(DBT_CMD) test --project-dir dbt --target prod --select 'marts'
 
 sync-export:
@@ -198,7 +198,7 @@ nightly-ingest-bq-full:
 
 nightly-bq:
 	@set -euo pipefail; \
-	DBT_TARGET=prod $(DBT_CMD) run --project-dir dbt --target prod --select 'staging marts'; \
+	DBT_TARGET=prod $(DBT_CMD) run --project-dir dbt --target prod --select 'staging marts int_scheduled_arrivals'; \
 	DBT_TARGET=prod $(DBT_CMD) test --project-dir dbt --target prod --select 'marts'; \
 	$(MAKE) sync-export
 
@@ -231,7 +231,7 @@ dbt-docs:
 	$(DBT_CMD) docs generate --project-dir dbt --target $(DBT_TARGET)
 
 dbt-run-realtime:
-	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select stg_rt_events int_rt_events_resolved int_headway_adherence int_stop_headways_observed int_weather_by_date mart_reliability_by_stop_hour mart_reliability_by_route_day mart_weather_impacts
+	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select stg_rt_events int_rt_events_resolved int_headway_adherence int_stop_headways_observed int_weather_by_date mart_reliability_by_stop_hour mart_reliability_by_route_day
 
 dbt-run-static:
 	$(DBT_CMD) run --project-dir dbt --target $(DBT_TARGET) --select int_scheduled_arrivals --full-refresh
