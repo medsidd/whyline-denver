@@ -4,20 +4,24 @@ with params as (
     select
         max(date(event_ts_utc)) as as_of_date,
         365 as window_days
-    from {{ ref('stg_denver_crashes') }}
+    from {{ ref('fct_crash') }}
 ),
 st as (
     select
         stop_id,
+        stop_name,
+        lat,
+        lon,
         geom
-    from {{ ref('stg_gtfs_stops') }}
+    from {{ ref('dim_stop') }}
+    where is_current
 ),
 cr as (
     select
         event_ts_utc,
         geom,
         severity
-    from {{ ref('stg_denver_crashes') }}
+    from {{ ref('fct_crash') }}
     cross join params
     where date(event_ts_utc) between date_sub(params.as_of_date, interval params.window_days day) and params.as_of_date
 ),
@@ -61,7 +65,10 @@ select
     coalesce(a.crash_250m_cnt, 0) as crash_250m_cnt,
     coalesce(a.severe_250m_cnt, 0) as severe_250m_cnt,
     coalesce(a.fatal_250m_cnt, 0) as fatal_250m_cnt,
-    current_timestamp() as build_run_at
+    current_timestamp() as build_run_at,
+    s.stop_name,
+    s.lat,
+    s.lon
 from st as s
 cross join params
 left join agg as a

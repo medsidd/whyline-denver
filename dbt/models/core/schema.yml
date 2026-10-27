@@ -1,0 +1,133 @@
+version: 2
+
+# Gold core: Kimball star schema. Dimensions use INT64 surrogate keys (farm_fingerprint) with an
+# Unknown member at -1; GTFS dimensions are Type 2 (valid_from/valid_to). Facts carry the
+# surrogate keys of the version valid on their date, plus natural keys for the serving marts.
+
+models:
+  - name: dim_date
+    description: "Calendar from 2025-01-01 to 60 days ahead; role-plays as service, crash, and weather date."
+    columns:
+      - name: date_day
+        data_tests: [not_null, unique]
+
+  - name: dim_stop
+    description: "GTFS stops, Type 2 over extracts. is_current = present in the latest extract; is_latest_version = last version ever published."
+    data_tests:
+      - unique_combination:
+          column_names: ['stop_id', 'valid_from']
+    columns:
+      - name: stop_key
+        data_tests: [not_null, unique]
+      - name: stop_id
+        data_tests:
+          - unique:
+              config:
+                where: "is_latest_version"
+
+  - name: dim_route
+    description: "GTFS routes, Type 2 over extracts; -1 is the Unassigned member."
+    data_tests:
+      - unique_combination:
+          column_names: ['route_id', 'valid_from']
+    columns:
+      - name: route_key
+        data_tests: [not_null, unique]
+      - name: route_id
+        data_tests:
+          - unique:
+              config:
+                where: "is_latest_version"
+
+  - name: dim_trip
+    description: "GTFS trips, Type 2 over extracts."
+    data_tests:
+      - unique_combination:
+          column_names: ['trip_id', 'valid_from']
+    columns:
+      - name: trip_key
+        data_tests: [not_null, unique]
+
+  - name: dim_tract
+    description: "Census tract boundaries (Type 1, latest extract)."
+    columns:
+      - name: tract_key
+        data_tests: [not_null, unique]
+
+  - name: dim_sidewalk_segment
+    description: "Sidewalk inventory segments (Type 1, latest extract)."
+    columns:
+      - name: sidewalk_key
+        data_tests: [not_null, unique]
+
+  - name: fct_trip_observation
+    description: "One realtime observation per feed poll x trip. delay_sec_raw = reported delay, else schedule-derived; delay_sec defaults missing to 0."
+    data_tests:
+      - unique_combination:
+          column_names: ['feed_ts_utc', 'trip_id']
+          config:
+            where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: stop_key
+        data_tests:
+          - relationships:
+              to: ref('dim_stop')
+              field: stop_key
+              config:
+                where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - name: route_key
+        data_tests:
+          - relationships:
+              to: ref('dim_route')
+              field: route_key
+              config:
+                where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - name: trip_key
+        data_tests:
+          - not_null:
+              config:
+                where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+
+  - name: fct_scheduled_stop_time
+    description: "One scheduled stop per trip x stop_sequence x service date, from the GTFS extract current on that date."
+    columns:
+      - name: service_date_mst
+        data_tests: [not_null]
+      - name: gtfs_extract_date
+        data_tests: [not_null]
+
+  - name: fct_stop_arrival
+    description: "One observed stop event per route x direction x stop x date x event time, with observed and nearest scheduled headways."
+    columns:
+      - name: stop_arrival_key
+        data_tests:
+          - unique:
+              config:
+                where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+
+  - name: fct_crash
+    description: "One reported crash."
+    columns:
+      - name: crash_id
+        data_tests: [not_null, unique]
+
+  - name: fct_weather_daily
+    description: "One station x date of observed weather; precip_bin and snow_day are the slicing attributes used by the marts."
+    data_tests:
+      - unique_combination:
+          column_names: ['weather_date', 'station']
+
+  - name: fct_tract_demographics
+    description: "One tract x ACS vintage (periodic snapshot)."
+    data_tests:
+      - unique_combination:
+          column_names: ['geoid', 'acs_year']
+
+  - name: bridge_stop_tract
+    description: "Current stops x tracts within 804.672 m; weighting_factor is each tract's population share and sums to 1 per stop."
+    columns:
+      - name: weighting_factor
+        data_tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1

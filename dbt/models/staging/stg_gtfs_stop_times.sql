@@ -1,39 +1,18 @@
 {{ config(materialized='view') }}
 
-with base as (
-    select
-        trip_id,
-        stop_id,
-        stop_sequence,
-        arrival_time,
-        departure_time
-    from {{ source('raw','raw_gtfs_stop_times') }}
-    where _extract_date = (
-        select max(_extract_date) from {{ source('raw','raw_gtfs_stop_times') }}
-    )
-),
-norm as (
-    select
-        *,
-        split(arrival_time, ':')[offset(0)] as a_h,
-        split(arrival_time, ':')[offset(1)] as a_m,
-        split(arrival_time, ':')[offset(2)] as a_s,
-        split(departure_time, ':')[offset(0)] as d_h,
-        split(departure_time, ':')[offset(1)] as d_m,
-        split(departure_time, ':')[offset(2)] as d_s
-    from base
-)
+{#
+Every GTFS extract. Filter on `_extract_date` with a constant (see latest_extract_date) so
+BigQuery prunes partitions; the window below partitions by it, so the filter pushes down.
+#}
 select
+    _extract_date,
     trip_id,
     stop_id,
     stop_sequence,
-    arrival_time,
-    departure_time,
-    cast(a_h as int64) as arr_hour_gtfs,
-    cast(d_h as int64) as dep_hour_gtfs,
-    case
-        when cast(a_h as int64) is null then null
-        else cast(a_h as int64)
-    end as arr_hour_bucket
-from norm
-qualify row_number() over (partition by trip_id, stop_id, stop_sequence order by arrival_time) = 1
+    nullif(arrival_time, '') as arrival_time,
+    nullif(departure_time, '') as departure_time
+from {{ source('raw', 'raw_gtfs_stop_times') }}
+qualify row_number() over (
+    partition by _extract_date, trip_id, stop_id, stop_sequence
+    order by arrival_time
+) = 1

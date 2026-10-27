@@ -32,10 +32,15 @@ norm as (
 )
 
 select
-    route_id,
-    precip_bin,
-    pct_on_time_avg,
-    pct_on_time_normal,
-    pct_on_time_avg - pct_on_time_normal as delta_pct_on_time,
-    current_timestamp() as build_run_at
+    norm.route_id,
+    norm.precip_bin,
+    norm.pct_on_time_avg,
+    norm.pct_on_time_normal,
+    norm.pct_on_time_avg - norm.pct_on_time_normal as delta_pct_on_time,
+    current_timestamp() as build_run_at,
+    r.route_name,
+    r.route_long_name
 from norm
+left join {{ ref('dim_route') }} as r
+    on r.route_id = norm.route_id
+    and r.is_latest_version

@@ -16,7 +16,7 @@ from whyline.semantics.dbt_artifacts import ModelInfo
 from whyline.sql_guardrails import CTE_PATTERN
 
 
-def build_schema_brief(models: Mapping[str, ModelInfo], *, max_columns: int = 7) -> str:
+def build_schema_brief(models: Mapping[str, ModelInfo], *, max_columns: int | None = None) -> str:
     """Condense model metadata for prompt conditioning."""
 
     lines: list[str] = []

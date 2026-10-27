@@ -54,12 +54,18 @@ scored as (
 )
 
 select
-    stop_id,
-    vuln_score_0_100,
-    crash_score_0_100,
-    reliability_score_0_100,
-    priority_score,
-    dense_rank() over (order by priority_score desc) as priority_rank,
-    current_timestamp() as build_run_at
-from scored
-where stop_id is not null
+    sc.stop_id,
+    sc.vuln_score_0_100,
+    sc.crash_score_0_100,
+    sc.reliability_score_0_100,
+    sc.priority_score,
+    dense_rank() over (order by sc.priority_score desc) as priority_rank,
+    current_timestamp() as build_run_at,
+    s.stop_name,
+    s.lat,
+    s.lon
+from scored as sc
+left join {{ ref('dim_stop') }} as s
+    on s.stop_id = sc.stop_id
+    and s.is_latest_version
+where sc.stop_id is not null

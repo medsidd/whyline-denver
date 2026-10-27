@@ -122,6 +122,7 @@ JOBS: tuple[JobSpec, ...] = (
         name="acs_tract",
         patterns=("acs/extract_date=*/acs_tract.csv.gz",),
         table="raw_acs_tract",
+        partition=Partitioning(field="_extract_date"),
         columns=_cols(
             ("geoid", "STRING"),
             ("name", "STRING"),
@@ -161,6 +162,7 @@ JOBS: tuple[JobSpec, ...] = (
         name="denver_sidewalks",
         patterns=("denver_sidewalks/extract_date=*/sidewalks.csv.gz",),
         table="raw_sidewalks",
+        partition=Partitioning(field="_extract_date"),
         columns=_cols(
             ("sidewalk_id", "STRING"),
             ("class", "STRING"),
@@ -180,6 +182,7 @@ JOBS: tuple[JobSpec, ...] = (
         name="denver_tracts",
         patterns=("denver_tracts/extract_date=*/tracts.csv.gz",),
         table="raw_denver_tracts",
+        partition=Partitioning(field="_extract_date"),
         columns=_cols(
             ("geoid", "STRING"),
             ("name", "STRING"),
@@ -212,6 +215,7 @@ JOBS: tuple[JobSpec, ...] = (
         name="gtfs_routes",
         patterns=("rtd_gtfs/extract_date=*/gtfs/routes.txt",),
         table="raw_gtfs_routes",
+        partition=Partitioning(field="_extract_date"),
         columns=_cols(
             ("route_id", "STRING"),
             ("agency_id", "STRING"),
@@ -233,6 +237,7 @@ JOBS: tuple[JobSpec, ...] = (
         name="gtfs_stops",
         patterns=("rtd_gtfs/extract_date=*/gtfs/stops.txt",),
         table="raw_gtfs_stops",
+        partition=Partitioning(field="_extract_date"),
         columns=_cols(
             ("stop_id", "STRING"),
             ("stop_code", "STRING"),
@@ -254,6 +259,7 @@ JOBS: tuple[JobSpec, ...] = (
         name="gtfs_trips",
         patterns=("rtd_gtfs/extract_date=*/gtfs/trips.txt",),
         table="raw_gtfs_trips",
+        partition=Partitioning(field="_extract_date"),
         columns=_cols(
             ("route_id", "STRING"),
             ("service_id", "STRING"),
@@ -268,6 +274,7 @@ JOBS: tuple[JobSpec, ...] = (
         name="gtfs_calendar",
         patterns=("rtd_gtfs/extract_date=*/gtfs/calendar.txt",),
         table="raw_gtfs_calendar",
+        partition=Partitioning(field="_extract_date"),
         columns=_cols(
             ("service_id", "STRING"),
             ("monday", "INT64"),
@@ -285,6 +292,7 @@ JOBS: tuple[JobSpec, ...] = (
         name="gtfs_calendar_dates",
         patterns=("rtd_gtfs/extract_date=*/gtfs/calendar_dates.txt",),
         table="raw_gtfs_calendar_dates",
+        partition=Partitioning(field="_extract_date"),
         columns=_cols(
             ("service_id", "STRING"),
             ("date", "STRING"),
@@ -295,6 +303,7 @@ JOBS: tuple[JobSpec, ...] = (
         name="gtfs_stop_times",
         patterns=("rtd_gtfs/extract_date=*/gtfs/stop_times.txt",),
         table="raw_gtfs_stop_times",
+        partition=Partitioning(field="_extract_date"),
         columns=_cols(
             ("trip_id", "STRING"),
             ("arrival_time", "STRING"),
@@ -312,6 +321,7 @@ JOBS: tuple[JobSpec, ...] = (
         name="gtfs_shapes",
         patterns=("rtd_gtfs/extract_date=*/gtfs/shapes.txt",),
         table="raw_gtfs_shapes",
+        partition=Partitioning(field="_extract_date"),
         columns=_cols(
             ("shape_id", "STRING"),
             ("shape_pt_lat", "FLOAT64"),

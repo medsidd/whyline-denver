@@ -10,38 +10,15 @@
 }}
 
 {#
-Cost optimization: Materialize as incremental table to avoid repeated scans of raw GTFS-RT data.
-- Full refresh: 45-day lookback
-- Incremental: Only process last 12 hours to minimize overhead
-- Rationale: With 5-min refresh cycles, 12 hours provides ample buffer for late-arriving data
-  while reducing scan volume by ~83% (from 3 days to 12 hours)
+Silver: trip updates merged with vehicle positions, one row per feed poll x trip. Reported
+delays only; schedule-derived delays and dimension keys are added in core.fct_trip_observation.
+- Full refresh: 45-day lookback (raise rt_events_lookback_days to rebuild from all bronze)
+- Incremental: last 12 hours of feeds
 #}
 {% set lookback_days = var('rt_events_lookback_days', 45) %}
 {% set incremental_hours = var('rt_events_incremental_hours', 12) %}
 
-with trips as (
-    select
-        trip_id,
-        direction_id,
-        trip_headsign
-    from {{ ref('stg_gtfs_trips') }}
-),
-scheduled as (
-    select
-        trip_id,
-        stop_id,
-        stop_sequence,
-        sched_arrival_ts_mst,
-        sched_departure_ts_mst,
-        service_date_mst
-    from {{ ref('int_scheduled_arrivals') }}
-    {% if is_incremental() %}
-    -- Constant bounds so BigQuery prunes partitions; the schedule extends ~30 days ahead and the join below is on service date
-    where service_date_mst between date_sub(current_date('America/Denver'), interval 2 day)
-        and date_add(current_date('America/Denver'), interval 1 day)
-    {% endif %}
-),
-tu as (
+with tu as (
     select
         feed_ts_utc,
         entity_id as tu_entity_id,
@@ -99,6 +76,8 @@ j as (
         on tu.feed_ts_utc = vp.feed_ts_utc
         and tu.trip_id = vp.trip_id
         and tu.route_id = vp.route_id
+    -- A NULL trip_id never matches the MERGE key, so these rows were re-inserted every run
+    where coalesce(tu.trip_id, vp.trip_id) is not null
 ),
 ranked as (
     select
@@ -117,21 +96,8 @@ select
     r.vp_entity_id,
     r.stop_id,
     r.stop_sequence,
-    -- Use raw delay values if available, otherwise calculate from schedule
-    coalesce(
-        r.arrival_delay_sec_raw,
-        case
-            when s.sched_arrival_ts_mst is not null and r.event_ts_utc is not null
-            then timestamp_diff(r.event_ts_utc, s.sched_arrival_ts_mst, second)
-        end
-    ) as arrival_delay_sec,
-    coalesce(
-        r.departure_delay_sec_raw,
-        case
-            when s.sched_departure_ts_mst is not null and r.event_ts_utc is not null
-            then timestamp_diff(r.event_ts_utc, s.sched_departure_ts_mst, second)
-        end
-    ) as departure_delay_sec,
+    r.arrival_delay_sec_raw as arrival_delay_sec,
+    r.departure_delay_sec_raw as departure_delay_sec,
     r.schedule_relationship,
     r.vehicle_id,
     r.vehicle_label,
@@ -141,16 +107,7 @@ select
     r.speed_mps,
     r.geom,
     r.event_ts_utc,
-    t.direction_id,
-    t.trip_headsign,
     {{ date_mst('r.event_ts_utc') }} as event_date_mst,
     {{ hour_mst('r.event_ts_utc') }} as event_hour_mst
 from ranked as r
-left join trips as t
-    on r.trip_id = t.trip_id
-left join scheduled as s
-    on r.trip_id = s.trip_id
-    and r.stop_id = s.stop_id
-    and r.stop_sequence = s.stop_sequence
-    and s.service_date_mst = {{ date_mst('r.event_ts_utc') }}
 where r.trip_rank = 1

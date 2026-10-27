@@ -32,7 +32,7 @@ def test_route_metrics_exclude_unassigned_events(incremental):
     )
     with duckdb.connect() as con:
         con.execute(
-            "CREATE TABLE int_rt_events_resolved AS "
+            "CREATE TABLE fct_trip_observation AS "
             "SELECT * FROM (VALUES "
             "('15', current_date, 60, 60), "
             "('15', current_date, 600, 600), "
