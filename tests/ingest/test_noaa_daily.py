@@ -96,3 +96,33 @@ def test_station_extract_preserves_legacy_data_and_is_discovered_once(monkeypatc
         )
     )
     assert sorted(r.relative_path for r in remote) == sorted(r.relative_path for r in local)
+
+
+def test_fetch_retries_transient_timeout(monkeypatch):
+    import requests
+
+    ok = Mock(status_code=200)
+    ok.json.return_value = {
+        "results": [
+            {
+                "date": "2026-10-27T00:00:00",
+                "datatype": "PRCP",
+                "value": 1.2,
+                "station": "GHCND:USW00003017",
+            }
+        ]
+    }
+    calls = Mock(side_effect=[requests.exceptions.ReadTimeout("slow"), ok])
+    monkeypatch.setattr(noaa.io.requests, "get", calls)
+    monkeypatch.setattr(noaa.io.time, "sleep", lambda _: None)
+
+    rows = noaa.fetch_noaa_cdo(
+        token="t",  # noqa: S106
+        station="USW00003017",
+        start="2026-10-27",
+        end="2026-10-27",
+        timeout=1,
+    )
+
+    assert calls.call_count == 2
+    assert rows[0]["PRCP"] == 1.2
