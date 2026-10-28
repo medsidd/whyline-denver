@@ -1,0 +1,19 @@
+{
+  "displayName": "RTD stream: poller heartbeat missing",
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "No RT_STREAM_HEARTBEAT log line for 30 minutes",
+      "conditionAbsent": {
+        "filter": "resource.type = \"gce_instance\" AND metric.type = \"logging.googleapis.com/user/rt_stream_heartbeat\"",
+        "duration": "1800s",
+        "aggregations": [{ "alignmentPeriod": "600s", "perSeriesAligner": "ALIGN_COUNT" }]
+      }
+    }
+  ],
+  "notificationChannels": ["projects/whyline-denver/notificationChannels/CHANNEL_ID"],
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "The poller writes RT_STREAM_HEARTBEAT every 5 minutes. None for 30 minutes means the VM, Docker, or the container is down, or its logs stopped reaching Cloud Logging. Runbook: docs/technical/plans/realtime-stop-visits.md section 7."
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "displayName": "RTD stream: no new batch for 30 minutes",
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "realtime-load logged STREAM_STALE or STREAM_MISSING",
+      "conditionMatchedLog": {
+        "filter": "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"realtime-load\" AND (textPayload:\"STREAM_STALE\" OR textPayload:\"STREAM_MISSING\")"
+      }
+    }
+  ],
+  "alertStrategy": {
+    "notificationRateLimit": { "period": "3600s" },
+    "autoClose": "86400s"
+  },
+  "notificationChannels": ["projects/whyline-denver/notificationChannels/CHANNEL_ID"],
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "The poller VM has not delivered a 15-minute batch for over 30 minutes. Check `sudo systemctl status whyline-stream` and `journalctl CONTAINER_NAME=whyline-stream` over IAP SSH, the RT_STREAM_HEARTBEAT log lines, and the outbox size. Runbook: docs/technical/plans/realtime-stop-visits.md section 7."
+  }
+}

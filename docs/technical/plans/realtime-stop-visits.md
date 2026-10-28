@@ -360,8 +360,17 @@ bq show raw_denver.raw_gtfsrt_stop_visits
 
 # 9. Only now merge Phase 3 (nightly picks up the new models), rebuild, and redeploy per step 6
 
-# 10. Alerts: email channel + log-match policy on STREAM_STALE / STREAM_MISSING + heartbeat absence
-#     (JSON policy files in infra/stream-vm/; created with gcloud alpha monitoring policies create --policy-from-file=…)
+# 10. Alerts (free): email channel, heartbeat log metric, two policies
+#     (rollback: gcloud alpha monitoring policies delete <name>; gcloud logging metrics delete rt_stream_heartbeat)
+gcloud beta monitoring channels create --display-name="WhyLine owner" --type=email \
+  --channel-labels=email_address=<owner email>
+CHANNEL=$(gcloud beta monitoring channels list --filter='displayName="WhyLine owner"' --format='value(name)')
+gcloud logging metrics create rt_stream_heartbeat --description="RTD stream poller heartbeat" \
+  --log-filter='resource.type="gce_instance" AND (textPayload:"RT_STREAM_HEARTBEAT" OR jsonPayload.MESSAGE:"RT_STREAM_HEARTBEAT" OR jsonPayload.message:"RT_STREAM_HEARTBEAT")'
+for f in infra/stream-vm/alert-stream-stale.json infra/stream-vm/alert-stream-heartbeat.json; do
+  sed "s#projects/whyline-denver/notificationChannels/CHANNEL_ID#$CHANNEL#" "$f" > /tmp/policy.json
+  gcloud alpha monitoring policies create --policy-from-file=/tmp/policy.json
+done
 
 # Upgrade or rollback the poller: change the digest in metadata and restart
 gcloud compute instances add-metadata rt-stream-poller --zone=us-central1-a --metadata=image-uri=<previous-or-new digest URI>

@@ -43,6 +43,8 @@ class Partitioning:
     """Partition configuration for a destination table."""
 
     field: str
+    granularity: str = "DAY"  # or "HOUR"
+    expiration_days: int | None = None
 
 
 @dataclass(frozen=True)
@@ -51,6 +53,8 @@ class Clustering:
 
     fields: tuple[str, ...]
 
+
+STREAM_RETENTION_DAYS = 90
 
 META_COLUMNS: tuple[Column, ...] = (
     Column(
@@ -369,6 +373,142 @@ JOBS: tuple[JobSpec, ...] = (
             ("event_ts_utc", "TIMESTAMP"),
         ),
         partition=Partitioning(field="feed_ts_utc"),
+        clustering=Clustering(fields=("route_id", "trip_id")),
+    ),
+    # Continuous stream (whyline.ingest.gtfs_rt_stream). Column order must equal the poller's
+    # CSV headers (rt_engine *_COLUMNS). Partitions expire; the Coldline archive is permanent.
+    # Visits and trip status partition by load hour so backfill rows do not expire on arrival.
+    JobSpec(
+        name="gtfsrt_tu_changes",
+        patterns=("rtd_gtfsrt_stream/snapshot_at=*/tu_changes.csv.gz",),
+        table="raw_gtfsrt_tu_changes",
+        columns=_cols(
+            ("feed_ts_utc", "TIMESTAMP"),
+            ("change_type", "STRING"),
+            ("trip_id", "STRING"),
+            ("start_date", "STRING"),
+            ("route_id", "STRING"),
+            ("direction_id", "INT64"),
+            ("trip_schedule_relationship", "STRING"),
+            ("tu_timestamp_utc", "TIMESTAMP"),
+            ("tu_vehicle_id", "STRING"),
+            ("stop_sequence", "INT64"),
+            ("stop_id", "STRING"),
+            ("arrival_ts_utc", "TIMESTAMP"),
+            ("departure_ts_utc", "TIMESTAMP"),
+            ("arrival_delay_sec", "INT64"),
+            ("departure_delay_sec", "INT64"),
+            ("stop_schedule_relationship", "STRING"),
+        ),
+        partition=Partitioning(field="feed_ts_utc", expiration_days=STREAM_RETENTION_DAYS),
+        clustering=Clustering(fields=("route_id", "trip_id")),
+    ),
+    JobSpec(
+        name="gtfsrt_vp_stream",
+        patterns=("rtd_gtfsrt_stream/snapshot_at=*/vp_reports.csv.gz",),
+        table="raw_gtfsrt_vp_stream",
+        columns=_cols(
+            ("feed_ts_utc", "TIMESTAMP"),
+            ("report_ts_utc", "TIMESTAMP"),
+            ("entity_id", "STRING"),
+            ("vehicle_id", "STRING"),
+            ("vehicle_label", "STRING"),
+            ("trip_id", "STRING"),
+            ("start_date", "STRING"),
+            ("route_id", "STRING"),
+            ("direction_id", "INT64"),
+            ("trip_schedule_relationship", "STRING"),
+            ("stop_id", "STRING"),
+            ("current_status", "STRING"),
+            ("lat", "FLOAT64"),
+            ("lon", "FLOAT64"),
+            ("bearing", "FLOAT64"),
+            ("speed_mps", "FLOAT64"),
+            ("occupancy_status", "STRING"),
+            ("report_age_sec", "INT64"),
+            ("is_repeat", "BOOL"),
+            ("in_bbox", "BOOL"),
+            ("dist_along_m", "FLOAT64"),
+            ("lateral_offset_m", "FLOAT64"),
+            ("valid_for_timing", "BOOL"),
+        ),
+        partition=Partitioning(field="feed_ts_utc", expiration_days=STREAM_RETENTION_DAYS),
+        clustering=Clustering(fields=("route_id", "trip_id")),
+    ),
+    JobSpec(
+        name="gtfsrt_stop_visits",
+        patterns=("rtd_gtfsrt_stream/snapshot_at=*/stop_visits.csv.gz",),
+        table="raw_gtfsrt_stop_visits",
+        columns=_cols(
+            ("service_date", "DATE"),
+            ("trip_id", "STRING"),
+            ("start_date", "STRING"),
+            ("stop_sequence", "INT64"),
+            ("stop_id", "STRING"),
+            ("stop_role", "STRING"),
+            ("route_id", "STRING"),
+            ("direction_id", "INT64"),
+            ("trip_headsign", "STRING"),
+            ("vehicle_id", "STRING"),
+            ("arrival_method", "STRING"),
+            ("arrival_ts_utc", "TIMESTAMP"),
+            ("arrival_earliest_ts", "TIMESTAMP"),
+            ("arrival_latest_ts", "TIMESTAMP"),
+            ("departure_earliest_ts", "TIMESTAMP"),
+            ("departure_latest_ts", "TIMESTAMP"),
+            ("dwell_min_sec", "INT64"),
+            ("dwell_max_sec", "INT64"),
+            ("skipped", "BOOL"),
+            ("stopped_observed", "BOOL"),
+            ("before_report_ts", "TIMESTAMP"),
+            ("before_dist_along_m", "FLOAT64"),
+            ("after_report_ts", "TIMESTAMP"),
+            ("after_dist_along_m", "FLOAT64"),
+            ("stop_dist_m", "FLOAT64"),
+            ("nearest_offset_m", "FLOAT64"),
+            ("last_predicted_arrival_ts", "TIMESTAMP"),
+            ("last_prediction_published_ts", "TIMESTAMP"),
+            ("trip_switch_at_terminal", "BOOL"),
+            ("low_confidence", "BOOL"),
+            ("is_final", "BOOL"),
+            ("data_version", "STRING"),
+            ("static_md5", "STRING"),
+            ("emitted_at", "TIMESTAMP"),
+        ),
+        partition=Partitioning(
+            field="_ingested_at", granularity="HOUR", expiration_days=STREAM_RETENTION_DAYS
+        ),
+        clustering=Clustering(fields=("route_id", "trip_id")),
+    ),
+    JobSpec(
+        name="gtfsrt_trip_status",
+        patterns=("rtd_gtfsrt_stream/snapshot_at=*/trip_status.csv.gz",),
+        table="raw_gtfsrt_trip_status",
+        columns=_cols(
+            ("service_date", "DATE"),
+            ("trip_id", "STRING"),
+            ("start_date", "STRING"),
+            ("route_id", "STRING"),
+            ("direction_id", "INT64"),
+            ("final_schedule_relationship", "STRING"),
+            ("outcome", "STRING"),
+            ("first_seen_ts", "TIMESTAMP"),
+            ("last_seen_ts", "TIMESTAMP"),
+            ("first_vp_ts", "TIMESTAMP"),
+            ("last_vp_ts", "TIMESTAMP"),
+            ("had_vehicle", "BOOL"),
+            ("n_stops_static", "INT64"),
+            ("n_visits", "INT64"),
+            ("n_shape_crossing", "INT64"),
+            ("n_last_prediction", "INT64"),
+            ("n_skipped", "INT64"),
+            ("data_version", "STRING"),
+            ("static_md5", "STRING"),
+            ("closed_at", "TIMESTAMP"),
+        ),
+        partition=Partitioning(
+            field="_ingested_at", granularity="HOUR", expiration_days=STREAM_RETENTION_DAYS
+        ),
         clustering=Clustering(fields=("route_id", "trip_id")),
     ),
 )
