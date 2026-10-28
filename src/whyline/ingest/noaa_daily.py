@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Union
 
 import pandas as pd
+import requests
 from dotenv import load_dotenv
 
 from whyline.ingest import io
@@ -24,6 +25,9 @@ CDO_API_URL = "https://www.ncei.noaa.gov/cdo-web/api/v2/data"
 DEFAULT_STATION = "USW00003017"
 DEFAULT_DATASET = "GHCND"
 DATATYPES = ["SNOW", "PRCP", "TMIN", "TMAX", "TAVG"]
+OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
+# Fallback coordinates per GHCND station; Open-Meteo returns gridded model values, not observations.
+STATION_COORDS = {DEFAULT_STATION: (39.8467, -104.6562)}
 DEFAULT_LOCAL_SOURCE = Path("data/external/noaa_raw.csv")
 OUTPUT_FILENAME = "weather.csv.gz"
 PRECIP_BINS = [
@@ -74,14 +78,27 @@ def run(args: argparse.Namespace) -> int:
             args.start,
             args.end,
         )
-        raw_records = fetch_noaa_cdo(
-            token=token,
+        try:
+            raw_records = fetch_noaa_cdo(
+                token=token,
+                station=args.station,
+                start=args.start,
+                end=args.end,
+                timeout=args.timeout_sec,
+            )
+        except requests.RequestException as exc:
+            LOGGER.warning("NOAA CDO unavailable (%s); falling back to Open-Meteo.", exc)
+            raw_records = []
+        source_descriptor = "noaa_cdo_api"
+        raw_records, filled = fill_missing_days(
+            raw_records,
             station=args.station,
             start=args.start,
             end=args.end,
             timeout=args.timeout_sec,
         )
-        source_descriptor = "noaa_cdo_api"
+        if filled:
+            source_descriptor = f"noaa_cdo_api+open_meteo_fallback ({len(filled)} days)"
     else:
         source_path = Path(args.source_path) if args.source_path else DEFAULT_LOCAL_SOURCE
         LOGGER.info("Loading local NOAA CSV from %s", source_path)
@@ -221,6 +238,95 @@ def fetch_noaa_cdo(
         offset += limit
 
     return list(records.values())
+
+
+def fill_missing_days(
+    records: list[dict[str, Any]],
+    *,
+    station: str,
+    start: str,
+    end: str,
+    timeout: int,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Fill days without NOAA precipitation from Open-Meteo; NOAA values always win.
+
+    shortcut: filled days are not flagged in BigQuery (no source column); the next run with
+    NOAA data replaces them because the nightly window re-fetches the last 30 days.
+    """
+    merged = {r["date"]: dict(r) for r in records if r.get("date")}
+    missing = [
+        day
+        for day in pd.date_range(start=start, end=end, freq="D").strftime("%Y-%m-%d")
+        if _to_float(merged.get(day, {}).get("PRCP")) is None
+    ]
+    if not missing:
+        return records, []
+    if station not in STATION_COORDS:
+        LOGGER.warning(
+            "No fallback coordinates for station %s; leaving %d days empty.", station, len(missing)
+        )
+        return records, []
+    try:
+        fallback = fetch_open_meteo(station=station, start=start, end=end, timeout=timeout)
+    except requests.RequestException as exc:
+        LOGGER.warning("Open-Meteo fallback unavailable (%s).", exc)
+        return records, []
+
+    filled: list[str] = []
+    for day in missing:
+        values = fallback.get(day)
+        if not values or values.get("PRCP") is None:
+            continue
+        entry = merged.setdefault(day, {"date": day, "station": station})
+        for key, value in values.items():
+            if _to_float(entry.get(key)) is None:
+                entry[key] = value
+        filled.append(day)
+    LOGGER.info(
+        "Filled %d of %d days without NOAA precipitation from Open-Meteo.",
+        len(filled),
+        len(missing),
+    )
+    return list(merged.values()), filled
+
+
+def fetch_open_meteo(
+    *,
+    station: str,
+    start: str,
+    end: str,
+    timeout: int,
+) -> dict[str, dict[str, Any]]:
+    """Daily Open-Meteo values keyed by date, in NOAA datatype names and units (mm, Celsius)."""
+    lat, lon = STATION_COORDS[station]
+    response = io.http_get_with_retry(
+        OPEN_METEO_URL,
+        params={
+            "latitude": lat,
+            "longitude": lon,
+            "daily": "precipitation_sum,snowfall_sum,temperature_2m_max,"
+            "temperature_2m_min,temperature_2m_mean",
+            "timezone": "America/Denver",
+            "start_date": start,
+            "end_date": end,
+        },
+        timeout=timeout,
+        logger=LOGGER,
+    )
+    response.raise_for_status()
+    daily = response.json().get("daily", {})
+    snow_cm = daily.get("snowfall_sum", [])
+    return {
+        day: {
+            "PRCP": daily["precipitation_sum"][i],
+            # Open-Meteo reports snowfall in cm; NOAA SNOW is mm.
+            "SNOW": None if snow_cm[i] is None else round(snow_cm[i] * 10, 2),
+            "TMAX": daily["temperature_2m_max"][i],
+            "TMIN": daily["temperature_2m_min"][i],
+            "TAVG": daily["temperature_2m_mean"][i],
+        }
+        for i, day in enumerate(daily.get("time", []))
+    }
 
 
 def load_local_csv(

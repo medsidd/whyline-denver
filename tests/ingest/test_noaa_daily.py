@@ -34,6 +34,7 @@ def test_metric_values_and_missing_days_are_preserved():
 def test_empty_precipitation_is_not_published(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(noaa, "fetch_noaa_cdo", lambda **kwargs: [])
+    monkeypatch.setattr(noaa, "fetch_open_meteo", lambda **kwargs: {})
     args = noaa.build_parser().parse_args(
         [
             "--start",
@@ -126,3 +127,60 @@ def test_fetch_retries_transient_timeout(monkeypatch):
 
     assert calls.call_count == 2
     assert rows[0]["PRCP"] == 1.2
+
+
+def test_open_meteo_fills_only_days_without_noaa_precipitation(monkeypatch):
+    monkeypatch.setattr(
+        noaa,
+        "fetch_open_meteo",
+        lambda **kwargs: {
+            "2026-10-01": {"PRCP": 9.0, "SNOW": 0.0, "TMAX": 9, "TMIN": 1, "TAVG": 5},
+            "2026-10-02": {"PRCP": 2.5, "SNOW": 30.0, "TMAX": 3, "TMIN": -4, "TAVG": -1},
+        },
+    )
+    noaa_rows = [{"date": "2026-10-01", "station": "USW00003017", "PRCP": 0.0, "TMAX": 10}]
+
+    records, filled = noaa.fill_missing_days(
+        noaa_rows, station=noaa.DEFAULT_STATION, start="2026-10-01", end="2026-10-02", timeout=1
+    )
+    df = noaa.build_dataframe(records, "2026-10-01", "2026-10-02", noaa.DEFAULT_STATION)
+
+    assert filled == ["2026-10-02"]
+    assert df.loc[0, "precip_mm"] == 0.0  # NOAA observation kept
+    assert df.loc[0, "tmax_c"] == 10
+    assert df.loc[1, "precip_mm"] == 2.5
+    assert df.loc[1, "snow_day"] == 1
+    assert df.loc[1, "station"] == noaa.DEFAULT_STATION
+
+
+def test_noaa_outage_publishes_open_meteo_extract(monkeypatch, tmp_path):
+    import requests
+
+    monkeypatch.chdir(tmp_path)
+
+    def down(**kwargs):
+        raise requests.exceptions.ReadTimeout("down")
+
+    monkeypatch.setattr(noaa, "fetch_noaa_cdo", down)
+    om = Mock(status_code=200)
+    om.json.return_value = {
+        "daily": {
+            "time": ["2026-10-01"],
+            "precipitation_sum": [1.5],
+            "snowfall_sum": [0.4],
+            "temperature_2m_max": [12.0],
+            "temperature_2m_min": [2.0],
+            "temperature_2m_mean": [7.0],
+        }
+    }
+    monkeypatch.setattr(noaa.io.requests, "get", Mock(return_value=om))
+    args = noaa.build_parser().parse_args(
+        ["--start", "2026-10-01", "--end", "2026-10-01", "--token", "test-token"]
+    )
+
+    assert noaa.run(args) == 0
+    (out,) = tmp_path.rglob("weather.csv.gz")
+    df = pd.read_csv(out)
+    assert df.loc[0, "precip_mm"] == 1.5
+    assert df.loc[0, "snow_mm"] == 4.0  # cm converted to mm
+    assert "open_meteo_fallback" in next(tmp_path.rglob("manifest.json")).read_text()
