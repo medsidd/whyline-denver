@@ -51,7 +51,6 @@ LOGGER = io.get_logger(__name__)
 
 WINDOW_SEC = 900
 STREAM_PREFIX = "rtd_gtfsrt_stream"
-REPLAY_PREFIX = "rtd_gtfsrt_replay"
 ARCHIVE_PREFIX = "rtd_gtfsrt"
 STATIC_PREFIX = "static/rtd_gtfs"
 OUTPUTS = {
@@ -66,8 +65,8 @@ OUTBOX_ALERT_WINDOWS = 50
 OUTBOX_ALERT_BYTES = 1 << 30
 
 
-def window_start(ts: float) -> int:
-    return int(ts // WINDOW_SEC * WINDOW_SEC)
+def window_start(ts: float, seconds: int = WINDOW_SEC) -> int:
+    return int(ts // seconds * seconds)
 
 
 def window_label(start: int) -> str:
@@ -97,8 +96,9 @@ def _cell(value: object) -> object:
 class Window:
     """One open 15-minute batch on local disk: append-only CSVs and a tar of gzipped payloads."""
 
-    def __init__(self, root: Path, start: int):
+    def __init__(self, root: Path, start: int, seconds: int = WINDOW_SEC):
         self.start = start
+        self.seconds = seconds
         self.label = window_label(start)
         self.dir = root / "open" / self.label
         self.dir.mkdir(parents=True, exist_ok=True)
@@ -157,9 +157,9 @@ class Window:
                     with path.open("rb+") as handle:
                         handle.truncate(keep)
 
-    def seal(self, dest: Path, meta: dict) -> Path:
+    def seal(self, dest: Path, meta: dict, dirname: str | None = None) -> Path:
         """Gzip the CSVs, close the tar, write the manifest, and move the batch into dest."""
-        out = dest / self.label
+        out = dest / (dirname or self.label)
         out.mkdir(parents=True)  # never overwrite a sealed batch that may not be published yet
         files_meta = {}
         for name in OUTPUTS:
@@ -191,7 +191,7 @@ class Window:
             "written_at_utc": io.utc_now_iso(),
             "snapshot_label": self.label,
             "window_start_utc": iso(self.start),
-            "window_end_utc": iso(self.start + WINDOW_SEC),
+            "window_end_utc": iso(self.start + self.seconds),
             "file_count": len(files_meta),
             "row_count": sum(f["row_count"] for f in files_meta.values()),
             "bytes": sum(f["bytes"] for f in files_meta.values()),
@@ -316,7 +316,7 @@ class StaticCache:
                 return True
         return False
 
-    def lookup(self, trip_id: str, md5: str | None) -> Geom | None:
+    def lookup(self, trip_id: str, md5: str | None, start_date: str = "") -> Geom | None:
         for key in (md5, self.current):
             entry = self.feeds.get(key) if key else None
             if entry is None:
@@ -685,8 +685,10 @@ class Replay:
         self.args = args
         out_root = Path(args.out)
         self.work = out_root / ".work"
-        self.dest = out_root / REPLAY_PREFIX
-        for scratch in (self.dest, self.work / "open"):  # a replay output is disposable
+        self.dest = out_root
+        self.seconds = args.window_minutes * 60
+        # A replay output is disposable: earlier batches and open windows are rebuilt whole.
+        for scratch in [*out_root.glob("snapshot_at=*"), self.work / "open"]:
             if scratch.exists():
                 shutil.rmtree(scratch)
         self.static = StaticCache(self.work / "static")
@@ -731,11 +733,11 @@ class Replay:
             kind = name.split("/")[0]
             if self._thinned(kind, header_ts):
                 continue
-            start = window_start(header_ts)
+            start = window_start(header_ts, self.seconds)
             if self.window is not None and self.window.start != start:
                 self._seal()
             if self.window is None:
-                self.window = Window(self.work, start)
+                self.window = Window(self.work, start, self.seconds)
             payload = gzip.decompress(tar.extractfile(members[name]).read())
             self.processor.handle(
                 kind, payload, self.window, strip_vp_stops=self.args.strip_vp_stop_fields
@@ -753,7 +755,7 @@ class Replay:
 
     def _seal(self) -> None:
         self.meta["static_md5"] = self.static.current
-        self.window.seal(self.dest, self.meta)
+        self.window.seal(self.dest, self.meta, f"snapshot_at={self.window.label}")
         self.window = None
 
 
@@ -810,6 +812,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Drop vehicle stop_id/status, like the old snapshots (calibration).",
     )
     replay.add_argument("--engine-mode", choices=("stream", "backfill"), default="stream")
+    replay.add_argument(
+        "--window-minutes",
+        type=int,
+        default=15,
+        help="Batch length; use 1440 for loadable daily calibration files.",
+    )
     replay.add_argument("--data-version", help="Override data_version on replayed rows.")
     return parser
 

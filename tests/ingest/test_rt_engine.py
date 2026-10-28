@@ -86,7 +86,7 @@ class Harness:
         self.visits: list[dict] = []
         self.status: list[dict] = []
 
-    def lookup(self, trip_id: str, md5: str | None) -> Geom | None:
+    def lookup(self, trip_id: str, md5: str | None, start_date: str = "") -> Geom | None:
         trip = self.feed.trips.get(trip_id)
         return Geom(trip, self.feed.shapes[trip.shape_id], self.feed) if trip else None
 
@@ -263,15 +263,14 @@ def test_loop_serving_the_same_stop_twice():
 
 def test_last_prediction_worked_example():
     h = Harness(straight_feed())
-    pred = {seq: (f"S{seq - 1}", T(15, 50, 0), "SCHEDULED") for seq in (2, 4, 5)}
-    h.tu(T(15, 38, 0), {**pred, 3: ("S2", T(15, 42, 40), "SCHEDULED")})
-    h.tu(T(15, 41, 0), {**pred, 3: ("S2", T(15, 42, 10), "SCHEDULED")})
-    h.tu(
-        T(15, 41, 30),
-        {k: v for k, v in {**pred, 3: ("S2", T(15, 42, 10), "SCHEDULED")}.items() if k != 2},
-    )
-    assert h.visits == []  # one drop alone does not show the trip ran (phantom guard)
-    h.tu(T(15, 42, 30), {k: v for k, v in pred.items() if k != 2})
+    later = {seq: (f"S{seq - 1}", T(15, 50, 0), "SCHEDULED") for seq in (4, 5)}
+    stop2 = {2: ("S1", T(15, 41, 20), "SCHEDULED")}
+    h.tu(T(15, 38, 0), {**stop2, **later, 3: ("S2", T(15, 42, 40), "SCHEDULED")})
+    h.tu(T(15, 41, 0), {**stop2, **later, 3: ("S2", T(15, 42, 10), "SCHEDULED")})
+    h.tu(T(15, 41, 30), {**later, 3: ("S2", T(15, 42, 10), "SCHEDULED")})  # stop 2 served
+    h.tu(T(15, 42, 30), later)  # stop 3 gone: two due drops in order show the trip ran
+    assert h.visits == []  # no vehicle yet: give one the grace period to produce a crossing
+    h.flush()
     v = h.visit(3)
     assert v["arrival_method"] == "last_prediction"
     assert v["arrival_ts_utc"] == "2026-10-28T15:42:10Z"
@@ -280,6 +279,18 @@ def test_last_prediction_worked_example():
         "2026-10-28T15:42:30Z",
     )
     assert v["last_prediction_published_ts"] == "2026-10-28T15:41:00Z"
+
+
+def test_stops_dropped_before_due_are_not_visits_and_do_not_block_crossings():
+    # Observed live: RTD dropped all 52 stops of a late trip at once while it stayed listed.
+    h = Harness(straight_feed())
+    future = {seq: (f"S{seq - 1}", T(15, 20, 0) + 60 * seq, "SCHEDULED") for seq in (2, 3, 4, 5)}
+    h.tu(T(15, 0, 0), future)
+    h.tu(T(15, 0, 30), {})  # still listed, every stop dropped long before it was due
+    h.vp(T(15, 1, 0), 300, 0, "S1", "IN_TRANSIT_TO")
+    h.vp(T(15, 1, 30), 700, 0, "S2", "IN_TRANSIT_TO")
+    h.flush()
+    assert [(v["stop_sequence"], v["arrival_method"]) for v in h.visits] == [(2, "shape_crossing")]
 
 
 def test_vanished_trip_gets_no_visits():

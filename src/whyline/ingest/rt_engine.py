@@ -26,7 +26,10 @@ TOL_BUS_M = 100.0
 TOL_RAIL_M = 150.0
 WITHIN_SEC = 30
 PRED_GUARD_SEC = 60
-TERMINAL_PRED_SLACK_SEC = 120
+# A stop leaving the list is evidence of service only if its final prediction had come due.
+# RTD can drop every stop of a late trip at once while the trip stays listed (observed
+# 2026-10-28: 52 stops dropped with predictions up to 17 minutes ahead).
+DUE_SLACK_SEC = 120
 LOW_CONFIDENCE_SEC = 1200
 FINAL_GRACE_SEC = {"stream": 1200, "backfill": 3600}
 TRIP_CLOSE_SEC = {"stream": 600, "backfill": 1800}
@@ -460,7 +463,8 @@ class TripState:
     seq_idx: dict[int, int] = field(default_factory=dict)
 
 
-Lookup = Callable[[str, "str | None"], "Geom | None"]
+# lookup(trip_id, pinned_md5, start_date): the static version a trip started on.
+Lookup = Callable[[str, "str | None", str], "Geom | None"]
 
 
 class VisitEngine:
@@ -521,9 +525,10 @@ class VisitEngine:
                     pred, published, rel = st.listed[seq]
                     st.dropped[seq] = feed_ts
                     st.final_pred[seq] = (pred, published)
-                    st.n_drops += 1
                     if rel == "SKIPPED":
                         self._mark_skipped(st, seq, feed_ts)
+                    elif pred is not None and pred <= feed_ts + DUE_SLACK_SEC:
+                        st.n_drops += 1
             st.listed = listed
         for key in sorted(self.tu_keys - trips.keys()):
             st = self.trips.get(key)
@@ -794,11 +799,7 @@ class VisitEngine:
             return  # many stops left at once: no visits for them unless a vehicle crosses them
         (seq,) = st.listed
         pred, published, _ = st.listed[seq]
-        if (
-            seq == geom.trip.seqs[-1]
-            and pred is not None
-            and pred <= feed_ts + TERMINAL_PRED_SLACK_SEC
-        ):
+        if seq == geom.trip.seqs[-1] and pred is not None and pred <= feed_ts + DUE_SLACK_SEC:
             st.dropped[seq] = feed_ts
             st.final_pred[seq] = (pred, published)
 
@@ -831,11 +832,13 @@ class VisitEngine:
             idx = self._idx(st, geom, seq)
             if idx is None or idx in st.visits or idx in st.emitted:
                 continue
-            reporting = st.fix is not None and st.fix.dist <= d[idx] + tol
-            if reporting and not closing and self.now - drop_ts < grace:
-                continue  # dropped before the reporting vehicle got there: wait for its crossing
             pred, published = st.final_pred.get(seq, (None, None))
-            if pred is None:
+            if pred is None or pred > drop_ts + DUE_SLACK_SEC:
+                continue  # dropped before it was due: not evidence that the stop was served
+            # A vehicle past the stop with no bracketing pair (its first fix was beyond it) settles
+            # it now; otherwise wait out the grace so a late vehicle's crossing takes precedence.
+            passed = st.fix is not None and st.fix.dist > d[idx] + tol
+            if not (passed or closing or self.now - drop_ts >= grace):
                 continue
             earliest = min(published, pred - PRED_GUARD_SEC)
             arrival = min(max(pred, earliest), drop_ts)
@@ -964,7 +967,7 @@ class VisitEngine:
         if st is None:
             st = TripState(key[0], key[1], None, route_id, direction_id)
             st.first_seen = st.last_seen = feed_ts
-            geom = self.lookup(key[0], None) if self.lookup else None
+            geom = self.lookup(key[0], None, key[1]) if self.lookup else None
             if geom is not None:
                 st.md5 = geom.feed.md5
             self.trips[key] = st
@@ -973,7 +976,7 @@ class VisitEngine:
     def _geom(self, st: TripState) -> Geom | None:
         if st.md5 is None or self.lookup is None:
             return None
-        return self.lookup(st.trip_id, st.md5)
+        return self.lookup(st.trip_id, st.md5, st.start_date)
 
     def _idx(self, st: TripState, geom: Geom, seq: int) -> int | None:
         if not st.seq_idx:

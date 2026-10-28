@@ -240,9 +240,7 @@ def test_replay_reproduces_live_visits(tmp_path):
         ["--replay", str(tmp_path / "data/archive"), "--out", str(tmp_path / "replay")]
     )
     assert stream.run(args) == 0
-    replayed = read_gz_csv(
-        next((tmp_path / "replay/rtd_gtfsrt_replay").glob("*/stop_visits.csv.gz"))
-    )
+    replayed = read_gz_csv(next((tmp_path / "replay").glob("snapshot_at=*/stop_visits.csv.gz")))
     assert replayed[:2] == live_visits[:2]  # same rows from the same payloads and static
 
 
