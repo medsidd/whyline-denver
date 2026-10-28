@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Any, Union
 
 import pandas as pd
-import requests
 from dotenv import load_dotenv
 
 from whyline.ingest import io
@@ -161,7 +160,7 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Metric-unit local CSV (default {DEFAULT_LOCAL_SOURCE}). Used when --token absent.",
     )
     parser.add_argument(
-        "--timeout-sec", type=int, default=30, help="HTTP timeout for API requests."
+        "--timeout-sec", type=int, default=60, help="HTTP timeout for API requests."
     )
     return parser
 
@@ -193,7 +192,15 @@ def fetch_noaa_cdo(
         for dt in DATATYPES:
             params.setdefault("datatypeid", []).append(dt)
 
-        response = requests.get(CDO_API_URL, headers=headers, params=params, timeout=timeout)
+        # NOAA CDO is often slow or briefly unavailable; retry before failing the nightly ingest.
+        response = io.http_get_with_retry(
+            CDO_API_URL,
+            headers=headers,
+            params=params,
+            timeout=timeout,
+            retries=4,
+            backoff_factor=3.0,
+        )
         response.raise_for_status()
         data = response.json()
         results = data.get("results", [])
