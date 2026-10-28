@@ -1,143 +1,255 @@
-# WhyLine Denver – Data Contracts (v1)
+# Raw data contracts
 
-These contracts describe the CSV outputs produced by the ingestion CLIs in `src/whylinedenver/ingest`. Schemas are frozen at **version v1**; removing or renaming a column requires a breaking-change process (see the policy at the end of this document) and must bump the manifest `schema_version` to `v2` and update downstream dbt sources.
+These contracts describe loader-facing outputs from `src/whyline/ingest/`. The [loader registry](../../src/whyline/load/registry.py) is the executable schema source: each `JobSpec` declares path patterns, destination table, ordered columns, optional partition/clustering, and CSV options. The tables below were reconciled statically from that registry on October 26, 2026, without importing cloud configuration.
 
-## RTD GTFS Static (`data/raw/rtd_gtfs/extract_date=YYYY-MM-DD/gtfs/*.txt`)
+CSV field order matters. The loader uses explicit schemas rather than inferring arbitrary files. All source columns in the current registry are `NULLABLE`; source validation/tests may impose stronger expectations. Do not claim a BigQuery REQUIRED constraint merely because a field is normally populated.
 
-| Column | Type | Units | Null? | Description |
-| --- | --- | --- | --- | --- |
-| (multiple TXT files) | | | | Source feed preserved as-is. Schema defined by GTFS spec. |
+Local paths are below `data/raw/`; GCS paths below `gs://<bucket>/raw/`. GTFS text members are extracted alongside a retained ZIP; other registered outputs are gzip CSVs. Not every ingestor uses an identical manifest schema or skip rule.
 
-> The static feed is stored losslessly; validation only ensures the canonical GTFS tables exist. Downstream loaders reference GTFS documentation for column types.
+## `raw_acs_tract`
 
-## RTD GTFS-Realtime Trip Updates (`trip_updates.csv.gz`)
+Patterns: `acs/extract_date=*/acs_tract.csv.gz`. Physical partition field: `none`.
 
-| Column | Type | Units | Null? | Description |
-| --- | --- | --- | --- | --- |
-| feed_ts_utc | TIMESTAMP | UTC ISO-8601 | NO | Snapshot timestamp truncated to minute. |
-| entity_id | STRING | – | YES | Entity identifier from the feed. |
-| trip_id | STRING | – | YES | Trip identifier. |
-| route_id | STRING | – | YES | Route identifier. |
-| stop_id | STRING | – | YES | Stop identifier. |
-| stop_sequence | INT64 | – | YES | Stop sequence within the trip. |
-| arrival_delay_sec | INT64 | seconds | YES | Arrival delay relative to schedule. |
-| departure_delay_sec | INT64 | seconds | YES | Departure delay relative to schedule. |
-| schedule_relationship | STRING | – | YES | GTFS schedule relationship enum. |
-| event_ts_utc | TIMESTAMP | UTC | NO | Event timestamp resolved from arrival/departure stop-time updates. |
-| start_date | STRING | YYYYMMDD | YES | Trip start date. |
-| start_time | STRING | HH:MM:SS | YES | Trip start time. |
+| Column | BigQuery type | Mode |
+|---|---|---|
+| `geoid` | `STRING` | NULLABLE |
+| `name` | `STRING` | NULLABLE |
+| `year` | `INT64` | NULLABLE |
+| `hh_no_vehicle` | `INT64` | NULLABLE |
+| `hh_total` | `INT64` | NULLABLE |
+| `workers_transit` | `INT64` | NULLABLE |
+| `workers_total` | `INT64` | NULLABLE |
+| `persons_poverty` | `INT64` | NULLABLE |
+| `pop_total` | `INT64` | NULLABLE |
+| `pct_hh_no_vehicle` | `NUMERIC` | NULLABLE |
+| `pct_transit_commute` | `NUMERIC` | NULLABLE |
+| `pct_poverty` | `NUMERIC` | NULLABLE |
 
-## RTD GTFS-Realtime Vehicle Positions (`vehicle_positions.csv.gz`)
+## `raw_crashes`
 
-| Column | Type | Units | Null? | Description |
-| --- | --- | --- | --- | --- |
-| feed_ts_utc | TIMESTAMP | UTC | NO | Snapshot timestamp. |
-| entity_id | STRING | – | YES | Entity identifier. |
-| trip_id | STRING | – | YES | Trip identifier. |
-| route_id | STRING | – | YES | Route identifier. |
-| vehicle_id | STRING | – | YES | Vehicle identifier. |
-| vehicle_label | STRING | – | YES | Vehicle label. |
-| lon | FLOAT64 | degrees (EPSG:4326) | YES | Vehicle longitude. |
-| lat | FLOAT64 | degrees (EPSG:4326) | YES | Vehicle latitude. |
-| bearing | FLOAT64 | degrees | YES | Vehicle bearing. |
-| speed_mps | FLOAT64 | meters/second | YES | Vehicle speed. |
-| event_ts_utc | TIMESTAMP | UTC | NO | Timestamp of vehicle position event. |
+Patterns: `denver_crashes/extract_date=*/crashes.csv.gz`. Physical partition field: `event_ts_utc`.
 
-## Denver Crashes (`crashes.csv.gz`)
+| Column | BigQuery type | Mode |
+|---|---|---|
+| `crash_id` | `STRING` | NULLABLE |
+| `event_ts_utc` | `TIMESTAMP` | NULLABLE |
+| `severity` | `INT64` | NULLABLE |
+| `severity_text` | `STRING` | NULLABLE |
+| `lat` | `FLOAT64` | NULLABLE |
+| `lon` | `FLOAT64` | NULLABLE |
+| `roadway_name` | `STRING` | NULLABLE |
+| `on_route` | `STRING` | NULLABLE |
+| `off_route` | `STRING` | NULLABLE |
+| `bike_involved` | `INT64` | NULLABLE |
+| `ped_involved` | `INT64` | NULLABLE |
 
-| Column | Type | Units | Null? | Description |
-| --- | --- | --- | --- | --- |
-| crash_id | STRING | – | YES | Incident identifier. |
-| event_ts_utc | TIMESTAMP | UTC | YES | Crash occurrence timestamp. |
-| severity | STRING | enum | NO | Canonical severity bucket (`fatal`, `serious_injury`, `injury`, `property_damage`). |
-| severity_text | STRING | – | YES | Source severity text. |
-| lat | FLOAT64 | degrees (EPSG:4326) | YES | Crash latitude. |
-| lon | FLOAT64 | degrees (EPSG:4326) | YES | Crash longitude. |
-| roadway_name | STRING | – | YES | Full roadway context. |
-| on_route | STRING | – | YES | Primary roadway segment. |
-| off_route | STRING | – | YES | Secondary intersecting roadway. |
-| bike_involved | INT64 | 0/1 | NO | 1 if incident involves a bicycle. |
-| ped_involved | INT64 | 0/1 | NO | 1 if incident involves a pedestrian. |
+## `raw_sidewalks`
 
-## Denver Sidewalks (`sidewalks.csv.gz`)
+Patterns: `denver_sidewalks/extract_date=*/sidewalks.csv.gz`. Physical partition field: `none`.
 
-| Column | Type | Units | Null? | Description |
-| --- | --- | --- | --- | --- |
-| sidewalk_id | STRING | – | NO | Sidewalk segment identifier. |
-| class | STRING | – | NO | Normalized sidewalk class/type. |
-| status | STRING | – | NO | Normalized segment status. |
-| material | STRING | – | NO | Surface material. |
-| year_built | STRING | year | YES | Construction year; may include trailing `.0`. |
-| lon_start | FLOAT64 | degrees (EPSG:4326) | NO | Start vertex longitude. |
-| lat_start | FLOAT64 | degrees (EPSG:4326) | NO | Start vertex latitude. |
-| lon_end | FLOAT64 | degrees (EPSG:4326) | NO | End vertex longitude. |
-| lat_end | FLOAT64 | degrees (EPSG:4326) | NO | End vertex latitude. |
-| length_m | FLOAT64 | meters | NO | Segment length (projected EPSG:26913). |
-| centroid_lon | FLOAT64 | degrees | NO | Segment centroid longitude. |
-| centroid_lat | FLOAT64 | degrees | NO | Segment centroid latitude. |
+| Column | BigQuery type | Mode |
+|---|---|---|
+| `sidewalk_id` | `STRING` | NULLABLE |
+| `class` | `STRING` | NULLABLE |
+| `status` | `STRING` | NULLABLE |
+| `material` | `STRING` | NULLABLE |
+| `year_built` | `STRING` | NULLABLE |
+| `lon_start` | `FLOAT64` | NULLABLE |
+| `lat_start` | `FLOAT64` | NULLABLE |
+| `lon_end` | `FLOAT64` | NULLABLE |
+| `lat_end` | `FLOAT64` | NULLABLE |
+| `length_m` | `FLOAT64` | NULLABLE |
+| `centroid_lon` | `FLOAT64` | NULLABLE |
+| `centroid_lat` | `FLOAT64` | NULLABLE |
 
-## NOAA Daily Weather (`weather.csv.gz`)
+## `raw_denver_tracts`
 
-| Column | Type | Units | Null? | Description |
-| --- | --- | --- | --- | --- |
-| date | DATE | YYYY-MM-DD | NO | Observation date. |
-| station | STRING | – | NO | NOAA station identifier. |
-| snow_mm | FLOAT64 | millimeters | YES | Snowfall depth. |
-| precip_mm | FLOAT64 | millimeters | YES | Total precipitation. |
-| tmin_c | FLOAT64 | Celsius | YES | Minimum daily temperature. |
-| tmax_c | FLOAT64 | Celsius | YES | Maximum daily temperature. |
-| tavg_c | FLOAT64 | Celsius | YES | Average daily temperature. |
-| snow_day | INT64 | 0/1 | YES | 1 if `snow_mm >= 1`. |
-| precip_bin | STRING | enum | YES | Precipitation intensity bucket (`none`, `light`, `mod`, `heavy`). |
+Patterns: `denver_tracts/extract_date=*/tracts.csv.gz`. Physical partition field: `none`.
 
-## ACS Tracts (`acs_tract.csv.gz`)
+| Column | BigQuery type | Mode |
+|---|---|---|
+| `geoid` | `STRING` | NULLABLE |
+| `name` | `STRING` | NULLABLE |
+| `aland_m2` | `NUMERIC` | NULLABLE |
+| `awater_m2` | `NUMERIC` | NULLABLE |
+| `geometry_geojson` | `STRING` | NULLABLE |
 
-| Column | Type | Units | Null? | Description |
-| --- | --- | --- | --- | --- |
-| geoid | STRING | – | NO | 14000US-prefixed tract GEOID. |
-| name | STRING | – | NO | Census NAME field. |
-| year | INT64 | year | NO | ACS release year. |
-| hh_no_vehicle | INT64 | households | YES | Households with zero vehicles. |
-| hh_total | INT64 | households | YES | Total households. |
-| workers_transit | INT64 | persons | YES | Workers commuting via public transit. |
-| workers_total | INT64 | persons | YES | Total workers 16+. |
-| persons_poverty | INT64 | persons | YES | Persons below poverty level. |
-| pop_total | INT64 | persons | YES | Total population. |
-| pct_hh_no_vehicle | FLOAT64 | ratio (0–1) | YES | `hh_no_vehicle / hh_total`. |
-| pct_transit_commute | FLOAT64 | ratio (0–1) | YES | `workers_transit / workers_total`. |
-| pct_poverty | FLOAT64 | ratio (0–1) | YES | `persons_poverty / pop_total`. |
+## `raw_weather_daily`
 
-## Denver Census Tracts (`tracts.csv.gz`)
+Patterns: `noaa_daily/extract_date=*/weather.csv.gz`, `noaa_daily/extract_date=*/station=*/weather.csv.gz`. Physical partition field: `date`.
 
-| Column | Type | Units | Null? | Description |
-| --- | --- | --- | --- | --- |
-| geoid | STRING | – | NO | Census tract GEOID (without 14000US prefix). |
-| name | STRING | – | YES | Tract name/label from TIGERweb. |
-| aland_m2 | NUMERIC | square meters | YES | Land area (ALAND) attribute. |
-| awater_m2 | NUMERIC | square meters | YES | Water area (AWATER) attribute. |
-| geometry_geojson | STRING | GeoJSON | NO | Polygon or multipolygon geometry serialized as GeoJSON. |
+| Column | BigQuery type | Mode |
+|---|---|---|
+| `date` | `DATE` | NULLABLE |
+| `station` | `STRING` | NULLABLE |
+| `snow_mm` | `NUMERIC` | NULLABLE |
+| `precip_mm` | `NUMERIC` | NULLABLE |
+| `tmin_c` | `NUMERIC` | NULLABLE |
+| `tmax_c` | `NUMERIC` | NULLABLE |
+| `tavg_c` | `NUMERIC` | NULLABLE |
+| `snow_day` | `INT64` | NULLABLE |
+| `precip_bin` | `STRING` | NULLABLE |
 
-## Breaking Change Policy
+## `raw_gtfs_routes`
 
-- Schema version `v1` is immutable: do not drop or rename columns, or change column types, without a version bump.
-- Breaking changes require coordination with downstream consumers (dbt source definitions, BigQuery tables, app schemas) and must:
-  1. Increment `schema_version` in manifest metadata (e.g., to `v2`).
-  2. Update this contract document with a new section documenting the changes.
-  3. Adjust ingestion scripts, dbt sources, and documentation to match the new schema.
-- Non-breaking additions (new nullable columns) are permitted but must be documented here and communicated to downstream consumers.
+Patterns: `rtd_gtfs/extract_date=*/gtfs/routes.txt`. Physical partition field: `none`.
 
----
+| Column | BigQuery type | Mode |
+|---|---|---|
+| `route_id` | `STRING` | NULLABLE |
+| `agency_id` | `STRING` | NULLABLE |
+| `route_short_name` | `STRING` | NULLABLE |
+| `route_long_name` | `STRING` | NULLABLE |
+| `route_desc` | `STRING` | NULLABLE |
+| `route_type` | `STRING` | NULLABLE |
+| `route_url` | `STRING` | NULLABLE |
+| `route_color` | `STRING` | NULLABLE |
+| `route_text_color` | `STRING` | NULLABLE |
 
-## Additional Resources
+## `raw_gtfs_stops`
 
-- **[Root README](../../README.md)** – Project overview, quickstart, FAQ, medallion architecture, data lineage
-- **[dbt Models Documentation](../../dbt/models/README.md)** – How these contracts feed staging models and downstream transformations
-- **[GitHub Workflows Documentation](../../.github/workflows/README.md)** – How ingestion workflows produce these CSV outputs
-- **[Pipeline Architecture](../ARCHITECTURE.md)** – Deep dive into bronze layer ingestion and loading processes
-- **[QA Validation Guide](../QA_Validation_Guide.md)** – How to validate data quality against these contracts
+Patterns: `rtd_gtfs/extract_date=*/gtfs/stops.txt`. Physical partition field: `none`.
 
----
+| Column | BigQuery type | Mode |
+|---|---|---|
+| `stop_id` | `STRING` | NULLABLE |
+| `stop_code` | `STRING` | NULLABLE |
+| `stop_name` | `STRING` | NULLABLE |
+| `stop_desc` | `STRING` | NULLABLE |
+| `stop_lat` | `FLOAT64` | NULLABLE |
+| `stop_lon` | `FLOAT64` | NULLABLE |
+| `zone_id` | `STRING` | NULLABLE |
+| `stop_url` | `STRING` | NULLABLE |
+| `location_type` | `INT64` | NULLABLE |
+| `parent_station` | `STRING` | NULLABLE |
+| `stop_timezone` | `STRING` | NULLABLE |
+| `wheelchair_boarding` | `INT64` | NULLABLE |
+| `platform_code` | `STRING` | NULLABLE |
 
-**Last Updated**: October 25, 2025
-**Schema Version**: v1 (frozen; all changes require v2 bump)
-**Maintained By**: WhyLine Denver Data Team
+## `raw_gtfs_trips`
+
+Patterns: `rtd_gtfs/extract_date=*/gtfs/trips.txt`. Physical partition field: `none`.
+
+| Column | BigQuery type | Mode |
+|---|---|---|
+| `route_id` | `STRING` | NULLABLE |
+| `service_id` | `STRING` | NULLABLE |
+| `trip_id` | `STRING` | NULLABLE |
+| `trip_headsign` | `STRING` | NULLABLE |
+| `direction_id` | `INT64` | NULLABLE |
+| `block_id` | `STRING` | NULLABLE |
+| `shape_id` | `STRING` | NULLABLE |
+
+## `raw_gtfs_calendar`
+
+Patterns: `rtd_gtfs/extract_date=*/gtfs/calendar.txt`. Physical partition field: `none`.
+
+| Column | BigQuery type | Mode |
+|---|---|---|
+| `service_id` | `STRING` | NULLABLE |
+| `monday` | `INT64` | NULLABLE |
+| `tuesday` | `INT64` | NULLABLE |
+| `wednesday` | `INT64` | NULLABLE |
+| `thursday` | `INT64` | NULLABLE |
+| `friday` | `INT64` | NULLABLE |
+| `saturday` | `INT64` | NULLABLE |
+| `sunday` | `INT64` | NULLABLE |
+| `start_date` | `STRING` | NULLABLE |
+| `end_date` | `STRING` | NULLABLE |
+
+## `raw_gtfs_calendar_dates`
+
+Patterns: `rtd_gtfs/extract_date=*/gtfs/calendar_dates.txt`. Physical partition field: `none`.
+
+| Column | BigQuery type | Mode |
+|---|---|---|
+| `service_id` | `STRING` | NULLABLE |
+| `date` | `STRING` | NULLABLE |
+| `exception_type` | `INT64` | NULLABLE |
+
+## `raw_gtfs_stop_times`
+
+Patterns: `rtd_gtfs/extract_date=*/gtfs/stop_times.txt`. Physical partition field: `none`.
+
+| Column | BigQuery type | Mode |
+|---|---|---|
+| `trip_id` | `STRING` | NULLABLE |
+| `arrival_time` | `STRING` | NULLABLE |
+| `departure_time` | `STRING` | NULLABLE |
+| `stop_id` | `STRING` | NULLABLE |
+| `stop_sequence` | `INT64` | NULLABLE |
+| `stop_headsign` | `STRING` | NULLABLE |
+| `pickup_type` | `INT64` | NULLABLE |
+| `drop_off_type` | `INT64` | NULLABLE |
+| `shape_dist_traveled` | `FLOAT64` | NULLABLE |
+| `timepoint` | `INT64` | NULLABLE |
+
+## `raw_gtfs_shapes`
+
+Patterns: `rtd_gtfs/extract_date=*/gtfs/shapes.txt`. Physical partition field: `none`.
+
+| Column | BigQuery type | Mode |
+|---|---|---|
+| `shape_id` | `STRING` | NULLABLE |
+| `shape_pt_lat` | `FLOAT64` | NULLABLE |
+| `shape_pt_lon` | `FLOAT64` | NULLABLE |
+| `shape_pt_sequence` | `INT64` | NULLABLE |
+| `shape_dist_traveled` | `FLOAT64` | NULLABLE |
+
+## `raw_gtfsrt_trip_updates`
+
+Patterns: `rtd_gtfsrt/snapshot_at=*/trip_updates.csv.gz`. Physical partition field: `feed_ts_utc`.
+
+| Column | BigQuery type | Mode |
+|---|---|---|
+| `feed_ts_utc` | `TIMESTAMP` | NULLABLE |
+| `entity_id` | `STRING` | NULLABLE |
+| `trip_id` | `STRING` | NULLABLE |
+| `route_id` | `STRING` | NULLABLE |
+| `stop_id` | `STRING` | NULLABLE |
+| `stop_sequence` | `INT64` | NULLABLE |
+| `arrival_delay_sec` | `INT64` | NULLABLE |
+| `departure_delay_sec` | `INT64` | NULLABLE |
+| `schedule_relationship` | `STRING` | NULLABLE |
+| `event_ts_utc` | `TIMESTAMP` | NULLABLE |
+| `start_date` | `STRING` | NULLABLE |
+| `start_time` | `STRING` | NULLABLE |
+
+## `raw_gtfsrt_vehicle_positions`
+
+Patterns: `rtd_gtfsrt/snapshot_at=*/vehicle_positions.csv.gz`. Physical partition field: `feed_ts_utc`.
+
+| Column | BigQuery type | Mode |
+|---|---|---|
+| `feed_ts_utc` | `TIMESTAMP` | NULLABLE |
+| `entity_id` | `STRING` | NULLABLE |
+| `trip_id` | `STRING` | NULLABLE |
+| `route_id` | `STRING` | NULLABLE |
+| `vehicle_id` | `STRING` | NULLABLE |
+| `vehicle_label` | `STRING` | NULLABLE |
+| `lon` | `FLOAT64` | NULLABLE |
+| `lat` | `FLOAT64` | NULLABLE |
+| `bearing` | `FLOAT64` | NULLABLE |
+| `speed_mps` | `FLOAT64` | NULLABLE |
+| `event_ts_utc` | `TIMESTAMP` | NULLABLE |
+
+## Units and source semantics
+
+- Feed/event timestamps are UTC; geographic longitude/latitude outputs use WGS84 degrees. Delays and headways are seconds; speed is meters per second; bearing is degrees.
+- Crash `severity` is INT64, not a text category: 1 property damage, 2 injury, 3 serious injury, 4 fatal. `severity_text` retains the mapped source text. Source mapping rules are in `denver_crashes.py`.
+- Sidewalk `length_m` is measured in meters using projected calculation; endpoints and centroid are coordinates. Output does not preserve a complete source polyline for every downstream operation.
+- Weather uses mm/Celsius. `snow_day` is nullable 0/1 based on at least 1 mm snowfall; precipitation bins are `none`, `light`, `mod`, `heavy`, or null. Route-day `unknown` is a downstream missingness label, not an observed raw precipitation category.
+- ACS percentage fields are fractions, not 0–100 values; the registry loads them as NUMERIC. `pct_poverty` uses the configured persons-poverty count divided by total population. GEOIDs are strings to preserve leading zeros/prefixes.
+- Tract geometry is serialized GeoJSON; area fields use square meters. A source's valid geometry and county coverage still need validation.
+
+## Loader metadata and manifests
+
+The loader appends four REQUIRED metadata fields: `_ingested_at` TIMESTAMP, `_source_path` STRING, `_extract_date` DATE, and `_hash_md5` STRING. These are not source CSV columns. MD5 tracking prevents identical file reloads, not arbitrary row-level logical duplication.
+
+Most ingestors publish v1 manifests with source, extract/snapshot time, counts, hashes, and quality metadata. GTFS static uses `txt_rows`; realtime/other sources have their own file-level details. The tract ingestor uses a distinct manifest with `dataset`, `record_count`, `generated_at`, and geometry diagnostics rather than the shared v1/hash shape. Follow actual `build_manifest()` or `run()` behavior and [manifest tests](../../tests/ingest/test_manifests.py).
+
+## Contract changes
+
+Coordinate writer, ordered registry schema, loader handling, raw source declarations, staging/marts, fixtures/tests, and documentation. Preserve existing raw files when introducing a new layout or incompatible schema. Use an explicit version/migration plan for incompatible changes; manifest version labels alone do not enforce migrations. A new nullable field is not automatically safe with positional CSV loading.
+
+Current tests cover documented contract/manifests and fixtures under `tests/ingest/` and `tests/fixtures/`; see [testing](../technical/TESTING.md). These tables are loader contracts, not guarantees that every source record satisfies semantic completeness.

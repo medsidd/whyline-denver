@@ -1,262 +1,104 @@
-# Development Setup
+# Development setup
 
-This document covers how to set up a local development environment, what environment variables are needed, and the make targets you'll use day-to-day.
+Run commands from the repository root. Use Python 3.11 and a Node.js version compatible with the locked Next.js 14.2.5 (at least 18.17). The frontend is `frontend/`; the old Streamlit application is absent even though some legacy dependencies remain installed.
 
----
-
-## Prerequisites
-
-- **Python 3.11** — other versions are untested
-- **Node.js 18+** and npm — for the frontend
-- **GCP project** — required for BigQuery engine; optional for DuckDB-only development
-- **Gemini API key** — required for LLM SQL generation; the stub provider works offline without it
-
----
-
-## Quick Start
+## Install and configure
 
 ```bash
-# 1. Clone and enter the repo
-git clone https://github.com/medsidd/whyline-denver.git
-cd whyline-denver
-
-# 2. Set up Python environment
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-make install                # pip install + pre-commit hooks
-
-# 3. Configure environment
+python3.11 -m venv .venv
+source .venv/bin/activate
+make install
+pip install -r api/requirements.txt
 cp .env.example .env
-# Edit .env — minimum required for local DuckDB use:
-#   GEMINI_API_KEY=<your key>  (or leave LLM_PROVIDER=stub to skip LLM)
-
-# 4. Download data and start servers
-make sync-duckdb            # Download pre-built warehouse from GCS (~several MB)
-make api-dev                # FastAPI at http://localhost:8000
-make frontend-dev           # Next.js at http://localhost:3000 (separate terminal)
 ```
 
-For the frontend to reach the API, create `frontend/.env.local`:
+Do not overwrite an existing `.env`. Edit the copy to select local behavior:
+
+```dotenv
+ENGINE=duckdb
+LLM_PROVIDER=stub
+DUCKDB_PATH=data/warehouse.duckdb
+DUCKDB_COPY_LOCAL=0
+SYNC_STATE_GCS_BUCKET=
+```
+
+The last setting makes freshness read local `data/sync_state.json`. `.env.example` otherwise points to the project bucket and selects Gemini. Environment values already exported in the shell take precedence because `load_dotenv(override=False)` is used. Do not import `config.py` merely to inspect values: inline credential handling can write a credential file.
+
+### Warehouse and artifacts
+
+An existing DuckDB file is required for data queries. With authorized read access to the project bucket:
 
 ```bash
-echo "API_BASE_URL=http://localhost:8000" > frontend/.env.local
+mkdir -p data
+gcloud storage cp gs://whylinedenver-raw/marts/duckdb/warehouse.duckdb data/warehouse.duckdb
+gcloud storage cp gs://whylinedenver-raw/state/sync_state.json data/sync_state.json
 ```
 
----
+Alternatively use a trusted supplied warehouse; there is no bundled full offline data bootstrap. Avoid `make sync-duckdb` for downloading: it exports BigQuery marts, refreshes a local warehouse, and attempts configured remote uploads.
 
-## Environment Variables
+API model/schema operations also need `dbt/target/manifest.json` and `catalog.json`. Obtain matching artifacts from the successful CI/nightly artifact outputs or generate them against BigQuery when cloud access is intended. A checked-in/generated local snapshot may be stale; compare `/api/models` with the [model inventory](../../dbt/models/README.md). `make dbt-artifacts` can run compile/parse/docs generation if artifacts are missing and credentials are present. It is not offline setup.
 
-Copy `.env.example` to `.env` and fill in the values you need. The `.env` file is loaded automatically by the Python package at import time (via python-dotenv).
-
-### GCP and BigQuery
-
-| Variable | Default | Required for |
-|----------|---------|-------------|
-| `GCP_PROJECT_ID` | `whyline-denver` | BigQuery engine, Cloud Run deployment |
-| `GCP_REGION` | `us-central1` | Cloud Run deployment |
-| `GCS_BUCKET` | `whylinedenver-raw` | Ingest to GCS, sync operations |
-| `BQ_DATASET_RAW` | `raw_denver` | BigQuery loader |
-| `BQ_DATASET_STG` | `stg_denver` | dbt staging + intermediate |
-| `BQ_DATASET_MART` | `mart_denver` | dbt marts, API queries |
-| `GOOGLE_APPLICATION_CREDENTIALS` | _(none)_ | GCP authentication (path to JSON key, or inline JSON) |
-| `DBT_PROFILES_DIR` | `dbt/profiles` | dbt project configuration |
-| `DBT_TARGET` | `prod` | dbt target profile |
-| `MAX_BYTES_BILLED` | `2000000000` | BigQuery query cost cap (2 GB) |
-
-### DuckDB
-
-| Variable | Default | Notes |
-|----------|---------|-------|
-| `ENGINE` | `bigquery` | Default query engine. Set to `duckdb` for local dev |
-| `DUCKDB_GCS_BLOB` | `marts/duckdb/warehouse.duckdb` | GCS path to warehouse within bucket |
-| `DUCKDB_PARQUET_ROOT` | `data/marts` | Local Parquet cache directory |
-| `DUCKDB_PATH` | _(computed)_ | Resolved to `data/warehouse.duckdb` locally, `/mnt/gcs/marts/duckdb/warehouse.duckdb` on Cloud Run |
-
-### Sync state
-
-| Variable | Default | Notes |
-|----------|---------|-------|
-| `SYNC_STATE_GCS_BUCKET` | `whylinedenver-raw` | Bucket for sync_state.json |
-| `SYNC_STATE_GCS_BLOB` | `state/sync_state.json` | Path within bucket |
-
-### LLM
-
-| Variable | Default | Notes |
-|----------|---------|-------|
-| `LLM_PROVIDER` | `stub` | `gemini` for production, `stub` for testing without API calls |
-| `GEMINI_API_KEY` | _(none)_ | Required when `LLM_PROVIDER=gemini` |
-| `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model version |
-
-### Data ingestion
-
-| Variable | Default | Notes |
-|----------|---------|-------|
-| `NOAA_CDO_TOKEN` | _(none)_ | Free token from [NOAA CDO](https://www.ncdc.noaa.gov/cdo-web/token). Falls back to local CSV if unset. |
-| `CENSUS_API_KEY` | _(none)_ | Optional. Requests without a key are rate-limited but work. |
-
-### Frontend (frontend/.env.local)
-
-| Variable | Notes |
-|----------|-------|
-| `API_BASE_URL` | Required. Set to `http://localhost:8000` for local dev, Cloud Run URL for production |
-
----
-
-## Make Targets Reference
-
-### Development servers
+### Start the application
 
 ```bash
-make api-dev          # FastAPI at http://localhost:8000 with hot reload
-make frontend-dev     # Next.js at http://localhost:3000 with hot reload
-make app              # Streamlit legacy dashboard at http://localhost:8501
+make api-dev
 ```
 
-### Testing and quality
+In another terminal:
 
 ```bash
-make test             # Full pytest suite (requires dbt artifacts in dbt/target/)
-make test-ingest      # Ingestor smoke tests (no network required)
-make lint             # ruff check + black --check
-make format           # ruff fix + black format (auto-fixes in place)
-make api-test         # API endpoint tests
-make dbt-test-staging # dbt data quality tests on staging layer
-make dbt-test-marts   # dbt data quality tests on marts
+cd frontend
+npm ci
+# Create .env.local with API_BASE_URL=http://localhost:8000
+npm run dev
 ```
 
-### Ingestion
+Open `http://localhost:3000/app`; FastAPI OpenAPI is at `http://localhost:8000/docs`. If Next.js reports `EMFILE` watcher errors on this Mac, use `WATCHPACK_POLLING=1000 npm run dev`. If dependencies are incomplete, restore them with `npm ci` before changing application code.
 
-```bash
-make ingest-all           # All 7 ingestors, local output
-make ingest-all-gcs       # All 7 ingestors, write to GCS
-make ingest-gtfs-static   # RTD GTFS schedules
-make ingest-gtfs-rt       # RTD realtime snapshot (1 snapshot)
-make ingest-crashes       # Denver crashes (5-year rolling)
-make ingest-sidewalks     # Denver sidewalk segments
-make ingest-noaa          # NOAA weather (requires --start and --end in underlying call)
-make ingest-acs           # Census ACS demographics
-make ingest-tracts        # Census TIGER tract boundaries
-```
+## Settings and their actual defaults
 
-### BigQuery loading
+Defaults below come from code; `.env.example`, Makefile variables, and deployment settings can override them.
 
-```bash
-make bq-load              # Load today's data to BigQuery
-make bq-load-local        # Load from data/raw/ to BigQuery
-make bq-load-realtime     # Load only today's GTFS-RT snapshots
-make bq-load-historical FROM=2025-01-01 UNTIL=2025-01-31  # Backfill range
-```
+| Setting | Code behavior / purpose |
+|---|---|
+| `ENGINE` | `bigquery` in `Settings`; API generation request and browser default to `duckdb` |
+| `GCP_PROJECT_ID`, `GCS_BUCKET` | `whyline-denver`, `whylinedenver-raw` |
+| `BQ_DATASET_RAW`, `BQ_DATASET_STG`, `BQ_DATASET_MART` | `raw_denver`, `stg_denver`, `mart_denver` |
+| `MAX_BYTES_BILLED` | 2,000,000,000 bytes for the API BigQuery query engine |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Credential file path; code also accepts inline JSON. Prefer managed credentials/ADC; never commit values. |
+| `DBT_PROFILES_DIR`, `DBT_TARGET` | Wrapper/Makefile use `dbt/profiles`, `prod`; example env selects `demo`. Inspect `dbt/profiles/profiles.yml`. |
+| `DUCKDB_PATH` | Query engine defaults to `data/warehouse.duckdb`; set explicitly for other locations |
+| `DUCKDB_COPY_LOCAL`, `DUCKDB_LOCAL_PATH` | Copy enabled unless `0`; temporary `warehouse.duckdb` by default. Use `1` with Cloud Run's GCS mount. |
+| `DUCKDB_GCS_BLOB`, `DUCKDB_PARQUET_ROOT` | `marts/duckdb/warehouse.duckdb`, `data/marts` for synchronization |
+| `DUCKDB_MAX_AGE_DAYS` | 90 for partitioned history during refresh |
+| `SYNC_STATE_GCS_BUCKET`, `SYNC_STATE_GCS_BLOB` | Remote state enabled only when bucket is set; blob defaults to `state/sync_state.json` |
+| `LLM_PROVIDER` | `stub` when unset in provider dispatch; `.env.example` and deployment Makefile select `gemini` |
+| `GEMINI_API_KEY` / `LLM_API_KEY` | Gemini key / fallback key; Gemini selection without either errors |
+| `GEMINI_MODEL` | `gemini-2.5-flash` |
+| `NOAA_CDO_TOKEN` | NOAA API access; without it weather uses `data/external/noaa_raw.csv`, which must exist and use metric units |
+| `CENSUS_API_KEY` | Code allows omission, but production workflow maps the configured secret; inspect response errors rather than assuming keyless access succeeds |
+| `WLD_LOG_LEVEL` | `INFO` for shared ingestion logging |
+| `API_BASE_URL` | Next.js server-side proxy target in `frontend/.env.local`; no `NEXT_PUBLIC_` prefix |
 
-### dbt transformation
+`ENABLE_BIGQUERY` and `APP_*` values left in `.env.example` are not a supported frontend feature switch or branding mechanism. Verify consumers before relying on a template entry. The deployment Makefile uses `CLOUD_RUN_REGION`, not `GCP_REGION`, for region selection.
 
-```bash
-make dbt-run-staging      # Run stg_* models
-make dbt-run-intermediate # Run int_* models
-make dbt-run-marts        # Run mart_* models
-make dbt-run-realtime     # Optimized realtime subset (every-5-min use)
-make dbt-compile          # Compile without executing
-make dbt-parse            # Parse and validate models
-make dbt-docs             # Generate and serve dbt docs at localhost:8080
-make dbt-source-freshness # Check raw source table freshness
-```
+## Commands by side effect
 
-### Sync and warehouse
+| Command | Effect |
+|---|---|
+| `make test`, `make test-ingest` | Offline Python suite / ingestion-selected subset |
+| `make lint`, `make format` | Check / change Python formatting |
+| `make frontend-build` | Compile/type-check; may fetch configured web fonts |
+| `make ingest-all`, `make ingest-all-local` | Calls source APIs, writes local raw data; not offline |
+| `make ingest-all-gcs` | Calls source APIs and uploads raw data |
+| `make bq-load-local` | Loads local files into BigQuery, starting from 2025-01-01 |
+| `make bq-load`, `make bq-load-realtime` | Same date-window GCS loader; scans all registered source types |
+| `make dbt-parse` | Parses models; no warehouse query, but requires profile environment values |
+| `make dbt-compile`, `make dbt-docs`, `make dbt-artifacts` | Can contact BigQuery; docs target generates files rather than serving them |
+| `make dbt-run-staging`, `make dbt-run-core`, `make dbt-run-marts` | Run cloud transformations |
+| `make sync-export`, `make sync-refresh`, `make sync-duckdb` | Export, refresh, or both; can write GCS/state/warehouse |
+| `make api-deploy` | Builds and deploys Cloud Run |
 
-```bash
-make sync-export          # Export BigQuery marts to GCS Parquet
-make sync-refresh         # Refresh DuckDB from GCS Parquet
-make sync-duckdb          # Both: sync-export then sync-refresh
-make update-bq-timestamp  # Update sync_state.json BigQuery freshness timestamp
-```
+`make app` and `make run` have no recipes. The broad `dev-loop-*` recipes are cloud operations; `dev-loop-local` also uploads to GCS and ends in a nonexistent `run` target. Use explicit stages instead. See [testing](TESTING.md) for unavailable API/Playwright targets.
 
-### Nightly orchestration targets
-
-```bash
-make nightly-ingest-bq    # Ingest all + bq-load (run by nightly-ingest workflow)
-make nightly-bq           # dbt-run-marts + sync-export (run by nightly-bq workflow)
-make nightly-duckdb       # sync-refresh (run by nightly-duckdb workflow)
-```
-
-### Full local dev loop
-
-```bash
-make dev-loop-local       # ingest-all + bq-load-local + dbt-run-marts + sync-duckdb
-make dev-loop-gcs         # ingest-all-gcs + bq-load + dbt-run-marts + sync-duckdb
-```
-
-### Frontend
-
-```bash
-make frontend-dev         # Start dev server
-make frontend-build       # Type-check + production build
-make frontend-test        # Jest tests
-```
-
----
-
-## Running Tests
-
-Tests require dbt artifacts to exist:
-
-```bash
-make dbt-artifacts        # Generates dbt/target/manifest.json (needed for tests)
-make test                 # Run all 28 pytest tests
-```
-
-To run a single test:
-
-```bash
-.venv/bin/python -m pytest tests/path/to/test_file.py::test_function_name -q
-```
-
-**Note**: `bq_load` tests import the module at test time, which triggers GCP authentication. This will hang if GCP credentials are not configured. Use `PYTHONPATH=src .venv/bin/python -c "import whyline"` to check basic imports quickly.
-
----
-
-## dbt Setup
-
-dbt profiles are in `dbt/profiles/profiles.yml`. The profile `whyline_denver` has two targets:
-
-- `prod`: uses `GCP_PROJECT_ID`, `BQ_DATASET_*` env vars — for production BigQuery
-- `demo`: uses the same env vars but with `DBT_TARGET=demo` — for a separate isolated environment
-
-Local dbt commands run against whichever target `DBT_TARGET` is set to (default `prod` in config.py, `demo` in `.env.example`).
-
-```bash
-# Check that dbt can connect
-dbt debug --profiles-dir dbt/profiles
-
-# Compile to check SQL syntax without executing
-make dbt-compile
-```
-
----
-
-## Pre-commit Hooks
-
-`make install` sets up pre-commit hooks that run ruff and black on every `git commit`:
-
-```bash
-make install     # First-time setup
-pre-commit run --all-files   # Run manually against all files
-```
-
-To bypass in an emergency (not recommended):
-
-```bash
-git commit --no-verify -m "message"
-```
-
----
-
-## Common Issues
-
-**Import check hangs**: `import whyline.load.bq_load` triggers GCP authentication at import time. This is expected behavior — use `PYTHONPATH=src .venv/bin/python -c "import whyline"` for basic import testing.
-
-**DuckDB file not found**: Run `make sync-duckdb` to download the warehouse from GCS. If you don't have GCS access, set `ENGINE=bigquery` in `.env`.
-
-**dbt tests fail**: dbt artifacts (`dbt/target/manifest.json`, `catalog.json`) must exist. Run `make dbt-artifacts` to generate them.
-
-**Frontend can't reach API**: Ensure `frontend/.env.local` contains `API_BASE_URL=http://localhost:8000` and the API dev server is running.
-
-**LLM returns no SQL**: If `GEMINI_API_KEY` is not set, the API falls back to `LLM_PROVIDER=stub` which returns mock SQL. Set `LLM_PROVIDER=gemini` and add your key for real generation.
+After a package rename, inspect `src/*.egg-info`; remove only confirmed obsolete generated metadata and reinstall with `.venv/bin/pip install -e .`.

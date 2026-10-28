@@ -1,0 +1,16 @@
+flowchart TD
+  accTitle: Dashboard SQL generation and execution
+  accDescr: Questions go through provider generation and validation; execution always validates again before selecting DuckDB or BigQuery.
+  question["Question, filters, engine"] --> prompt["Schema brief plus user input"]
+  prompt --> provider["Gemini or local stub"]
+  provider --> guard["Server SQL validation and dialect adaptation"]
+  prebuilt["Engine-specific prebuilt SQL"] --> guard
+  guard --> editor["Review and edit SQL in browser"]
+  editor --> validate["Validation endpoint; optional BigQuery estimate"]
+  validate --> run["Query endpoint revalidates SQL"]
+  run --> duck["DuckDB read-only connection"]
+  run --> bq["BigQuery dry run and API query byte cap"]
+  duck --> display["Result enrichment, display limit, table/chart/map"]
+  bq --> display
+  display --> csv["Displayed-result CSV"]
+  note["Regex guardrails supplement permissions; limits and freshness are separate checks"] -.-> run

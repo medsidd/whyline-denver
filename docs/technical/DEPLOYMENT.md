@@ -1,206 +1,68 @@
 # Deployment
 
-This document covers deploying the FastAPI service, realtime Cloud Run jobs, and the Next.js frontend to production.
+This is a deployment reference, not an instruction to start or redeploy resources during setup. Preserve retained data and inspect current state first. [Operations](OPERATIONS.md) contains the dated live snapshot; source configuration is not evidence of a completed deployment.
 
----
+## Deployed components
 
-## Overview
+| Component | Configuration/source |
+|---|---|
+| FastAPI Cloud Run service `whylinedenver-api` | `api/Dockerfile`, `infra/api-service/cloudbuild.yaml`, Makefile `api-build` / `api-deploy` |
+| Cloud Run jobs `realtime-ingest`, `realtime-load` | Shared `infra/cloud-run/Dockerfile` and `entrypoint.sh`; `JOB_TYPE` selects behavior |
+| Cloud Scheduler | Calls the Run jobs API with an authorized identity; inspect actual schedules |
+| Next.js on Vercel | `frontend/` build, server-side `API_BASE_URL` |
+| Nightly workflows and CI | `.github/workflows/*.yml`; cron jobs are independent |
+| Model documentation | CI generates dbt artifacts and publishes GitHub Pages on successful pushes to `main` |
 
-| Component | Platform | Deploy method |
-|-----------|---------|--------------|
-| FastAPI API | Cloud Run service (`whylinedenver-api`) | `make api-deploy` |
-| Realtime ingest jobs | Cloud Run jobs (`realtime-ingest`, `realtime-load`) | `gcloud run jobs update` |
-| Next.js frontend | Vercel | Auto-deploys on push to `main` |
-| Nightly batch pipelines | GitHub Actions | Triggered by cron schedules |
+Project: `whyline-denver`; region: `us-central1`; bucket: `whylinedenver-raw`. Cloudflare/domain/Vercel configuration is external to this repository; verify those settings before claiming automatic deployment behavior.
 
----
+## API service
 
-## FastAPI Service
-
-### One-time setup
-
-1. Create the Artifact Registry repository:
-
-```bash
-make artifact-repo-create-api
-```
-
-2. Create the Cloud Run service (first deploy handles this automatically via `make api-deploy`).
-
-3. Grant required roles to the API service account (`api-service@whyline-denver.iam.gserviceaccount.com`):
-   - `roles/bigquery.dataViewer`
-   - `roles/bigquery.jobUser`
-   - `roles/storage.objectViewer` (for GCS-Fuse DuckDB access)
-   - `roles/secretmanager.secretAccessor` (for Gemini API key)
-
-### Deploying the API
+After reviewing the intended source and environment, an authorized API deployment uses:
 
 ```bash
 GEMINI_API_KEY_SECRET=gemini-api-key:latest make api-deploy
 ```
 
-This runs `make api-build` (builds and pushes to Artifact Registry) followed by `gcloud run deploy`.
+This submits a Cloud Build, pushes `us-central1-docker.pkg.dev/whyline-denver/api-service/whylinedenver-api:latest`, and deploys the service. Makefile defaults: 0–3 instances, concurrency 80, 2 CPUs, 2 GiB memory, gen2 execution environment, unauthenticated access, service identity `api-service@whyline-denver.iam.gserviceaccount.com`.
 
-The build config is in `infra/api-service/cloudbuild.yaml`. The Dockerfile is at `api/Dockerfile`.
+It sets DuckDB as engine, Gemini as provider, the API query byte cap, and dataset/state locations. It mounts the bucket at `/mnt/gcs`, sets `DUCKDB_PATH=/mnt/gcs/marts/duckdb/warehouse.duckdb` and `DUCKDB_COPY_LOCAL=1`, and maps the Gemini secret. Prefer Secret Manager references over literal keys. Required capabilities include BigQuery read/job creation, GCS read, and access to the specific Gemini secret; grant the narrow scope required by the deployment.
 
-**What the deployment does:**
-1. Builds the Docker image with `gcloud builds submit`
-2. Pushes to `us-central1-docker.pkg.dev/whyline-denver/api-service/whylinedenver-api:latest`
-3. Deploys to Cloud Run with the environment variables in the make target
-4. Mounts GCS bucket at `/mnt/gcs` via GCS-Fuse (for DuckDB access)
+Check usable manifest/catalog artifacts are included. `api/Dockerfile` consumes local artifacts; CI's generated artifacts do not automatically update a separately built API image. A healthy service without current artifacts may still fail `/api/models` or SQL generation.
 
-### Environment variables on Cloud Run
+## Realtime shared image
 
-The API reads these at startup. In Cloud Run, set them as environment variables or Secret Manager references:
+See [container reference](../../infra/cloud-run/README.md). Build from a clean reviewed source export containing `src/`, `dbt/`, `tools/`, `Makefile`, requirements, and `infra/cloud-run/`. Inspect included tracked files before uploading; exclude credentials, local raw data, generated artifacts, and unrelated work.
 
-| Variable | Value in Cloud Run |
-|----------|-------------------|
-| `ENGINE` | `duckdb` (or `bigquery` for BigQuery-first) |
-| `LLM_PROVIDER` | `gemini` |
-| `GEMINI_API_KEY` | Set via `--set-secrets=GEMINI_API_KEY=gemini-api-key:latest` |
-| `GCP_PROJECT_ID` | `whyline-denver` |
-| `GCS_BUCKET` | `whylinedenver-raw` |
-| `BQ_DATASET_RAW/STG/MART` | `raw_denver`, `stg_denver`, `mart_denver` |
-| `DUCKDB_PATH` | `/mnt/gcs/marts/duckdb/warehouse.duckdb` |
-| `DUCKDB_COPY_LOCAL` | `1` (copy to /tmp for performance) |
-| `DUCKDB_TEMP_DIR` | `/tmp` |
-| `DBT_TARGET` | `prod` |
+The Makefile offers `cloud-run-build` (local Docker), `cloud-run-tag`, and `cloud-run-push`. They use the working-tree root as context; check `.dockerignore` and the context contents rather than assuming secrets are excluded. For Cloud Build, provide the intended Dockerfile through an appropriate build configuration; `gcloud builds submit --tag` alone expects a root Dockerfile.
 
----
-
-## Realtime Cloud Run Jobs
-
-The realtime pipeline runs every 5 minutes via Cloud Scheduler triggering two Cloud Run jobs.
-
-### One-time setup
-
-1. Create the Artifact Registry repository for realtime jobs:
+After pushing a tested image, resolve its immutable URI and update **both** jobs:
 
 ```bash
-gcloud artifacts repositories create realtime-jobs \
-  --repository-format=docker \
-  --location=us-central1 \
-  --project=whyline-denver
+# Set IMAGE_URI to the reviewed us-central1-docker.pkg.dev/...@sha256:... URI.
+gcloud run jobs update realtime-ingest --project=whyline-denver   --region=us-central1 --image="$IMAGE_URI"
+gcloud run jobs update realtime-load --project=whyline-denver   --region=us-central1 --image="$IMAGE_URI"
 ```
 
-2. Create the Cloud Run jobs (first-time only):
+An existing job does not automatically resolve a newly pushed `:latest`. Preserve each job's existing identity, environment, secrets, retry limits, and resource configuration. The entrypoint load branch uses `tools.dbt_with_env`, so omitting `tools/` breaks processing even if the application package builds.
 
-```bash
-gcloud run jobs create realtime-ingest \
-  --image us-central1-docker.pkg.dev/whyline-denver/realtime-jobs/whylinedenver-realtime:latest \
-  --region us-central1 \
-  --set-env-vars JOB_TYPE=ingest,GCS_BUCKET=whylinedenver-raw \
-  --service-account realtime-jobs@whyline-denver.iam.gserviceaccount.com
+Verify the new digest in completed executions, not just job configuration. A shared dbt/model repair must reach the realtime image as well as GitHub checkout-based batch workflows.
 
-gcloud run jobs create realtime-load \
-  --image us-central1-docker.pkg.dev/whyline-denver/realtime-jobs/whylinedenver-realtime:latest \
-  --region us-central1 \
-  --set-env-vars JOB_TYPE=load,GCS_BUCKET=whylinedenver-raw,GCP_PROJECT_ID=whyline-denver \
-  --service-account realtime-jobs@whyline-denver.iam.gserviceaccount.com
-```
+## Workflow configuration
 
-3. Create Cloud Scheduler triggers (see `infra/cloud-run/README.md` for exact commands).
+The nightly schedules request 08:00/09:00/09:30 UTC. They are not chained and can start late. The realtime workflow YAMLs have only `workflow_dispatch`; Cloud Scheduler handles recurring realtime work.
 
-### Deploying a new image
+Workflow secret names used by configuration include `GOOGLE_APPLICATION_CREDENTIALS`, `GCP_PROJECT_ID`, `GCS_BUCKET`, `BQ_DATASET_RAW`, `BQ_DATASET_STG`, `BQ_DATASET_MART`, `NOAA_CDO_TOKEN`, and `CENSUS_API_KEY`. A stored secret is ineffective unless mapped into the step that consumes it. Inspect names and bindings without exposing values.
 
-```bash
-# Build and push the image
-make cloud-run-build    # gcloud builds submit using infra/cloud-run/cloudbuild.yaml
-make cloud-run-push     # Tag and push to Artifact Registry
+For manual recovery, wait for successful ingestion before transformation/tests/export, then wait for export before DuckDB refresh. Dispatching one workflow does not establish the other stages completed.
 
-# Update running jobs to use new image
-gcloud run jobs update realtime-ingest \
-  --image us-central1-docker.pkg.dev/whyline-denver/realtime-jobs/whylinedenver-realtime:latest \
-  --region us-central1
+## Frontend
 
-gcloud run jobs update realtime-load \
-  --image us-central1-docker.pkg.dev/whyline-denver/realtime-jobs/whylinedenver-realtime:latest \
-  --region us-central1
-```
+Install/build using the lockfile (`npm ci`, `npm run build`). Set server-side `API_BASE_URL` to the Cloud Run origin, currently referenced as `https://whylinedenver-api-1058998667347.us-central1.run.app`. Do not put provider keys in `NEXT_PUBLIC_*` variables. Changing a server-side rewrite requires rebuilding/redeploying with the intended environment.
 
-**Important**: Cloud Run jobs do NOT auto-pull `:latest` when the image tag is updated. You must run the `gcloud run jobs update` commands explicitly after every image push.
+Confirm production branch/project/domain settings in Vercel when deploying; the repository alone does not prove deployment completion. The dashboard route is `/app`.
 
-### How the realtime image works
+## Verification and rollback
 
-The image (`infra/cloud-run/Dockerfile`) runs `infra/cloud-run/entrypoint.sh`, which dispatches based on the `JOB_TYPE` environment variable:
+Read back API revision/image, both job images, scheduler state, workflow results, actual mart dates/quality, exports, DuckDB content, and public results. Check freshness and health separately. Existing DuckDB connections, schema artifacts, caches, and lookups can require a fresh service process to see changed files/schema; decide from query evidence before restarting.
 
-- `JOB_TYPE=ingest`: Runs the GTFS-RT ingestor (`python -m whyline.ingest.gtfs_realtime --gcs ...`)
-- `JOB_TYPE=load`: Runs `make bq-load-realtime && make dbt-run-realtime && make update-bq-timestamp`
-
----
-
-## GitHub Actions Secrets
-
-The CI/CD workflows read secrets from GitHub Actions repository secrets. Set these in **Settings → Secrets and variables → Actions**:
-
-| Secret | Used by | Description |
-|--------|---------|-------------|
-| `GOOGLE_APPLICATION_CREDENTIALS` | All workflows | GCP service account JSON (inline) |
-| `GCP_PROJECT_ID` | nightly-bq, nightly-ingest | GCP project ID |
-| `GCS_BUCKET` | nightly-ingest, nightly-duckdb | GCS bucket name |
-| `BQ_DATASET_RAW` | nightly-bq, nightly-ingest | BigQuery raw dataset |
-| `BQ_DATASET_STG` | nightly-bq | BigQuery staging dataset |
-| `BQ_DATASET_MART` | nightly-bq | BigQuery mart dataset |
-| `NOAA_CDO_TOKEN` | nightly-ingest | NOAA Climate Data Online API token |
-| `SYNC_STATE_GCS_BUCKET` | nightly-bq, nightly-duckdb | Sync state bucket |
-| `SYNC_STATE_GCS_BLOB` | nightly-bq, nightly-duckdb | Sync state blob path |
-| `DUCKDB_GCS_BLOB` | nightly-duckdb | DuckDB warehouse blob path |
-| `DUCKDB_PARQUET_ROOT` | nightly-duckdb | Local Parquet cache path |
-| `DBT_PROFILES_DIR` | nightly-bq | dbt profiles directory |
-
----
-
-## GitHub Actions Workflows
-
-| Workflow | Schedule | Trigger | What it runs |
-|----------|----------|---------|-------------|
-| `ci.yml` | On PR + push to `main` | Automatic | lint, pytest, dbt docs deploy to GitHub Pages |
-| `nightly-ingest.yml` | 08:00 UTC daily | Schedule | `make nightly-ingest-bq` (7 ingestors + BQ load) |
-| `nightly-bq.yml` | 09:00 UTC daily | Schedule | `make nightly-bq` (dbt full DAG + mart export) |
-| `nightly-duckdb.yml` | 09:30 UTC daily | Schedule | `make nightly-duckdb` (DuckDB refresh) |
-| `realtime-gtfs-rt.yml` | Manual only | `workflow_dispatch` | GTFS-RT snapshot (Cloud Run handles this in prod) |
-| `realtime-bq-load.yml` | Manual only | `workflow_dispatch` | BQ load + dbt realtime (Cloud Run handles in prod) |
-
-The realtime workflows are `workflow_dispatch` only — in production, Cloud Scheduler triggers Cloud Run jobs directly. The workflow files exist for manual testing and debugging.
-
----
-
-## Frontend (Vercel)
-
-### Setup
-
-1. Connect the repository to Vercel
-2. Set the environment variable in the Vercel project settings:
-   - `API_BASE_URL` → Cloud Run API service URL (e.g., `https://whylinedenver-api-xxxx-uc.a.run.app`)
-   - Do NOT prefix with `NEXT_PUBLIC_` — this variable is used server-side in `next.config.mjs` rewrites only
-
-### How the proxy works
-
-`next.config.mjs` rewrites all `/api/*` requests to `${API_BASE_URL}/api/*` server-side. The browser never sees the Cloud Run URL and there are no CORS issues.
-
-### Manual build
-
-```bash
-make frontend-build   # next build — type-checks + compiles
-```
-
-### Deployment
-
-Vercel auto-deploys on push to `main`. For manual deploy:
-
-```bash
-cd frontend && npx vercel --prod
-```
-
----
-
-## dbt Documentation Site
-
-The CI workflow deploys dbt docs to GitHub Pages on every push to `main`. The site is available at `https://medsidd.github.io/whyline-denver/`.
-
-To build locally:
-
-```bash
-make pages-build   # generates dbt docs + exports diagram SVGs
-make dbt-docs      # serve dbt docs locally at localhost:8080
-```
+Retain the previous immutable image digest and revision before deployment. Roll back to that reviewed image/revision if needed; a code rollback does not revert already-written data. Never delete retained raw data as a routine rollback. Use [QA validation](../QA_Validation_Guide.md).

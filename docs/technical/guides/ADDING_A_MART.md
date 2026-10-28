@@ -1,220 +1,43 @@
-# Adding a New Mart
+# Add a mart
 
-This guide walks through adding a new analytics mart to WhyLine Denver and making it available in the dashboard.
+Define the question, output grain, missingness policy, units, and score direction first. Read the closest existing SQL and [metric glossary](../../public/METRICS_GLOSSARY.md). A mart is an analysis contract, not just a table exposed to an LLM.
 
----
+Build serving marts from gold core only (`ref('dim_*')`, `ref('fct_*')`, `ref('bridge_*')`), never from silver `stg_*` models. If the question needs a new business process, add a fact with a declared grain and dimension keys in `dbt/models/core/` first, and check the bus matrix in the [model reference](../../../dbt/models/README.md). Join Type 2 dimensions on the natural key plus `is_latest_version` (labels) or `is_current` (current network only). Append descriptive columns such as names and coordinates at the end so the LLM can answer without joins; `build_schema_brief` lists every column.
 
-## Overview
+## Reach every consumer
 
-A mart is a Gold-layer dbt model that combines and aggregates data from staging and intermediate models into an analytics-ready table. Marts are the tables that the API queries and that users can access through the dashboard.
+| Place | Change |
+|---|---|
+| `dbt/models/marts/<domain>/mart_*.sql` | SQL, materialization, stable grain/key, `meta={'allow_in_app': true}` for app exposure |
+| Relevant schema YAML | Column descriptions, units, nullability expectations, quality tests |
+| `src/whyline/sync/constants.py` | Add to `ALLOWLISTED_MARTS`; API schema exposure requires both this list and manifest config metadata |
+| `src/whyline/sync/export_bq_marts.py` | Add to `PARTITIONED_MARTS` only when supported service-date partition export is intended |
+| `src/whyline/sync/refresh_duckdb.py` | Add to `HOT_MARTS` for table materialization; `LATEST_RUN_DATE_ONLY_MARTS` for snapshot-only reads |
+| `api/routers/downloads.py` | Add to `MART_OPTIONS` if CSV downloads are intended; `ALLOWED_MARTS` is derived from that list |
+| `frontend/src/types/api.ts` and DownloadPanel consumers | Update the frontend mart options/types if exposing the new download |
+| Tests/fixtures and docs | Model grain, incremental/late changes, exports, refresh, schema exposure, public definitions |
 
----
+Read actual consumers with `rg` before editing these names; the exporter and DuckDB refresh maintain different sets. The old guide incorrectly placed `HOT_MARTS` in the exporter.
 
-## Step 1: Determine the domain
+## Materialization
 
-Marts are organized under `dbt/models/marts/` by domain:
+Use a snapshot table for a full current analysis or an incremental date-partitioned model for time-series data. Assess repeated joins, target merge scans, late source corrections, and key uniqueness. A view can repeatedly recompute expensive dependencies. Do not use insert-overwrite unless replacing complete selected partitions is correct.
 
-```
-dbt/models/marts/
-├── reliability/     time-series performance metrics
-├── safety/          crash proximity and risk
-├── equity/          vulnerability and access gaps
-├── access/          sidewalk and physical infrastructure
-└── mart_gtfs_*.sql  reference tables (stops, routes)
-```
+Include `current_timestamp() AS build_run_at`, not a DATE, when using the current exporter rebuild detection. For an incremental model, choose a bounded lookback that actually reaches corrections; filters must prune both relevant source and target work where appropriate. Compare full-refresh and incremental results.
 
-Place your new mart in the appropriate domain folder, or create a new one if the domain is genuinely new.
+Document metadata in schema YAML and configure app exposure on the SQL model. Existing range tests use the project's `accepted_range` macro; the project does not require an invented `dbt_utils` dependency for that test.
 
----
+## Build, validate, and publish
 
-## Step 2: Choose the materialization
-
-| Pattern | When to use | Example |
-|---------|------------|---------|
-| `incremental` (partitioned by service_date_mst) | Time-series data that grows daily | mart_reliability_by_route_day |
-| `table` (snapshot) | Static analysis refreshed on each dbt run | mart_crash_proximity_by_stop |
-| `view` | Rarely — only if the mart is trivially cheap to recompute | — |
-
-Most new marts should be snapshot `table`s unless they contain time-series data.
-
----
-
-## Step 3: Write the SQL model
-
-Create `dbt/models/marts/{domain}/mart_your_metric.sql`:
-
-### Snapshot mart template
-
-```sql
-{{
-    config(
-        materialized='table',
-        meta={'allow_in_app': true}
-    )
-}}
-
-with stops as (
-    select stop_id, stop_lat, stop_lon, geom
-    from {{ ref('stg_gtfs_stops') }}
-),
-
-source_data as (
-    select ...
-    from {{ ref('stg_your_source') }}
-),
-
--- your logic here
-
-final as (
-    select
-        s.stop_id,
-        -- computed metrics
-        current_date() as build_run_at
-    from stops s
-    left join ...
-)
-
-select * from final
-```
-
-### Incremental (time-series) mart template
-
-```sql
-{{
-    config(
-        materialized='incremental',
-        unique_key=['col_a', 'service_date_mst'],
-        partition_by={'field': 'service_date_mst', 'data_type': 'date'},
-        cluster_by=['route_id'],
-        incremental_strategy='insert_overwrite',
-        meta={'allow_in_app': true}
-    )
-}}
-
-with events as (
-    select *
-    from {{ ref('int_rt_events_resolved') }}
-
-    {% if is_incremental() %}
-    where service_date_mst >= date_sub(current_date(), interval {{ var('weather_lookback_days', 30) }} day)
-    {% endif %}
-),
-
-...
-```
-
-**Critical**: The `meta: {allow_in_app: true}` config is what makes the mart visible to the API. Without it, the table cannot be queried from the dashboard.
-
----
-
-## Step 4: Document in schema.yml
-
-Add to `dbt/models/marts/schema.yml` (or the domain-specific schema file):
-
-```yaml
-models:
-  - name: mart_your_metric
-    description: >
-      One sentence describing what this mart contains and why it exists.
-    meta:
-      allow_in_app: true
-    columns:
-      - name: stop_id
-        description: "Transit stop identifier. Joins to mart_gtfs_stops."
-        tests:
-          - not_null
-          - relationships:
-              to: ref('mart_gtfs_stops')
-              field: stop_id
-      - name: your_score
-        description: "0–100 normalized score. Higher = ..."
-        tests:
-          - not_null
-          - dbt_utils.accepted_range:
-              min_value: 0
-              max_value: 100
-```
-
----
-
-## Step 5: Run and test
+Use the repository wrapper/profile from the root; for an authorized cloud build:
 
 ```bash
-# Run the new mart
-dbt run --select mart_your_metric
-
-# Run tests
-dbt test --select mart_your_metric
-
-# Verify in BigQuery
-dbt run --select mart_your_metric+ --full-refresh  # force full recompute
+PYTHONPATH=src python -m tools.dbt_with_env run --project-dir dbt --target prod --select +mart_your_metric
+PYTHONPATH=src python -m tools.dbt_with_env test --project-dir dbt --target prod --select mart_your_metric
 ```
 
----
+Replace the example name. A leading `+` includes ancestors; a trailing `+` includes descendants. Running an existing model with `--full-refresh` is not a read-only verification step and may be expensive.
 
-## Step 6: Export to DuckDB
+After a deliberate export/refresh, regenerate or obtain matching manifest/catalog artifacts, restart/reload API schema state if required, and verify `/api/models` plus a real DuckDB and BigQuery query. Check CSV download separately if enabled. For new visualization columns, inspect `frontend/src/lib/chartLogic.ts` and result rendering rather than assuming any shape produces a useful chart.
 
-Add the new mart to the export and sync lists in `src/whyline/sync/export_bq_marts.py`:
-
-```python
-HOT_MARTS = {
-    "mart_reliability_by_route_day",
-    "mart_reliability_by_stop_hour",
-    # ... existing marts ...
-    "mart_your_metric",          # add here
-}
-
-# If snapshot (not time-series):
-LATEST_RUN_DATE_ONLY_MARTS = {
-    # ... existing snapshot marts ...
-    "mart_your_metric",          # add here for snapshots
-}
-```
-
-Then run:
-
-```bash
-make sync-export     # Export to GCS Parquet
-make sync-refresh    # Load into DuckDB
-```
-
----
-
-## Step 7: Verify in the API
-
-After syncing, the mart should appear in `/api/models`:
-
-```bash
-curl http://localhost:8000/api/models | jq '.models[].name'
-```
-
-You can now query it by name in the dashboard, either via natural language or by writing SQL directly.
-
-If the mart contains `stop_id` or `route_id` columns, query results will automatically be enriched with stop names, coordinates, and route names.
-
----
-
-## Step 8: Add to downloads
-
-If you want the mart available in the "Download Mart" panel, add it to `ALLOWED_MARTS` in `api/routers/downloads.py`:
-
-```python
-ALLOWED_MARTS = {
-    "mart_reliability_by_route_day",
-    # ... existing ...
-    "mart_your_metric",
-}
-```
-
----
-
-## Checklist
-
-- [ ] SQL model in `dbt/models/marts/{domain}/mart_your_metric.sql`
-- [ ] `meta: {allow_in_app: true}` in config block
-- [ ] Model documented in `schema.yml` with column descriptions
-- [ ] dbt tests defined and passing
-- [ ] Added to `HOT_MARTS` in `export_bq_marts.py`
-- [ ] Added to `LATEST_RUN_DATE_ONLY_MARTS` if snapshot
-- [ ] Synced to DuckDB and verified via `/api/models`
-- [ ] Added to `ALLOWED_MARTS` in downloads router (if applicable)
+Shared SQL fixes used by realtime processing must reach both Run job images as well as GitHub batch workflows. Follow [deployment](../DEPLOYMENT.md) and verify the deployed image and actual served data.

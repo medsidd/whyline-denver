@@ -1,277 +1,76 @@
 # Frontend
 
-The WhyLine Denver dashboard is a Next.js 14 App Router application. This document covers the component structure, state management, visualization logic, and key patterns.
+`frontend/` is a Next.js 14 App Router app with React 18. The landing page is `src/app/page.tsx`; the client dashboard is `src/app/app/page.tsx`. Dependency resolution is locked in `package-lock.json`.
 
----
+## Component map
 
-## Directory Structure
+| Path under `frontend/src/` | Purpose |
+|---|---|
+| `app/layout.tsx`, `providers.tsx` | Fonts, metadata, TanStack Query provider, Vercel Analytics and Speed Insights |
+| `components/layout/` | Header (glass nav, data freshness) and Sidebar (filter rail, collapsible below `lg`) |
+| `components/steps/StepShell.tsx` | Numbered stop, connecting line and card for each step; status is done, current or upcoming |
+| `components/steps/Step1QuestionInput.tsx` | Natural-language question and generation request; renders the ready-made questions |
+| `components/steps/PrebuiltQuestions.tsx` | Four ready-made question chips (BigQuery SQL from the API) |
+| `components/steps/Step2SqlEditor.tsx` | CodeMirror SQL editing (navy theme), debounced validation, BigQuery estimate |
+| `components/steps/Step3Results.tsx` | Execution, Chart/Map/Table tabs, result CSV |
+| `components/ui/` | DataTable, DownloadPanel (whole-table downloads below the steps) |
+| `components/viz/` | TimeSeriesChart, RouteBarChart, WeatherSmallMultiples, StopMap |
+| `store/dashboardStore.ts` | Multi-step state and selected localStorage persistence |
+| `lib/api.ts`, `types/api.ts` | HTTP clients and TypeScript mirrors of API models |
+| `lib/chartLogic.ts`, `tokens.ts` | Column-based visualization selection and design tokens |
 
-```
-frontend/src/
-├── app/
-│   ├── layout.tsx             Root layout (fonts, metadata, providers)
-│   ├── page.tsx               Landing page (server component)
-│   ├── app/
-│   │   └── page.tsx           Dashboard page (client component)
-│   └── providers.tsx          Zustand + TanStack Query setup
-│
-├── components/
-│   ├── layout/
-│   │   ├── Header.tsx         Top navigation bar
-│   │   ├── Sidebar.tsx        Engine toggle + filter controls
-│   │   └── Footer.tsx         Attribution footer
-│   │
-│   ├── steps/
-│   │   ├── Step1QuestionInput.tsx  Natural language input
-│   │   ├── Step2SqlEditor.tsx      SQL editor + validation
-│   │   ├── Step3Results.tsx        Results display
-│   │   └── PrebuiltQuestions.tsx   4 prebuilt query cards
-│   │
-│   ├── viz/
-│   │   ├── TimeSeriesChart.tsx     Recharts line chart
-│   │   ├── RouteBarChart.tsx       Recharts horizontal bar chart
-│   │   ├── WeatherSmallMultiples.tsx  2×2 Recharts grid
-│   │   └── StopMap.tsx             Deck.gl + react-map-gl scatter map
-│   │
-│   └── ui/
-│       ├── DataTable.tsx           Tabular results display
-│       ├── DownloadPanel.tsx       CSV + warehouse export controls
-│       └── FreshnessBadge.tsx      Data timestamp indicator
-│
-├── store/
-│   └── dashboardStore.ts      Zustand store (full dashboard state)
-│
-├── types/
-│   └── api.ts                 TypeScript types mirroring FastAPI models
-│
-└── lib/
-    ├── api.ts                 API client functions (fetch wrappers)
-    ├── chartLogic.ts          Chart auto-detection logic
-    └── tokens.ts              Design tokens (colors, spacing)
-```
+## State and workflow
 
----
+The dashboard queries BigQuery only: `lib/api.ts` sends `engine: "bigquery"` on every request, and the UI has no engine switch or DuckDB download. The API still accepts `duckdb`. Generation sends question, engine, and filters to `/api/sql/generate`. On success, SQL/explanation populate the editor and prior results clear. Prebuilt cards bypass the LLM and call `/api/sql/prebuilt/{index}/for/bigquery`. Editing validates after a 500 ms debounce. Execution sends SQL to `/api/query/run`, which validates again server-side.
 
-## Dashboard Flow
+The Zustand store starts with a seven-day date range. Filter updates merge into state; they do not guarantee existing SQL is rewritten. Inspect the generated query after changing filters.
 
-The dashboard uses a 3-step sequential workflow. Each step is gated: Step 2 is hidden until Step 1 completes, Step 3 is hidden until Step 2 has valid SQL.
+LocalStorage key `whyline-dashboard` (persist version 1; older saved state is discarded because it can hold DuckDB SQL) persists filters, question, generated SQL, edited SQL, explanation, and generation cache-hit state. Results, run errors, validation results, and byte estimates are not persisted. Closing a tab does not erase the persisted question/SQL. Persistence is per browser origin; no live cross-tab synchronization is implemented.
 
-### Step 1: Ask Your Question (`Step1QuestionInput.tsx`)
+## Charts and maps
 
-The user types a natural language question in a textarea. Pressing "Generate SQL" (or `Cmd/Ctrl+Enter`) calls `POST /api/sql/generate`.
+`detectChartType()` selects by column names, in order: stop/hour reliability, precipitation/date reliability, route delay ratio, date reliability, generic numeric/categorical names, or none. This is a naming heuristic, not inferred statistical meaning.
 
-The `question`, `engine`, and `filters` from the Zustand store are sent as the request body. On success, `setSqlFromGeneration()` is called, which:
-- Sets `generatedSql` and `editedSql` to the returned SQL
-- Sets `explanation`
-- Clears any previous query results
+The `heatmap` branch currently renders grouped bars rather than a full heatmap. Weather small multiples group precipitation categories; they do not prove snow-specific effects. Generic charts depend on names such as `avg`, `pct`, or `score`, not a full schema/type inspection.
 
-On start, `resetForNewQuestion()` clears Steps 2 and 3.
+`detectMapData()` checks for `lat` and `lon`. Metric preference starts with priority score/rank, crash counts, vulnerability, reliability score, and on-time share. See [metric definitions](../public/METRICS_GLOSSARY.md) before interpreting color or rank direction.
 
-**Prebuilt questions**: `PrebuiltQuestions.tsx` renders 4 cards that call `POST /api/sql/prebuilt/{index}` directly, bypassing the LLM.
-
-### Step 2: Review SQL (`Step2SqlEditor.tsx`)
-
-A CodeMirror 6 editor displays the generated SQL with syntax highlighting. The user can freely edit the SQL.
-
-Validation runs automatically with a 500ms debounce after each keystroke. `POST /api/sql/validate` is called with the current editor contents. Results update:
-- `sanitizedSql` — the sanitized SQL string if valid
-- `bqEstBytes` — BigQuery byte estimate (displayed as "~X MB" for BigQuery engine)
-- `sqlError` — error message if validation failed
-
-**Changing the engine**: Switching between DuckDB and BigQuery calls `setEngine()`, which clears Steps 2 and 3 but preserves the question.
-
-### Step 3: Results (`Step3Results.tsx`)
-
-"Run Query" calls `POST /api/query/run` using `sanitizedSql || editedSql`. On success:
-- `DataTable` renders the results as a scrollable table
-- Charts and map are auto-detected from column names (see below)
-- `DownloadPanel` is always available for mart/warehouse downloads
-
----
-
-## State Management
-
-All state lives in a single Zustand store with localStorage persistence.
-
-**File**: `frontend/src/store/dashboardStore.ts`
-
-### State shape
-
-```typescript
-{
-  // Sidebar
-  engine: "duckdb" | "bigquery"       // default: "duckdb"
-  filters: {
-    start_date: string | null          // default: 7 days ago
-    end_date: string | null            // default: today
-    routes: string[]                   // default: []
-    stop_id: string                    // default: ""
-    weather: string[]                  // default: []
-  }
-
-  // Step 1
-  question: string                     // default: ""
-
-  // Step 2
-  generatedSql: string | null          // null until Step 1 completes
-  editedSql: string                    // tracks user edits in CodeMirror
-  sanitizedSql: string | null          // from /api/sql/validate
-  explanation: string                  // AI-generated query explanation
-  sqlError: string | null              // validation error message
-  sqlCacheHit: boolean                 // true if LLM returned cached result
-  bqEstBytes: number | null            // BigQuery cost estimate
-
-  // Step 3
-  queryResult: RunQueryResponse | null // null until query runs
-  runError: string | null              // execution error
-}
-```
-
-### Persisted fields
-
-The following are saved to localStorage under key `"whyline-dashboard"`:
-`engine`, `filters`, `question`, `generatedSql`, `editedSql`, `explanation`, `sqlCacheHit`
-
-Query results (`queryResult`, `runError`) are NOT persisted — they are session-only.
-
-### Key actions
-
-- `setEngine(engine)` — changes engine; resets Steps 2 and 3
-- `setFilters(partial)` — merges partial filter updates
-- `setSqlFromGeneration(sql, explanation, cacheHit)` — called after successful `/api/sql/generate`
-- `setEditedSql(sql)` — real-time updates as user types in CodeMirror
-- `setValidation(sanitizedSql, bqEstBytes, error)` — called after `/api/sql/validate`
-- `setQueryResult(result, error)` — called after `/api/query/run`
-- `resetForNewQuestion()` — clears Steps 2 and 3 at start of Step 1
-- `resetForEngineChange()` — same as above, called when engine changes
-
----
-
-## Visualization Logic
-
-Charts and maps are auto-detected from the result column names. No user configuration is required.
-
-### Chart type detection (`lib/chartLogic.ts`)
-
-`detectChartType(columns: string[]): ChartType` checks columns in this priority order:
-
-1. **Heatmap**: columns include `event_hour_mst` AND `pct_on_time` AND `stop_id`
-2. **Weather small multiples**: columns include `precip_bin` AND `pct_on_time` AND `service_date_mst`
-3. **Route bar chart**: columns include `route_id` AND `avg_delay_ratio`
-4. **Time series**: columns include `service_date_mst` AND `pct_on_time`
-5. **Generic bar chart**: data has at least one numeric column (`avg`, `count`, `sum`, `pct`, `score`, `ratio`) AND one categorical column (`id`, `name`, `route`, `stop`, `bin`, `type`, `category`)
-6. **None**: no pattern matched
-
-### Map detection
-
-`detectMapData(columns: string[]): boolean` returns `true` if the result includes both `lat` and `lon` columns (case-insensitive).
-
-`detectMapMetric(columns: string[]): string | null` selects the metric to color/size map points, checking in this order: `priority_score`, `priority_rank`, `crash_250m_cnt`, `crash_100m_cnt`, `vuln_score_0_100`, `reliability_score_0_100`, `pct_on_time`, then the first column matching `score`, `cnt`, `count`, `pct`, `ratio`, `avg`.
-
-### Visualization components
-
-| Component | Chart type | Library |
-|-----------|-----------|---------|
-| `TimeSeriesChart` | Line chart over `service_date_mst`; grouped by `route_id` or `stop_id` (top 5) | Recharts |
-| `RouteBarChart` | Horizontal bars; top 15 routes by delay ratio | Recharts |
-| `WeatherSmallMultiples` | 2×2 grid of line charts, one panel per `precip_bin` | Recharts |
-| `StopMap` | Scatterplot; point color and size from detected metric | Deck.gl + react-map-gl |
-
-**StopMap must be dynamically imported with `ssr: false`**:
+Always load the map dynamically:
 
 ```typescript
 const StopMap = dynamic(() => import("@/components/viz/StopMap"), { ssr: false });
 ```
 
-maplibre-gl (used internally by react-map-gl) requires browser APIs and will fail during Next.js server-side rendering.
+MapLibre requires browser APIs and must not execute during SSR.
 
----
+## API proxy and downloads
 
-## API Communication
+`next.config.mjs` rewrites `/api/:path*` to `${API_BASE_URL}/api/:path*` when configured. Set `API_BASE_URL=http://localhost:8000` in `frontend/.env.local`, or the production Cloud Run origin in Vercel settings. It is server-side configuration; the proxy is not API authentication.
 
-**Next.js rewrite** (`next.config.mjs`):
+The results view can download displayed query data as CSV. DownloadPanel offers seven analytic mart CSVs from BigQuery. There is no public Parquet download control; Parquet is an internal synchronization format. See [API reference](API_REFERENCE.md).
 
-```javascript
-async rewrites() {
-  if (!process.env.API_BASE_URL) return [];
-  return [{ source: "/api/:path*", destination: `${process.env.API_BASE_URL}/api/:path*` }];
-}
-```
-
-All `/api/*` fetch calls are proxied server-side to `API_BASE_URL`. The FastAPI URL is never exposed to the browser. `API_BASE_URL` is a server-side env var (not prefixed `NEXT_PUBLIC_`).
-
-API client functions are in `lib/api.ts`:
-
-```typescript
-generateSql(question, engine, filters) → POST /api/sql/generate
-validateSql(sql, engine) → POST /api/sql/validate
-runQuery(sql, engine, question) → POST /api/query/run
-fetchFilters(engine) → GET /api/filters/{engine}
-fetchFreshness() → GET /api/freshness
-downloadMart(request) → POST /api/downloads/mart
-```
-
----
-
-## TypeScript Types
-
-`types/api.ts` mirrors the FastAPI Pydantic models:
-
-```typescript
-type Engine = "duckdb" | "bigquery"
-
-interface FilterState {
-  start_date: string | null
-  end_date: string | null
-  routes: string[]
-  stop_id: string
-  weather: string[]
-}
-
-interface GenerateSqlResponse {
-  sql: string
-  explanation: string
-  cache_hit: boolean
-  error: string | null
-}
-
-interface RunQueryResponse {
-  rows: number
-  columns: string[]
-  data: Record<string, unknown>[]
-  total_rows: number
-  stats: Record<string, unknown>
-  error: string | null
-}
-```
-
----
-
-## Key Dependencies
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `next` | 14.2.x | Framework, App Router, server rewrites |
-| `react` | 18.3.x | UI |
-| `zustand` | 4.5.x | State management + localStorage persistence |
-| `@tanstack/react-query` | 5.x | Server state for filter options endpoint |
-| `recharts` | 2.12.x | Charts (time series, bar, small multiples) |
-| `deck.gl` | 9.0.x | Map scatter layer |
-| `react-map-gl` | 8.0.x | Map base (CartoDB dark basemap via MapLibre) |
-| `@uiw/react-codemirror` | 4.23.x | SQL editor with syntax highlighting |
-| `tailwindcss` | 3.4.x | Styling |
-| `date-fns` | 3.6.x | Date formatting and arithmetic |
-
----
-
-## Development
+## Development and validation
 
 ```bash
 cd frontend
-npm install         # Install dependencies
-npm run dev         # Start dev server at http://localhost:3000
-npm run build       # Type-check + production build
-npm run lint        # ESLint check
+npm ci
+npm run dev
+npm run build
+npm run lint
 ```
 
-Ensure `frontend/.env.local` contains `API_BASE_URL=http://localhost:8000`.
+For repeated `EMFILE` watcher failures, use `WATCHPACK_POLLING=1000 npm run dev`. The build uses configured Google fonts and can need network access. Playwright is declared, but no specs/configuration are checked in; no Jest suite exists. See [testing](TESTING.md).
+
+Privacy documentation must account for persisted browser state, provider requests, API logs, and the Analytics/Speed Insights components mounted in the root layout; do not claim that all state disappears when a tab closes.
+
+## Design language
+
+The landing page, legal pages and dashboard share the logo's colors as Tailwind `wl-*` tokens (`tailwind.config.ts`) and Nunito (`--font-nunito`, utility `font-rounded`). Pages wrap their content in `.wl`. Interaction and animation classes (`.wl-btn`, `.wl-card`, `.wl-field`, `.wl-reveal`, the hero map, the scroll route, step pops) live in `globals.css` and respect `prefers-reduced-motion`. `lib/tokens.ts` holds the same colors for code that can't use classes, plus the chart palette: five categorical hues in fixed order that pass the dataviz validator on white. Gold is below 3:1 contrast, so multi-series charts keep a legend and every result has a Table tab. The map uses CARTO's light Positron style.
+
+On the dashboard the three steps are stops on one line. A step is done when its output exists (SQL written, SQL passes the check, result returned), and the first unfinished step is current and gets the red primary button.
+
+`components/landing/ScrollRoute.tsx` is the header's route bar: a bus moves with page scroll and each stop is a section link. Stop positions are measured from the section ids, so keep `ROUTE_STOPS` in sync when sections change.
+
+The hero question form and the suggestion chips open `/app?q=<question>`. `Step1QuestionInput` copies `q` into the question box, clears previous SQL and results, and removes `q` from the URL. It does not generate SQL; the user still clicks Write SQL. The landing page reads `/api/freshness` server-side (hourly revalidation) and hides the snapshot line when `API_BASE_URL` is unset or the API is unreachable.
+
+Legal pages live at `/privacy`, `/terms` and `/attribution` (`components/landing/LegalPage.tsx` shell, linked from `SiteFooter`, which the dashboard also uses). The privacy policy describes current behavior: Gemini prompts, hashed query logs, the `whyline-dashboard` local-storage key, Vercel Analytics/Speed Insights, Google Cloud, and CARTO map tiles. Update it when any of those change. The Census Data API terms require `CENSUS_NOTICE` (`lib/links.ts`) to stay visible in the app.
