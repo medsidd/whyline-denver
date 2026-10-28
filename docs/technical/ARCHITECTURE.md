@@ -1,211 +1,67 @@
 # Architecture
 
-This document describes WhyLine Denver's system design, component relationships, and the reasoning behind key technical decisions.
+WhyLine Denver is a Python/SQL transit warehouse served by FastAPI and a Next.js dashboard. This is the canonical architecture reference; [operations](OPERATIONS.md) records dated deployment state and cost observations.
 
----
+## Processing and serving
 
-## System Overview
+```text
+Seven public-source ingestors
+  → GCS raw files and manifests
+  → BigQuery raw_denver (explicit schemas + loader metadata)
+  → dbt stg_denver (silver: source-conformed staging)
+  → dbt core_denver (gold core: Kimball dimensions, facts, bridge)
+  → dbt mart_denver (gold serving: nine marts)
+  → GCS Parquet exports → DuckDB warehouse
 
-WhyLine Denver is a full-stack transit analytics platform with five major components:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  DATA LAYER                                                      │
-│                                                                  │
-│  External APIs → Ingestors → GCS (raw)                          │
-│                                   ↓                             │
-│  BigQuery raw_denver ← bq_load.py                               │
-│        ↓                                                         │
-│  BigQuery stg_denver + mart_denver  ← dbt                       │
-│        ↓                                                         │
-│  GCS Parquet marts  ← export_bq_marts.py                        │
-│        ↓                                                         │
-│  DuckDB warehouse.duckdb  ← refresh_duckdb.py                   │
-└─────────────────────────────────────────────────────────────────┘
-          ↓
-┌─────────────────────────────────────────────────────────────────┐
-│  API LAYER                                                       │
-│                                                                  │
-│  FastAPI (api/)                                                  │
-│    /api/health          liveness + freshness                     │
-│    /api/filters         sidebar options from marts               │
-│    /api/sql             LLM generation + validation              │
-│    /api/query           execute SQL on BigQuery or DuckDB        │
-│    /api/downloads       CSV + warehouse exports                  │
-└─────────────────────────────────────────────────────────────────┘
-          ↓
-┌─────────────────────────────────────────────────────────────────┐
-│  FRONTEND LAYER                                                  │
-│                                                                  │
-│  Next.js 14 dashboard (frontend/)                               │
-│    Step 1: Natural language question → LLM SQL generation        │
-│    Step 2: Review and edit SQL in CodeMirror editor              │
-│    Step 3: Execute, view table + auto-detected charts + map      │
-└─────────────────────────────────────────────────────────────────┘
+BigQuery or DuckDB → FastAPI → Next.js /app
 ```
 
----
+| Boundary | Implementation and reason |
+|---|---|
+| Source ingestion | `src/whyline/ingest/`: standalone argparse CLIs, shared retry/I/O utilities, local or GCS output. Raw snapshots preserve source lineage. |
+| Loading | `load/bq_load.py` and `registry.py`: explicit ordered schemas, metadata, MD5-based skipping. Raw CSVs are normalized extracts, not universally untouched source records. |
+| Transformation | Medallion layers: 12 silver staging models (mostly views; `stg_rt_events` incremental), 13 gold-core models (Type 2 GTFS dimensions with surrogate keys and Unknown members; incremental trip-observation, schedule, and stop-arrival facts; nightly crash, weather, and demographics facts; a weighted stop-tract bridge), and nine serving marts built only from gold core. See the [model reference](../../dbt/models/README.md). |
+| Published schema | `DbtArtifacts` reads manifest/catalog. Models must have `config.meta.allow_in_app` and be in `sync/constants.py::ALLOWLISTED_MARTS`. |
+| Export | Two partitioned reliability marts; seven snapshot marts. Rebuilt partitions are selected using `build_run_at` as well as date checkpoints. |
+| Embedded warehouse | `sync/refresh_duckdb.py` materializes nine marts. Partitioned history is limited by `DUCKDB_MAX_AGE_DAYS` (90 by default); snapshots use latest run date. |
+| HTTP | Five routers in `api/routers/`, registered under `/api`; request/response models in `api/models.py`. |
+| Presentation | Next.js 14, React 18, Zustand, TanStack Query, Recharts, Deck.gl/MapLibre, CodeMirror. |
 
-## Medallion Data Architecture
+## Why two engines?
 
-Data moves through three progressive refinement layers:
+BigQuery performs cloud transformations and supports querying the current mart tables. Its API query engine uses a dry-run estimate and `MAX_BYTES_BILLED` (2,000,000,000 by default). That cap applies to this engine's queries, not every loader/dbt/export/billing query in the project.
 
-### Bronze — Raw ingestion (`raw_denver` dataset)
+DuckDB serves a copied warehouse without per-query BigQuery analysis charges. Local querying needs no cloud credentials when the warehouse, dbt artifacts, and sync-state configuration are local. Downloading data, hosting it on Cloud Run, refreshing it, or accessing GCS still has infrastructure/access costs.
 
-Immutable copies of source data. Nothing is transformed here — raw values, original field names, original timezones. Tables are partitioned by `extract_date`.
+`llm.adapt_sql_for_engine()` handles the supported dialect rewrites and BigQuery table qualification. It is not a general SQL transpiler; test queries on each intended engine.
 
-Every file loaded into BigQuery is tracked in `raw_denver.__ingestion_log` with its MD5 hash. The loader skips files whose MD5 already appears in the log, making all loads idempotent.
+## Query boundary
 
-### Silver — Staging and intermediate (`stg_denver` dataset)
+Generation sends the user's question, filters, and schema brief to the configured LLM. Gemini is implemented; stub mode returns canned queries. OpenAI and Anthropic provider names raise `NotImplementedError`.
 
-Two sub-layers:
+Generation, validation, and execution apply `sanitize_sql()`. It checks SELECT/WITH shape, single-statement syntax, denylisted write keywords, allowed table references and BigQuery namespaces. It adds `LIMIT 5000` only when there is no numeric limit. Existing limits are preserved. The query response displays at most 10,000 rows after execution; a display limit is not a scan limit.
 
-**Staging** (10 dbt views): Clean, rename, deduplicate. Build geometry columns. Parse GTFS time strings. All staging models are views — no storage cost, always reflects the latest raw data.
+The guardrails are regex-based checks, not a database permission system. Keep cloud identities least-privileged and retain server-side validation regardless of browser validation. See [API reference](API_REFERENCE.md).
 
-Exception: `stg_rt_events` is an incremental table. The raw GTFS-RT source is large enough that viewing it as a plain view would scan the full table on every downstream model run.
+## State and caching
 
-**Intermediate** (6 dbt models): Derive metrics from staging. Expand the GTFS schedule into individual stop arrivals (`int_scheduled_arrivals`). Match realtime events to the schedule (`int_rt_events_resolved`). Calculate headway intervals. Aggregate weather by date.
+- Prompt and query caches are process-local and expire according to `src/whyline/logs.py`; restarting clears them. They are not durable shared caches.
+- dbt schema loading is lazy and cached with `lru_cache`, not validated by `/api/health`.
+- Stop/route enrichment lookups are cached after successful reads from DuckDB (stops also have a local GTFS fallback).
+- DuckDB connections are thread-local and read-only by default. With `DUCKDB_COPY_LOCAL=1`, the source is copied to a temporary local path when opening a connection. Existing connections can keep the old warehouse; verify actual results after a refresh.
+- The browser persists selected dashboard fields in localStorage, but not result data or validation state. This survives closing a tab; it does not implement synchronized cross-tab state.
+- Query logs contain hashes and execution metadata. Engine logs can include SQL snippets. The frontend mounts Vercel Analytics and Speed Insights. See [FAQ](../public/FAQ.md) before making privacy claims.
 
-`int_scheduled_arrivals` is a materialized table (~22M rows) because expanding the GTFS calendar is expensive and the output is needed by multiple downstream models. Pre-materializing it once per day avoids redundant computation.
+## Hosting and orchestration
 
-### Gold — Marts (`mart_denver` dataset)
+The API runs as Cloud Run service `whylinedenver-api`. The Makefile deployment defaults are 0–3 instances, 2 vCPU, and 2 GiB; verify live configuration separately. The GCS bucket is mounted at `/mnt/gcs`, and DuckDB is copied locally for reliable access.
 
-Analytics-ready tables with business logic applied and spatial joins pre-computed. Seven marts covering four domains: reliability, safety, equity, and access. All marts are allow-listed in the API (`meta.allow_in_app: true` in dbt schema.yml) so they can be queried by name.
+Two Cloud Run jobs share an image and dispatch on `JOB_TYPE`. Cloud Scheduler invokes them; the October 26 readback showed 15-minute capture/load schedules. Three independent GitHub Actions cron workflows ingest static sources, transform/export, and refresh DuckDB. The two realtime GitHub workflows are manual alternatives, not scheduled collectors. CI runs Python lint/tests and deploys dbt docs on successful pushes to `main`.
 
----
+Next.js uses server-side rewrites from `/api/*` to `API_BASE_URL`. This avoids requiring the browser to call a separate origin; it is not an authentication boundary and does not make the public API secret. `StopMap` must use `ssr: false` because MapLibre needs browser APIs.
 
-## Dual-Engine Pattern
+## Design lessons
 
-Every query endpoint accepts an `engine` parameter: `"duckdb"` or `"bigquery"`.
+Preserving raw files and loader metadata makes replay and lineage possible. Materializing expensive schedule expansion avoids recomputing it through multiple views. Incremental processing and partition predicates reduce repeated work, but lookback windows also determine which late corrections can be applied. Export checkpoints must account for revised older data.
 
-### BigQuery
-
-- **When**: Production analytics, large historical queries, queries requiring up-to-the-minute data
-- **Cost**: Charged per byte scanned, capped at 2 GB per query (`MAX_BYTES_BILLED`)
-- **Auth**: GCP service account via `GOOGLE_APPLICATION_CREDENTIALS`
-- **Tables**: Fully-qualified names (`project.dataset.table`)
-- **Freshness**: Live — reflects the last dbt run (typically within ~1 hour of 9 AM UTC)
-
-### DuckDB
-
-- **When**: Local development, free exploration, offline use, CI tests
-- **Cost**: Zero compute cost — runs locally or from GCS-mounted file
-- **Auth**: None
-- **Tables**: Unqualified names — DuckDB uses the warehouse file
-- **Freshness**: Reflects the last DuckDB sync (typically within ~30 min of 9:30 AM UTC)
-
-### SQL dialect adaptation
-
-The same SQL must work on both engines. The API adapts SQL automatically via `adapt_sql_for_engine()` in `src/whyline/llm.py`:
-
-- **DuckDB**: Replaces BigQuery-style `DATE_SUB(col, INTERVAL N DAY)` with DuckDB `col - INTERVAL 'N' DAY`
-- **BigQuery**: Qualifies unqualified table names to their fully-qualified `project.dataset.table` form
-
-CTEs are detected and skipped — only FROM/JOIN table references are qualified.
-
----
-
-## FastAPI Service
-
-`api/` is a thin HTTP wrapper over the `whyline` Python package. It uses FastAPI with five routers registered under `/api`.
-
-**Dependency injection** (`api/deps.py`): dbt artifacts (manifest.json + catalog.json) are loaded once at process startup using Python's `@lru_cache`. This makes schema information available to all endpoints without repeated disk reads. The same pattern is used for the stop and route lookup DataFrames used to enrich query results.
-
-**Two-layer caching**:
-1. `prompt_cache`: Keyed by (LLM provider, engine, question, filters). Avoids calling the LLM again for identical questions.
-2. `query_cache`: Keyed by (engine, sanitized SQL). Avoids re-executing identical queries within a session.
-
-**SQL guardrails** (`src/whyline/sql_guardrails.py`): Every SQL string — whether generated by the LLM or pasted by the user — is sanitized before execution:
-- Must be a single SELECT statement (no semicolons inside, no non-SELECT statements)
-- Denylist: INSERT, UPDATE, DELETE, CREATE, DROP, ALTER, MERGE, TRUNCATE, GRANT, REVOKE, PRAGMA
-- Table names must be from the dbt allowlist (models with `meta.allow_in_app: true`)
-- BigQuery: project and dataset must match allowed values from config
-- LIMIT 5000 is appended if no LIMIT clause is present
-
----
-
-## LLM Integration
-
-The LLM converts natural language questions into SQL. Key design decisions:
-
-**Schema context, not data**: The LLM receives only a schema brief (model name, description, first 7 column names), not actual data. This keeps prompts small and avoids sending user data to the LLM provider.
-
-**Deterministic guardrails after generation**: The LLM output goes through `sanitize_sql()` regardless of quality. The LLM is not trusted to produce safe SQL; the guardrail layer enforces safety.
-
-**Provider abstraction**: `call_provider()` in `src/whyline/llm.py` dispatches to the active provider. Production uses Gemini (`gemini-2.5-flash`). Development uses a stub provider that returns pre-written SQL for known patterns. Switching providers is a one-line env var change (`LLM_PROVIDER`).
-
-**Prompt caching**: Identical (provider, engine, question, filters) tuples return the cached SQL without calling the LLM. This reduces both cost and latency.
-
----
-
-## Frontend Architecture
-
-`frontend/` is a Next.js 14 App Router application.
-
-**State management**: All dashboard state lives in a single Zustand store (`dashboardStore.ts`) with localStorage persistence. This means state survives page refreshes and is shared across browser tabs. The store is the single source of truth for: selected engine, active filters, the question, generated/edited SQL, validation status, and query results.
-
-**API communication**: The Next.js server rewrites all `/api/*` requests to `${API_BASE_URL}/api/*` (configured in `next.config.mjs`). This means the FastAPI URL is never exposed to the browser and there are no CORS issues.
-
-**Visualization**: Charts are auto-detected from the result column names by `detectChartType()` in `src/lib/chartLogic.ts`. The map (`StopMap`) is shown when `lat` and `lon` columns are present. All visualization components are client-side; `StopMap` uses dynamic import with `ssr: false` because maplibre-gl requires browser APIs.
-
----
-
-## Infrastructure
-
-### Compute
-
-| Service | Purpose | Configuration |
-|---------|---------|---------------|
-| Cloud Run service (`whylinedenver-api`) | FastAPI REST API | 0–3 instances, 2 vCPU, 2 Gi memory |
-| Cloud Run jobs (`realtime-ingest`, `realtime-load`) | Every-5-min GTFS-RT capture and load | Triggered by Cloud Scheduler |
-| GitHub Actions | Nightly batch pipelines (ingest, dbt, DuckDB sync) | 3 scheduled workflows |
-| Vercel | Next.js frontend hosting | Auto-deploys on push to main |
-
-### Storage
-
-| Resource | Contents |
-|---------|---------|
-| GCS `whylinedenver-raw/raw/` | Raw ingest outputs, partitioned by extract_date |
-| GCS `whylinedenver-raw/marts/` | Parquet exports from BigQuery |
-| GCS `whylinedenver-raw/marts/duckdb/` | DuckDB warehouse file |
-| GCS `whylinedenver-raw/state/` | `sync_state.json` tracking freshness |
-| BigQuery `raw_denver` | Raw ingested tables (13 tables) |
-| BigQuery `stg_denver` | Staging + intermediate dbt models |
-| BigQuery `mart_denver` | Final mart tables (queried by API) |
-| Artifact Registry | Docker images for API service and realtime jobs |
-
-### GCS-Fuse on Cloud Run
-
-The DuckDB warehouse on Cloud Run is GCS-Fuse mounted at `/mnt/gcs`. On first query, the DuckDB engine copies the file to `/tmp/warehouse.duckdb` for faster performance (controlled by `DUCKDB_COPY_LOCAL=1`). Thread-local DuckDB connections ensure thread safety under Cloud Run's concurrent request handling.
-
----
-
-## Key Design Decisions
-
-**Why dbt for transformations?**
-SQL-first transformations are version-controlled, testable, and self-documenting. dbt's incremental materializations handle the cost of re-running on large GTFS-RT data without a full scan. The dbt manifest.json also serves as the authoritative schema source for the API's allowlist and prompt context.
-
-**Why DuckDB alongside BigQuery?**
-BigQuery is excellent for production scale but requires GCP credentials and charges per byte. DuckDB enables free local development, offline use, CI testing without cloud access, and easy data sharing (one file download). The dual-engine pattern makes both first-class citizens.
-
-**Why Cloud Run Jobs for realtime, not Cloud Functions?**
-Cloud Run Jobs support longer execution times (up to 24 hours), have better cost predictability, and can be updated by pushing a new container image. The 5-minute trigger from Cloud Scheduler is well-suited to this model.
-
-**Why Next.js server-side API rewrites?**
-The FastAPI URL is an internal implementation detail. Routing `/api/*` through Next.js means the URL can change without frontend changes, avoids CORS configuration, and keeps the API key out of the browser.
-
-**Why Zustand over React Query or Redux?**
-The dashboard has a sequential, multi-step state machine (question → SQL → results). Zustand's synchronous actions and localStorage persistence fit this pattern well. React Query is used for the filter options endpoint (a pure server-state fetch), while Zustand handles the multi-step workflow state.
-
----
-
-## Cost Optimization History
-
-The platform has been aggressively optimized. Key wins:
-
-1. **MD5-based BigQuery deduplication**: Eliminated repeated loads of identical files. Removed ~126,000 redundant queries/day.
-2. **Incremental dbt models**: `stg_rt_events` and reliability marts use incremental materialization with explicit partition filters, dramatically reducing bytes scanned per run.
-3. **`int_scheduled_arrivals` pre-materialization**: Pre-expanding the GTFS calendar once (vs in every downstream view) eliminated repeated full-table joins on stop_times.
-4. **Cloud Run job frequency reduction**: Reduced from every 5 min to every 5 min with a more efficient dbt realtime subset (`dbt-run-realtime`).
-
-See [docs/COST_OPTIMIZATION_DEC_2025.md](../COST_OPTIMIZATION_DEC_2025.md) for the detailed analysis.
+These tradeoffs and failures are retained in [cost optimization](../case-studies/bigquery-cost-optimization-2025.md) and [pipeline recovery](../case-studies/pipeline-recovery-2026.md). Current spend belongs in [operations](OPERATIONS.md), not architecture estimates.

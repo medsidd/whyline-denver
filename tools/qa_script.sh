@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Comprehensive QA Validation for WhyLine Denver Data Pipelines
 # Runs all checks: GitHub Actions, GCS, BigQuery, DuckDB
-# Usage: ./scripts/qa_comprehensive.sh [--skip-duckdb] [--skip-gcs]
+# Usage: ./tools/qa_script.sh [--skip-duckdb] [--skip-gcs]
 
 set -euo pipefail
 

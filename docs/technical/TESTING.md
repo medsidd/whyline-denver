@@ -1,160 +1,60 @@
-# Testing
+# Testing and verification
 
-WhyLine Denver has three testing layers: a Python pytest suite, dbt data quality tests, and TypeScript frontend tests.
+## Existing offline tests
 
----
-
-## Python Tests (pytest)
-
-**Location**: `tests/`
-**Command**: `make test`
-
-### Prerequisites
-
-The artifact tests parse the current dbt project into a temporary directory,
-using an offline profile and a small catalog fixture. They do not require
-BigQuery credentials or the checked-in `dbt/target` snapshot. `make test` does
-not generate production artifacts or query BigQuery:
+Activate `.venv`, install `requirements.txt`, and run from the repository root:
 
 ```bash
 make test
-```
-
-Or run a single test without make:
-
-```bash
-.venv/bin/python -m pytest tests/path/to/test_file.py::test_function_name -q
-```
-
-### Test categories
-
-**Ingestor tests** (`tests/ingest/`): Unit tests for each of the 7 ingestors. These test parsing logic, normalization, geometry calculations, and manifest generation without making network calls. Designed to run offline using sample data fixtures.
-
-**API tests** (`tests/api/`): Tests for API endpoint behavior, SQL guardrail rules, LLM prompt building, and result enrichment. Uses FastAPI's test client.
-
-**Engine tests**: Tests for BigQuery and DuckDB engine adapters — SQL adaptation, dialect translation, caching behavior.
-
-**Sync tests**: Tests for the mart export and DuckDB refresh logic.
-
-### Known behaviors
-
-**`bq_load` import hang**: Importing `whyline.load.bq_load` triggers GCP authentication at module load time. This is expected — the test suite skips or mocks this import where needed. A bare `python -c "import whyline"` check will succeed because the top-level package `__init__.py` does not import `bq_load`.
-
-To check basic imports quickly:
-
-```bash
-PYTHONPATH=src .venv/bin/python -c "import whyline; print('ok')"
-```
-
----
-
-## dbt Data Quality Tests
-
-dbt tests run SQL assertions against the actual data in BigQuery. They check for nulls, duplicates, referential integrity, and value ranges.
-
-**Commands**:
-
-```bash
-make dbt-test-staging   # Tests on staging layer (nulls, uniqueness, accepted values)
-make dbt-test-marts     # Tests on mart layer (range checks, referential integrity)
-make dbt-source-freshness  # Checks that raw source tables are not stale
-```
-
-Tests are defined in `dbt/models/staging/schema.yml` and `dbt/models/marts/schema.yml`. The nightly BigQuery workflow fails and alerts if any test fails before the mart export step.
-
-### Test coverage (partial list)
-
-- `stg_gtfs_stops`: stop_id is not null, stop_id is unique, lat/lon are in valid ranges
-- `stg_rt_events`: feed_ts_utc is not null, arrival_delay_sec is within [-3600, 7200]
-- `mart_reliability_by_route_day`: route_id is not null, pct_on_time is between 0 and 1
-- `mart_priority_hotspots`: stop_id is not null, priority_score is not negative
-- `mart_vulnerability_by_stop`: vuln_score_0_100 is between 0 and 100
-
----
-
-## Frontend Tests
-
-**Command**: `make frontend-test` or `cd frontend && npm test`
-
-TypeScript/JavaScript tests use Jest and React Testing Library. Coverage is focused on utility functions and component rendering.
-
----
-
-## CI Pipeline
-
-The CI workflow (`ci.yml`) runs on every pull request and push to `main`:
-
-```
-Lint (ruff + black)
-    ↓
-pytest (offline suite)
-    ↓
-Ingest smoke tests
-    ↓ (only on push to main)
-dbt docs build → GitHub Pages deploy
-```
-
-If any step fails, the workflow stops and the PR is blocked from merging.
-
-### Ingest smoke tests
-
-```bash
 make test-ingest
+.venv/bin/python -m pytest tests/ingest/test_noaa_daily.py -q
+make lint
 ```
 
-These tests verify that each ingestor CLI parses arguments correctly and handles edge cases (empty inputs, missing fields, out-of-range coordinates) without making real network calls.
+`pyproject.toml` selects `tests/`. Current areas include ingestion contracts/manifests and NOAA behavior, SQL guardrails and route/weather regression tests, LLM handling, dbt artifact parsing, export/refresh logic, a package smoke test, and documentation exporter success/failure checks. Read the actual test files before claiming coverage of an entire subsystem.
 
----
+Artifact tests parse the current dbt project into temporary output using explicit dummy project/dataset settings and a small catalog fixture. They do not query BigQuery or depend on the checked-in manifest. `make test` is simply `pytest`; it no longer runs `dbt-artifacts`. Credentials are unnecessary for this suite.
 
-## Pre-commit Hooks
+`bq_load.py` creates cloud clients in `main()`. Importing it does not itself authenticate clients, but importing configuration loads `.env` and may materialize inline credentials. Prefer reading source for configuration audits.
 
-`make install` installs pre-commit hooks that run automatically on `git commit`:
+## Coverage gaps and frontend checks
 
-```
-ruff check --fix   (linting + auto-fix)
-black --check      (formatting check)
-```
+There is no `api/tests/` or `tests/api/` suite in this checkout. `make api-test` currently points at the absent former directory. Do not describe it as a passing API test suite.
 
-To run all hooks manually:
+The frontend declares Playwright and maps `npm test` / `make frontend-test` to it, but no specs or Playwright configuration are checked in. Jest/React Testing Library are not configured. Available frontend checks include:
 
 ```bash
-pre-commit run --all-files
+make frontend-build
+cd frontend
+npm run lint
 ```
 
----
+A build type-checks and compiles; it does not prove the full browser workflow. For manual verification, exercise generation/prebuilt SQL, editing/validation, engine switching, results, map rendering, and both export controls. Use a local DuckDB warehouse and stub LLM to avoid cloud query/provider charges when appropriate.
 
-## Writing New Tests
+## BigQuery data quality checks
 
-### For a new ingestor
+These commands access BigQuery and may incur charges:
 
-1. Add a test file in `tests/ingest/test_<module_name>.py`
-2. Use the pattern from existing ingestor tests: create sample raw data, call `normalize_records()` directly, assert on the output DataFrame
-3. Do not make real network calls — use `monkeypatch` or `unittest.mock` to intercept HTTP requests
-
-### For a new API endpoint
-
-1. Add tests in `tests/api/`
-2. Use `from fastapi.testclient import TestClient` with the app from `api.main`
-3. Mock engine calls if needed — the test client runs in-process
-
-### For a new dbt model
-
-Add tests to the appropriate schema.yml file:
-
-```yaml
-models:
-  - name: mart_new_metric
-    columns:
-      - name: stop_id
-        tests:
-          - not_null
-          - relationships:
-              to: ref('mart_gtfs_stops')
-              field: stop_id
-      - name: score
-        tests:
-          - not_null
-          - dbt_utils.accepted_range:
-              min_value: 0
-              max_value: 100
+```bash
+make dbt-test-staging
+make dbt-test-marts
+make dbt-source-freshness
 ```
+
+Model tests live in schema YAML and `dbt/tests/`; inspect the selected models and compiled tests. Do not assume a source-freshness command establishes freshness for every source if no applicable freshness thresholds are declared.
+
+The nightly BigQuery recipe runs transformations, then mart tests, then exports. A failed test prevents that recipe from reaching export. It does not automatically cancel independently scheduled DuckDB or realtime jobs.
+
+## CI and hooks
+
+`.github/workflows/ci.yml` runs on pull requests and pushes to `main`: install, Ruff/Black lint, `make test`, then `make test-ingest`. On successful pushes to `main`, subsequent jobs generate dbt docs using cloud credentials and deploy GitHub Pages. The build/test job is offline; the entire workflow is not.
+
+Passing CI does not prove branch protection is configured or prevent merges by itself. Confirm repository settings separately if that guarantee is needed.
+
+`.pre-commit-config.yaml` runs Ruff, Ruff formatting, and Black, with an explicit exclusion for `src/whyline/ingest/io.py`. `make lint` has its own scope and does not inherit that hook exclusion.
+
+## Add meaningful tests
+
+Mock HTTP/GCS/cloud clients for offline tests. For a data bug, include source missingness and the actual SQL selection/aggregation behavior, not just string comparisons that reproduce the implementation. Test incremental and full-refresh behavior when selection windows change. Test artifact fixtures in a clean environment rather than relying on a developer's `.env`.
+
+For operational changes, verify configuration, completed executions, data content, exports, and served results separately using [QA validation](../QA_Validation_Guide.md). Record exactly which checks ran and which required production access.

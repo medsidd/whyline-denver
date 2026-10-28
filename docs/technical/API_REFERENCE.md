@@ -1,299 +1,86 @@
-# API Reference
+# API reference
 
-The WhyLine Denver API is a FastAPI service running on port 8080 (Cloud Run) or 8000 (local dev). All endpoints are prefixed with `/api`.
+FastAPI registers five routers under `/api` in `api/main.py`. `api/models.py` is the request/response source of truth; `frontend/src/types/api.ts` mirrors it. Use the running backend's `/docs` or `/openapi.json` for machine-readable contracts. Examples below use a local backend; public dashboard requests are proxied through Next.js.
 
-**Base URL (local)**: `http://localhost:8000`
-**Base URL (production)**: Cloud Run service URL (set as `API_BASE_URL` in Vercel)
+## Endpoint inventory
 
----
+| Method and path | Behavior |
+|---|---|
+| `GET /api/health` | Returns `status` and `engine_default`; no warehouse/model-count check |
+| `GET /api/freshness` | Returns `bigquery_freshness` and `duckdb_freshness` strings from sync state/fallback artifacts |
+| `GET /api/filters/{engine_name}` | Route IDs, weather bins, available minimum/maximum service dates |
+| `GET /api/filters/{engine_name}/stops` | Stop lookup list (`stop_id`, `stop_name`, `lat`, `lon`) |
+| `GET /api/models` | Allowed model names, qualified names, descriptions, and column metadata from dbt artifacts |
+| `POST /api/sql/generate` | Generate SQL using the selected provider and apply filters/guardrails/dialect adaptation |
+| `POST /api/sql/validate` | Validate/adapt SQL; optionally return a BigQuery dry-run estimate |
+| `POST /api/sql/prebuilt/{index}` | Return raw prebuilt SQL; no engine argument/adaptation/validation |
+| `POST /api/sql/prebuilt/{index}/for/{engine_name}` | Validate and adapt prebuilt SQL for DuckDB or BigQuery |
+| `POST /api/query/run` | Revalidate/adapt/execute SQL and enrich displayed results |
+| `POST /api/downloads/mart` | CSV export of one of seven explicitly listed analytic marts |
+| `GET /api/downloads/warehouse` | Binary download of the configured DuckDB file, or 404 |
 
-## Health
+`engine` is `duckdb` or `bigquery`. Generation defaults to DuckDB; validation, execution, and mart-download requests require an engine. Health's default comes from configuration and is independent of request defaults.
 
-### GET /api/health
-
-Returns service status and the default query engine.
-
-**Response**
-
-```json
-{
-  "status": "ok",
-  "engine_default": "duckdb"
-}
-```
-
-`engine_default` reflects the `ENGINE` environment variable.
-
----
-
-### GET /api/freshness
-
-Returns human-readable timestamps for when each engine's data was last updated.
-
-**Response**
+## Generate SQL
 
 ```json
 {
-  "bigquery_freshness": "2025-03-01 09:05 UTC",
-  "duckdb_freshness": "2025-03-01 09:32 UTC"
-}
-```
-
-Sources: `dbt/target/run_results.json` → `sync_state.json` → latest `run_date` in mart tables. Returns `"Unavailable"` if none of those are readable.
-
----
-
-## Filters
-
-### GET /api/filters/{engine_name}
-
-Returns the available filter options for the sidebar. Use this to populate the routes dropdown and date range controls.
-
-**Path parameters**
-
-| Parameter | Values | Required |
-|-----------|--------|----------|
-| `engine_name` | `"duckdb"` or `"bigquery"` | Yes |
-
-**Response**
-
-```json
-{
-  "routes": ["1", "15L", "16", "40", "83"],
-  "weather_bins": ["heavy", "light", "mod", "none"],
-  "date_min": "2024-10-01",
-  "date_max": "2025-03-01",
-  "error": null
-}
-```
-
-Source: distinct values from `mart_reliability_by_route_day`. `error` is a string if the routes query failed (e.g., DuckDB file not found), `null` otherwise.
-
----
-
-### GET /api/filters/{engine_name}/stops
-
-Returns all transit stops with coordinates. Intended for stop-level filtering.
-
-**Path parameters**: same as above
-
-**Response**
-
-```json
-[
-  {
-    "stop_id": "1234",
-    "stop_name": "Colfax & Broadway",
-    "stop_lat": 39.7392,
-    "stop_lon": -104.9880
-  }
-]
-```
-
-Returns an empty list for DuckDB (stop geometry is fetched from BigQuery staging only). For BigQuery, queries `stg_gtfs_stops`.
-
----
-
-### GET /api/models
-
-Returns all dbt models available for querying, with column descriptions.
-
-**Response**
-
-```json
-{
-  "models": [
-    {
-      "name": "mart_reliability_by_route_day",
-      "fq_name": "`whyline-denver.mart_denver.mart_reliability_by_route_day`",
-      "description": "Daily on-time performance by route and weather condition.",
-      "columns": {
-        "route_id": {
-          "name": "route_id",
-          "type": "STRING",
-          "description": "Transit route identifier"
-        },
-        "pct_on_time": {
-          "name": "pct_on_time",
-          "type": "FLOAT64",
-          "description": "Fraction of stop events within 300 seconds of schedule"
-        }
-      }
-    }
-  ]
-}
-```
-
-Only models with `meta.allow_in_app: true` in their dbt schema.yml are included. Loaded from `dbt/target/manifest.json` once at process startup.
-
----
-
-## SQL Generation and Validation
-
-### POST /api/sql/generate
-
-Converts a natural language question into SQL using the LLM.
-
-**Request body**
-
-```json
-{
-  "question": "Which routes have the worst on-time performance in snow?",
+  "question": "Which routes have the lowest on-time share?",
   "engine": "duckdb",
   "filters": {
-    "start_date": "2025-01-01",
-    "end_date": "2025-03-01",
-    "routes": ["1", "15L"],
+    "start_date": "2026-10-14",
+    "end_date": "2026-10-25",
+    "routes": [],
     "stop_id": "",
-    "weather": ["snow", "heavy"]
+    "weather": []
   }
 }
 ```
 
-All `filters` fields are optional. `start_date` and `end_date` are ISO 8601 date strings.
+`question` is required. `filters` is optional and defaults to empty/null fields. Its shape is `FilterState`: nullable `start_date`/`end_date` strings, route/weather string lists, and a stop string. The implementation injects supported conditions when relevant column names appear in generated SQL; filters are not a universal relational query builder and do not automatically rewrite arbitrary edited SQL or raw prebuilt queries. Review the actual SQL.
 
-**Response**
+Response: `sql`, `explanation`, `cache_hit`, `error`. Provider/guardrail failures can return HTTP 200 with a non-null `error`. Prompt cache keys include provider, engine, question, and filters; default TTL is 900 seconds per process. Gemini sends the question, filters, and schema brief to the provider. Stub avoids provider calls; other named providers are unimplemented.
 
-```json
-{
-  "sql": "SELECT route_id, AVG(pct_on_time) AS avg_on_time\nFROM mart_reliability_by_route_day\nWHERE precip_bin IN ('snow', 'heavy')\n  AND service_date_mst BETWEEN '2025-01-01' AND '2025-03-01'\nGROUP BY route_id\nORDER BY avg_on_time ASC\nLIMIT 10",
-  "explanation": "This query ranks routes by average on-time performance during snow conditions between January and March 2025. Lower values indicate worse service, helping planners identify which routes degrade most in winter weather.",
-  "cache_hit": false,
-  "error": null
-}
-```
+## Validate SQL
 
-`cache_hit: true` if the exact same (provider, engine, question, filters) was already answered this session — no LLM call was made.
-
-**Generation flow**:
-1. Check prompt cache
-2. Build schema brief + prompt
-3. Call LLM (`GEMINI_API_KEY` required; falls back to stub if `LLM_PROVIDER=stub`)
-4. Inject filter clauses into SQL
-5. Sanitize (guardrails) + adapt dialect
-6. Cache and return
-
----
-
-### POST /api/sql/validate
-
-Validates and sanitizes a SQL string. Use this to check user-edited SQL before running.
-
-**Request body**
+Request to `/api/sql/validate`:
 
 ```json
-{
-  "sql": "SELECT route_id, COUNT(*) FROM mart_reliability_by_route_day GROUP BY route_id",
-  "engine": "duckdb"
-}
+{"sql":"SELECT stop_id, stop_name FROM mart_gtfs_stops LIMIT 10","engine":"duckdb"}
 ```
 
-**Response**
+Response fields: `valid`, nullable `sanitized_sql`, nullable `bq_est_bytes`, nullable `error`. BigQuery estimation errors are nonfatal, so `valid: true` with no estimate does not prove the query will execute.
 
-```json
-{
-  "valid": true,
-  "sanitized_sql": "SELECT route_id, COUNT(*) FROM mart_reliability_by_route_day GROUP BY route_id LIMIT 5000",
-  "bq_est_bytes": null,
-  "error": null
-}
+Guardrails accept one SELECT/WITH statement, reject denylisted write keywords, and check referenced table/project/dataset allowlists. They add `LIMIT 5000` only when a numeric limit is absent; existing limits are not reduced. BigQuery's partition-filter suggestion checks for a configured date column without a WHERE clause; it does not guarantee effective partition pruning. These are regex checks and must be backed by least-privilege database credentials.
+
+## Prebuilt SQL
+
+Indices 0–3 correspond to worst routes, crash exposure, a weather comparison, and equity gaps. Prefer the engine-specific endpoint used by the frontend. The weather card's label mentions snow, but its SQL filters moderate/heavy precipitation (`mod`, `heavy`), not `snow_day`; it must not be interpreted as a snow-only comparison.
+
+## Execute
+
+```bash
+curl -sS http://localhost:8000/api/query/run   -H 'Content-Type: application/json'   -d '{"engine":"duckdb","sql":"SELECT stop_id, stop_name FROM mart_gtfs_stops LIMIT 5"}'
 ```
 
-For `engine: "bigquery"`, `bq_est_bytes` contains the estimated bytes the query would scan (from a BigQuery dry-run). For DuckDB, it is `null`.
+`question` is optional and is used in logging. Response fields are:
 
-**Guardrail rules applied** (returns `valid: false` with `error` message if any fail):
-- Must be a single SELECT statement
-- No INSERT, UPDATE, DELETE, CREATE, DROP, ALTER, MERGE, TRUNCATE, GRANT, REVOKE
-- All table/CTE references must be in the dbt allowlist
-- BigQuery only: project and dataset must match configured values
-- Appends `LIMIT 5000` if no LIMIT clause is present
+| Field | Meaning |
+|---|---|
+| `rows` | Number of displayed records |
+| `columns` | Displayed column names after enrichment |
+| `data` | List of row objects |
+| `total_rows` | Result size before the display truncation, not a count of all source-table rows |
+| `stats` | Engine execution metadata; shape varies by engine |
+| `error` | Nullable execution/validation error |
 
----
+Execution always re-sanitizes server-side. Results display at most 10,000 records; SQL/engine limits still determine work performed before display. Stop IDs can add missing stop names/coordinates and route IDs can add missing route names via cached lookup tables. Lookup availability is separate from query success.
 
-### POST /api/sql/prebuilt/{index}
-
-Returns one of four pre-written analytical queries.
-
-**Path parameters**
-
-| Index | Question |
-|-------|---------|
-| 0 | Worst 10 routes by average on-time performance (last 30 days) |
-| 1 | Stops with highest crash exposure |
-| 2 | Where snow hurts reliability most |
-| 3 | Equity gaps — high vulnerability stops with low reliability |
-
-**Response**: same shape as `/api/sql/generate`.
-
----
-
-### POST /api/sql/prebuilt/{index}/for/{engine_name}
-
-Same as above but explicitly adapts the SQL for the given engine.
-
----
-
-## Query Execution
-
-### POST /api/query/run
-
-Executes a SQL query and returns results.
-
-**Request body**
-
-```json
-{
-  "sql": "SELECT route_id, AVG(pct_on_time) FROM mart_reliability_by_route_day GROUP BY route_id ORDER BY 2 ASC LIMIT 10",
-  "engine": "duckdb",
-  "question": "Worst-performing routes"
-}
-```
-
-`question` is optional — used only for logging.
-
-**Response**
-
-```json
-{
-  "rows": 10,
-  "columns": ["route_id", "avg_pct_on_time", "stop_name", "lat", "lon"],
-  "data": [
-    {
-      "route_id": "83",
-      "avg_pct_on_time": 0.612,
-      "route_name": "83 Martin Luther King Jr",
-      "route_long_name": "Martin Luther King Junior Boulevard"
-    }
-  ],
-  "total_rows": 10,
-  "stats": {
-    "engine": "duckdb",
-    "rows": 10,
-    "latency_ms": 42
-  },
-  "error": null
-}
-```
-
-**Result enrichment**: Before returning:
-- If `stop_id` is in the columns, a left-join with `mart_gtfs_stops` adds `stop_name`, `lat`, `lon`
-- If `route_id` is in the columns, a left-join with `mart_gtfs_routes` adds `route_name`, `route_long_name`
-
-**Display limit**: Up to 10,000 rows are returned. `total_rows` reflects the actual result count before the limit.
-
-**Server-side re-sanitization**: The API always re-sanitizes and re-adapts the SQL from the client. The client's `sanitized_sql` is never trusted.
-
-**Caching**: Identical (engine, SQL) pairs return a cached result within the same process session.
-
----
+Identical engine/SQL results can be served from the process cache (180-second default TTL). This is not shared across instances and can briefly serve data from before a warehouse refresh.
 
 ## Downloads
 
-### POST /api/downloads/mart
-
-Streams a full mart table as a CSV file download.
-
-**Request body**
+Mart request:
 
 ```json
 {
@@ -301,78 +88,19 @@ Streams a full mart table as a CSV file download.
   "mart": "mart_reliability_by_route_day",
   "limit_rows": 200000,
   "date_column": "service_date_mst",
-  "date_start": "2025-01-01",
-  "date_end": "2025-03-01"
+  "date_start": "2026-10-14",
+  "date_end": "2026-10-25"
 }
 ```
 
-`date_column`, `date_start`, and `date_end` are optional. `limit_rows` must be between 1,000 and 2,000,000.
+`limit_rows` defaults to 200,000 and accepts 1,000–2,000,000. Date filtering is applied only when all three date fields are present. Reversed date ranges return 400. The query still goes through guardrails. The response is `text/csv` with a download filename; it is not a Parquet endpoint, and CSV content is built in memory before the streaming response.
 
-**Allowed `mart` values**:
-- `mart_reliability_by_route_day`
-- `mart_reliability_by_stop_hour`
-- `mart_crash_proximity_by_stop`
-- `mart_access_score_by_stop`
-- `mart_vulnerability_by_stop`
-- `mart_priority_hotspots`
-- `mart_weather_impacts`
+Allowed download marts: route-day reliability, stop-hour reliability, crash proximity, sidewalk access, vulnerability, priority hotspots, and weather impacts. The two GTFS reference marts are queryable/exported into DuckDB but absent from this CSV endpoint's separate allowlist.
 
-**Response**: Streaming CSV with `Content-Disposition: attachment` header.
+Warehouse download resolves `DUCKDB_PATH` at module load. Set an absolute path in environments where path resolution matters and verify the endpoint separately from query execution. The implementation reads the binary file into memory before returning it.
 
----
+## Errors and health interpretation
 
-### GET /api/downloads/warehouse
+Pydantic request validation returns 422. Explicit `HTTPException`s use FastAPI's `detail` field: 400 for invalid download arguments or engine-specific prebuilt engine, 404 for unknown prebuilt index or missing warehouse, and 500 for download execution failures. SQL generation/validation/query handlers also encode many failures in HTTP-200 response `error` fields. Clients must check both HTTP status and body.
 
-Downloads the local DuckDB warehouse binary file.
-
-**Response**: Streaming binary file (`warehouse.duckdb`). Returns 404 if `DUCKDB_PATH` does not exist.
-
-This allows stakeholders to download the entire warehouse for local analysis in any DuckDB client.
-
----
-
-## Error handling
-
-All error responses follow the same pattern:
-
-```json
-{
-  "error": "Human-readable error message",
-  ... other fields are null or empty ...
-}
-```
-
-HTTP status codes:
-- `200` — success (including partial failures described in `error` field)
-- `404` — resource not found (warehouse file, invalid mart name)
-- `422` — request validation error (FastAPI Pydantic model mismatch)
-- `500` — unexpected server error
-
----
-
-## Development
-
-Start the API locally:
-
-```bash
-make api-dev   # FastAPI with hot reload at http://localhost:8000
-```
-
-The interactive OpenAPI docs are available at `http://localhost:8000/docs`.
-
-Test the API:
-
-```bash
-make api-test  # pytest suite for api/ endpoints
-```
-
-```bash
-# Quick smoke test
-curl http://localhost:8000/api/health
-curl http://localhost:8000/api/freshness
-curl http://localhost:8000/api/filters/duckdb
-curl -X POST http://localhost:8000/api/sql/prebuilt/0
-curl -X POST http://localhost:8000/api/query/run \
-  -H "Content-Type: application/json" \
-  -d '{"sql":"SELECT route_id, AVG(pct_on_time) avg FROM mart_reliability_by_route_day GROUP BY 1 ORDER BY 2 LIMIT 5","engine":"duckdb"}'
-```
+`/api/health` does not load artifacts or execute SQL. `/api/freshness` reports synchronization metadata, not per-source coverage; timezone formatting differs between deployments and should be read with the returned zone label. Validate actual data using [QA checks](../QA_Validation_Guide.md).

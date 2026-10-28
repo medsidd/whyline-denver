@@ -2,7 +2,7 @@ version: 2
 
 models:
   - name: mart_reliability_by_route_day
-    description: "Daily reliability metrics per GTFS route with precipitation context; one row per (route_id, service date, precip_bin)."
+    description: "Daily sampled-event reliability per route, service date, precipitation bin, and nullable snow flag; excludes unassigned routes."
     columns:
       - name: route_id
         description: "GTFS route identifier; joins to mart_gtfs_routes.route_id."
@@ -16,11 +16,11 @@ models:
         data_tests:
           - not_null
       - name: precip_bin
-        description: "Precipitation bucket for the service day (e.g., none, rain, snow)."
+        description: "Daily precipitation intensity: none, light, mod, heavy, or unknown when unavailable; not a snow category."
         data_tests:
           - not_null
       - name: pct_on_time
-        description: "Share of realtime events for the route/day that are within the configured on-time threshold (0–1)."
+        description: "Share of sampled/resolved events within the absolute delay threshold (0–1); unresolved missing delays can default to zero."
         data_tests:
           - accepted_range:
               min_value: 0
@@ -48,7 +48,7 @@ models:
         data_tests:
           - not_null
       - name: pct_on_time
-        description: "Share of realtime events in the stop/hour that are on time (0–1)."
+        description: "Share of sampled/resolved stop-hour events within the absolute delay threshold (0–1); unresolved missing delays can default to zero."
         data_tests:
           - accepted_range:
               min_value: 0
@@ -73,12 +73,12 @@ models:
               to: ref('mart_gtfs_stops')
               field: stop_id
       - name: crash_100m_cnt
-        description: "Number of police-reported crashes within 100 meters of the stop during the snapshot window."
+        description: "Reported crashes within 100 m over the inclusive window ending at the latest staged crash date."
         data_tests:
           - accepted_range:
               min_value: 0
       - name: crash_250m_cnt
-        description: "Number of crashes within 250 meters of the stop during the snapshot window."
+        description: "Reported crashes within 250 m over the inclusive window ending at the latest staged crash date."
         data_tests:
           - accepted_range:
               min_value: 0
@@ -117,7 +117,7 @@ models:
       - name: lon
         description: "Stop longitude (WGS84) from the latest GTFS version of this stop."
   - name: mart_vulnerability_by_stop
-    description: "Population-weighted ACS vulnerability indicators near each stop using tracts within ~0.5 miles."
+    description: "ACS indicators from tracts within 804.672 m of each stop, weighted by each matching whole tract population."
     columns:
       - name: stop_id
         description: "GTFS stop identifier; joins to mart_gtfs_stops.stop_id."
@@ -149,7 +149,7 @@ models:
               max_value: 1
               severity: warn
       - name: vuln_score_0_100
-        description: "Composite vulnerability index (0–100) averaging the weighted indicators."
+        description: "Min-max normalized mean of the three weighted ACS shares (0–100); higher means more relative vulnerability."
         data_tests:
           - accepted_range:
               min_value: 0
@@ -172,7 +172,7 @@ models:
               to: ref('mart_gtfs_stops')
               field: stop_id
       - name: priority_score
-        description: "Weighted priority score (0+), computed as 0.5*vulnerability + 0.3*crash + 0.2*reliability."
+        description: "Priority = 0.5*vulnerability + 0.3*crash + 0.2*unreliability; missing component scores count as zero."
         data_tests:
           - accepted_range:
               min_value: 0
@@ -183,7 +183,7 @@ models:
       - name: lon
         description: "Stop longitude (WGS84) from the latest GTFS version of this stop."
   - name: mart_weather_impacts
-    description: "Average on-time performance by precipitation bin with deltas against dry days (one row per route/bin)."
+    description: "Equal-weight average route-day on-time shares by observed precipitation bin over the configured lookback; dry baseline and delta can be null."
     columns:
       - name: route_id
         description: "GTFS route identifier; joins to mart_gtfs_routes.route_id."
@@ -193,7 +193,7 @@ models:
               to: ref('mart_gtfs_routes')
               field: route_id
       - name: precip_bin
-        description: "Precipitation bucket (e.g., none, rain, snow)."
+        description: "Observed precipitation intensity: none, light, mod, or heavy; unknown days are excluded."
         data_tests:
           - not_null
       - name: pct_on_time_avg

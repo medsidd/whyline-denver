@@ -1,163 +1,43 @@
-# Frequently Asked Questions
+# Frequently asked questions
 
----
+## How current is the dashboard?
 
-## About the Data
+It depends on the engine and source. RTD capture/load was verified on a 15-minute cadence on October 26, 2026. BigQuery can reflect subsequent transformations sooner than the default DuckDB engine, whose warehouse is refreshed nightly. Weather may arrive late. ACS remains the configured 2023 five-year vintage even when re-extracted nightly. Freshness badges are processing timestamps, not guarantees that every source covers that date. See [operations](../technical/OPERATIONS.md) and [sources](DATA_SOURCES.md).
 
-### How current is the information?
+## Why does my route's on-time percentage differ from my experience?
 
-It depends on the data source:
+It uses sampled feed observations, not every scheduled arrival. Staging selects one row per trip/snapshot; route/time coverage varies. The default on-time rule is within five minutes early or late, and missing delays can be coalesced to zero. Compare event counts, reported-delay counts, dates, and SQL before interpreting a high rate as complete service performance. See [metrics](METRICS_GLOSSARY.md).
 
-| Data | How current | Why |
-|------|-------------|-----|
-| Bus and train reliability | 5–15 minutes behind real-time | RTD broadcasts positions every minute; WhyLine captures a snapshot every 5 minutes |
-| Traffic crashes | ~24–48 hours behind | Denver Police reports take time to process and appear in the open data portal |
-| Weather conditions | 3–7 days behind | NOAA finalizes daily weather records a few days after the fact for quality control |
-| Census demographics | Annual | The 2023 American Community Survey (published late 2024) is the most recent available |
-| Bus schedules | Updated when RTD publishes | Schedule changes happen quarterly or with major service adjustments |
+## Does it cover buses and rail?
 
-WhyLine Denver is designed for historical analysis and pattern-finding, not real-time trip planning. For live arrivals, use RTD's app or Google Maps.
+It ingests routes/stops present in RTD's published GTFS feeds, with variable realtime coverage. It does not maintain an authoritative current line list. Equity and city infrastructure data have narrower Denver geography, so regional stops may have incomplete contextual data.
 
----
+## Why is a value missing, zero, or a weather comparison empty?
 
-### Where does the data come from?
+Missingness can reflect source coverage, delayed publication, unmatched IDs, artifact/processing issues, or absent baseline observations. Missing weather stays unknown/null. An empty weather result can mean no overlap between observed weather and transit dates; a null delta can mean there were no dry baseline days. A zero access score can reflect incomplete sidewalk inventory. Investigate before replacing nulls or drawing a conclusion.
 
-All data comes from public sources — no scraping, no private agreements:
+## Do I need SQL?
 
-- **RTD** provides bus and train schedules (GTFS) and real-time vehicle positions (GTFS-RT), published under RTD's open data license
-- **Denver Open Data Portal** provides traffic crash records and sidewalk infrastructure data, compiled from city agencies
-- **NOAA** provides daily weather summaries from Denver International Airport's weather station
-- **U.S. Census Bureau** provides neighborhood demographic data from the American Community Survey and TIGER tract boundaries
+No. You can generate SQL from a plain-English question or load a ready-made question, then review and run it. You can edit SQL if comfortable. Filters do not automatically rewrite every edited/prebuilt query, so check the SQL contains the dates/routes you intended. The weather card currently mentions snow but filters moderate/heavy precipitation rather than snow specifically.
 
-None of these sources require a license fee or special access agreement for non-commercial use. See [Data Sources](DATA_SOURCES.md) for the full breakdown.
+## What is stored or sent when I use it?
 
----
+No account is required by the current app. Selected question, SQL, explanation, engine, and filters persist in browser localStorage and survive closing the tab; results are not persisted by that store. Clearing site data removes that local state.
 
-### Why does the dashboard say on-time performance is X% when I know my bus is always late?
+With Gemini selected, the question, filters, and schema brief are sent to the provider. Backend caches retain prompts/results temporarily in process memory. Application query logs contain hashes and execution metadata; engine logs may include SQL snippets and operational logs can capture errors. The frontend includes Vercel Analytics and Speed Insights. Retention and provider/hosting settings are not fully specified by this repository; do not treat the app as a place to enter sensitive personal data or assume all state disappears on tab close.
 
-A few reasons this can happen:
+## What can I download?
 
-**Coverage gaps in the realtime feed**: RTD's GTFS-RT feed doesn't always report every stop on every trip. If your stop or route has sparse coverage, the on-time calculation is based on fewer observations, which can make it look better or worse than reality.
+Displayed query results as CSV, seven analytic mart tables as CSV, and the DuckDB warehouse binary. Parquet is used internally for synchronization and is not a dashboard/API export option. Limits and date-filter behavior are in [API reference](../technical/API_REFERENCE.md).
 
-**5-minute capture window**: WhyLine captures a snapshot every 5 minutes. If a bus arrives and departs between snapshots, that event isn't recorded.
+## Is this an official RTD or City tool?
 
-**The "on-time" definition**: A vehicle is counted on-time if it arrives within 5 minutes of its scheduled time. A bus that's consistently 4 minutes late — frustrating for riders — still counts as on-time under this standard.
+No. It is an independent project combining public sources. Public availability does not imply a blanket reuse license; consult each source's terms. The app does not provide trip planning, live arrival predictions, passenger counts, fares, service alerts, or verified accessible walking routes.
 
-**Route direction and time of day**: Overall route numbers average all directions, all times of day, and all stops. Your specific stop in the specific direction you ride may perform differently. Try asking the dashboard for a specific time window or direction.
+## What does it cost to run?
 
----
+Google Cloud charges depend on jobs, query scans, storage, traffic, and credits. The October 26 snapshot recorded $7.01 month-to-date after credits and a recent roughly $1.07/day rate; those are dated observations, not a permanent price. BigQuery was the largest component. See [operations](../technical/OPERATIONS.md) for scope, timestamp, exclusions, and a refresh query.
 
-### Does the data include light rail and commuter rail?
+## Can another city use this?
 
-Yes. The data pipeline ingests all RTD routes — bus, light rail (the "W," "E," "R," "C," "D," "H," "L" lines), and commuter rail (the "A" and "B" lines). However:
-
-- GTFS-RT coverage varies by mode. Light rail and commuter rail vehicles may be reported with different frequency than buses.
-- Spatial metrics like crash proximity and sidewalk access are calculated for all stops, but the interpretation differs for light rail stations (which have dedicated pedestrian infrastructure) versus bus stops.
-
----
-
-### Why are some stops missing vulnerability or access data?
-
-**Vulnerability data** (poverty, car ownership, transit commuting) comes from Census tract boundaries for Denver County (FIPS: 08031). Stops in adjacent counties — Jefferson, Adams, Arapahoe — fall outside Denver County and won't have Census data attached.
-
-**Access scores** (sidewalk density) depend on Denver's sidewalk inventory. Some areas, particularly newer developments and unincorporated zones, have incomplete sidewalk records.
-
-If a stop shows null values for these metrics, it's outside the data coverage area, not a data error.
-
----
-
-### How are crash records matched to transit stops?
-
-Crashes are matched spatially: any crash with a recorded location within 100 meters or 250 meters of a stop is counted for that stop. The matching uses geographic coordinates from both datasets.
-
-Crashes without precise coordinates (only a street address, no lat/lon) are excluded from proximity calculations. This affects a small percentage of records — primarily older crash reports.
-
----
-
-## About the Dashboard
-
-### Do I need to know SQL to use this?
-
-No. You can ask questions in plain English and the dashboard converts them to SQL automatically. The SQL is shown to you before the query runs, so you can see exactly what's being asked of the data — but you don't need to read or modify it.
-
-If you're comfortable with SQL and want to write your own queries, you can edit the SQL directly in the SQL editor step.
-
----
-
-### Is my data collected when I use the dashboard?
-
-No personal data is collected. The dashboard doesn't require an account, doesn't track who you are, and doesn't store your queries beyond your current browser session. If you close the browser tab, your session resets.
-
-The only data flowing through the system is the SQL queries you submit (converted from your questions) and the results returned. These are not logged or stored beyond the current session.
-
----
-
-### Why does the dashboard sometimes say it can't answer a question?
-
-A few possible reasons:
-
-**The question is outside the data**: WhyLine Denver covers transit reliability, weather impacts, crash proximity, sidewalk access, and neighborhood demographics. Questions about fares, ridership counts, crowding, or individual trip planning fall outside what the data includes.
-
-**The question requires data that isn't available**: If you ask about specific dates with no data (too far in the past, or the most recent few days when NOAA data is still finalizing), the query may return no results.
-
-**The generated SQL needs refinement**: Natural language is ambiguous. If the first answer isn't what you expected, try rephrasing with more specific terms — route numbers, date ranges, or specific metric names from the [Metrics Glossary](METRICS_GLOSSARY.md).
-
----
-
-### Can I download the data?
-
-Yes. Any query result can be downloaded as a CSV file using the download button in the results step. You can also use the dashboard's export feature to download full mart tables as CSVs or Parquet files.
-
----
-
-## About the Project
-
-### Who built this and why?
-
-WhyLine Denver is an open-source project built to make Denver's transit data more accessible. All the data it uses is public, but GTFS feeds are technical, real-time updates disappear unless archived, and crash/demographic/weather data sits in separate places with incompatible formats.
-
-The project combines these sources into a single, queryable interface — with a focus on equity: making visible where unreliable service overlaps with high transit dependence.
-
-It's not affiliated with RTD or the City of Denver. It's independently built and maintained. The code is on GitHub at [github.com/medsidd/whyline-denver](https://github.com/medsidd/whyline-denver).
-
----
-
-### Is this project affiliated with RTD or the City of Denver?
-
-No. WhyLine Denver uses publicly available data from RTD and the City of Denver, but it is not an official RTD or City product. It has no relationship with either organization.
-
----
-
-### Can this be adapted for another city?
-
-Yes. If your transit agency publishes GTFS feeds (most U.S. agencies do), the data pipeline can be adapted. You'd need to:
-
-1. Replace RTD's GTFS feed URL with your agency's URL
-2. Point crash and sidewalk ingestors to your city's open data portal
-3. Change the NOAA station ID to your local weather station
-4. Update Census geography filters to your county
-
-Most of the transformation logic works as-is for standard GTFS data. See [docs/technical/guides/ADAPTING_TO_OTHER_CITIES.md](../technical/guides/ADAPTING_TO_OTHER_CITIES.md) if you want to do this yourself.
-
----
-
-### What does it cost to run?
-
-Running costs are dominated by Google Cloud (Cloud Run jobs for data capture, Cloud Storage for raw data and the data warehouse). BigQuery query costs are minimal because queries are constrained to pre-built summary tables.
-
-The project runs on the free tier or low-cost tiers of most services it uses. See [docs/COST_OPTIMIZATION_DEC_2025.md](../COST_OPTIMIZATION_DEC_2025.md) for the full cost breakdown and optimization history.
-
-Using the DuckDB engine (local queries without cloud access) has zero per-query cost.
-
----
-
-### The data shows something that seems wrong. Who do I contact?
-
-Open an issue on GitHub: [github.com/medsidd/whyline-denver/issues](https://github.com/medsidd/whyline-denver/issues)
-
-Include:
-- The question you asked (or the SQL query, if shown)
-- What result you got
-- What you expected to see or what seems wrong
-
-Data quality issues upstream (in RTD's feeds, Denver's crash data, or NOAA records) can't be fixed in WhyLine Denver, but they can be flagged so others know about them.
+The general architecture can be reused, but it is not a configuration-only multi-city platform. Sources, schemas, geography, time handling, metrics, infrastructure, and UI all need review. See [adaptation guide](../technical/guides/ADAPTING_TO_OTHER_CITIES.md).

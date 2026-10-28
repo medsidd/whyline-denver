@@ -1,79 +1,49 @@
-# WhyLine Denver — Documentation
+# Documentation
 
-This directory contains all documentation for the WhyLine Denver project. Documents are organized into two audiences: technical (developers and contributors) and public (transit planners, riders, and the general public).
+Start with the [project README](../README.md). Current implementation guides live under `technical/`; public explanations live under `public/`. Dated observations are explicitly separated from configuration and historical engineering lessons.
 
----
+## Public explanations
 
-## For Transit Planners, Riders, and the Public
+| Document | Purpose |
+|---|---|
+| [Overview](public/OVERVIEW.md) | Product purpose, audience, and limits |
+| [How it works](public/HOW_IT_WORKS.md) | Question-to-answer workflow and data processing |
+| [Data sources](public/DATA_SOURCES.md) | Seven ingestors, geography, vintages, and coverage gaps |
+| [Metrics glossary](public/METRICS_GLOSSARY.md) | Actual metric definitions and interpretation caveats |
+| [Use cases](public/USE_CASES.md) | Questions the available data can help investigate |
+| [FAQ](public/FAQ.md) | Freshness, privacy behavior, exports, and common limitations |
 
-Start here if you want to understand what WhyLine Denver is, what data it uses, and how to get answers from it.
+## Build and operate
 
-| Document | Description |
-|----------|-------------|
-| [OVERVIEW.md](public/OVERVIEW.md) | What WhyLine Denver is and who it's for, in plain English |
-| [HOW_IT_WORKS.md](public/HOW_IT_WORKS.md) | How data flows from a bus stop to a dashboard answer, step by step |
-| [DATA_SOURCES.md](public/DATA_SOURCES.md) | Where each data source comes from, how often it updates, and what it doesn't cover |
-| [METRICS_GLOSSARY.md](public/METRICS_GLOSSARY.md) | Plain-English definitions of every metric used in the dashboard |
-| [USE_CASES.md](public/USE_CASES.md) | Concrete examples: how transit planners, council members, journalists, and riders use the dashboard |
-| [FAQ.md](public/FAQ.md) | Common questions answered without technical jargon |
+| Document | Purpose |
+|---|---|
+| [Architecture](technical/ARCHITECTURE.md) | Canonical system design and design rationale |
+| [Development](technical/DEVELOPMENT.md) | Local setup, settings, artifacts, and command side effects |
+| [Data pipeline](technical/DATA_PIPELINE.md) | Ingestion, loading, dbt, exports, and DuckDB refresh |
+| [API reference](technical/API_REFERENCE.md) | Endpoint inventory, models, limits, and errors |
+| [Frontend](technical/FRONTEND.md) | Component map, persistence, API proxy, and visualization behavior |
+| [Testing](technical/TESTING.md) | Existing offline tests, cloud checks, CI, and coverage gaps |
+| [GitHub workflows](../.github/workflows/README.md) | Actual triggers, recipe selections, secrets, artifacts, and sequencing |
+| [Deployment](technical/DEPLOYMENT.md) | API, realtime image, frontend, and workflow deployment |
+| [Operations and costs](technical/OPERATIONS.md) | Dated live status, billing snapshot, and refresh procedures |
+| [QA validation](QA_Validation_Guide.md) | Check each processing and serving layer without treating one green signal as complete health |
+| [Current diagrams](diagrams/README.md) | Pipeline, query flow, and complete SQL lineage in Mermaid |
+| [Model reference](../dbt/models/README.md) | Complete SQL-model inventory and links to definitions |
+| [Data contracts](contracts/CONTRACTS.md) | Raw output schema sources, loader registration, and versioning |
+| [Naming and time](guides/BQ_Naming_and_Time.md) | Actual dataset names, raw metadata, and Denver time handling |
+| [Realtime strategy](guides/GTFS_RT_Strategy.md) | Sampling, execution, and measurement limitations |
+| [Weather strategy](guides/NOAA_Data_Collection_Strategy.md) | Rolling collection, unknown weather, and late corrections |
 
----
+## Extension guides
 
-## For Developers and Contributors
+- [Add a source](technical/guides/ADDING_A_DATA_SOURCE.md).
+- [Add a mart](technical/guides/ADDING_A_MART.md).
+- [Adapt another city](technical/guides/ADAPTING_TO_OTHER_CITIES.md).
+- [Realtime container reference](../infra/cloud-run/README.md).
 
-Start here if you're setting up the project, contributing code, or building on the data pipeline.
+## Engineering history worth retaining
 
-### Core Documentation
+- [BigQuery optimization](case-studies/bigquery-cost-optimization-2025.md): deduplication, partition pruning, materialization, and frequency tradeoffs. Historical projections are not today's bill.
+- [October 2026 recovery](case-studies/pipeline-recovery-2026.md): Census, route aggregation, weather semantics, exports, offline CI, and deployment lessons.
 
-| Document | Description |
-|----------|-------------|
-| [technical/ARCHITECTURE.md](technical/ARCHITECTURE.md) | System design: data flow, dual-engine pattern, infrastructure, cost model, and technology choices |
-| [technical/DATA_PIPELINE.md](technical/DATA_PIPELINE.md) | Complete pipeline walkthrough: all 7 ingestors, BigQuery loading, dbt models, and DuckDB sync |
-| [technical/API_REFERENCE.md](technical/API_REFERENCE.md) | Every FastAPI endpoint with request/response examples, SQL generation flow, and guardrail rules |
-| [technical/FRONTEND.md](technical/FRONTEND.md) | Next.js component tree, Zustand state shape, chart auto-detection logic, and API integration |
-| [technical/DEVELOPMENT.md](technical/DEVELOPMENT.md) | Local setup, all environment variables, make targets, pre-commit hooks, and common errors |
-| [technical/DEPLOYMENT.md](technical/DEPLOYMENT.md) | Cloud Run jobs and services, Vercel, GitHub Actions secrets, and Cloud Scheduler setup |
-| [technical/TESTING.md](technical/TESTING.md) | pytest suite, dbt data quality tests, CI pipeline, and how to add new tests |
-
-### How-To Guides
-
-| Document | Description |
-|----------|-------------|
-| [technical/guides/ADDING_A_DATA_SOURCE.md](technical/guides/ADDING_A_DATA_SOURCE.md) | Step-by-step guide to adding an 8th ingestor |
-| [technical/guides/ADDING_A_MART.md](technical/guides/ADDING_A_MART.md) | How to add a new dbt mart table, including materialization choice and DuckDB registration |
-| [technical/guides/ADAPTING_TO_OTHER_CITIES.md](technical/guides/ADAPTING_TO_OTHER_CITIES.md) | How to adapt WhyLine Denver for a different city's transit system |
-
-### Model Reference
-
-| Document | Description |
-|----------|-------------|
-| [../dbt/models/README.md](../dbt/models/README.md) | All 25 dbt models documented: schema, materialization, tests, and incremental logic |
-| [Interactive dbt docs](https://medsidd.github.io/whyline-denver/) | Auto-generated model lineage, column docs, and data quality test results |
-
-### Additional References
-
-| Document | Description |
-|----------|-------------|
-| [QA_Validation_Guide.md](QA_Validation_Guide.md) | Pipeline health check procedures and how to diagnose data quality issues |
-| [contracts/CONTRACTS.md](contracts/CONTRACTS.md) | Data contracts: expected schemas for each raw ingestion output |
-| [COST_OPTIMIZATION_DEC_2025.md](COST_OPTIMIZATION_DEC_2025.md) | History of BigQuery cost optimization through three phases (Dec 2025) |
-
----
-
-## Finding the Right Document
-
-**"I want to run this locally"** → [DEVELOPMENT.md](technical/DEVELOPMENT.md)
-
-**"I want to understand what the mart tables contain"** → [DATA_PIPELINE.md](technical/DATA_PIPELINE.md) + [dbt/models/README.md](../dbt/models/README.md)
-
-**"I want to call the API directly"** → [API_REFERENCE.md](technical/API_REFERENCE.md)
-
-**"I want to add a new data source"** → [ADDING_A_DATA_SOURCE.md](technical/guides/ADDING_A_DATA_SOURCE.md)
-
-**"I want to adapt this for my city"** → [ADAPTING_TO_OTHER_CITIES.md](technical/guides/ADAPTING_TO_OTHER_CITIES.md)
-
-**"I want to understand what 'vulnerability score' means"** → [METRICS_GLOSSARY.md](public/METRICS_GLOSSARY.md)
-
-**"I want to show this to a city council member"** → [OVERVIEW.md](public/OVERVIEW.md) + [USE_CASES.md](public/USE_CASES.md)
-
-**"Something is broken"** → [QA_Validation_Guide.md](QA_Validation_Guide.md) + [TESTING.md](technical/TESTING.md)
+The duplicated architecture document, superseded pause handoff, redundant cost report, and session-by-session recovery reports were consolidated into these references. Git history retains tracked older versions. Agent sessions start with [AGENTS.md](../AGENTS.md); [Codex context](codex/README.md) links to the same shared authority.

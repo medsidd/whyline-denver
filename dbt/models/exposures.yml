@@ -4,12 +4,11 @@ exposures:
   - name: whyline_denver_app
     type: application
     maturity: low
-    url: https://whylinedenver.com
+    url: https://www.whylinedenver.com/app
     description: |
-      Streamlit application powering WhyLine Denver insights; depends on curated mart models.
+      Next.js dashboard backed by FastAPI, querying curated marts through DuckDB or BigQuery.
     owner:
       name: WhyLine Team
-      email: team@example.com
     depends_on:
       - ref('mart_reliability_by_route_day')
       - ref('mart_reliability_by_stop_hour')
@@ -18,3 +17,5 @@ exposures:
       - ref('mart_vulnerability_by_stop')
       - ref('mart_priority_hotspots')
       - ref('mart_weather_impacts')
+      - ref('mart_gtfs_stops')
+      - ref('mart_gtfs_routes')
