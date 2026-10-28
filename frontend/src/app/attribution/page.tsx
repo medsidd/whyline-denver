@@ -53,6 +53,9 @@ export default function AttributionPage() {
         Daily weather observations for Denver International Airport (station USW00003017) come from NOAA’s National Centers
         for Environmental Information through the{" "}
         <a href="https://www.ncei.noaa.gov/cdo-web/">Climate Data Online</a> service. NOAA does not endorse this site.
+        Days NOAA has not yet published are filled with modeled weather from{" "}
+        <a href="https://open-meteo.com/">Open-Meteo</a>, licensed under{" "}
+        <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>, until NOAA data arrives.
       </p>
 
       <h2>Software</h2>

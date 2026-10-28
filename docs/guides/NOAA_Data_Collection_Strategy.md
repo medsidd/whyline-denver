@@ -6,7 +6,9 @@
 
 The nightly Makefile target collects a rolling 30-day UTC interval through yesterday. NOAA observations may arrive late, vary by metric, or be absent for a station; no fixed completion delay or completeness percentage is guaranteed. Check actual station/date/metric coverage before changing a station or declaring a pipeline failure.
 
-An extract with all precipitation missing fails before writing the output/manifest. Partially missing windows are retained with nulls. New files use `raw/noaa_daily/extract_date=…/station=…/weather.csv.gz`; older files without the station directory remain supported by the loader. An existing same-extract-date/station output is skipped, so a same-day rerun is not automatically a fresh correction.
+CDO requests retry up to four times with a 60-second timeout. If CDO is still unreachable, or a day in the window has no NOAA precipitation, that day is filled from the [Open-Meteo](https://open-meteo.com/) daily API at the airport's coordinates (gridded model values, not station observations; snowfall converted from cm to mm). NOAA values always win, and filled rows keep station `USW00003017`. BigQuery has no source column, so the extract manifest's `source` (`noaa_cdo_api+open_meteo_fallback (N days)`) is the only record of a fill; the next run with NOAA data replaces filled days inside its 30-day window. Fallback only exists for stations listed in `STATION_COORDS`.
+
+An extract with all precipitation missing after the fallback fails before writing the output/manifest. Partially missing windows are retained with nulls. New files use `raw/noaa_daily/extract_date=…/station=…/weather.csv.gz`; older files without the station directory remain supported by the loader. An existing same-extract-date/station output is skipped, so a same-day rerun is not automatically a fresh correction.
 
 ## Versioning and staging
 
