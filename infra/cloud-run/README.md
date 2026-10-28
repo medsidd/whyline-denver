@@ -6,6 +6,7 @@ The shared [Dockerfile](Dockerfile) packages Python dependencies, application so
 |---|---|---|
 | `realtime-ingest` | `ingest` (default) | Fetch RTD Trip Updates and Vehicle Positions, serialize CSV/gzip, upload raw snapshot and manifest |
 | `realtime-load` | `load` | `make bq-load-realtime`, `make dbt-run-realtime`, then `make update-bq-timestamp` |
+| Stream poller VM (not a Run job) | `stream` | `whyline.ingest.gtfs_rt_stream`: polls both feeds every 15 s, uploads one batch per table and an archive tar every 15 minutes; needs `GCS_BUCKET` and `ARCHIVE_BUCKET`, state in `STATE_DIR` (`/state`). Installed by [`infra/stream-vm/cloud-init.yaml`](../stream-vm/cloud-init.yaml); see the [plan runbook](../../docs/technical/plans/realtime-stop-visits.md#7-runbook-owner-commands-in-order). |
 
 Ingest requires `GCS_BUCKET`; `GTFS_SNAPSHOTS` defaults to 1 and `GTFS_INTERVAL_SEC` to 120 (only separates snapshots when there is more than one). `GTFS_EXTRA_FLAGS` is split into additional CLI arguments. Do not put secrets in extra flags; the entrypoint uses shell tracing.
 
