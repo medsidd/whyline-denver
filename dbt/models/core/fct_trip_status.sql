@@ -2,9 +2,15 @@
 Grain: one trip instance (service date x trip_id) as the poller closed it: final trip
 relationship, outcome (completed, partial, vanished, canceled, no_static), first and last seen,
 and visit counts by method. Lets marts report cancellations and vanished trips instead of
-counting them as missing visits. Insert-only, like fct_stop_visit, and kept permanently.
+counting them as missing visits. Insert-only, like fct_stop_visit, and kept permanently; the
+backfill load uses the same stop_visit_backfill and stream_start_date vars.
 #}
-{% set service_bound = "service_date >= date_sub(current_date('America/Denver'), interval " ~ var('stop_visit_service_days', 1) ~ " day)" %}
+{% set backfill = var('stop_visit_backfill', false) %}
+{% if backfill %}
+    {% set service_bound = "service_date < date '" ~ var('stream_start_date', '2100-01-01') ~ "'" %}
+{% else %}
+    {% set service_bound = "service_date >= date_sub(current_date('America/Denver'), interval " ~ var('stop_visit_service_days', 1) ~ " day)" %}
+{% endif %}
 {{
     config(
         materialized='incremental',
@@ -22,8 +28,13 @@ with batch as (
     select *
     from {{ ref('stg_rt_trip_status') }}
     where {{ service_bound }}
-    {% if is_incremental() %}
+    {% if backfill %}
+      and data_version = 'backfill_v1'
+    {% else %}
+      and data_version != 'backfill_v1'
+      {% if is_incremental() %}
       and _ingested_at >= timestamp_sub(current_timestamp(), interval {{ var('stop_visit_lookback_hours', 6) }} hour)
+      {% endif %}
     {% endif %}
     qualify row_number() over (
         partition by service_date, trip_id order by closed_at desc, _ingested_at desc

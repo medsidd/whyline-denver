@@ -379,6 +379,25 @@ gcloud compute ssh rt-stream-poller --zone=us-central1-a --tunnel-through-iap --
 # IPv4 fallback (likely $0 under the 744-hour tier; rollback: delete-access-config)
 gcloud compute instances add-access-config rt-stream-poller --zone=us-central1-a --access-config-name=external-nat
 
+# Backfill, once the stream has a first full service day (START = that day). About 19 GiB of export
+# scans and 8.9 GiB for the load run, inside the free tier. Rollback: delete the backfill_v1 rows
+# (DELETE ... WHERE data_version = 'backfill_v1') from fct_stop_visit and fct_trip_status.
+export DBT_PROFILES_DIR=$PWD/dbt/profiles GCP_PROJECT_ID=whyline-denver BQ_DATASET_RAW=raw_denver \
+  BQ_DATASET_STG=stg_denver BQ_DATASET_CORE=core_denver BQ_DATASET_MART=mart_denver PYTHONPATH=$PWD/src
+python -m tools.dbt_with_env compile --project-dir dbt --target prod --select backfill_export \
+  --vars '{stream_start_date: "START", backfill_export_uri: "gs://whylinedenver-raw/backfill/export"}'
+bq query --use_legacy_sql=false < dbt/target/compiled/whyline_denver_dbt/analyses/backfill_export.sql
+python -m whyline.ingest.gtfs_rt_backfill --export gs://whylinedenver-raw/backfill/export \
+  --from 2025-10-23 --until <START - 1> --out data/backfill
+gcloud storage cp -r data/backfill/snapshot_at=* gs://whylinedenver-raw/raw/rtd_gtfsrt_backfill/
+python -m whyline.load.bq_load --src gcs --bucket whylinedenver-raw --from 2025-10-23 --until <START - 1>
+python -m tools.dbt_with_env run --project-dir dbt --target prod --select fct_stop_visit fct_trip_status \
+  --vars '{stop_visit_backfill: true, stream_start_date: "START"}'
+
+# Calibration after 2-4 weeks of stream data: steps in dbt/analyses/backfill_calibration.sql
+# (thinned replay -> rtd_gtfsrt_calibration/ -> loader -> compiled query). Publish backfilled
+# metrics only after recording its results in docs/public/METRICS_GLOSSARY.md.
+
 # Optional (decision 6): physical storage billing on raw_denver
 bq update --storage_billing_model=PHYSICAL whyline-denver:raw_denver
 ```

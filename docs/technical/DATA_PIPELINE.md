@@ -22,7 +22,7 @@ CLIs use `--local` or `--gcs --bucket …`. Most use extract-date output paths; 
 
 ## BigQuery loading
 
-`load/registry.py::JOBS` defines 18 raw tables using `JobSpec`, ordered `Column` definitions, path patterns, partitioning, and clustering. The loader does not infer arbitrary new CSV schemas. It adds `_ingested_at`, `_source_path`, `_extract_date`, and `_hash_md5` and tracks loads in `raw_denver.__ingestion_log`. MD5-based skipping prevents repeated identical file loads; it does not guarantee there are no logically duplicate source records across different extracts.
+`load/registry.py::JOBS` defines 19 raw tables using `JobSpec`, ordered `Column` definitions, path patterns, partitioning, and clustering. The loader does not infer arbitrary new CSV schemas. It adds `_ingested_at`, `_source_path`, `_extract_date`, and `_hash_md5` and tracks loads in `raw_denver.__ingestion_log`. MD5-based skipping prevents repeated identical file loads; it does not guarantee there are no logically duplicate source records across different extracts.
 
 Snapshot sources (GTFS static, sidewalks, tracts, ACS) partition by `_extract_date`, the two snapshot GTFS-RT tables by `feed_ts_utc`, crashes by `event_ts_utc`, and weather by `date`. The four continuous-stream tables expire partitions after 90 days: trip-update changes and vehicle reports partition by `feed_ts_utc` (day), stop visits and trip status by load hour (`_ingested_at`). When the newest stream batch in the load window was sealed more than 30 minutes earlier, the loader logs `STREAM_STALE` (or `STREAM_MISSING` once the stream has ever loaded), which the dead-poller alert matches.
 
