@@ -366,6 +366,38 @@ def test_repeated_and_stale_reports_are_not_timing_evidence():
     assert h.visits == []  # no valid pair brackets stop 3
 
 
+def test_bounding_box_covers_the_whole_network():
+    """Eldora (NB1) and north Longmont (327) are inside; a 0,0 fix and Grand Junction are not."""
+    h = Harness(straight_feed())
+    points = [
+        ((39.9377, -105.5841), True),
+        ((40.2067, -105.1), True),
+        ((0.0, 0.0), False),
+        ((39.0639, -108.5506), False),
+    ]
+    for i, ((lat, lon), inside) in enumerate(points):
+        r = Report(
+            T(15, 0, i),
+            "e1",
+            f"V{i}",
+            "",
+            "T1",
+            SD,
+            "15",
+            0,
+            None,
+            "S2",
+            None,
+            lat,
+            lon,
+            None,
+            None,
+            None,
+        )
+        h.engine.on_reports(T(15, 0, i), [r])
+        assert r.in_bbox is inside
+
+
 def test_engine_survives_a_checkpoint_round_trip():
     def run(split: bool) -> list[dict]:
         h = Harness(straight_feed())

@@ -21,7 +21,7 @@ Run from the repository root with `.venv` activated. `make install` installs roo
 
 | Command | Actual behavior |
 |---|---|
-| `make test` | Offline pytest suite under `tests/`; artifact tests parse dbt in a temporary directory with dummy settings |
+| `make test` | Offline pytest suite under `tests/`; a fixture refuses real Google Cloud clients; artifact tests parse dbt in a temporary directory with dummy settings |
 | `make lint` / `make format` | Ruff and Black check / mutate formatting |
 | `make api-dev` / `make frontend-dev` | Local API on 8000 / Next.js on 3000 |
 | `make frontend-build` | Compile and type-check frontend |

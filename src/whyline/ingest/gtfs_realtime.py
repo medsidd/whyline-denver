@@ -16,16 +16,12 @@ import requests
 from google.transit import gtfs_realtime_pb2
 
 from whyline.ingest import io
+from whyline.ingest.rt_engine import LAT_MAX, LAT_MIN, LON_MAX, LON_MIN
 
 DEFAULT_TRIP_UPDATES_URL = "https://open-data.rtd-denver.com/files/gtfs-rt/rtd/TripUpdate.pb"
 DEFAULT_VEHICLE_POSITIONS_URL = (
     "https://open-data.rtd-denver.com/files/gtfs-rt/rtd/VehiclePosition.pb"
 )
-
-DENVER_LON_MIN = -105.5
-DENVER_LON_MAX = -104.4
-DENVER_LAT_MIN = 39.4
-DENVER_LAT_MAX = 40.2
 
 TRIP_UPDATES_COLUMNS = [
     "feed_ts_utc",
@@ -338,7 +334,7 @@ def parse_vehicle_positions(
         lat = position.latitude if position and position.HasField("latitude") else None
 
         if lon is not None and lat is not None:
-            if DENVER_LON_MIN <= lon <= DENVER_LON_MAX and DENVER_LAT_MIN <= lat <= DENVER_LAT_MAX:
+            if LON_MIN <= lon <= LON_MAX and LAT_MIN <= lat <= LAT_MAX:
                 inside_bbox += 1
             else:
                 outside_bbox += 1

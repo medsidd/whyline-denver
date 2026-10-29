@@ -129,22 +129,74 @@ The 20:32 and 20:47 runs succeeded.
 
 **Nightly cost estimate.** About 5.6 GiB per night: the dimensions, a 3.9 GiB schedule refresh, and a 3.1 GiB crash fact. Before the cutover the nightly schedule rebuild alone was 9.7 GiB.
 
-**Pending cleanup (needs approval):**
-- the `*_v2` datasets;
-- the obsolete `stg_denver` objects (`int_*` tables and views);
-- the ten bronze `__unpartitioned_bak` tables. Until they are dropped they keep about 78 GB of duplicate storage.
+The cleanup this cutover left (the `*_v2` datasets, the ten bronze `__unpartitioned_bak` tables and the obsolete `stg_denver` objects) was done on October 29; see below.
 
 ### Realtime stop visits, October 28, 2026 (built, not deployed)
 
-The continuous GTFS-RT poller, its four raw tables, `fct_stop_visit`, `fct_trip_status` and the backfill are built on `feat/rt-stop-visits`; see the [plan](plans/realtime-stop-visits.md). No cloud resource, table, image, job or schedule was created or changed. The owner runbook (plan §7) lists every command with its rollback, and the dual-run checklist (plan §6) gates the mart cutover.
+The continuous GTFS-RT poller, its four raw tables, `fct_stop_visit`, `fct_trip_status` and the backfill are built; see the [plan](plans/realtime-stop-visits.md). The poller and stream loading ([#69](https://github.com/medsidd/whyline-denver/pull/69)) merged on October 29 at 06:23 UTC (`d68f349`). The dbt models ([#70](https://github.com/medsidd/whyline-denver/pull/70)) and the mart cutover ([#71](https://github.com/medsidd/whyline-denver/pull/71)) stay drafts until their gates (plan §7 step 9 and §6). No cloud resource, table, image, job or schedule for the stream was created or changed. The owner runbook (plan §7) lists every command with its rollback, and the dual-run checklist (plan §6) gates the mart cutover.
 
 Read-only findings that affect operations:
 - The Compute Engine API is disabled on the project. Enabling it creates an auto-mode `default` network, which cannot do IPv6, so the runbook creates a custom VPC.
 - `whylinedenver-raw` deletes every object after 180 days. GCS snapshots before about 2026-05-01 are gone; BigQuery raw is the only older copy, which is why the backfill reads it with `EXPORT DATA`.
 - `raw_gtfsrt_trip_updates` is 41.70 GiB logical but 1.14 GiB physical. Physical storage billing on `raw_denver` would cut that table's storage cost about 18× (37× fewer bytes at twice the per-GiB price; optional, with a 14-day cooldown between changes).
-- `raw_denver.__tmp_gtfsrt_trip_updates_20260410183403_174a2a29`, left by a failed April load, is a further cleanup candidate alongside the pending list above.
 
 Expected cost (plan §4): about $4 a month more at the 90-day raw cap in month 3 (logical billing), and realtime queries falling from about $2.4 to $0.45 a month after the cutover. The dual run adds roughly $2–2.5 over 10 days.
+
+### Cleanup, October 29, 2026 (UTC)
+
+With the owner's approval, ten orphaned objects were dropped at 06:31–06:32:
+- `stg_denver` tables `int_scheduled_arrivals` (18.7M rows, 1.09 GiB), `int_headway_adherence` (2.85M rows, 184 MiB) and `int_headway_adherence_backup_20251109` (empty);
+- `stg_denver` views `int_rt_daily_coverage`, `int_rt_events_resolved`, `int_stop_headways_observed`, `int_stop_headways_scheduled`, `int_weather_by_date` and `stg_rt_events_daily_stats`;
+- `raw_denver.__tmp_gtfsrt_trip_updates_20260410183403_174a2a29` (9,660 rows), left by a failed April load.
+
+Checks before the drop:
+- none had changed since 20:05 on October 27, before the #63 switch;
+- no current dbt model builds them, and no code references them;
+- in every dataset's `INFORMATION_SCHEMA.VIEWS`, only the dropped views referenced them.
+
+`stg_denver` now holds only the 12 current silver models. Their model SQL is in git history: `76d05be^` for `int_rt_daily_coverage` and `stg_rt_events_daily_stats`, `3c213cd^` for the rest. Time travel can restore the tables until November 5 at 06:31, for example `bq cp whyline-denver:stg_denver.int_scheduled_arrivals@1793255500000 whyline-denver:stg_denver.int_scheduled_arrivals`; views must be recreated from their SQL. The pre-#63 rollback image (`@sha256:e54773d1…98d9a93b`) read `int_scheduled_arrivals`, so it can no longer run without that restore.
+
+### Warehouse overwritten by local test runs, October 28–29, 2026 (UTC)
+
+`tests/sync/test_refresh_duckdb.py` built real `Settings`, whose defaults name the production bucket, and ran the refresh with uploads on. On a machine with `.env` and application-default credentials, each `make test` replaced `gs://whylinedenver-raw/marts/duckdb/warehouse.duckdb` with a test file and merged test marts into `state/sync_state.json`. CI was unaffected because it has no credentials.
+
+- **When:** ten local runs between 16:36 on October 28 and 01:11 on October 29. The bucket keeps object versions, so each run is visible. Older sync-state versions carry the same pollution (`mart_hot`, `mart_cold`).
+- **Effect:** from 16:36 until the repair, `/api/downloads/warehouse` served a 268 KiB file holding one view that pointed at a laptop temp path, and the DuckDB freshness showed the last test run. Dashboard queries and CSV downloads use BigQuery and were not affected. No other object under `marts/` was written during those runs, and `raw/` holds no test-fixture paths.
+- **Last good versions:** warehouse generation `1793204111822838` (16:15, from the Nightly DuckDB run; all nine marts); sync state generation `1793205237527316` (16:33).
+- **Fix:** a suite-wide fixture now makes cloud client constructors raise (see [testing](TESTING.md)).
+- **Repaired at 08:07 on October 29, with the owner's approval:**
+  - the last good warehouse version was copied back over the live object (new generation `1793261235195494`);
+  - the sync state was rewritten with its last good `duckdb_synced_at_utc` and mart dates. The test entries (`mart_hot`, `mart_cold`) were dropped and the current BigQuery timestamp kept.
+  - The public download now returns the 6.8 MB warehouse (MD5 `3236e24d…`), and DuckDB freshness reads 10:15 MDT on October 28.
+  - The next Nightly DuckDB run refreshes both as usual.
+
+
+### Backups and side-by-side datasets dropped, October 29, 2026 (UTC)
+
+With the owner's approval, these were dropped at 08:20:
+- the ten bronze `__unpartitioned_bak` tables, about 78 GB in all. The largest were `raw_gtfs_stop_times` (38.2 GB), `raw_gtfs_shapes` (26.9 GB) and `raw_sidewalks` (11.3 GB).
+- the `stg_denver_v2`, `core_denver_v2` and `mart_denver_v2` datasets: 34 objects, about 16 GB, last created October 27.
+
+Before the drop, no view in the live datasets referenced them and no code outside the docs named them. Time travel can recover them until November 5 at 08:20, for example `bq cp whyline-denver:raw_denver.raw_gtfs_stop_times__unpartitioned_bak@1793262042000 …`; a dataset is undeleted with `bq undelete`.
+
+### Stream deployment, October 29, 2026 (UTC, in progress)
+
+Following plan §7, with the owner's approval:
+
+| Step | State |
+|---|---|
+| 0 Rollback digests | both jobs on `whylinedenver-realtime@sha256:17042b45…f29e3` |
+| 1 Compute Engine API | enabled. It created the auto-mode `default` network, which nothing uses. |
+| 2 Archive bucket | `gs://whylinedenver-rt-archive` created (Coldline, us-central1, uniform access, public access prevented) |
+| 3 Staging lifecycle | 7-day delete for `raw/rtd_gtfsrt_stream/`, plus deletion of that prefix's noncurrent versions after a day. The bucket keeps object versions, and the 180-day rule alone would leave them forever. |
+| 4 Service account and IAM | **not done**: blocked by the agent's permission check |
+| 5 Network | `whyline-rt`, subnet `whyline-rt-usc1` (external IPv6 `2600:1900:4000:485::/64`, Private Google Access) and firewall rule `whyline-rt-iap-ssh` created |
+| 6 Image | `whylinedenver-realtime@sha256:f049144d1082e8cfcb3a2d9fb70757c317c75f9e5e29271807ac3247d7c2f7d1` built from `fa47a7d`; jobs **not updated**, for the same reason |
+| 7–10 | waiting on steps 4 and 6 |
+
+Physical storage billing (decision 6) is deferred until after a week of real pipeline runs, so it can be judged on billed costs.
+
+`whylinedenver-raw` keeps every overwritten or lifecycle-deleted object as a noncurrent version, with no rule that removes them (for example, 151 versions of the DuckDB warehouse). That is unmeasured storage cost worth reviewing alongside the billing decision.
 
 ## Refresh state read-only
 
