@@ -1,6 +1,6 @@
 flowchart LR
   accTitle: Current dbt model lineage
-  accDescr: 18 bronze tables and 41 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
+  accDescr: 16 bronze tables and 38 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
   subgraph bronze["Bronze: raw_denver"]
     direction TB
     raw_acs_tract["raw_acs_tract"]
@@ -15,9 +15,7 @@ flowchart LR
     raw_gtfs_trips["raw_gtfs_trips"]
     raw_gtfsrt_stop_visits["raw_gtfsrt_stop_visits"]
     raw_gtfsrt_trip_status["raw_gtfsrt_trip_status"]
-    raw_gtfsrt_trip_updates["raw_gtfsrt_trip_updates"]
     raw_gtfsrt_tu_changes["raw_gtfsrt_tu_changes"]
-    raw_gtfsrt_vehicle_positions["raw_gtfsrt_vehicle_positions"]
     raw_gtfsrt_vp_stream["raw_gtfsrt_vp_stream"]
     raw_sidewalks["raw_sidewalks"]
     raw_weather_daily["raw_weather_daily"]
@@ -34,7 +32,6 @@ flowchart LR
     stg_gtfs_stop_times["stg_gtfs_stop_times"]
     stg_gtfs_stops["stg_gtfs_stops"]
     stg_gtfs_trips["stg_gtfs_trips"]
-    stg_rt_events["stg_rt_events"]
     stg_rt_prediction_changes["stg_rt_prediction_changes"]
     stg_rt_stop_visits["stg_rt_stop_visits"]
     stg_rt_trip_status["stg_rt_trip_status"]
@@ -53,10 +50,8 @@ flowchart LR
     dim_trip["dim_trip"]
     fct_crash["fct_crash"]
     fct_scheduled_stop_time["fct_scheduled_stop_time"]
-    fct_stop_arrival["fct_stop_arrival"]
     fct_stop_visit["fct_stop_visit"]
     fct_tract_demographics["fct_tract_demographics"]
-    fct_trip_observation["fct_trip_observation"]
     fct_trip_status["fct_trip_status"]
     fct_weather_daily["fct_weather_daily"]
   end
@@ -74,7 +69,6 @@ flowchart LR
   end
   bridge_stop_tract --> mart_vulnerability_by_stop
   dim_route --> fct_scheduled_stop_time
-  dim_route --> fct_trip_observation
   dim_route --> fct_trip_status
   dim_route --> mart_gtfs_routes
   dim_route --> mart_reliability_by_route_day
@@ -83,7 +77,6 @@ flowchart LR
   dim_sidewalk_segment --> mart_access_score_by_stop
   dim_stop --> bridge_stop_tract
   dim_stop --> fct_scheduled_stop_time
-  dim_stop --> fct_trip_observation
   dim_stop --> mart_access_score_by_stop
   dim_stop --> mart_crash_proximity_by_stop
   dim_stop --> mart_gtfs_stops
@@ -93,18 +86,15 @@ flowchart LR
   dim_tract --> bridge_stop_tract
   dim_tract --> fct_tract_demographics
   dim_trip --> fct_scheduled_stop_time
-  dim_trip --> fct_trip_observation
   dim_trip --> fct_trip_status
   fct_crash --> mart_crash_proximity_by_stop
-  fct_scheduled_stop_time --> fct_stop_arrival
   fct_scheduled_stop_time --> fct_stop_visit
-  fct_scheduled_stop_time --> fct_trip_observation
-  fct_stop_arrival --> mart_reliability_by_stop_hour
+  fct_scheduled_stop_time --> mart_reliability_by_route_day
+  fct_stop_visit --> mart_reliability_by_route_day
+  fct_stop_visit --> mart_reliability_by_stop_hour
   fct_tract_demographics --> bridge_stop_tract
   fct_tract_demographics --> mart_vulnerability_by_stop
-  fct_trip_observation --> fct_stop_arrival
-  fct_trip_observation --> mart_reliability_by_route_day
-  fct_trip_observation --> mart_reliability_by_stop_hour
+  fct_trip_status --> mart_reliability_by_route_day
   fct_weather_daily --> mart_reliability_by_route_day
   mart_crash_proximity_by_stop --> mart_priority_hotspots
   mart_reliability_by_route_day --> mart_weather_impacts
@@ -122,9 +112,7 @@ flowchart LR
   raw_gtfs_trips --> stg_gtfs_trips
   raw_gtfsrt_stop_visits --> stg_rt_stop_visits
   raw_gtfsrt_trip_status --> stg_rt_trip_status
-  raw_gtfsrt_trip_updates --> stg_rt_events
   raw_gtfsrt_tu_changes --> stg_rt_prediction_changes
-  raw_gtfsrt_vehicle_positions --> stg_rt_events
   raw_gtfsrt_vp_stream --> stg_rt_vehicle_positions
   raw_sidewalks --> stg_sidewalks
   raw_weather_daily --> stg_weather
@@ -138,7 +126,6 @@ flowchart LR
   stg_gtfs_stops --> dim_stop
   stg_gtfs_trips --> dim_trip
   stg_gtfs_trips --> fct_scheduled_stop_time
-  stg_rt_events --> fct_trip_observation
   stg_rt_stop_visits --> fct_stop_visit
   stg_rt_trip_status --> fct_trip_status
   stg_sidewalks --> dim_sidewalk_segment

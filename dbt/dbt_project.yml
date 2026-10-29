@@ -16,7 +16,9 @@ models:
       +schema: "{{ env_var('BQ_DATASET_MART', 'mart_denver') }}"
       +tags: ["marts"]
 vars:
-  on_time_sec: 300
+  # On time (RTD): less than one minute early and no more than five minutes late.
+  on_time_early_sec: 60
+  on_time_late_sec: 300
   headway_tol_ratio: 0.5
   sched_match_tol_sec: 1800
   weather_station: "USW00003017"

@@ -2,18 +2,19 @@ flowchart TB
   accTitle: WhyLine Denver processing and serving
   accDescr: Public sources flow into GCS and BigQuery, through dbt and Parquet into DuckDB, then FastAPI and Next.js.
   sources["Seven public-source ingestors"] --> raw["GCS raw files and manifests"]
+  stream["Stream poller VM: RTD realtime every 15 s, stop visits every 15 min"] --> raw
+  stream --> archive["GCS Coldline: every feed payload"]
   raw --> loader["Explicit-schema loader and MD5 tracking"]
-  loader --> bronze["BigQuery raw_denver: 14 registered tables"]
-  bronze --> silver["dbt stg_denver (silver): 12 staging models"]
-  silver --> core["dbt core_denver (gold core): 6 dims, 6 facts, 1 bridge"]
+  loader --> bronze["BigQuery raw_denver: 19 registered tables"]
+  bronze --> silver["dbt stg_denver (silver): 16 staging models"]
+  silver --> core["dbt core_denver (gold core): 6 dims, 6 facts incl. stop visits, 1 bridge"]
   core --> gold["dbt mart_denver (gold serving): 9 marts"]
   gold --> exports["GCS Parquet: new and rebuilt partitions"]
   exports --> duck["DuckDB: all 9 marts materialized"]
   gold --> api["FastAPI: validate and query selected engine"]
   duck --> api
   api --> web["Next.js dashboard on Vercel"]
-  scheduler["Cloud Scheduler: 15-minute capture and offset load observed 2026-10-26"] -.-> sources
-  scheduler -.-> loader
+  scheduler["Cloud Scheduler: 15-minute load; snapshot capture paused at the stop-visit cutover"] -.-> loader
   nightly["Independent GitHub nightly ingestion, build/export, and refresh workflows"] -.-> sources
   nightly -.-> silver
   nightly -.-> exports

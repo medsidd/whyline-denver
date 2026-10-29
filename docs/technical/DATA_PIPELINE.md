@@ -34,21 +34,19 @@ The project is `whyline_denver_dbt`, profile `whyline_denver`. It is layered as 
 
 Important materializations/windows:
 
-- `stg_rt_events` (silver): incremental merge, one row per `(feed_ts_utc, trip_id)`; 12-hour incremental window and 45-day full-refresh default, with explicit raw partition predicates; reported delays only; rows without a `trip_id` are dropped.
-- `fct_trip_observation` (core): same grain and window. Resolves delay as the reported value, else event time minus the scheduled time from `fct_scheduled_stop_time` (read for three days back through tomorrow). Carries surrogate keys of the stop, route, and trip versions valid on the service date.
 - `fct_scheduled_stop_time` (core): insert-overwrite by service date. Nightly runs replace today through +30 days from each GTFS file's 7 most recent extract partitions; past partitions keep the schedule as published. A full refresh rebuilds from 2025-10-23, choosing for each date the GTFS snapshot current on it and skipping days whose load failed validation.
-- `fct_stop_arrival` (core): observed vs scheduled headways, three-day incremental window.
 - `fct_stop_visit` and `fct_trip_status` (core): insert-only merges of the stream poller's final rows, keyed `(service_date, trip_id, stop_sequence)` and `(service_date, trip_id)`. Each run reads rows loaded in the last 6 hours and skips keys already present, so no partition is rewritten. `service_date` is GTFS `start_date`. Full refresh is disabled because raw stream partitions expire after 90 days.
 - Dimensions are rebuilt nightly; `dim_stop`, `dim_route`, and `dim_trip` derive Type 2 history from every bronze extract.
-- Route-day reliability: partitioned insert-overwrite over `route_day_window_days` (2 on realtime runs, 30 nightly to incorporate weather); excludes null route IDs.
-- Stop-hour reliability: incremental, three-day window; the other marts are snapshot tables.
+- Route-day reliability: reads `fct_stop_visit`, `fct_trip_status` and `fct_scheduled_stop_time`; partitioned insert-overwrite over `route_day_window_days` (1 on realtime runs, 30 nightly to incorporate weather); excludes null route IDs.
+- Stop-hour reliability: reads `fct_stop_visit`; partitioned insert-overwrite over `stop_hour_window_days` (1: yesterday and today, the only service dates `fct_stop_visit` still changes). Both reliability marts disable full refreshes, because their pre-cutover partitions can no longer be rebuilt; to rebuild a longer span, widen the window. The other marts are snapshot tables.
+- Legacy, disabled at the stop-visit cutover (their tables are kept, frozen): `stg_rt_events` (silver) and `fct_trip_observation` (core), one row per `(feed_ts_utc, trip_id)` from the 15-minute snapshots, with delay resolved as the reported value, else event time minus the scheduled time; and `fct_stop_arrival` (core), headways between those samples.
 - Incremental merges set `incremental_predicates` so BigQuery scans only recent target partitions.
 
 Latest-extract reads go through `latest_extract_date` / `recent_extracts_filter`, which inline the partition date as a constant. A `(select max(_extract_date) ...)` filter does not prune: on October 27, 2026 it scanned 9,958 MiB of `raw_gtfs_stop_times` against 42 MiB for the constant.
 
-On-time share is based on sampled/resolved events, not every scheduled arrival, and counts an unresolved delay as zero. See [metric caveats](../public/METRICS_GLOSSARY.md).
+On-time share follows RTD's definition (less than one minute early, no more than five minutes late) over visits with a known delay; unknown delays are excluded. Pre-cutover partitions keep the legacy sampled definition. See [metric caveats](../public/METRICS_GLOSSARY.md).
 
-Project variables include `on_time_sec=300`, `headway_tol_ratio=0.5`, `sched_match_tol_sec=1800`, `weather_station=USW00003017`, and `weather_lookback_days=30`. Some model defaults are declared locally with `var()`; read SQL before changing a window.
+Project variables include `on_time_early_sec=60`, `on_time_late_sec=300`, `headway_tol_ratio=0.5`, `sched_match_tol_sec=1800` (legacy only), `weather_station=USW00003017`, and `weather_lookback_days=30`. `publish_backfill` (default false) admits `backfill_v1` visits into the marts once their calibration is published. Some model defaults are declared locally with `var()`; read SQL before changing a window.
 
 Run layers explicitly for an authorized full build:
 
@@ -60,7 +58,7 @@ make dbt-test-staging
 make dbt-test-marts
 ```
 
-A full rebuild from bronze is `dbt run --full-refresh --select staging core marts --vars '{rt_events_lookback_days: 400}'` (about 40 GiB on October 27, 2026). The nightly recipe selects `'staging core marts'`, tests `'core marts'`, then exports. The realtime target runs `stg_rt_events fct_trip_observation fct_stop_arrival`, the stream path (`stg_rt_stop_visits stg_rt_trip_status fct_stop_visit fct_trip_status`), and the two reliability marts with `route_day_window_days: 2`; it depends on the dimensions and schedule built nightly and is not a complete DAG bootstrap.
+A full rebuild is `dbt run --full-refresh --select staging core marts`. `fct_stop_visit`, `fct_trip_status` and the two reliability marts ignore `--full-refresh` (`full_refresh: false`): raw stream partitions expire after 90 days, and the legacy models behind the pre-cutover mart partitions are disabled. The October 27, 2026 full rebuild, which still included the legacy models, scanned about 40 GiB. The nightly recipe selects `'staging core marts'`, tests `'core marts'`, then exports. The realtime target runs the stream path (`stg_rt_stop_visits stg_rt_trip_status fct_stop_visit fct_trip_status`) and the two reliability marts with `route_day_window_days: 1`; it depends on the dimensions and schedule built nightly and is not a complete DAG bootstrap.
 
 ## Weather corrections
 
