@@ -259,6 +259,13 @@ Daily averages are taken as 70% of the peak rate until D1.
 
 New-component storage at 3 / 12 / 24 months (logical): about $4.1 / $5.2 / $6.4; with physical billing about $1.0 / $1.7 / $2.6, by then mostly Coldline.
 
+**Pricing calculator check (October 29, 2026).** The Google Cloud Pricing Calculator [estimate](https://cloud.google.com/products/calculator/estimate-preview/CiQ3ZTdmY2FjMC0zNWE2LTRlNTctYThjMC0wNmFkOTAxNjIyMDQQAQ%3D%3D) covers the new components at month 3 plus all project queries after the cutover. It comes to $10.53 a month at list price.
+- The calculator charges the e2-micro at $6.11, because it doesn't apply that free tier; it does show the 30 GB disk as free.
+- It deducts BigQuery's 10 GiB and Cloud Storage's 5 GB free tiers, which existing data already uses (+$0.25).
+- Adjusted, the total is about $4.7 a month: BigQuery storage $3.69 (0.19 TiB), queries $0.44 (1.07 TiB), Coldline $0.24, staging about $0.10, logging and the heartbeat metric $0. This matches the table above.
+- At today's 1.38 TiB, queries cost $2.38 a month; at the dual-run rate (2.28 TiB), $8.00. A 10-day dual run therefore adds about $1.9.
+- [PR #71](https://github.com/medsidd/whyline-denver/pull/71) raises the per-run estimate to about 360 MiB. At that rate, queries after the cutover come to 1.18 TiB, or $1.13 a month.
+
 **Budget arithmetic.**
 
 1. Non-query costs at month 3 come to about $7.1: existing BigQuery storage ~$2.5 (falls once the backups are dropped), new raw ~$3.7, facts ~$0.2, GCS ~$0.4, Artifact Registry ~$0.3.
