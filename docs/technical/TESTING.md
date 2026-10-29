@@ -15,6 +15,8 @@ make lint
 
 Artifact tests parse the current dbt project into temporary output using explicit dummy project/dataset settings and a small catalog fixture. They do not query BigQuery or depend on the checked-in manifest. `make test` is simply `pytest`; it no longer runs `dbt-artifacts`. Credentials are unnecessary for this suite.
 
+The suite must never reach Google Cloud, even when `.env` and application-default credentials are present. An autouse fixture in `tests/conftest.py` makes the Cloud Storage and BigQuery client constructors raise and clears the sync-state bucket variables; `tests/test_offline_guard.py` checks it. Before October 29, 2026 the DuckDB refresh tests overwrote the production warehouse and sync state on every credentialed local run (see [operations](OPERATIONS.md)). A new test that needs a client passes a fake.
+
 `bq_load.py` creates cloud clients in `main()`. Importing it does not itself authenticate clients, but importing configuration loads `.env` and may materialize inline credentials. Prefer reading source for configuration audits.
 
 ## Coverage gaps and frontend checks
