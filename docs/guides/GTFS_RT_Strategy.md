@@ -28,7 +28,7 @@ The archive keeps every feed payload, so any day can be replayed through the sam
 - Coverage varies by trip, stop, time and mode. Check `pct_observed` and `n_reported_events` before comparing groups.
 - A visit is an estimate within its own window (`arrival_earliest_ts` to `arrival_latest_ts`). Bus crossings are usually within 30 seconds; rail windows are wider because trains report less often.
 - `last_prediction` visits are RTD's final prediction, not an observation. In the October 28, 2026 sample, 2.2% of prediction drops came before the bus arrived, by a median 3 minutes.
-- Reports more than 100 m from the route shape (detours, layovers), more than 120 s old, or outside the Denver bounding box are not used. Regional service beyond the box (Nederland, for example) gets fewer crossings.
+- Reports more than 100 m from the route shape (detours, layovers), more than 120 s old, or outside the bounding box around RTD's network are not used.
 - The engine times visits from each vehicle's own report timestamp; feed header times only order refreshes. Polling or publishing delays therefore change freshness, not arrival times.
 - Partitions before the cutover count one sampled prediction per poll and trip. See [the glossary](../public/METRICS_GLOSSARY.md#legacy-partitions-before-the-cutover).
 
