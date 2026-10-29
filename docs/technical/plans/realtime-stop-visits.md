@@ -221,9 +221,14 @@ Raw tables (registry order is CSV order). All are NULLABLE plus the four loader 
 - **Docs to update:** `schema.yml` ×3, `exposures.yml`, `CONTRACTS.md`, `METRICS_GLOSSARY.md`, `GTFS_RT_Strategy.md`, `DATA_PIPELINE.md`, `OPERATIONS.md`, `dbt/models/README.md`, `infra/cloud-run/README.md`, `QA_Validation_Guide.md`, `docs/diagrams/data_model_overview.mmd`, `BQ_Naming_and_Time.md` and `ARCHITECTURE.md`.
 - **App wiring:**
   - Mart names are unchanged, so `ALLOWLISTED_MARTS` stays as is.
-  - `api/models.py` and `frontend/src/types/api.ts` don't list mart columns; to be verified.
+  - `api/models.py` and `frontend/src/types/api.ts` don't list mart columns (verified in Phase 5: both carry generic column maps).
   - New columns reach the schema brief only after artifacts are regenerated and the API is redeployed.
   - The dashboard note goes under the intro in `frontend/src/app/app/page.tsx`, with the cutover date from a constant.
+- **Changed in build (Phase 5):**
+  - Both reliability marts replace whole service-date partitions (the stop-hour mart used to merge), so a rebuilt date keeps no legacy rows. Both disable full refreshes, which would otherwise drop the pre-cutover partitions that the disabled legacy models can no longer rebuild.
+  - Realtime mart windows are 1 day (yesterday and today, the only service dates `fct_stop_visit` changes) instead of 2.
+  - `pct_observed` is `n_reported_events / n_scheduled`: every visit that isn't skipped has an arrival, so a known delay marks an observed, scheduled stop event.
+  - Cost: the marts now read about 0.33M visits a day instead of about 70k samples. Estimated from column sizes, a realtime run reads about 29 MB (route-day) + 44 MB (stop-hour) of `fct_stop_visit`, plus the 10 MB minimum each for `fct_trip_status` and the scheduled-stop count (dry run: 8.1 MiB for the realtime run's two dates, billed at the 10 MB minimum; 115 MiB for the nightly 30). That is roughly 40 MiB a run more than the §3.1 mart figure, so about 360 MiB a run against the 460 MiB budget. Measure it from `INFORMATION_SCHEMA.JOBS` in the dual run.
 
 ## 4. Cost model
 
@@ -289,13 +294,19 @@ Run both pipelines for at least 7 days, including a weekend.
    - `arrival_window_sec` distribution, `within_30s` share and method mix, by mode, route and hour;
    - `shape_crossing` vs `last_prediction` where both exist;
    - STOPPED_AT check: `arrival_latest_ts` is at or before the first STOPPED_AT report;
+   - interpolation bias: linear interpolation favours early estimates for a bus decelerating into the stop, so measure interpolated arrivals against the first STOPPED_AT report;
    - 20 or more visits spot-checked against archive replays;
    - optionally, a field check or RTD's published OTP.
 3. **Old vs new by route-day**, using new marts built into a scratch dataset (`BQ_DATASET_MART=mart_denver_eval`, the #63 pattern). Every difference is classed as an intended change, a fixed defect, or a regression.
 4. **Determinism:** replay one day from the archive and diff it against the fact.
 5. **Cost:** seven days of `INFORMATION_SCHEMA.JOBS` billed bytes, old vs new.
-6. **Cutover:** merge Phase 5 and deploy the digest; rebuild the mart partitions from the stream start; pause `realtime-ingest`; take the old models out of `dbt-run-realtime`; relabel them.
-7. **Later:** after calibration, publish `backfill_v1` and rebuild the earlier partitions.
+6. **Cutover.** FIRST is the first service date with stream visits; N is the number of days from FIRST to today.
+   1. Merge Phase 5, build, and deploy the digest to both jobs (runbook step 6). Phase 5 disables `stg_rt_events`, `fct_trip_observation` and `fct_stop_arrival` (their tables stay, frozen), drops them from `dbt-run-realtime`, and relabels them as legacy.
+   2. Rebuild the marts from FIRST. Both reliability marts replace whole date partitions, so no legacy rows survive on those dates; earlier partitions keep the legacy method (`data_version` NULL). Full refreshes are disabled on both, by design.
+      `python -m tools.dbt_with_env run --project-dir dbt --target prod --select mart_reliability_by_route_day mart_reliability_by_stop_hour mart_weather_impacts mart_priority_hotspots --vars '{route_day_window_days: N, stop_hour_window_days: N}'`
+   3. Pause the snapshot job: `gcloud scheduler jobs pause realtime-ingest --location=us-central1` (rollback: `resume`). Its raw tables are kept.
+   4. Set `STOP_VISITS_SINCE` in `frontend/src/lib/links.ts` to FIRST and deploy the frontend. Regenerate the dbt artifacts (the #65 pattern) and redeploy the API, so the schema brief lists the new columns. Re-export the DuckDB marts with `--force` from FIRST.
+7. **Later, after calibration:** record the results in `METRICS_GLOSSARY.md`, set `publish_backfill: true` in `dbt_project.yml`, and rebuild from 2025-10-23 with the window widened to cover it (step 6.2 with N counted from 2025-10-23). The stream's first, partial day then fills with backfill visits for the trips before the poller started; its route-day rows read `mixed`.
 
 ## 7. Runbook (owner commands, in order)
 

@@ -68,8 +68,8 @@ const STEPS = [
 
 const LIMITS = [
   {
-    title: "Sampled, not complete",
-    body: "Reliability comes from sampled realtime observations, not every scheduled arrival. Treat on-time shares as estimates.",
+    title: "Observed, not complete",
+    body: "Reliability counts stop visits seen in vehicle positions, but some trips go unseen and older dates come from 15-minute samples. Treat on-time shares as estimates.",
     icon: <g fill="#F0B616" stroke="none"><circle cx="6" cy="16" r="2.5" /><circle cx="12" cy="9" r="2.5" /><circle cx="18" cy="13" r="2.5" /></g>,
   },
   {
@@ -86,7 +86,7 @@ const LIMITS = [
 
 const SOURCES = [
   { name: "RTD GTFS schedules", body: "Routes, stops, trips and timetables.", tint: "bg-wl-teal-tint", dot: "bg-wl-teal" },
-  { name: "RTD GTFS-Realtime", body: "Trip updates and vehicle positions, sampled through the day.", tint: "bg-wl-teal-tint", dot: "bg-wl-teal" },
+  { name: "RTD GTFS-Realtime", body: "Trip updates and vehicle positions, read every 15 seconds.", tint: "bg-wl-teal-tint", dot: "bg-wl-teal" },
   { name: "Denver Open Data", body: "Reported traffic crashes and the city’s sidewalk inventory.", tint: "bg-wl-red-tint", dot: "bg-wl-red" },
   { name: "NOAA daily weather", body: "Precipitation, snow and temperature at Denver International Airport.", tint: "bg-wl-gold-tint", dot: "bg-wl-gold" },
   { name: "U.S. Census ACS", body: "2023 five-year estimates for Denver County census tracts.", tint: "bg-wl-navy-tint", dot: "bg-wl-navy" },

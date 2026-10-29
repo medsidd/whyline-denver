@@ -1,6 +1,6 @@
 # dbt model reference
 
-The source tree contains 41 SQL models in three layers: 17 silver staging models, 15 gold-core models (six dimensions, eight facts, one bridge), and nine serving marts. The continuous realtime stream (five silver views, `fct_stop_visit`, `fct_trip_status`) was added for the [realtime stop visits plan](../../docs/technical/plans/realtime-stop-visits.md). This inventory was reconciled against SQL on October 27, 2026, when the layered model was cut over in production ([#63](https://github.com/medsidd/whyline-denver/pull/63)). Follow each linked definition for the actual SELECT list, dependencies, filters, and incremental key; schema YAML and the generated catalog provide column metadata.
+The source tree contains 41 SQL models in three layers: 17 silver staging models, 15 gold-core models (six dimensions, eight facts, one bridge), and nine serving marts. The continuous realtime stream (five silver views, `fct_stop_visit`, `fct_trip_status`) was added for the [realtime stop visits plan](../../docs/technical/plans/realtime-stop-visits.md). Three legacy models (`stg_rt_events`, `fct_trip_observation`, `fct_stop_arrival`) have been disabled since the stop-visit cutover; their tables are kept, frozen. This inventory was reconciled against SQL on October 27, 2026, when the layered model was cut over in production ([#63](https://github.com/medsidd/whyline-denver/pull/63)). Follow each linked definition for the actual SELECT list, dependencies, filters, and incremental key; schema YAML and the generated catalog provide column metadata.
 
 Project `whyline_denver_dbt`, profile `whyline_denver`. `dbt_project.yml` defaults models to views; the core folder defaults to tables; individual SQL config overrides both. Datasets: staging → `stg_denver` (`BQ_DATASET_STG`), core → `core_denver` (`BQ_DATASET_CORE`), marts → `mart_denver` (`BQ_DATASET_MART`). Bronze is `raw_denver`.
 
@@ -23,7 +23,7 @@ Project `whyline_denver_dbt`, profile `whyline_denver`. `dbt_project.yml` defaul
 | [stg_gtfs_stop_times](staging/stg_gtfs_stop_times.sql) | view | Every extract; GTFS time strings; `is_valid` requires `H:MM:SS` times. |
 | [stg_gtfs_calendar](staging/stg_gtfs_calendar.sql) | view | Every extract; parsed service periods and weekday flags; `is_valid` requires parseable dates. |
 | [stg_gtfs_calendar_dates](staging/stg_gtfs_calendar_dates.sql) | view | Every extract; service exceptions; `is_valid` requires a parseable date and type 1/2. |
-| [stg_rt_events](staging/stg_rt_events.sql) | incremental | Trip-update and vehicle-position merge, one row per feed poll × trip, reported delays only, Denver date/hour. Rows without a `trip_id` are dropped. |
+| [stg_rt_events](staging/stg_rt_events.sql) | incremental (legacy, disabled) | Trip-update and vehicle-position merge from the 15-minute snapshots, one row per feed poll × trip, reported delays only, Denver date/hour. Frozen at the cutover. |
 | [stg_gtfs_shapes](staging/stg_gtfs_shapes.sql) | view | Every extract, one `GEOGRAPHY` line per shape with geodesic length and last `shape_dist_traveled`; `is_valid` requires two or more in-range points. |
 | [stg_rt_vehicle_positions](staging/stg_rt_vehicle_positions.sql) | view | Stream vehicle reports without repeats, reports over 120 s old, or positions outside the Denver box; carries the poller's along-route projection. Evidence for validation; not read every 15 minutes. |
 | [stg_rt_prediction_changes](staging/stg_rt_prediction_changes.sql) | view | Stream trip-update history as changes only (`new`, `changed`, `dropped`, trip-level rows). Evidence for validation. |
@@ -49,9 +49,9 @@ Dimensions carry INT64 surrogate keys (`farm_fingerprint` of the natural key and
 | [dim_trip](core/dim_trip.sql) | Type 2 | Trip versions (route, service, direction, headsign). |
 | [dim_tract](core/dim_tract.sql) | Type 1 | Latest tract boundaries. |
 | [dim_sidewalk_segment](core/dim_sidewalk_segment.sql) | Type 1 | Latest sidewalk inventory. |
-| [fct_trip_observation](core/fct_trip_observation.sql) | incremental | Feed poll × trip. Reported delay, else event time minus the scheduled time; `delay_sec_raw` keeps NULL when neither exists, `delay_sec` counts it as zero. |
+| [fct_trip_observation](core/fct_trip_observation.sql) | incremental (legacy, disabled) | Feed poll × trip: a sampled prediction, usually of the trip's terminal arrival, not an observed stop arrival. Reported delay, else event time minus the scheduled time; `delay_sec` counted a missing delay as zero. Frozen at the cutover. |
 | [fct_scheduled_stop_time](core/fct_scheduled_stop_time.sql) | incremental (insert-overwrite) | Trip × stop sequence × service date, expanded from the GTFS snapshot current on each date. Nightly runs replace today through +30 days; past partitions keep the schedule as published. |
-| [fct_stop_arrival](core/fct_stop_arrival.sql) | incremental | Observed stop event with observed headway, nearest scheduled headway, and adherence flag (1,800-second match, 0.5 relative tolerance). |
+| [fct_stop_arrival](core/fct_stop_arrival.sql) | incremental (legacy, disabled) | Headways between sampled predicted terminal arrivals (not observed stop arrivals), nearest scheduled headway, and adherence flag. Frozen at the cutover. |
 | [fct_stop_visit](core/fct_stop_visit.sql) | incremental (insert-only merge) | Service date × trip × stop sequence: arrival estimate with earliest/latest bounds, method, dwell, schedule, `delay_sec` (NULL when unknown), prediction error. Permanent; full refresh disabled. |
 | [fct_trip_status](core/fct_trip_status.sql) | incremental (insert-only merge) | Service date × trip: final relationship, outcome (`completed`, `partial`, `vanished`, `canceled`, `no_static`), first/last seen, visit counts. |
 | [fct_crash](core/fct_crash.sql) | table | One reported crash. |
@@ -63,9 +63,9 @@ Bus matrix:
 
 | Fact | date | stop | route | trip | tract |
 |---|:-:|:-:|:-:|:-:|:-:|
-| `fct_trip_observation` | ✓ | ✓ | ✓ | ✓ | |
+| `fct_trip_observation` (legacy) | ✓ | ✓ | ✓ | ✓ | |
 | `fct_scheduled_stop_time` | ✓ | ✓ | ✓ | ✓ | |
-| `fct_stop_arrival` | ✓ | ✓ | ✓ | | |
+| `fct_stop_arrival` (legacy) | ✓ | ✓ | ✓ | | |
 | `fct_stop_visit` | ✓ | ✓ | ✓ | ✓ | |
 | `fct_trip_status` | ✓ | | ✓ | ✓ | |
 | `fct_crash` | ✓ | | | | |
@@ -79,8 +79,8 @@ Schedule snapshots: a day's GTFS load counts only if every file loaded that day 
 
 | Model / SQL | Materialization | Behavior |
 |---|---|---|
-| [mart_reliability_by_route_day](marts/reliability/mart_reliability_by_route_day.sql) | incremental | Route/date/precipitation/snow groups; event counts, resolved-delay counts, on-time share, delay quantiles; route names. |
-| [mart_reliability_by_stop_hour](marts/reliability/mart_reliability_by_stop_hour.sql) | incremental | Stop/date/hour groups; on-time/delay/headway summaries, modal route; stop name, coordinates, modal route name. |
+| [mart_reliability_by_route_day](marts/reliability/mart_reliability_by_route_day.sql) | incremental (insert-overwrite) | Route/date/precipitation/snow groups from stop visits: visit and known-delay counts, RTD on-time share, delay quantiles, scheduled stop events and observed share, cancellations, method mix and arrival windows; route names. |
+| [mart_reliability_by_stop_hour](marts/reliability/mart_reliability_by_stop_hour.sql) | incremental (insert-overwrite) | Stop/date/arrival-hour groups from stop visits: on-time/delay summaries, headways between consecutive visits by route and direction, modal route, method mix; stop name, coordinates, modal route name. |
 | [mart_weather_impacts](marts/reliability/mart_weather_impacts.sql) | table | Route/precipitation-bin equal-weight daily average minus dry baseline over 30 days; excludes unknown weather. |
 | [mart_access_score_by_stop](marts/access/mart_access_score_by_stop.sql) | table | Current stops; sidewalk length within 200 m and relative access score. |
 | [mart_crash_proximity_by_stop](marts/safety/mart_crash_proximity_by_stop.sql) | table | Current stops; counts within 100/250 m over the latest-crash-date anchored 365-day window. |
@@ -89,14 +89,14 @@ Schedule snapshots: a day's GTFS load counts only if every file loaded that day 
 | [mart_gtfs_stops](marts/mart_gtfs_stops.sql) | table | Last known version of every stop ever published (ID, name, lat, lon). |
 | [mart_gtfs_routes](marts/mart_gtfs_routes.sql) | table | Last known version of every route ever published. |
 
-Marts keep their names, grains, and original column order; descriptive columns are appended at the end (`stop_name`, `lat`, `lon`; `route_name`, `route_long_name`; `route_name_mode`). The per-stop marts cover stops in the latest GTFS extract (8,162 on October 27, 2026); the reference marts keep retired IDs so historical rows still resolve names.
+Marts keep their names, grains, and original column order; descriptive columns are appended at the end (`stop_name`, `lat`, `lon`; `route_name`, `route_long_name`; `route_name_mode`), and the stop-visit columns (`data_version` and the method-mix and coverage columns) after them. The per-stop marts cover stops in the latest GTFS extract (8,162 on October 27, 2026); the reference marts keep retired IDs so historical rows still resolve names.
 
 ## Windows and grain
 
-- `stg_rt_events` and `fct_trip_observation` merge on `(feed_ts_utc, trip_id)` over a 12-hour window; a full refresh reads `rt_events_lookback_days` (default 45; 400 rebuilds all bronze since 2025-10-23).
-- `fct_stop_arrival` and stop-hour reliability use three days incrementally.
+- Stop-hour reliability replaces `stop_hour_window_days` partitions (1: yesterday and today, the only service dates `fct_stop_visit` still changes).
 - `fct_stop_visit` and `fct_trip_status` insert rows loaded in the last `stop_visit_lookback_hours` (6) for service dates from yesterday (`stop_visit_service_days`, 1) and skip keys already present, so a MERGE never rewrites a partition. Older service dates wait in raw for a run with a wider window; the one-off backfill load runs with `stop_visit_backfill: true` and `stream_start_date`.
-- Route-day reliability replaces `route_day_window_days` partitions: 2 on realtime runs, 30 nightly so late weather lands.
+- Route-day reliability replaces `route_day_window_days` partitions: 1 on realtime runs, 30 nightly so late weather lands. Both reliability marts disable full refreshes, because pre-cutover partitions can no longer be rebuilt; widen the window to rebuild a longer span.
+- The legacy `stg_rt_events` and `fct_trip_observation` merged on `(feed_ts_utc, trip_id)` over a 12-hour window; `fct_stop_arrival` used three days.
 - Incremental merges set `incremental_predicates` so BigQuery scans only recent target partitions.
 - Nightly schedule refreshes read each GTFS file's 7 most recent extract partitions (`schedule_recent_extracts`), so a bad latest load falls back to an earlier one. `assert_schedule_covers_today` fails if today has no schedule.
 
@@ -104,8 +104,8 @@ Changing source data outside these windows does not repair historical results; r
 
 ## Mart fields and interpretation
 
-- Route-day: `route_id`, `service_date_mst`, `precip_bin`, nullable `snow_day`, `n_events`, `n_reported_events`, `pct_on_time`, `mean_delay_sec`, `median_delay_sec`, `p90_delay_sec`, `build_run_at`, `route_name`, `route_long_name`.
-- Stop-hour: `stop_id`, `service_date_mst`, `event_hour_mst`, event count, on-time/mean/p90 delay, `route_id_mode`, headway adherence and p50/p90 observed headway, build timestamp, `stop_name`, `lat`, `lon`, `route_name_mode`.
+- Route-day: `route_id`, `service_date_mst`, `precip_bin`, nullable `snow_day`, `n_events`, `n_reported_events`, `pct_on_time`, `mean_delay_sec`, `median_delay_sec`, `p90_delay_sec`, `build_run_at`, `route_name`, `route_long_name`, `data_version`, `n_skipped`, `n_canceled_trips`, `n_scheduled`, `pct_observed`, `pct_shape_crossing`, `pct_last_prediction`, `pct_within_30s`, `median_window_sec`.
+- Stop-hour: `stop_id`, `service_date_mst`, `event_hour_mst`, event count, on-time/mean/p90 delay, `route_id_mode`, headway adherence and p50/p90 observed headway, build timestamp, `stop_name`, `lat`, `lon`, `route_name_mode`, `data_version`, `n_reported_events`, `pct_within_30s`, `pct_shape_crossing`.
 - Weather: route/bin average on-time share, dry-day baseline, delta, build timestamp, route names. A missing dry baseline stays null; unknown weather is excluded.
 - Crashes: stop, `as_of_date`, `window_days`, 100/250 m total/severe/fatal counts, build timestamp, stop name and coordinates. Severe includes fatal events.
 - Access: stop, `buffer_m`, sidewalk length, normalized access score, build timestamp, stop name and coordinates.
@@ -113,7 +113,7 @@ Changing source data outside these windows does not repair historical results; r
 - Priority: stop, vulnerability/crash/unreliability component scores, weighted priority, dense rank, build timestamp, stop name and coordinates.
 - GTFS references: stops (ID/name/lat/lon), routes (ID/name/long name/type).
 
-`n_reported_events` counts events with a reported or schedule-derived delay. On-time share uses absolute delay at most 300 seconds by default and counts an unresolved delay as zero. `reliability_score_0_100` is actually unreliability (higher is worse). Priority coalesces missing components to zero. `_mst` date/hour fields use `America/Denver` including DST. These caveats and full formula interpretations are in the [metrics glossary](../../docs/public/METRICS_GLOSSARY.md).
+`n_events` counts stop visits with an arrival and `n_reported_events` those with a known delay. On-time share follows RTD (`-60 < delay_sec <= 300`) over known delays; unknown delays are excluded. Pre-cutover partitions (`data_version` NULL) keep the legacy sampled definitions. `reliability_score_0_100` is actually unreliability (higher is worse). Priority coalesces missing components to zero. `_mst` date/hour fields use `America/Denver` including DST. These caveats and full formula interpretations are in the [metrics glossary](../../docs/public/METRICS_GLOSSARY.md).
 
 ## API, export, and schemas
 

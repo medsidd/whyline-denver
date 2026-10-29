@@ -1,14 +1,14 @@
-# GTFS realtime sampling strategy
+# GTFS realtime capture strategy
 
-WhyLine Denver samples RTD Trip Updates and Vehicle Positions to retain observations that would otherwise disappear from the live feed. These are estimates/snapshots, not a census of completed arrivals.
+WhyLine Denver captures RTD Trip Updates and Vehicle Positions continuously and turns them into stop visits: when the vehicle serving a trip reached each stop, with the uncertainty of that time. Before the stop-visit cutover the project sampled both feeds every 15 minutes; those samples are estimates, not a census of completed arrivals.
 
-## Actual collection path
+## Collection path
 
-Cloud Scheduler invokes `realtime-ingest`, which runs `whyline.ingest.gtfs_realtime` and writes a manifest plus two compressed CSVs under `raw/rtd_gtfsrt/snapshot_at=…/`. The verified October 26, 2026 cadence is every 15 minutes, 24 hours per day: 96 nominal invocations per full day. Cloud Run defaults to one snapshot per invocation. The local `make ingest-gtfs-rt` target intentionally takes two snapshots 90 seconds apart.
+The stream poller (`whyline.ingest.gtfs_rt_stream`, `JOB_TYPE=stream`) runs on an e2-micro VM. It polls both feeds every 15 seconds with `If-None-Match`, archives every new payload to Coldline (`gs://whylinedenver-rt-archive/rtd_gtfsrt/date=…/HHMM.tar`), and every 15 minutes writes four CSVs under `raw/rtd_gtfsrt_stream/snapshot_at=…/`: trip-update changes, every vehicle report, final stop visits and closed trips. The offset `realtime-load` schedule (minutes 2, 17, 32 and 47) loads them into four raw tables whose partitions expire after 90 days, runs the realtime dbt subset, and updates BigQuery freshness. The [realtime stop visits plan](../technical/plans/realtime-stop-visits.md) has the design, the timing rules and the deploy runbook; [operations](../technical/OPERATIONS.md) has the dated deployment state.
 
-The offset `realtime-load` schedule runs at minutes 2, 17, 32, and 47. It loads new registered raw files, runs the realtime dbt subset, and updates BigQuery freshness. The two realtime GitHub workflow files are manual fallbacks. There is no recurring three-snapshot GitHub capture chain or 30-minute handoff delay.
+Before the cutover, Cloud Scheduler invoked `realtime-ingest` every 15 minutes (verified October 26, 2026). It runs `whyline.ingest.gtfs_realtime`, which writes a manifest plus two compressed CSVs under `raw/rtd_gtfsrt/snapshot_at=…/`. The cutover checklist pauses it; its raw tables and the legacy models built from them are kept. The local `make ingest-gtfs-rt` target takes two snapshots 90 seconds apart, and the two realtime GitHub workflow files are manual fallbacks for that snapshot path.
 
-See [container reference](../../infra/cloud-run/README.md) and [operations](../technical/OPERATIONS.md) for configuration and live checks. The nightly export/DuckDB cycle is separate, so the public default engine can lag realtime BigQuery.
+See [container reference](../../infra/cloud-run/README.md) for configuration. The nightly export/DuckDB cycle is separate, so the public default engine can lag realtime BigQuery.
 
 ## Feed addresses
 
@@ -19,25 +19,21 @@ Both realtime ingestors default to RTD's canonical endpoints:
 
 The legacy `www.rtd-denver.com/files/gtfs-rt/…` addresses still redirected there on October 26, 2026. [RTD's current feed page](https://www.rtd-denver.com/open-records/open-spatial-information/real-time-feeds) documents the canonical addresses and the legacy deprecation. Static GTFS still uses `www.rtd-denver.com/files/gtfs/google_transit.zip`, which redirects (308, then 307) to `nodejs-prod.rtd-denver.com` and sends no `ETag` or `Last-Modified`, so changes are detected by MD5. All three hosts publish IPv6 addresses (checked October 28, 2026).
 
-## Continuous capture (built, not deployed)
+## Why keep the raw feed?
 
-`whyline.ingest.gtfs_rt_stream` (`JOB_TYPE=stream`) is the continuous replacement for the 15-minute snapshots. On an e2-micro VM it polls both feeds every 15 seconds with `If-None-Match`, archives every new payload to Coldline (`gs://whylinedenver-rt-archive/rtd_gtfsrt/date=…/HHMM.tar`), and every 15 minutes writes four CSVs under `raw/rtd_gtfsrt_stream/snapshot_at=…/`: trip-update changes, every vehicle report, final stop visits and closed trips. `realtime-load` loads them into four raw tables whose partitions expire after 90 days. The [realtime stop visits plan](../technical/plans/realtime-stop-visits.md) has the design, the timing rules and the deploy runbook. As of October 28, 2026 none of it is deployed; the snapshot path above is the only production capture.
-
-## Why sample and retain raw data?
-
-Repeated captures support time-of-day reliability and feed-coverage analysis. Raw retention enables replay and model corrections; MD5 load deduplication avoids loading an identical file repeatedly. More frequent sampling provides finer temporal resolution but increases cloud processing frequency. The current cadence is a cost/freshness tradeoff, not a guarantee of continuous coverage.
+The archive keeps every feed payload, so any day can be replayed through the same engine after a fix (`make replay-gtfs-rt`); a replay of the same payloads gives the same visits. The raw stream tables expire after 90 days, while `fct_stop_visit` is permanent and never fully refreshed. MD5 load deduplication avoids loading an identical file twice.
 
 ## Interpretation limits
 
-- Feed coverage varies by trip, stop, time, and mode; no fixed coverage percentages are established here.
-- Staging selects one row per `(feed_ts_utc, trip_id)`, not every stop update from every trip. Repeated raw rows are therefore not equivalent to independent arrivals.
-- Delay values can be predictions, derived timestamps, or unavailable. Downstream resolution can default missing delay to zero; inspect `n_reported_events` alongside `n_events` where available.
-- Nearby vehicle positions do not prove an arrival occurred at a particular stop.
-- Source feed timestamps, invocation times, and event times differ. Many legitimate rows share one timestamp; a row count above a threshold does not establish duplication.
-- Bounding-box and delay-range checks are quality signals. Inspect parser/manifest behavior before assuming every flagged record is filtered out.
+- Coverage varies by trip, stop, time and mode. Check `pct_observed` and `n_reported_events` before comparing groups.
+- A visit is an estimate within its own window (`arrival_earliest_ts` to `arrival_latest_ts`). Bus crossings are usually within 30 seconds; rail windows are wider because trains report less often.
+- `last_prediction` visits are RTD's final prediction, not an observation. In the October 28, 2026 sample, 2.2% of prediction drops came before the bus arrived, by a median 3 minutes.
+- Reports more than 100 m from the route shape (detours, layovers), more than 120 s old, or outside the Denver bounding box are not used. Regional service beyond the box (Nederland, for example) gets fewer crossings.
+- The engine times visits from each vehicle's own report timestamp; feed header times only order refreshes. Polling or publishing delays therefore change freshness, not arrival times.
+- Partitions before the cutover count one sampled prediction per poll and trip. See [the glossary](../public/METRICS_GLOSSARY.md#legacy-partitions-before-the-cutover).
 
 Do not use historical annual volume/cost estimates as current measurements. Current spend is in [operations](../technical/OPERATIONS.md); metric definitions are in [the glossary](../public/METRICS_GLOSSARY.md).
 
 ## Validate
 
-Check both job executions, recent GCS objects, raw timestamp coverage, staging grain, mart dates/counts, and served results. Investigate gaps against the actual 15-minute cadence and elapsed portion of the day rather than the old 45/288-snapshot targets. [QA validation](../QA_Validation_Guide.md) has bounded queries and a layer-by-layer checklist.
+Check the poller heartbeat, archive objects, four stream batches an hour in the raw tables, fact grain, method mix, mart dates/counts and served results. Investigate gaps against the 15-minute batch cadence and the elapsed portion of the day. [QA validation](../QA_Validation_Guide.md) has bounded queries and a layer-by-layer checklist.

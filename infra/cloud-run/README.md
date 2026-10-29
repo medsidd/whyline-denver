@@ -10,7 +10,7 @@ The shared [Dockerfile](Dockerfile) packages Python dependencies, application so
 
 Ingest requires `GCS_BUCKET`; `GTFS_SNAPSHOTS` defaults to 1 and `GTFS_INTERVAL_SEC` to 120 (only separates snapshots when there is more than one). `GTFS_EXTRA_FLAGS` is split into additional CLI arguments. Do not put secrets in extra flags; the entrypoint uses shell tracing.
 
-Load uses BigQuery/GCS project/dataset settings and dbt credentials. Despite its name, the loader scans all registered source patterns in its date window. The realtime dbt selection is a subset (`stg_rt_events`, `fct_trip_observation`, `fct_stop_arrival`, two reliability marts) and requires the dimensions and schedule fact built nightly. Neither branch performs the nightly Parquet export/DuckDB refresh.
+Load uses BigQuery/GCS project/dataset settings and dbt credentials. Despite its name, the loader scans all registered source patterns in its date window. The realtime dbt selection is a subset (`stg_rt_stop_visits`, `stg_rt_trip_status`, `fct_stop_visit`, `fct_trip_status`, two reliability marts) and requires the dimensions and schedule fact built nightly. Neither branch performs the nightly Parquet export/DuckDB refresh.
 
 ## Scheduling and deployment
 
@@ -25,4 +25,4 @@ gcloud scheduler jobs list --project=whyline-denver --location=us-central1   --f
 gcloud run jobs executions list --project=whyline-denver --region=us-central1   --job=realtime-load --limit=5
 ```
 
-Inspect ingest executions separately and confirm actual raw/mart timestamps; enabled schedules and successful job configuration updates are not proof of data delivery. [Operations](../../docs/technical/OPERATIONS.md) records dated state/costs and [realtime strategy](../../docs/guides/GTFS_RT_Strategy.md) explains sampling limits.
+Inspect ingest executions separately and confirm actual raw/mart timestamps; enabled schedules and successful job configuration updates are not proof of data delivery. [Operations](../../docs/technical/OPERATIONS.md) records dated state/costs and [realtime strategy](../../docs/guides/GTFS_RT_Strategy.md) explains measurement limits.

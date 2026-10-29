@@ -8,6 +8,7 @@ import { Step2SqlEditor } from "@/components/steps/Step2SqlEditor";
 import { Step3Results } from "@/components/steps/Step3Results";
 import type { StepStatus } from "@/components/steps/StepShell";
 import { DownloadPanel } from "@/components/ui/DownloadPanel";
+import { GLOSSARY, STOP_VISITS_SINCE } from "@/lib/links";
 import { useDashboardStore } from "@/store/dashboardStore";
 
 /**
@@ -35,6 +36,16 @@ export default function DashboardPage() {
             Ask in plain English or pick a ready-made question. Check the SQL WhyLine writes, then run it to see a table,
             chart or map.
           </p>
+          {STOP_VISITS_SINCE && (
+            <p role="note" className="-mt-5 mb-8 text-[15px] text-wl-ink2 max-w-[60ch]">
+              Arrival times before {STOP_VISITS_SINCE} are estimated from 15-minute samples (accuracy ±minutes); from{" "}
+              {STOP_VISITS_SINCE}, from 30-second vehicle reports (usually within 30 s for buses; each visit records its
+              own uncertainty).{" "}
+              <a href={GLOSSARY} className="text-wl-navy font-extrabold underline">
+                How arrivals are timed
+              </a>
+            </p>
+          )}
           <ol className="list-none m-0 p-0">
             <Step1QuestionInput status={status(0)} />
             <Step2SqlEditor status={status(1)} />

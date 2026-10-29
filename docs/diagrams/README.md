@@ -4,7 +4,7 @@
 |---|---|
 | [pipeline.mmd](pipeline.mmd) | Current ingestion, storage, transformation, serving, and orchestration boundaries |
 | [app_guardrails.mmd](app_guardrails.mmd) | SQL generation, editing, validation, execution, and display |
-| [data_model_overview.mmd](data_model_overview.mmd) | Complete model lineage reconciled to current SQL `ref()`/`source()` calls and raw registry |
+| [data_model_overview.mmd](data_model_overview.mmd) | Lineage of every enabled model, reconciled to current SQL `ref()`/`source()` calls and raw registry; the three legacy models disabled at the stop-visit cutover are omitted |
 
 The seven older draw.io diagrams and their fourteen SVG/PNG exports were removed because they duplicated each other and showed removed models, Streamlit/Hugging Face hosting, obsolete schedules, and an obsolete DuckDB hot/cold split. Useful domain logic is in the current model lineage and [metrics glossary](../public/METRICS_GLOSSARY.md).
 

@@ -2,7 +2,7 @@ version: 2
 
 models:
   - name: mart_reliability_by_route_day
-    description: "Daily sampled-event reliability per route, service date, precipitation bin, and nullable snow flag; excludes unassigned routes."
+    description: "Daily reliability per route, service date, precipitation bin, and nullable snow flag from observed stop visits (core.fct_stop_visit); excludes unassigned routes. Partitions before the stop-visit cutover keep the legacy sampled method (data_version NULL)."
     columns:
       - name: route_id
         description: "GTFS route identifier; joins to mart_gtfs_routes.route_id."
@@ -12,7 +12,7 @@ models:
               to: ref('mart_gtfs_routes')
               field: route_id
       - name: service_date_mst
-        description: "Service date in Mountain Time (America/Denver)."
+        description: "GTFS service date (the day the trip began, America/Denver); legacy partitions used the Denver date of the sampled poll."
         data_tests:
           - not_null
       - name: precip_bin
@@ -20,7 +20,7 @@ models:
         data_tests:
           - not_null
       - name: pct_on_time
-        description: "Share of sampled/resolved events within the absolute delay threshold (0–1); unresolved missing delays can default to zero."
+        description: "Share of visits with a known delay that were on time (0–1): less than one minute early and no more than five minutes late (RTD definition). Unknown delays are excluded, not counted as on time. Legacy partitions used |delay| <= 300 s with unknown delays as on time."
         data_tests:
           - accepted_range:
               min_value: 0
@@ -29,8 +29,30 @@ models:
         description: "Route short name (long name when no short name) from the latest GTFS version."
       - name: route_long_name
         description: "Route long name from the latest GTFS version."
+      - name: n_events
+        description: "Stop visits with an arrival (skipped stops excluded)."
+      - name: n_reported_events
+        description: "Visits with a known delay (the on-time and delay denominators)."
+      - name: data_version
+        description: "stream_v1 (30-second vehicle reports), backfill_v1 (15-minute samples, published after calibration), mixed, or NULL for legacy sampled partitions."
+      - name: n_skipped
+        description: "Stops RTD marked SKIPPED on trips that ran."
+      - name: n_canceled_trips
+        description: "Trips of the route and date that RTD canceled (core.fct_trip_status)."
+      - name: n_scheduled
+        description: "Scheduled stop events of the route and date (core.fct_scheduled_stop_time), canceled trips included."
+      - name: pct_observed
+        description: "Share of scheduled stop events with an observed visit (0–1). Canceled and unseen trips count against it; trips not in the schedule do not count. The current day's value rises as the day goes on."
+      - name: pct_shape_crossing
+        description: "Share of visits timed from vehicle positions crossing the stop (including origin departures)."
+      - name: pct_last_prediction
+        description: "Share of visits timed from RTD's final prediction (no usable vehicle positions)."
+      - name: pct_within_30s
+        description: "Share of visits whose arrival window (earliest to latest) is at most 30 seconds."
+      - name: median_window_sec
+        description: "Median arrival window in seconds."
   - name: mart_reliability_by_stop_hour
-    description: "Hourly reliability metrics per stop (one row per stop_id, service date, hour) including headway adherence summaries."
+    description: "Hourly reliability per stop (one row per stop_id, service date, arrival hour) from observed stop visits, with headways between consecutive visits by the same route and direction. Partitions before the cutover keep the legacy sampled method (data_version NULL)."
     columns:
       - name: stop_id
         description: "GTFS stop identifier; joins to mart_gtfs_stops.stop_id."
@@ -40,15 +62,15 @@ models:
               to: ref('mart_gtfs_stops')
               field: stop_id
       - name: service_date_mst
-        description: "Service date in Mountain Time (America/Denver)."
+        description: "GTFS service date (the day the trip began, America/Denver); legacy partitions used the Denver date of the sampled poll."
         data_tests:
           - not_null
       - name: event_hour_mst
-        description: "Service hour (0–23) in Mountain Time."
+        description: "Hour of arrival (0–23), Denver time; in legacy partitions, the hour of the sampled event. service_date_mst is the GTFS service date, so arrivals after midnight on late trips appear as early hours of the day the trip began."
         data_tests:
           - not_null
       - name: pct_on_time
-        description: "Share of sampled/resolved stop-hour events within the absolute delay threshold (0–1); unresolved missing delays can default to zero."
+        description: "Share of the stop-hour's visits with a known delay that were on time (0–1), RTD definition; unknown delays excluded."
         data_tests:
           - accepted_range:
               min_value: 0
@@ -61,6 +83,16 @@ models:
         description: "Stop longitude (WGS84) from the latest GTFS version of this stop."
       - name: route_name_mode
         description: "Route name for route_id_mode, from the latest GTFS version."
+      - name: headway_adherence_rate
+        description: "Share of visits whose observed headway (since the previous visit by the same route and direction) is within 50% of their scheduled headway."
+      - name: data_version
+        description: "stream_v1, backfill_v1 (after calibration), mixed, or NULL for legacy sampled partitions."
+      - name: n_reported_events
+        description: "Visits with a known delay."
+      - name: pct_within_30s
+        description: "Share of visits whose arrival window is at most 30 seconds."
+      - name: pct_shape_crossing
+        description: "Share of visits timed from vehicle positions."
   - name: mart_crash_proximity_by_stop
     description: "Crash counts within 100 m and 250 m buffers for each stop (one row per stop)."
     columns:
