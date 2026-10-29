@@ -31,6 +31,16 @@ case "${JOB_TYPE}" in
     fi
     "${CMD[@]}"
     ;;
+  stream)
+    : "${GCS_BUCKET:?GCS_BUCKET must be set}"
+    : "${ARCHIVE_BUCKET:?ARCHIVE_BUCKET must be set}"
+    log "Running continuous GTFS-RT stream bucket=${GCS_BUCKET} archive=${ARCHIVE_BUCKET}"
+    # exec so SIGTERM from docker stop reaches Python, which checkpoints before exiting
+    exec python -m whyline.ingest.gtfs_rt_stream --gcs \
+      --bucket "${GCS_BUCKET}" \
+      --archive-bucket "${ARCHIVE_BUCKET}" \
+      --state-dir "${STATE_DIR:-/state}"
+    ;;
   load)
     log "Running BigQuery load + realtime marts"
     make bq-load-realtime

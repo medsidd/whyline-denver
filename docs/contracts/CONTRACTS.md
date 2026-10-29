@@ -233,6 +233,139 @@ Patterns: `rtd_gtfsrt/snapshot_at=*/vehicle_positions.csv.gz`. Physical partitio
 | `speed_mps` | `FLOAT64` | NULLABLE |
 | `event_ts_utc` | `TIMESTAMP` | NULLABLE |
 
+## Continuous stream tables
+
+Written by `whyline.ingest.gtfs_rt_stream` (the poller VM) as one gzip CSV per table per 15-minute window under `rtd_gtfsrt_stream/snapshot_at=<window start UTC>/`, with a `manifest.json` per window. Header order is the column order below and is enforced by `tests/ingest/test_stream_contract.py`. Partitions expire after 90 days; the exact payloads are kept permanently in the Coldline archive (`gs://<archive>/rtd_gtfsrt/date=YYYY-MM-DD/HHMM.tar`) and can be rebuilt with `make replay-gtfs-rt`. Design and rules: [realtime stop visits plan](../technical/plans/realtime-stop-visits.md).
+
+### `raw_gtfsrt_tu_changes`
+
+Patterns: `rtd_gtfsrt_stream/snapshot_at=*/tu_changes.csv.gz`. Physical partition: `feed_ts_utc` (DAY), 90-day partition expiry; clustered by `route_id, trip_id`.
+
+One row when a `(trip_id, start_date, stop_sequence)` is first seen (`new`), changes arrival, departure or relationship (`changed`), or leaves a trip that is still listed (`dropped`, carrying the last emitted values); trip-level rows (`trip_new`, `trip_changed`, `trip_vanished`) leave the stop columns null. Times are absolute UTC predictions; RTD sends no delays.
+
+| Column | BigQuery type | Mode |
+|---|---|---|
+| `feed_ts_utc` | `TIMESTAMP` | NULLABLE |
+| `change_type` | `STRING` | NULLABLE |
+| `trip_id` | `STRING` | NULLABLE |
+| `start_date` | `STRING` | NULLABLE |
+| `route_id` | `STRING` | NULLABLE |
+| `direction_id` | `INT64` | NULLABLE |
+| `trip_schedule_relationship` | `STRING` | NULLABLE |
+| `tu_timestamp_utc` | `TIMESTAMP` | NULLABLE |
+| `tu_vehicle_id` | `STRING` | NULLABLE |
+| `stop_sequence` | `INT64` | NULLABLE |
+| `stop_id` | `STRING` | NULLABLE |
+| `arrival_ts_utc` | `TIMESTAMP` | NULLABLE |
+| `departure_ts_utc` | `TIMESTAMP` | NULLABLE |
+| `arrival_delay_sec` | `INT64` | NULLABLE |
+| `departure_delay_sec` | `INT64` | NULLABLE |
+| `stop_schedule_relationship` | `STRING` | NULLABLE |
+
+### `raw_gtfsrt_vp_stream`
+
+Patterns: `rtd_gtfsrt_stream/snapshot_at=*/vp_reports.csv.gz`. Physical partition: `feed_ts_utc` (DAY), 90-day partition expiry; clustered by `route_id, trip_id`.
+
+Every vehicle at every refresh, repeats included (`is_repeat`). `report_ts_utc` is the vehicle's own timestamp; `report_age_sec` = feed header − report. `dist_along_m` / `lateral_offset_m` are the poller's projection onto the trip shape; `valid_for_timing` is the visit engine's evidence filter.
+
+| Column | BigQuery type | Mode |
+|---|---|---|
+| `feed_ts_utc` | `TIMESTAMP` | NULLABLE |
+| `report_ts_utc` | `TIMESTAMP` | NULLABLE |
+| `entity_id` | `STRING` | NULLABLE |
+| `vehicle_id` | `STRING` | NULLABLE |
+| `vehicle_label` | `STRING` | NULLABLE |
+| `trip_id` | `STRING` | NULLABLE |
+| `start_date` | `STRING` | NULLABLE |
+| `route_id` | `STRING` | NULLABLE |
+| `direction_id` | `INT64` | NULLABLE |
+| `trip_schedule_relationship` | `STRING` | NULLABLE |
+| `stop_id` | `STRING` | NULLABLE |
+| `current_status` | `STRING` | NULLABLE |
+| `lat` | `FLOAT64` | NULLABLE |
+| `lon` | `FLOAT64` | NULLABLE |
+| `bearing` | `FLOAT64` | NULLABLE |
+| `speed_mps` | `FLOAT64` | NULLABLE |
+| `occupancy_status` | `STRING` | NULLABLE |
+| `report_age_sec` | `INT64` | NULLABLE |
+| `is_repeat` | `BOOL` | NULLABLE |
+| `in_bbox` | `BOOL` | NULLABLE |
+| `dist_along_m` | `FLOAT64` | NULLABLE |
+| `lateral_offset_m` | `FLOAT64` | NULLABLE |
+| `valid_for_timing` | `BOOL` | NULLABLE |
+
+### `raw_gtfsrt_stop_visits`
+
+Patterns: `rtd_gtfsrt_stream/snapshot_at=*/stop_visits.csv.gz`. Physical partition: `_ingested_at` (HOUR), 90-day partition expiry; clustered by `route_id, trip_id`.
+
+Final stop visits derived by the poller (`stream_v1`), the backfill (`backfill_v1`) or a calibration replay. One row per `(service_date, trip_id, stop_sequence)` per emission; `service_date` comes from GTFS `start_date`.
+
+| Column | BigQuery type | Mode |
+|---|---|---|
+| `service_date` | `DATE` | NULLABLE |
+| `trip_id` | `STRING` | NULLABLE |
+| `start_date` | `STRING` | NULLABLE |
+| `stop_sequence` | `INT64` | NULLABLE |
+| `stop_id` | `STRING` | NULLABLE |
+| `stop_role` | `STRING` | NULLABLE |
+| `route_id` | `STRING` | NULLABLE |
+| `direction_id` | `INT64` | NULLABLE |
+| `trip_headsign` | `STRING` | NULLABLE |
+| `vehicle_id` | `STRING` | NULLABLE |
+| `arrival_method` | `STRING` | NULLABLE |
+| `arrival_ts_utc` | `TIMESTAMP` | NULLABLE |
+| `arrival_earliest_ts` | `TIMESTAMP` | NULLABLE |
+| `arrival_latest_ts` | `TIMESTAMP` | NULLABLE |
+| `departure_earliest_ts` | `TIMESTAMP` | NULLABLE |
+| `departure_latest_ts` | `TIMESTAMP` | NULLABLE |
+| `dwell_min_sec` | `INT64` | NULLABLE |
+| `dwell_max_sec` | `INT64` | NULLABLE |
+| `skipped` | `BOOL` | NULLABLE |
+| `stopped_observed` | `BOOL` | NULLABLE |
+| `before_report_ts` | `TIMESTAMP` | NULLABLE |
+| `before_dist_along_m` | `FLOAT64` | NULLABLE |
+| `after_report_ts` | `TIMESTAMP` | NULLABLE |
+| `after_dist_along_m` | `FLOAT64` | NULLABLE |
+| `stop_dist_m` | `FLOAT64` | NULLABLE |
+| `nearest_offset_m` | `FLOAT64` | NULLABLE |
+| `last_predicted_arrival_ts` | `TIMESTAMP` | NULLABLE |
+| `last_prediction_published_ts` | `TIMESTAMP` | NULLABLE |
+| `trip_switch_at_terminal` | `BOOL` | NULLABLE |
+| `low_confidence` | `BOOL` | NULLABLE |
+| `is_final` | `BOOL` | NULLABLE |
+| `data_version` | `STRING` | NULLABLE |
+| `static_md5` | `STRING` | NULLABLE |
+| `emitted_at` | `TIMESTAMP` | NULLABLE |
+
+### `raw_gtfsrt_trip_status`
+
+Patterns: `rtd_gtfsrt_stream/snapshot_at=*/trip_status.csv.gz`. Physical partition: `_ingested_at` (HOUR), 90-day partition expiry; clustered by `route_id, trip_id`.
+
+One row per closed trip instance: final trip relationship, `outcome` (`completed`, `partial`, `vanished`, `canceled`, `no_static`), first/last seen, visit counts by method.
+
+| Column | BigQuery type | Mode |
+|---|---|---|
+| `service_date` | `DATE` | NULLABLE |
+| `trip_id` | `STRING` | NULLABLE |
+| `start_date` | `STRING` | NULLABLE |
+| `route_id` | `STRING` | NULLABLE |
+| `direction_id` | `INT64` | NULLABLE |
+| `final_schedule_relationship` | `STRING` | NULLABLE |
+| `outcome` | `STRING` | NULLABLE |
+| `first_seen_ts` | `TIMESTAMP` | NULLABLE |
+| `last_seen_ts` | `TIMESTAMP` | NULLABLE |
+| `first_vp_ts` | `TIMESTAMP` | NULLABLE |
+| `last_vp_ts` | `TIMESTAMP` | NULLABLE |
+| `had_vehicle` | `BOOL` | NULLABLE |
+| `n_stops_static` | `INT64` | NULLABLE |
+| `n_visits` | `INT64` | NULLABLE |
+| `n_shape_crossing` | `INT64` | NULLABLE |
+| `n_last_prediction` | `INT64` | NULLABLE |
+| `n_skipped` | `INT64` | NULLABLE |
+| `data_version` | `STRING` | NULLABLE |
+| `static_md5` | `STRING` | NULLABLE |
+| `closed_at` | `TIMESTAMP` | NULLABLE |
+
 ## Units and source semantics
 
 - Feed/event timestamps are UTC; geographic longitude/latitude outputs use WGS84 degrees. Delays and headways are seconds; speed is meters per second; bearing is degrees.

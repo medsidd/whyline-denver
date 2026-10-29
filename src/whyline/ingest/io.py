@@ -154,13 +154,22 @@ def write_manifest(path: PathLike, meta: dict[str, Any]) -> None:
         manifest_path.write_bytes(manifest_payload)
 
 
-def upload_bytes_gcs(bucket: str, path: str, data: bytes, content_type: str) -> None:
-    """Upload bytes to Google Cloud Storage under the provided bucket/path."""
+def upload_bytes_gcs(
+    bucket: str,
+    path: str,
+    data: bytes,
+    content_type: str,
+    *,
+    if_generation_match: int | None = None,
+) -> None:
+    """Upload bytes to Google Cloud Storage; if_generation_match=0 makes the write create-only."""
     if bucket.startswith("gs://"):
         bucket, path = _split_gcs_uri(bucket)
     client = _get_gcs_client()
     blob = client.bucket(bucket).blob(path)
-    blob.upload_from_string(data, content_type=content_type)
+    blob.upload_from_string(
+        data, content_type=content_type, if_generation_match=if_generation_match
+    )
 
 
 def exists(path: PathLike) -> bool:

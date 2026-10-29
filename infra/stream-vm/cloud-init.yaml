@@ -1,0 +1,54 @@
+#cloud-config
+# Startup/install script for the RTD stream poller VM (e2-micro, Container-Optimized OS).
+# COS rebuilds /etc on every boot and cloud-init re-applies this file, so the systemd unit
+# and launcher are rewritten each boot. Poller state lives on /var/lib (persistent; noexec,
+# hence "bash <script>" rather than executing it directly).
+#
+# Instance metadata (see the runbook in docs/technical/plans/realtime-stop-visits.md):
+#   image-uri       us-central1-docker.pkg.dev/...@sha256:...  (immutable digest)
+#   gcs-bucket      raw bucket for 15-minute staging batches
+#   archive-bucket  Coldline bucket for payload tars and static zips
+# Upgrade or roll back: change image-uri, then `sudo systemctl restart whyline-stream`.
+write_files:
+  - path: /etc/whyline/run-stream.sh
+    permissions: "0644"
+    owner: root
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      md=http://metadata.google.internal/computeMetadata/v1/instance/attributes
+      get() { curl -sf -H "Metadata-Flavor: Google" "$md/$1"; }
+      image="$(get image-uri)"
+      docker-credential-gcr configure-docker --registries="${image%%/*}"
+      docker rm -f whyline-stream >/dev/null 2>&1 || true
+      # Host networking: Docker's default bridge has no IPv6, and RTD is reached over IPv6.
+      exec docker run --rm --name whyline-stream --network host --memory 600m \
+        --log-driver journald -v /var/lib/whyline/state:/state \
+        -e JOB_TYPE=stream -e STATE_DIR=/state \
+        -e GCS_BUCKET="$(get gcs-bucket)" -e ARCHIVE_BUCKET="$(get archive-bucket)" \
+        "$image"
+  - path: /etc/systemd/system/whyline-stream.service
+    permissions: "0644"
+    owner: root
+    content: |
+      [Unit]
+      Description=WhyLine RTD realtime stream poller
+      Wants=network-online.target
+      After=network-online.target docker.service
+      Requires=docker.service
+
+      [Service]
+      Environment=HOME=/var/lib/whyline
+      ExecStartPre=/bin/mkdir -p /var/lib/whyline/state
+      ExecStart=/bin/bash /etc/whyline/run-stream.sh
+      # SIGTERM lets the poller checkpoint; it resumes the same window after restart.
+      ExecStop=/usr/bin/docker stop -t 60 whyline-stream
+      Restart=always
+      RestartSec=15
+      TimeoutStopSec=90
+
+      [Install]
+      WantedBy=multi-user.target
+runcmd:
+  - systemctl daemon-reload
+  - systemctl enable --now whyline-stream.service

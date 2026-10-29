@@ -17,8 +17,10 @@ from google.transit import gtfs_realtime_pb2
 
 from whyline.ingest import io
 
-DEFAULT_TRIP_UPDATES_URL = "https://www.rtd-denver.com/files/gtfs-rt/TripUpdate.pb"
-DEFAULT_VEHICLE_POSITIONS_URL = "https://www.rtd-denver.com/files/gtfs-rt/VehiclePosition.pb"
+DEFAULT_TRIP_UPDATES_URL = "https://open-data.rtd-denver.com/files/gtfs-rt/rtd/TripUpdate.pb"
+DEFAULT_VEHICLE_POSITIONS_URL = (
+    "https://open-data.rtd-denver.com/files/gtfs-rt/rtd/VehiclePosition.pb"
+)
 
 DENVER_LON_MIN = -105.5
 DENVER_LON_MAX = -104.4

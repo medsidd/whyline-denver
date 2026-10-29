@@ -26,6 +26,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s [%(levelnam
 RAW_ROOT_LOCAL = Path("data/raw")
 RAW_ROOT_GCS = "raw"
 INGESTION_LOG_TABLE = "__ingestion_log"
+STREAM_PATH_MARKER = "/rtd_gtfsrt_stream/"
+STREAM_WINDOW_MIN = 15
+STREAM_STALE_MIN = 30
 
 
 @dataclass
@@ -96,8 +99,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not args.dry_run:
         ensure_ingestion_log_table(bq_client)
 
+    # Load ingestion log cache once for all deduplication checks
+    ingestion_cache = load_ingestion_log_cache(bq_client)
     plan = build_plan(
-        bq_client=bq_client,
+        ingestion_cache=ingestion_cache,
         storage_client=storage_client,
         bucket=bucket,
         source=args.src,
@@ -105,6 +110,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         end_date=end_date,
     )
     print_plan(plan, start=start_date, until=end_date, max_files=args.max_files)
+    warn_if_stream_stale(plan, ingestion_cache, datetime.now(UTC))
 
     if args.dry_run:
         LOGGER.info("Dry-run complete. No load jobs executed.")
@@ -182,15 +188,13 @@ def execute_plan(
 
 def build_plan(
     *,
-    bq_client: bigquery.Client,
+    ingestion_cache: set[tuple[str, str]],
     storage_client: storage.Client | None,
     bucket: str | None,
     source: str,
     start_date: date | None,
     end_date: date | None,
 ) -> list[PlanItem]:
-    # Load ingestion log cache once for all deduplication checks
-    ingestion_cache = load_ingestion_log_cache(bq_client)
     LOGGER.info("Beginning file discovery and deduplication checks")
 
     plan: list[PlanItem] = []
@@ -239,6 +243,28 @@ def build_plan(
                 )
             )
     return plan
+
+
+def warn_if_stream_stale(
+    plan: Iterable[PlanItem], ingestion_cache: set[tuple[str, str]], now: datetime
+) -> None:
+    """Log the lines the dead-poller alert matches: STREAM_STALE when the newest stream batch
+    in the window was sealed over 30 minutes ago, STREAM_MISSING when none is present."""
+    labels = [
+        item.file.relative_path.split("snapshot_at=", 1)[1].split("/", 1)[0]
+        for item in plan
+        if STREAM_PATH_MARKER in item.file.source_path and "snapshot_at=" in item.file.relative_path
+    ]
+    if labels:
+        newest = max(labels)
+        sealed = datetime.strptime(newest, "%Y-%m-%dT%H:%M").replace(tzinfo=UTC) + timedelta(
+            minutes=STREAM_WINDOW_MIN
+        )
+        age_min = (now - sealed).total_seconds() / 60
+        if age_min > STREAM_STALE_MIN:
+            LOGGER.warning("STREAM_STALE newest=%s age_min=%.0f", newest, age_min)
+    elif any(STREAM_PATH_MARKER in path for path, _ in ingestion_cache):
+        LOGGER.warning("STREAM_MISSING no stream batch in the load window")
 
 
 def discover_files(
@@ -531,9 +557,11 @@ def ensure_destination_table(bq_client: bigquery.Client, job: JobSpec) -> None:
         pass
     table = bigquery.Table(table_id, schema=job.table_schema())
     if job.partition:
+        days = job.partition.expiration_days
         table.time_partitioning = bigquery.TimePartitioning(
-            type_=bigquery.TimePartitioningType.DAY,
+            type_=getattr(bigquery.TimePartitioningType, job.partition.granularity),
             field=job.partition.field,
+            expiration_ms=days * 86_400_000 if days else None,
         )
     if job.clustering:
         table.clustering_fields = list(job.clustering.fields)
