@@ -194,7 +194,7 @@ Raw tables (registry order is CSV order). All are NULLABLE plus the four loader 
 
 ### 3.7 Monitoring (free)
 
-- dbt source freshness, nightly, with filters.
+- dbt source freshness on the four tables, with filters (warn/error after 30/60 minutes for trip-update changes and vehicle reports, 60/180 for visits, 120/360 for trip status), run with `make dbt-source-freshness`. **Changed in build:** it isn't added to the nightly run. Nightly runs at 09:00 UTC (02:00–03:00 in Denver), when a quiet hour can leave a table without new rows, so it would fail the nightly export on a false alarm. The batch-based `STREAM_STALE` alert below checks the same thing without depending on row counts.
 - `STREAM_STALE` and `STREAM_MISSING` warnings from `realtime-load`, with a log-match alert policy on them (email channel).
 - A log-based counter on the poller heartbeat, with a metric-absence alert after 30 minutes.
 - The billing catalog has no alerting SKU; log-based metrics fall within the 150 MiB free metric volume.
