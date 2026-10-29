@@ -165,10 +165,14 @@ Checks before the drop:
 `tests/sync/test_refresh_duckdb.py` built real `Settings`, whose defaults name the production bucket, and ran the refresh with uploads on. On a machine with `.env` and application-default credentials, each `make test` replaced `gs://whylinedenver-raw/marts/duckdb/warehouse.duckdb` with a test file and merged test marts into `state/sync_state.json`. CI was unaffected because it has no credentials.
 
 - **When:** ten local runs between 16:36 on October 28 and 01:11 on October 29. The bucket keeps object versions, so each run is visible. Older sync-state versions carry the same pollution (`mart_hot`, `mart_cold`).
-- **Effect:** since 16:36, `/api/downloads/warehouse` has served a 268 KiB file holding one view that points at a laptop temp path, and the DuckDB freshness shows the last test run. Dashboard queries and CSV downloads use BigQuery and were not affected. No other object under `marts/` was written during those runs, and `raw/` holds no test-fixture paths.
+- **Effect:** from 16:36 until the repair, `/api/downloads/warehouse` served a 268 KiB file holding one view that pointed at a laptop temp path, and the DuckDB freshness showed the last test run. Dashboard queries and CSV downloads use BigQuery and were not affected. No other object under `marts/` was written during those runs, and `raw/` holds no test-fixture paths.
 - **Last good versions:** warehouse generation `1793204111822838` (16:15, from the Nightly DuckDB run; all nine marts); sync state generation `1793205237527316` (16:33).
 - **Fix:** a suite-wide fixture now makes cloud client constructors raise (see [testing](TESTING.md)).
-- **Repair (owner action, not done at 06:55):** the 09:30 Nightly DuckDB run rebuilds both objects, provided nobody runs the unguarded suite first. To repair sooner, restore the warehouse with `gcloud storage cp --if-generation-match=1793236266131772 "gs://whylinedenver-raw/marts/duckdb/warehouse.duckdb#1793204111822838" gs://whylinedenver-raw/marts/duckdb/warehouse.duckdb`, or run `gh workflow run nightly-duckdb.yml`, which also rewrites the sync state.
+- **Repaired at 08:07 on October 29, with the owner's approval:**
+  - the last good warehouse version was copied back over the live object (new generation `1793261235195494`);
+  - the sync state was rewritten with its last good `duckdb_synced_at_utc` and mart dates. The test entries (`mart_hot`, `mart_cold`) were dropped and the current BigQuery timestamp kept.
+  - The public download now returns the 6.8 MB warehouse (MD5 `3236e24d…`), and DuckDB freshness reads 10:15 MDT on October 28.
+  - The next Nightly DuckDB run refreshes both as usual.
 
 ## Refresh state read-only
 
