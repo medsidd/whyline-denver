@@ -134,6 +134,18 @@ The 20:32 and 20:47 runs succeeded.
 - the obsolete `stg_denver` objects (`int_*` tables and views);
 - the ten bronze `__unpartitioned_bak` tables. Until they are dropped they keep about 78 GB of duplicate storage.
 
+### Realtime stop visits, October 28, 2026 (built, not deployed)
+
+The continuous GTFS-RT poller, its four raw tables, `fct_stop_visit`, `fct_trip_status` and the backfill are built on `feat/rt-stop-visits`; see the [plan](plans/realtime-stop-visits.md). No cloud resource, table, image, job or schedule was created or changed. The owner runbook (plan §7) lists every command with its rollback, and the dual-run checklist (plan §6) gates the mart cutover.
+
+Read-only findings that affect operations:
+- The Compute Engine API is disabled on the project. Enabling it creates an auto-mode `default` network, which cannot do IPv6, so the runbook creates a custom VPC.
+- `whylinedenver-raw` deletes every object after 180 days. GCS snapshots before about 2026-05-01 are gone; BigQuery raw is the only older copy, which is why the backfill reads it with `EXPORT DATA`.
+- `raw_gtfsrt_trip_updates` is 41.70 GiB logical but 1.14 GiB physical. Physical storage billing on `raw_denver` would cut that table's storage cost about 18× (37× fewer bytes at twice the per-GiB price; optional, with a 14-day cooldown between changes).
+- `raw_denver.__tmp_gtfsrt_trip_updates_20260410183403_174a2a29`, left by a failed April load, is a further cleanup candidate alongside the pending list above.
+
+Expected cost (plan §4): about $4 a month more at the 90-day raw cap in month 3 (logical billing), and realtime queries falling from about $2.4 to $0.45 a month after the cutover. The dual run adds roughly $2–2.5 over 10 days.
+
 ## Refresh state read-only
 
 ```bash
@@ -176,7 +188,7 @@ Run via `bq query --project_id=whyline-denver --location=us-central1 --use_legac
 
 ## Source endpoint maintenance
 
-October 26 read-only requests confirmed both configured legacy RTD realtime URLs redirect to working canonical protobuf endpoints. [RTD documents the new feed addresses and legacy deprecation](https://www.rtd-denver.com/open-records/open-spatial-information/real-time-feeds). Source defaults were not changed during the documentation audit; see [realtime strategy](../guides/GTFS_RT_Strategy.md) for the exact observed targets.
+October 26 read-only requests confirmed both legacy RTD realtime URLs redirect to working canonical protobuf endpoints. [RTD documents the new feed addresses and legacy deprecation](https://www.rtd-denver.com/open-records/open-spatial-information/real-time-feeds). The realtime ingestors now default to the canonical endpoints; a deployed image built before that change still requests the legacy addresses. Static GTFS still uses the redirecting legacy address. See [realtime strategy](../guides/GTFS_RT_Strategy.md) for the exact targets.
 
 ## Changes to operations
 

@@ -12,12 +12,16 @@ See [container reference](../../infra/cloud-run/README.md) and [operations](../t
 
 ## Feed addresses
 
-The source defaults still use `https://www.rtd-denver.com/files/gtfs-rt/TripUpdate.pb` and `VehiclePosition.pb`. On October 26, 2026, read-only requests followed redirects and returned protobuf responses at the newer canonical endpoints:
+Both realtime ingestors default to RTD's canonical endpoints:
 
 - `https://open-data.rtd-denver.com/files/gtfs-rt/rtd/TripUpdate.pb`
 - `https://open-data.rtd-denver.com/files/gtfs-rt/rtd/VehiclePosition.pb`
 
-[RTD's current feed page](https://www.rtd-denver.com/open-records/open-spatial-information/real-time-feeds) documents the canonical addresses and legacy-address deprecation. This documentation update does not change source defaults; continued legacy redirects are an upstream dependency to review in a separate code/deployment change.
+The legacy `www.rtd-denver.com/files/gtfs-rt/…` addresses still redirected there on October 26, 2026. [RTD's current feed page](https://www.rtd-denver.com/open-records/open-spatial-information/real-time-feeds) documents the canonical addresses and the legacy deprecation. Static GTFS still uses `www.rtd-denver.com/files/gtfs/google_transit.zip`, which redirects (308, then 307) to `nodejs-prod.rtd-denver.com` and sends no `ETag` or `Last-Modified`, so changes are detected by MD5. All three hosts publish IPv6 addresses (checked October 28, 2026).
+
+## Continuous capture (built, not deployed)
+
+`whyline.ingest.gtfs_rt_stream` (`JOB_TYPE=stream`) is the continuous replacement for the 15-minute snapshots. On an e2-micro VM it polls both feeds every 15 seconds with `If-None-Match`, archives every new payload to Coldline (`gs://whylinedenver-rt-archive/rtd_gtfsrt/date=…/HHMM.tar`), and every 15 minutes writes four CSVs under `raw/rtd_gtfsrt_stream/snapshot_at=…/`: trip-update changes, every vehicle report, final stop visits and closed trips. `realtime-load` loads them into four raw tables whose partitions expire after 90 days. The [realtime stop visits plan](../technical/plans/realtime-stop-visits.md) has the design, the timing rules and the deploy runbook. As of October 28, 2026 none of it is deployed; the snapshot path above is the only production capture.
 
 ## Why sample and retain raw data?
 
