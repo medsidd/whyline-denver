@@ -179,20 +179,31 @@ With the owner's approval, these were dropped at 08:20:
 
 Before the drop, no view in the live datasets referenced them and no code outside the docs named them. Time travel can recover them until November 5 at 08:20, for example `bq cp whyline-denver:raw_denver.raw_gtfs_stop_times__unpartitioned_bak@1793262042000 …`; a dataset is undeleted with `bq undelete`.
 
-### Stream deployment, October 29, 2026 (UTC, in progress)
+### Stream deployment, October 29, 2026 (UTC)
 
-Following plan §7, with the owner's approval:
+Following plan §7, with the owner's approval. The owner ran steps 4, 6 and 7, because the agent's permission check blocks IAM changes and job updates.
 
 | Step | State |
 |---|---|
-| 0 Rollback digests | both jobs on `whylinedenver-realtime@sha256:17042b45…f29e3` |
+| 0 Rollback digests | both jobs were on `whylinedenver-realtime@sha256:17042b45…f29e3` |
 | 1 Compute Engine API | enabled. It created the auto-mode `default` network, which nothing uses. |
-| 2 Archive bucket | `gs://whylinedenver-rt-archive` created (Coldline, us-central1, uniform access, public access prevented) |
+| 2 Archive bucket | `gs://whylinedenver-rt-archive` (Coldline, us-central1, uniform access, public access prevented) |
 | 3 Staging lifecycle | 7-day delete for `raw/rtd_gtfsrt_stream/`, plus deletion of that prefix's noncurrent versions after a day. The bucket keeps object versions, and the 180-day rule alone would leave them forever. |
-| 4 Service account and IAM | **not done**: blocked by the agent's permission check |
-| 5 Network | `whyline-rt`, subnet `whyline-rt-usc1` (external IPv6 `2600:1900:4000:485::/64`, Private Google Access) and firewall rule `whyline-rt-iap-ssh` created |
-| 6 Image | `whylinedenver-realtime@sha256:f049144d1082e8cfcb3a2d9fb70757c317c75f9e5e29271807ac3247d7c2f7d1` built from `fa47a7d`; jobs **not updated**, for the same reason |
-| 7–10 | waiting on steps 4 and 6 |
+| 4 Service account | `rt-stream-poller` with the four roles in the runbook |
+| 5 Network | `whyline-rt`, subnet `whyline-rt-usc1` (external IPv6 `2600:1900:4000:485::/64`, Private Google Access), firewall rule `whyline-rt-iap-ssh` |
+| 6 Image | both jobs on `@sha256:f049144d…c2f7d1` (built from `fa47a7d`) since about 08:35; the 08:47 `realtime-load` was the first run on it |
+| 7 VM | `rt-stream-poller` created at 08:37:45; container started at 08:41 over IPv6 |
+| 8 Verify | heartbeat every 5 minutes. First window `snapshot_at=2026-10-29T08:30`; archive tar and static zip in the archive bucket. The 08:47 `realtime-load` created the four raw tables (day or hour partitions, 90-day expiry, clustered on `route_id, trip_id`). |
+| 9 dbt models | #70 merged at 08:56 (`85d3a7c`). The nightly run that started at 15:57 built them: 41 models passed; `fct_stop_visit` 88.4k rows, `fct_trip_status` 2.1k. Tests: 83 passed and 1 warning, 23 visits whose arrivals don't rise with stop sequence. Image `@sha256:12384b64ebcb072f1c4e496cda827aae62c4b600820094f76852a44cf46f4ea1` is built from `85d3a7c`; **until both jobs use it, the stream facts refresh only nightly**. |
+| 10 Alerts | email channel for the owner; log metric `rt_stream_heartbeat`, counting only `cos_docker` lines because COS writes each container line to two logs; policies for a stale or missing stream and for a missing heartbeat |
+
+First readings, which are not yet dual-run results:
+- On October 29, 73% of timed visits were `shape_crossing` (within 30 s), 23% `shape_crossing_gap` (98 s average window) and 1.4% `last_prediction`.
+- Poller peak RSS was 251 MB with 770 open trips at 16:50, against the 250 MB target, on a 1 GB e2-micro.
+- The poller swapped to a new static feed (MD5 `bc44693f…`) during the day.
+- The scheduled Nightly BigQuery run started at 15:57, almost 7 hours after its 09:00 cron; GitHub delays scheduled workflows under load.
+
+The dual run (plan §6) starts with these partitions. Earliest cutover review: November 5, after a weekend.
 
 Physical storage billing (decision 6) is deferred until after a week of real pipeline runs, so it can be judged on billed costs.
 
