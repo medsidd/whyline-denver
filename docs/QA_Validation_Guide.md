@@ -54,6 +54,43 @@ GROUP BY service_date_mst ORDER BY service_date_mst;
 
 Check zero null routes and on-time values within 0–1; inspect event/reporting coverage before trusting the rate. Missing transit delay can be coalesced to zero, while missing weather must remain unknown/null. Weather-impact rows require observed weather; dry baselines can be null if no dry-day overlap exists. A daily window need not have a fixed completeness percentage.
 
+### Stream and stop visits
+
+Once the stream poller is deployed, check that batches keep arriving and how visits were timed. Raw stop visits are partitioned by load hour, so this reads one day:
+
+```sql
+SELECT TIMESTAMP_TRUNC(_ingested_at, HOUR) AS load_hour,
+       COUNT(DISTINCT _source_path) AS batches,
+       COUNT(*) AS visits,
+       COUNTIF(arrival_method = 'shape_crossing') / COUNT(*) AS share_crossing_30s,
+       COUNTIF(arrival_method = 'last_prediction') / COUNT(*) AS share_last_prediction
+FROM `whyline-denver.raw_denver.raw_gtfsrt_stop_visits`
+WHERE _ingested_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 DAY)
+GROUP BY load_hour ORDER BY load_hour;
+```
+
+Expect four batches an hour. Then compare yesterday's visits with the schedule by route:
+
+```sql
+WITH s AS (
+  SELECT route_id, COUNT(*) AS scheduled
+  FROM `whyline-denver.core_denver.fct_scheduled_stop_time`
+  WHERE service_date_mst = DATE_SUB(CURRENT_DATE('America/Denver'), INTERVAL 1 DAY)
+  GROUP BY route_id),
+v AS (
+  SELECT route_id, COUNTIF(NOT skipped) AS visits, COUNTIF(within_30s) AS within_30s
+  FROM `whyline-denver.core_denver.fct_stop_visit`
+  WHERE service_date = DATE_SUB(CURRENT_DATE('America/Denver'), INTERVAL 1 DAY)
+  GROUP BY route_id)
+SELECT s.route_id, s.scheduled, v.visits,
+       SAFE_DIVIDE(v.visits, s.scheduled) AS share_observed,
+       SAFE_DIVIDE(v.within_30s, v.visits) AS share_within_30s
+FROM s LEFT JOIN v USING (route_id)
+ORDER BY share_observed;
+```
+
+Canceled trips and vehicles that never reported lower `share_observed`; rail windows are wider than bus windows by design. `assert_stream_visits_reach_fact` fails if raw visits from two to three days ago are missing from the fact. The [dual-run checklist](technical/plans/realtime-stop-visits.md#6-dual-run-and-cutover-checklist-owner) lists the checks to pass before the marts switch to stop visits.
+
 Authorized `make dbt-test-staging` / `make dbt-test-marts` run data assertions. Separate missing data from model execution failures; do not silently repair by deleting raw records or treating null weather as dry.
 
 ## Export and warehouse checks
