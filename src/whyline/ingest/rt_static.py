@@ -11,7 +11,6 @@ import zipfile
 from array import array
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TextIO
 
 # Equirectangular metres around Denver; scale error stays under 1% across the RTD bbox,
@@ -117,18 +116,7 @@ def load_zip(payload: bytes) -> StaticFeed:
                 return None
             return io.TextIOWrapper(archive.open(name), encoding="utf-8-sig")
 
-        return build(md5, open_text)
-
-
-def load_dir(path: str | Path, md5: str) -> StaticFeed:
-    """Build geometry from extracted GTFS text files (backfill exports)."""
-    root = Path(path)
-
-    def open_text(name: str) -> TextIO | None:
-        file = root / name
-        return file.open(encoding="utf-8-sig", newline="") if file.exists() else None
-
-    return build(md5, open_text)
+        return build(md5, lambda name, *cols: _table(open_text, name, *cols))
 
 
 def _table(open_text: Callable[[str], TextIO | None], name: str, *cols: str) -> Iterator[tuple]:
@@ -144,16 +132,19 @@ def _table(open_text: Callable[[str], TextIO | None], name: str, *cols: str) -> 
             yield tuple(row[p] if p is not None and p < len(row) else "" for p in pos)
 
 
-def build(md5: str, open_text: Callable[[str], TextIO | None]) -> StaticFeed:
-    feed_version = next(
-        (v for (v,) in _table(open_text, "feed_info.txt", "feed_version") if v), None
-    )
-    route_types = dict(_table(open_text, "routes.txt", "route_id", "route_type"))
+Table = Callable[..., Iterator[tuple]]
+
+
+def build(md5: str, table: Table) -> StaticFeed:
+    """table(name, *cols) yields string tuples of a GTFS file's columns ('' when missing), so
+    the zip and the backfill's exported warehouse rows share one builder."""
+    feed_version = next((v for (v,) in table("feed_info.txt", "feed_version") if v), None)
+    route_types = dict(table("routes.txt", "route_id", "route_type"))
 
     stop_ids: list[str] = []
     stop_index: dict[str, int] = {}
     stop_xs, stop_ys = array("d"), array("d")
-    for sid, lat, lon in _table(open_text, "stops.txt", "stop_id", "stop_lat", "stop_lon"):
+    for sid, lat, lon in table("stops.txt", "stop_id", "stop_lat", "stop_lon"):
         try:
             x, y = to_xy(float(lat), float(lon))
         except ValueError:
@@ -165,8 +156,7 @@ def build(md5: str, open_text: Callable[[str], TextIO | None]) -> StaticFeed:
 
     # Rows are appended straight into per-shape and per-trip arrays to keep peak memory low.
     shape_acc: dict[str, tuple[array, array, array, array]] = {}
-    for sid, lat, lon, seq, dist in _table(
-        open_text,
+    for sid, lat, lon, seq, dist in table(
         "shapes.txt",
         "shape_id",
         "shape_pt_lat",
@@ -185,8 +175,8 @@ def build(md5: str, open_text: Callable[[str], TextIO | None]) -> StaticFeed:
     del shape_acc
 
     stop_acc: dict[str, tuple[array, array, array]] = {}
-    for tid, seq, sid, dist in _table(
-        open_text, "stop_times.txt", "trip_id", "stop_sequence", "stop_id", "shape_dist_traveled"
+    for tid, seq, sid, dist in table(
+        "stop_times.txt", "trip_id", "stop_sequence", "stop_id", "shape_dist_traveled"
     ):
         acc = stop_acc.get(tid)
         if acc is None:
@@ -196,8 +186,8 @@ def build(md5: str, open_text: Callable[[str], TextIO | None]) -> StaticFeed:
         acc[2].append(float(dist) if dist else math.nan)
 
     trips: dict[str, Trip] = {}
-    for tid, rid, did, shape_id, headsign in _table(
-        open_text, "trips.txt", "trip_id", "route_id", "direction_id", "shape_id", "trip_headsign"
+    for tid, rid, did, shape_id, headsign in table(
+        "trips.txt", "trip_id", "route_id", "direction_id", "shape_id", "trip_headsign"
     ):
         acc = stop_acc.pop(tid, None)
         shape = shapes.get(shape_id)

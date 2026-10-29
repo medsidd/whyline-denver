@@ -41,9 +41,11 @@ def test_stream_batches_match_the_registry(tmp_path):
     batch = window.seal(tmp_path / "outbox", {"raw_root": "r", "source": {}})
 
     specs = {job.table: job for job in JOBS}
+    calibration = specs["raw_gtfsrt_stop_visits_calibration"]
+    assert calibration.columns == specs["raw_gtfsrt_stop_visits"].columns
     for name, table in TABLES.items():
         job = specs[table]
-        assert job.patterns == (f"rtd_gtfsrt_stream/snapshot_at=*/{name}.csv.gz",)
+        assert f"rtd_gtfsrt_stream/snapshot_at=*/{name}.csv.gz" in job.patterns
         rows = list(
             csv.reader(
                 io.StringIO(gzip.decompress((batch / f"{name}.csv.gz").read_bytes()).decode())

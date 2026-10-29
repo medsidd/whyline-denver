@@ -296,7 +296,7 @@ Every vehicle at every refresh, repeats included (`is_repeat`). `report_ts_utc` 
 
 ### `raw_gtfsrt_stop_visits`
 
-Patterns: `rtd_gtfsrt_stream/snapshot_at=*/stop_visits.csv.gz`. Physical partition: `_ingested_at` (HOUR), 90-day partition expiry; clustered by `route_id, trip_id`.
+Patterns: `rtd_gtfsrt_stream/snapshot_at=*/stop_visits.csv.gz` and `rtd_gtfsrt_backfill/snapshot_at=*/stop_visits.csv.gz` (one batch per UTC day from `whyline.ingest.gtfs_rt_backfill`). Physical partition: `_ingested_at` (HOUR), 90-day partition expiry; clustered by `route_id, trip_id`.
 
 Final stop visits derived by the poller (`stream_v1`), the backfill (`backfill_v1`) or a calibration replay. One row per `(service_date, trip_id, stop_sequence)` per emission; `service_date` comes from GTFS `start_date`.
 
@@ -339,7 +339,7 @@ Final stop visits derived by the poller (`stream_v1`), the backfill (`backfill_v
 
 ### `raw_gtfsrt_trip_status`
 
-Patterns: `rtd_gtfsrt_stream/snapshot_at=*/trip_status.csv.gz`. Physical partition: `_ingested_at` (HOUR), 90-day partition expiry; clustered by `route_id, trip_id`.
+Patterns: `rtd_gtfsrt_stream/snapshot_at=*/trip_status.csv.gz` and `rtd_gtfsrt_backfill/snapshot_at=*/trip_status.csv.gz`. Physical partition: `_ingested_at` (HOUR), 90-day partition expiry; clustered by `route_id, trip_id`.
 
 One row per closed trip instance: final trip relationship, `outcome` (`completed`, `partial`, `vanished`, `canceled`, `no_static`), first/last seen, visit counts by method.
 
@@ -365,6 +365,10 @@ One row per closed trip instance: final trip relationship, `outcome` (`completed
 | `data_version` | `STRING` | NULLABLE |
 | `static_md5` | `STRING` | NULLABLE |
 | `closed_at` | `TIMESTAMP` | NULLABLE |
+
+### `raw_gtfsrt_stop_visits_calibration`
+
+Patterns: `rtd_gtfsrt_calibration/snapshot_at=*/stop_visits.csv.gz`. Same columns, partitioning and expiry as `raw_gtfsrt_stop_visits`. Holds the backfill engine's output on stream payloads thinned to one refresh per 15 minutes (`data_version = 'calibration_v1'`), compared with stream visits by `dbt/analyses/backfill_calibration.sql`. Loaded only by the owner during calibration.
 
 ## Units and source semantics
 

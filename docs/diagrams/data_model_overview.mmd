@@ -1,6 +1,6 @@
 flowchart LR
   accTitle: Current dbt model lineage
-  accDescr: 13 bronze tables and 34 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
+  accDescr: 18 bronze tables and 41 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
   subgraph bronze["Bronze: raw_denver"]
     direction TB
     raw_acs_tract["raw_acs_tract"]
@@ -9,11 +9,16 @@ flowchart LR
     raw_gtfs_calendar["raw_gtfs_calendar"]
     raw_gtfs_calendar_dates["raw_gtfs_calendar_dates"]
     raw_gtfs_routes["raw_gtfs_routes"]
+    raw_gtfs_shapes["raw_gtfs_shapes"]
     raw_gtfs_stop_times["raw_gtfs_stop_times"]
     raw_gtfs_stops["raw_gtfs_stops"]
     raw_gtfs_trips["raw_gtfs_trips"]
+    raw_gtfsrt_stop_visits["raw_gtfsrt_stop_visits"]
+    raw_gtfsrt_trip_status["raw_gtfsrt_trip_status"]
     raw_gtfsrt_trip_updates["raw_gtfsrt_trip_updates"]
+    raw_gtfsrt_tu_changes["raw_gtfsrt_tu_changes"]
     raw_gtfsrt_vehicle_positions["raw_gtfsrt_vehicle_positions"]
+    raw_gtfsrt_vp_stream["raw_gtfsrt_vp_stream"]
     raw_sidewalks["raw_sidewalks"]
     raw_weather_daily["raw_weather_daily"]
   end
@@ -25,10 +30,15 @@ flowchart LR
     stg_gtfs_calendar["stg_gtfs_calendar"]
     stg_gtfs_calendar_dates["stg_gtfs_calendar_dates"]
     stg_gtfs_routes["stg_gtfs_routes"]
+    stg_gtfs_shapes["stg_gtfs_shapes"]
     stg_gtfs_stop_times["stg_gtfs_stop_times"]
     stg_gtfs_stops["stg_gtfs_stops"]
     stg_gtfs_trips["stg_gtfs_trips"]
     stg_rt_events["stg_rt_events"]
+    stg_rt_prediction_changes["stg_rt_prediction_changes"]
+    stg_rt_stop_visits["stg_rt_stop_visits"]
+    stg_rt_trip_status["stg_rt_trip_status"]
+    stg_rt_vehicle_positions["stg_rt_vehicle_positions"]
     stg_sidewalks["stg_sidewalks"]
     stg_weather["stg_weather"]
   end
@@ -44,8 +54,10 @@ flowchart LR
     fct_crash["fct_crash"]
     fct_scheduled_stop_time["fct_scheduled_stop_time"]
     fct_stop_arrival["fct_stop_arrival"]
+    fct_stop_visit["fct_stop_visit"]
     fct_tract_demographics["fct_tract_demographics"]
     fct_trip_observation["fct_trip_observation"]
+    fct_trip_status["fct_trip_status"]
     fct_weather_daily["fct_weather_daily"]
   end
   subgraph gold_serving["Gold serving: mart_denver"]
@@ -63,6 +75,7 @@ flowchart LR
   bridge_stop_tract --> mart_vulnerability_by_stop
   dim_route --> fct_scheduled_stop_time
   dim_route --> fct_trip_observation
+  dim_route --> fct_trip_status
   dim_route --> mart_gtfs_routes
   dim_route --> mart_reliability_by_route_day
   dim_route --> mart_reliability_by_stop_hour
@@ -81,8 +94,10 @@ flowchart LR
   dim_tract --> fct_tract_demographics
   dim_trip --> fct_scheduled_stop_time
   dim_trip --> fct_trip_observation
+  dim_trip --> fct_trip_status
   fct_crash --> mart_crash_proximity_by_stop
   fct_scheduled_stop_time --> fct_stop_arrival
+  fct_scheduled_stop_time --> fct_stop_visit
   fct_scheduled_stop_time --> fct_trip_observation
   fct_stop_arrival --> mart_reliability_by_stop_hour
   fct_tract_demographics --> bridge_stop_tract
@@ -101,11 +116,16 @@ flowchart LR
   raw_gtfs_calendar --> stg_gtfs_calendar
   raw_gtfs_calendar_dates --> stg_gtfs_calendar_dates
   raw_gtfs_routes --> stg_gtfs_routes
+  raw_gtfs_shapes --> stg_gtfs_shapes
   raw_gtfs_stop_times --> stg_gtfs_stop_times
   raw_gtfs_stops --> stg_gtfs_stops
   raw_gtfs_trips --> stg_gtfs_trips
+  raw_gtfsrt_stop_visits --> stg_rt_stop_visits
+  raw_gtfsrt_trip_status --> stg_rt_trip_status
   raw_gtfsrt_trip_updates --> stg_rt_events
+  raw_gtfsrt_tu_changes --> stg_rt_prediction_changes
   raw_gtfsrt_vehicle_positions --> stg_rt_events
+  raw_gtfsrt_vp_stream --> stg_rt_vehicle_positions
   raw_sidewalks --> stg_sidewalks
   raw_weather_daily --> stg_weather
   stg_acs_geo --> fct_tract_demographics
@@ -119,5 +139,7 @@ flowchart LR
   stg_gtfs_trips --> dim_trip
   stg_gtfs_trips --> fct_scheduled_stop_time
   stg_rt_events --> fct_trip_observation
+  stg_rt_stop_visits --> fct_stop_visit
+  stg_rt_trip_status --> fct_trip_status
   stg_sidewalks --> dim_sidewalk_segment
   stg_weather --> fct_weather_daily

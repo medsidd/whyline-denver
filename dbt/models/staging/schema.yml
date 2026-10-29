@@ -138,3 +138,24 @@ models:
       - name: geom
         data_tests:
           - not_null
+
+  - name: stg_rt_stop_visits
+    description: "Stop visits from the stream poller or the backfill, typed; view over raw (partitioned by load hour, 90-day expiry)."
+    columns:
+      - name: arrival_method
+        data_tests:
+          - not_null:
+              config:
+                where: "_ingested_at >= timestamp_sub(current_timestamp(), interval 1 day)"
+
+  - name: stg_rt_trip_status
+    description: "Trip instances closed by the stream poller, typed; view over raw (partitioned by load hour, 90-day expiry)."
+
+  - name: stg_rt_vehicle_positions
+    description: "Distinct vehicle reports from the stream (no repeats, at most 120 s old, inside the Denver box) with the poller's along-route projection; view over raw. Filter feed_ts_utc with a constant."
+
+  - name: stg_rt_prediction_changes
+    description: "Trip-update history as changes only (new, changed, dropped, trip-level rows); view over raw. Filter feed_ts_utc with a constant."
+
+  - name: stg_gtfs_shapes
+    description: "One GEOGRAPHY line per GTFS extract x shape_id, with geodesic length and the last shape_dist_traveled. Filter _extract_date with a constant."

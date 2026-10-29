@@ -131,3 +131,61 @@ models:
           - accepted_range:
               min_value: 0
               max_value: 1
+
+  - name: fct_stop_visit
+    description: "One stop visit per service date x trip x stop_sequence from the continuous stream (stream_v1) or the backfill (backfill_v1); every row is final. arrival_* hold the departure for the trip's first stop. delay_sec is NULL when unknown. Grain, method rules and uncertainty: docs/technical/plans/realtime-stop-visits.md."
+    data_tests:
+      - unique_combination:
+          column_names: ['service_date', 'trip_id', 'stop_sequence']
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - expression_is_true:
+          name: fct_stop_visit_arrival_within_bounds
+          expression: "arrival_ts_utc is null or (arrival_earliest_ts <= arrival_ts_utc and arrival_ts_utc <= arrival_latest_ts)"
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - expression_is_true:
+          name: fct_stop_visit_arrival_has_method
+          expression: "arrival_ts_utc is null or arrival_method is not null"
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - expression_is_true:
+          name: fct_stop_visit_skipped_has_no_arrival
+          expression: "not skipped or arrival_ts_utc is null"
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: arrival_method
+        data_tests:
+          - accepted_values:
+              values: ['shape_crossing', 'shape_crossing_gap', 'origin_departure', 'last_prediction', 'skipped', 'backfill_shape_crossing', 'backfill_prediction']
+              config:
+                where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - name: is_final
+        data_tests:
+          - accepted_values:
+              values: [true]
+              quote: false
+              config:
+                where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - name: data_version
+        data_tests:
+          - accepted_values:
+              values: ['stream_v1', 'backfill_v1']
+              config:
+                where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+
+  - name: fct_trip_status
+    description: "One trip instance per service date x trip_id as the stream poller closed it: final relationship, outcome, first/last seen and visit counts by method."
+    data_tests:
+      - unique_combination:
+          column_names: ['service_date', 'trip_id']
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: outcome
+        data_tests:
+          - accepted_values:
+              values: ['completed', 'partial', 'vanished', 'canceled', 'no_static']
+              config:
+                where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"

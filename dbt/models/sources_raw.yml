@@ -27,3 +27,32 @@ sources:
       - name: raw_gtfs_stop_times
       - name: raw_gtfs_calendar
       - name: raw_gtfs_calendar_dates
+      - name: raw_gtfs_shapes
+      # Continuous stream (whyline.ingest.gtfs_rt_stream). Partitions expire after 90 days.
+      # Freshness filters keep the max() to recent partitions.
+      - name: raw_gtfsrt_tu_changes
+        loaded_at_field: feed_ts_utc
+        freshness:
+          warn_after: {count: 30, period: minute}
+          error_after: {count: 60, period: minute}
+          filter: "feed_ts_utc >= timestamp_sub(current_timestamp(), interval 1 day)"
+      - name: raw_gtfsrt_vp_stream
+        loaded_at_field: feed_ts_utc
+        freshness:
+          warn_after: {count: 30, period: minute}
+          error_after: {count: 60, period: minute}
+          filter: "feed_ts_utc >= timestamp_sub(current_timestamp(), interval 1 day)"
+      - name: raw_gtfsrt_stop_visits
+        loaded_at_field: _ingested_at
+        freshness:
+          warn_after: {count: 60, period: minute}
+          error_after: {count: 180, period: minute}
+          filter: "_ingested_at >= timestamp_sub(current_timestamp(), interval 1 day)"
+      - name: raw_gtfsrt_trip_status
+        loaded_at_field: _ingested_at
+        freshness:
+          warn_after: {count: 120, period: minute}
+          error_after: {count: 360, period: minute}
+          filter: "_ingested_at >= timestamp_sub(current_timestamp(), interval 1 day)"
+      - name: raw_gtfsrt_stop_visits_calibration
+        description: "Thinned-replay visits (backfill engine on stream payloads) for the backfill calibration; owner-loaded."

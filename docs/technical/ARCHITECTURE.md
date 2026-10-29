@@ -18,9 +18,9 @@ BigQuery or DuckDB → FastAPI → Next.js /app
 
 | Boundary | Implementation and reason |
 |---|---|
-| Source ingestion | `src/whyline/ingest/`: standalone argparse CLIs, shared retry/I/O utilities, local or GCS output. Raw snapshots preserve source lineage. |
+| Source ingestion | `src/whyline/ingest/`: standalone argparse CLIs, shared retry/I/O utilities, local or GCS output. Raw snapshots preserve source lineage. The continuous GTFS-RT poller (`gtfs_rt_stream`) is a long-running VM process: it derives stop visits itself and archives every feed payload (built, not deployed). |
 | Loading | `load/bq_load.py` and `registry.py`: explicit ordered schemas, metadata, MD5-based skipping. Raw CSVs are normalized extracts, not universally untouched source records. |
-| Transformation | Medallion layers: 12 silver staging models (mostly views; `stg_rt_events` incremental), 13 gold-core models (Type 2 GTFS dimensions with surrogate keys and Unknown members; incremental trip-observation, schedule, and stop-arrival facts; nightly crash, weather, and demographics facts; a weighted stop-tract bridge), and nine serving marts built only from gold core. See the [model reference](../../dbt/models/README.md). |
+| Transformation | Medallion layers: 17 silver staging models (mostly views; `stg_rt_events` incremental), 15 gold-core models (Type 2 GTFS dimensions with surrogate keys and Unknown members; incremental trip-observation, schedule, stop-arrival, stop-visit and trip-status facts; nightly crash, weather, and demographics facts; a weighted stop-tract bridge), and nine serving marts built only from gold core. See the [model reference](../../dbt/models/README.md). |
 | Published schema | `DbtArtifacts` reads manifest/catalog. Models must have `config.meta.allow_in_app` and be in `sync/constants.py::ALLOWLISTED_MARTS`. |
 | Export | Two partitioned reliability marts; seven snapshot marts. Rebuilt partitions are selected using `build_run_at` as well as date checkpoints. |
 | Embedded warehouse | `sync/refresh_duckdb.py` materializes nine marts. Partitioned history is limited by `DUCKDB_MAX_AGE_DAYS` (90 by default); snapshots use latest run date. |

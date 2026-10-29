@@ -22,7 +22,7 @@ CLIs use `--local` or `--gcs --bucket …`. Most use extract-date output paths; 
 
 ## BigQuery loading
 
-`load/registry.py::JOBS` defines 18 raw tables using `JobSpec`, ordered `Column` definitions, path patterns, partitioning, and clustering. The loader does not infer arbitrary new CSV schemas. It adds `_ingested_at`, `_source_path`, `_extract_date`, and `_hash_md5` and tracks loads in `raw_denver.__ingestion_log`. MD5-based skipping prevents repeated identical file loads; it does not guarantee there are no logically duplicate source records across different extracts.
+`load/registry.py::JOBS` defines 19 raw tables using `JobSpec`, ordered `Column` definitions, path patterns, partitioning, and clustering. The loader does not infer arbitrary new CSV schemas. It adds `_ingested_at`, `_source_path`, `_extract_date`, and `_hash_md5` and tracks loads in `raw_denver.__ingestion_log`. MD5-based skipping prevents repeated identical file loads; it does not guarantee there are no logically duplicate source records across different extracts.
 
 Snapshot sources (GTFS static, sidewalks, tracts, ACS) partition by `_extract_date`, the two snapshot GTFS-RT tables by `feed_ts_utc`, crashes by `event_ts_utc`, and weather by `date`. The four continuous-stream tables expire partitions after 90 days: trip-update changes and vehicle reports partition by `feed_ts_utc` (day), stop visits and trip status by load hour (`_ingested_at`). When the newest stream batch in the load window was sealed more than 30 minutes earlier, the loader logs `STREAM_STALE` (or `STREAM_MISSING` once the stream has ever loaded), which the dead-poller alert matches.
 
@@ -38,6 +38,7 @@ Important materializations/windows:
 - `fct_trip_observation` (core): same grain and window. Resolves delay as the reported value, else event time minus the scheduled time from `fct_scheduled_stop_time` (read for three days back through tomorrow). Carries surrogate keys of the stop, route, and trip versions valid on the service date.
 - `fct_scheduled_stop_time` (core): insert-overwrite by service date. Nightly runs replace today through +30 days from each GTFS file's 7 most recent extract partitions; past partitions keep the schedule as published. A full refresh rebuilds from 2025-10-23, choosing for each date the GTFS snapshot current on it and skipping days whose load failed validation.
 - `fct_stop_arrival` (core): observed vs scheduled headways, three-day incremental window.
+- `fct_stop_visit` and `fct_trip_status` (core): insert-only merges of the stream poller's final rows, keyed `(service_date, trip_id, stop_sequence)` and `(service_date, trip_id)`. Each run reads rows loaded in the last 6 hours and skips keys already present, so no partition is rewritten. `service_date` is GTFS `start_date`. Full refresh is disabled because raw stream partitions expire after 90 days.
 - Dimensions are rebuilt nightly; `dim_stop`, `dim_route`, and `dim_trip` derive Type 2 history from every bronze extract.
 - Route-day reliability: partitioned insert-overwrite over `route_day_window_days` (2 on realtime runs, 30 nightly to incorporate weather); excludes null route IDs.
 - Stop-hour reliability: incremental, three-day window; the other marts are snapshot tables.
@@ -59,7 +60,7 @@ make dbt-test-staging
 make dbt-test-marts
 ```
 
-A full rebuild from bronze is `dbt run --full-refresh --select staging core marts --vars '{rt_events_lookback_days: 400}'` (about 40 GiB on October 27, 2026). The nightly recipe selects `'staging core marts'`, tests `'core marts'`, then exports. The realtime target runs `stg_rt_events fct_trip_observation fct_stop_arrival` and the two reliability marts with `route_day_window_days: 2`; it depends on the dimensions and schedule built nightly and is not a complete DAG bootstrap.
+A full rebuild from bronze is `dbt run --full-refresh --select staging core marts --vars '{rt_events_lookback_days: 400}'` (about 40 GiB on October 27, 2026). The nightly recipe selects `'staging core marts'`, tests `'core marts'`, then exports. The realtime target runs `stg_rt_events fct_trip_observation fct_stop_arrival`, the stream path (`stg_rt_stop_visits stg_rt_trip_status fct_stop_visit fct_trip_status`), and the two reliability marts with `route_day_window_days: 2`; it depends on the dimensions and schedule built nightly and is not a complete DAG bootstrap.
 
 ## Weather corrections
 
