@@ -173,6 +173,11 @@ def _extract_referenced_identifiers(
     return [ref for ref in identifiers if ref[2] not in ctes]
 
 
+def referenced_tables(sql: str) -> list[str]:
+    """Table names a query reads, without project, dataset or CTE names."""
+    return sorted({table for _, _, table, _ in _extract_referenced_identifiers(sql)})
+
+
 def _ensure_tables_are_allowlisted(
     references: Sequence[tuple[str | None, str | None, str, str]],
     allowed_tables: set[str],

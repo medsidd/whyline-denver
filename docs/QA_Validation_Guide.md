@@ -117,7 +117,7 @@ PYTHON
 
 Open `/app`, load a prebuilt query, review/validate/run it, and inspect table/chart/map. Check a known stop name/coordinate, route enrichment, result CSV, mart CSV, warehouse download, and freshness labels. Verify `/api/models` lists the expected nine marts; `/api/health` does not test those artifacts.
 
-For generated SQL, use stub locally or an authorized provider configuration. The weather prebuilt label refers to snow, but its current SQL tests moderate/heavy precipitation; do not report snow-specific results from it.
+For generated SQL, use stub locally or an authorized provider configuration. The snow ready-made question compares snow days with other days per route (`snow_day`, last 365 days, at least three snow days); check `n_snow_days` before reporting a route.
 
 ## Legacy QA helper
 

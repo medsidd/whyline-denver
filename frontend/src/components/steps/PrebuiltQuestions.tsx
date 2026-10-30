@@ -26,9 +26,9 @@ export function PrebuiltQuestions() {
       if (data.error) throw new Error(data.error);
       return data;
     },
-    onSuccess: (data, { label }) => {
+    onSuccess: (data, { index, label }) => {
       setQuestion(label);
-      setSqlFromGeneration(data.sql, data.explanation, false);
+      setSqlFromGeneration(data.sql, data.explanation, false, index);
     },
   });
 
@@ -38,15 +38,16 @@ export function PrebuiltQuestions() {
       <ul className="mt-2.5 flex flex-wrap gap-2">
         {PREBUILT_QUERIES.map((q, i) => {
           const pending = mutation.isPending && mutation.variables?.index === q.index;
+          const color = CHIP_COLORS[i % CHIP_COLORS.length];
           return (
             <li key={q.index}>
               <button
                 type="button"
                 onClick={() => mutation.mutate({ index: q.index, label: q.label })}
                 disabled={mutation.isPending}
-                className={`wl-chip inline-flex items-center gap-2 min-h-[40px] px-4 py-1.5 rounded-full text-left text-[15px] font-extrabold text-wl-navy disabled:cursor-wait ${CHIP_COLORS[i].tint}`}
+                className={`wl-chip inline-flex items-center gap-2 min-h-[40px] px-4 py-1.5 rounded-full text-left text-[15px] font-extrabold text-wl-navy disabled:cursor-wait ${color.tint}`}
               >
-                <span aria-hidden="true" className={`flex-none w-2.5 h-2.5 rounded-full ${CHIP_COLORS[i].dot}`} />
+                <span aria-hidden="true" className={`flex-none w-2.5 h-2.5 rounded-full ${color.dot}`} />
                 {pending ? "Loading…" : q.label}
               </button>
             </li>

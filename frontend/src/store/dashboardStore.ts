@@ -22,6 +22,8 @@ interface DashboardState {
   sqlError: string | null;
   sqlCacheHit: boolean;
   bqEstBytes: number | null;
+  /** Ready-made question whose SQL is loaded unedited; null otherwise. */
+  prebuiltIndex: number | null;
 
   // ─── Step 3: Results ──────────────────────────────────────────────────
   queryResult: RunQueryResponse | null;
@@ -36,7 +38,8 @@ interface DashboardState {
   setSqlFromGeneration: (
     sql: string,
     explanation: string,
-    cacheHit: boolean
+    cacheHit: boolean,
+    prebuiltIndex?: number | null
   ) => void;
 
   /** Called as user types in the SQL editor */
@@ -82,6 +85,7 @@ export const useDashboardStore = create<DashboardState>()(
   sqlError: null,
   sqlCacheHit: false,
   bqEstBytes: null,
+  prebuiltIndex: null,
   queryResult: null,
   runError: null,
 
@@ -91,9 +95,10 @@ export const useDashboardStore = create<DashboardState>()(
 
   setQuestion: (question) => set({ question }),
 
-  setSqlFromGeneration: (sql, explanation, cacheHit) =>
+  setSqlFromGeneration: (sql, explanation, cacheHit, prebuiltIndex = null) =>
     set({
       generatedSql: sql,
+      prebuiltIndex,
       editedSql: sql,
       sanitizedSql: sql,
       explanation,
@@ -105,7 +110,8 @@ export const useDashboardStore = create<DashboardState>()(
       runError: null,
     }),
 
-  setEditedSql: (sql) => set({ editedSql: sql }),
+  setEditedSql: (sql) =>
+    set((s) => ({ editedSql: sql, prebuiltIndex: sql === s.generatedSql ? s.prebuiltIndex : null })),
 
   setValidation: (sanitizedSql, bqEstBytes, error) =>
     set({
@@ -125,6 +131,7 @@ export const useDashboardStore = create<DashboardState>()(
       sqlError: null,
       sqlCacheHit: false,
       bqEstBytes: null,
+      prebuiltIndex: null,
       queryResult: null,
       runError: null,
     }),

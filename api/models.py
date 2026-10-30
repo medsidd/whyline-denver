@@ -34,6 +34,7 @@ class RunQueryRequest(BaseModel):
     sql: str
     engine: Literal["duckdb", "bigquery"]
     question: str = ""
+    prebuilt_index: int | None = None
 
 
 class MartDownloadRequest(BaseModel):

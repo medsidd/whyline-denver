@@ -29,7 +29,7 @@ Observed headways are computed between selected event timestamps by route/direct
 | `heavy` | Greater than 20 mm |
 | `unknown` | Unavailable precipitation in route-day summaries |
 
-`snow_day` is derived from snow observations and can be null when unavailable. Precipitation category alone does not identify snow. The existing prebuilt weather question selects `mod`/`heavy`, despite its snow-oriented label.
+`snow_day` is derived from snow observations and can be null when unavailable. Precipitation category alone does not identify snow. The ready-made snow question compares each route's on-time share on snow days (`snow_day` true) with other days over the last year, for routes with at least three snow days.
 
 `mart_weather_impacts` averages route-day `pct_on_time` values per route/bin over the configured 30-day window. It subtracts that route's dry (`none`) average to form `delta_pct_on_time`. A delta of -0.15 means 15 percentage points lower than the dry baseline, not a 15% relative drop. Unknown days are excluded; absent dry observations yield a null baseline/delta. The averages weight route-day rows equally rather than by event count and establish association, not causation.
 
