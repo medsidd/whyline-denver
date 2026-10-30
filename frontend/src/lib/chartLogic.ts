@@ -6,7 +6,6 @@
 export type ChartType =
   | "heatmap"
   | "weather_multiples"
-  | "route_bar"
   | "time_series"
   | "generic_bar"
   | "none";
@@ -24,17 +23,12 @@ export function detectChartType(columns: string[]): ChartType {
     return "weather_multiples";
   }
 
-  // 3. Route bar chart with delay ratio
-  if (cols.has("route_id") && cols.has("avg_delay_ratio")) {
-    return "route_bar";
-  }
-
-  // 4. Time series on-time %
+  // 3. Time series on-time %
   if (cols.has("service_date_mst") && cols.has("pct_on_time")) {
     return "time_series";
   }
 
-  // 5. Generic: any numeric × any categorical
+  // 4. Generic: any numeric × any categorical (route charts land here)
   const hasNumeric = columns.some((c) => ["avg", "count", "sum", "pct", "score", "ratio"].some(
     (kw) => c.toLowerCase().includes(kw)
   ));

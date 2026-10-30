@@ -78,6 +78,7 @@ export interface RunQueryRequest {
   sql: string;
   engine: Engine;
   question: string;
+  prebuilt_index?: number | null;
 }
 
 export interface RunQueryResponse {

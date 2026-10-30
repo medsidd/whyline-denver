@@ -44,9 +44,16 @@ PREBUILT: list[tuple[str, str]] = [
     ),
     (
         "Where snow hurts reliability most",
-        "SELECT route_id, delta_pct_on_time\n"
-        "FROM mart_weather_impacts\n"
-        "WHERE precip_bin IN ('mod', 'heavy')\n"
+        "SELECT route_id,\n"
+        "  AVG(CASE WHEN snow_day THEN pct_on_time END)\n"
+        "    - AVG(CASE WHEN NOT snow_day THEN pct_on_time END) AS delta_pct_on_time,\n"
+        "  AVG(CASE WHEN snow_day THEN pct_on_time END) AS pct_on_time_snow_days,\n"
+        "  AVG(CASE WHEN NOT snow_day THEN pct_on_time END) AS pct_on_time_other_days,\n"
+        "  SUM(CASE WHEN snow_day THEN 1 ELSE 0 END) AS n_snow_days\n"
+        "FROM mart_reliability_by_route_day\n"
+        "WHERE service_date_mst >= DATE_SUB(CURRENT_DATE, INTERVAL 365 DAY)\n"
+        "GROUP BY route_id\n"
+        "HAVING SUM(CASE WHEN snow_day THEN 1 ELSE 0 END) >= 3\n"
         "ORDER BY delta_pct_on_time ASC\n"
         "LIMIT 10",
     ),
@@ -204,7 +211,7 @@ def validate_sql(req: ValidateSqlRequest) -> ValidateSqlResponse:
 @router.post("/sql/prebuilt/{index}", response_model=GenerateSqlResponse)
 def prebuilt_sql(index: int) -> GenerateSqlResponse:
     """
-    Return a pre-validated prebuilt query by index (0–3).
+    Return a pre-validated prebuilt query by its position in PREBUILT.
     Accepts engine via query parameter.
     """
     if index < 0 or index >= len(PREBUILT):
