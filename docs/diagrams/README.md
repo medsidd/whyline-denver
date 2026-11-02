@@ -8,7 +8,14 @@
 
 The seven older draw.io diagrams and their fourteen SVG/PNG exports were removed because they duplicated each other and showed removed models, Streamlit/Hugging Face hosting, obsolete schedules, and an obsolete DuckDB hot/cold split. Useful domain logic is in the current model lineage and [metrics glossary](../public/METRICS_GLOSSARY.md).
 
-Mermaid source is authoritative. After model changes, check every node and dependency against `dbt/models/**/*.sql` and `src/whyline/load/registry.py`; do not add planned models to current lineage. Raw shapes are registered/loaded but currently have no dbt model consumer.
+Mermaid source is authoritative. After model changes, regenerate the lineage from a fresh parse:
+
+```bash
+dbt parse --project-dir dbt --target-path /tmp/whyline-parse --no-partial-parse
+python -m tools.lineage_diagram /tmp/whyline-parse/manifest.json
+```
+
+The generator lists the raw sources at least one enabled model reads, every enabled model by layer, and one edge per `source()` or `ref()` call. On 2026-11-02 it reproduced the committed diagram from `main` exactly. Planned models never appear, because only parsed SQL is drawn. `pipeline.mmd` and `app_guardrails.mmd` are still edited by hand.
 
 For optional SVG/PNG exports, provide an installed [Mermaid CLI](https://github.com/mermaid-js/mermaid-cli) (`mmdc`) and run from the repository root:
 

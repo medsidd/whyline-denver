@@ -1,6 +1,6 @@
 flowchart LR
   accTitle: Current dbt model lineage
-  accDescr: 18 bronze tables and 41 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
+  accDescr: 18 bronze tables and 44 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
   subgraph bronze["Bronze: raw_denver"]
     direction TB
     raw_acs_tract["raw_acs_tract"]
@@ -64,21 +64,27 @@ flowchart LR
     direction TB
     mart_access_score_by_stop["mart_access_score_by_stop"]
     mart_crash_proximity_by_stop["mart_crash_proximity_by_stop"]
+    mart_frequent_network_by_route["mart_frequent_network_by_route"]
     mart_gtfs_routes["mart_gtfs_routes"]
     mart_gtfs_stops["mart_gtfs_stops"]
     mart_priority_hotspots["mart_priority_hotspots"]
     mart_reliability_by_route_day["mart_reliability_by_route_day"]
     mart_reliability_by_stop_hour["mart_reliability_by_stop_hour"]
+    mart_service_frequency_by_stop["mart_service_frequency_by_stop"]
+    mart_service_intensity_by_tract["mart_service_intensity_by_tract"]
     mart_vulnerability_by_stop["mart_vulnerability_by_stop"]
     mart_weather_impacts["mart_weather_impacts"]
   end
+  bridge_stop_tract --> mart_service_intensity_by_tract
   bridge_stop_tract --> mart_vulnerability_by_stop
   dim_route --> fct_scheduled_stop_time
   dim_route --> fct_trip_observation
   dim_route --> fct_trip_status
+  dim_route --> mart_frequent_network_by_route
   dim_route --> mart_gtfs_routes
   dim_route --> mart_reliability_by_route_day
   dim_route --> mart_reliability_by_stop_hour
+  dim_route --> mart_service_frequency_by_stop
   dim_route --> mart_weather_impacts
   dim_sidewalk_segment --> mart_access_score_by_stop
   dim_stop --> bridge_stop_tract
@@ -89,6 +95,7 @@ flowchart LR
   dim_stop --> mart_gtfs_stops
   dim_stop --> mart_priority_hotspots
   dim_stop --> mart_reliability_by_stop_hour
+  dim_stop --> mart_service_frequency_by_stop
   dim_stop --> mart_vulnerability_by_stop
   dim_tract --> bridge_stop_tract
   dim_tract --> fct_tract_demographics
@@ -99,6 +106,9 @@ flowchart LR
   fct_scheduled_stop_time --> fct_stop_arrival
   fct_scheduled_stop_time --> fct_stop_visit
   fct_scheduled_stop_time --> fct_trip_observation
+  fct_scheduled_stop_time --> mart_frequent_network_by_route
+  fct_scheduled_stop_time --> mart_service_frequency_by_stop
+  fct_scheduled_stop_time --> mart_service_intensity_by_tract
   fct_stop_arrival --> mart_reliability_by_stop_hour
   fct_tract_demographics --> bridge_stop_tract
   fct_tract_demographics --> mart_vulnerability_by_stop

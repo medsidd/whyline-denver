@@ -39,6 +39,9 @@ HOT_MARTS = {
     "mart_priority_hotspots",
     "mart_gtfs_stops",
     "mart_gtfs_routes",
+    "mart_service_frequency_by_stop",
+    "mart_frequent_network_by_route",
+    "mart_service_intensity_by_tract",
 }
 
 # Marts loaded from local GTFS zip rather than the parquet export pipeline.
@@ -58,6 +61,9 @@ LATEST_RUN_DATE_ONLY_MARTS = {
     "mart_weather_impacts",
     "mart_gtfs_stops",
     "mart_gtfs_routes",
+    "mart_service_frequency_by_stop",
+    "mart_frequent_network_by_route",
+    "mart_service_intensity_by_tract",
 }
 
 

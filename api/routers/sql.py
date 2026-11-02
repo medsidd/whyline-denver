@@ -71,6 +71,15 @@ PREBUILT: list[tuple[str, str]] = [
         "ORDER BY p.priority_score DESC\n"
         "LIMIT 20",
     ),
+    (
+        "How often do routes run, and which run every 15 minutes all day?",
+        "SELECT route_id, route_name, direction_id, day_type, headway_midday_min,\n"
+        "  headway_evening_min, first_departure, last_departure, is_frequent_day, is_frequent_route\n"
+        "FROM mart_frequent_network_by_route\n"
+        "WHERE direction_id = 0\n"
+        "ORDER BY is_frequent_route DESC, day_type, headway_midday_min\n"
+        "LIMIT 60",
+    ),
 ]
 
 

@@ -245,3 +245,98 @@ models:
         description: "Stop latitude (WGS84)."
       - name: lon
         description: "Stop longitude (WGS84)."
+  - name: mart_service_frequency_by_stop
+    description: "Scheduled departures per stop, route, direction and hour of day on the next Wednesday, Saturday and Sunday in the published schedule. Schedule, not observed service."
+    data_tests:
+      - unique_combination:
+          column_names: ['day_type', 'stop_id', 'route_id', 'direction_id', 'hour_mst']
+    columns:
+      - name: day_type
+        description: "weekday (the sample Wednesday), saturday or sunday."
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['weekday', 'saturday', 'sunday']
+      - name: sample_date
+        description: "The service date sampled for this day type. Holiday service shows if a holiday falls on it."
+      - name: stop_id
+        description: "GTFS stop identifier."
+        data_tests: [not_null]
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null]
+      - name: direction_id
+        description: "GTFS direction (0 or 1)."
+      - name: hour_mst
+        description: "Local hour of the scheduled departure (0-23). Trips after midnight count in hours 0-3 of their service day."
+      - name: n_departures
+        description: "Scheduled departures in that hour."
+        data_tests:
+          - accepted_range:
+              min_value: 1
+      - name: avg_headway_min
+        description: "60 divided by the departures in that hour: the average minutes between buses or trains."
+      - name: stop_name
+        description: "Stop name from the current GTFS version."
+      - name: lat
+        description: "Stop latitude (WGS84)."
+      - name: lon
+        description: "Stop longitude (WGS84)."
+      - name: route_name
+        description: "Route short name from the latest GTFS version."
+      - name: build_run_at
+        description: "When this mart was rebuilt (UTC)."
+  - name: mart_frequent_network_by_route
+    description: "Span and scheduled frequency per route, direction and day type, measured at each direction's busiest stop. is_frequent_route follows TransitCenter's frequent-network definition: every 15 minutes or better from 6:00 to 21:00, every day."
+    data_tests:
+      - unique_combination:
+          column_names: ['route_id', 'direction_id', 'day_type']
+    columns:
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null]
+      - name: day_type
+        description: "weekday (the sample Wednesday), saturday or sunday."
+        data_tests:
+          - accepted_values:
+              values: ['weekday', 'saturday', 'sunday']
+      - name: busiest_stop_id
+        description: "The stop with the most scheduled departures for this route, direction and day; frequency is measured there so short turns count."
+      - name: first_departure
+        description: "First scheduled departure at the busiest stop, local HH:MM."
+      - name: last_departure
+        description: "Last scheduled departure at the busiest stop, local HH:MM (after midnight for late service)."
+      - name: span_hours
+        description: "Hours from first to last departure at the busiest stop."
+      - name: headway_am_peak_min
+        description: "Average minutes between departures from 7:00 to 8:59; NULL with no service then."
+      - name: headway_midday_min
+        description: "Average minutes between departures from 9:00 to 14:59."
+      - name: headway_pm_peak_min
+        description: "Average minutes between departures from 15:00 to 17:59."
+      - name: headway_evening_min
+        description: "Average minutes between departures from 18:00 to 20:59."
+      - name: min_departures_per_3h
+        description: "Fewest departures in any three-hour block from 6:00 to 21:00 (12 means every 15 minutes on average)."
+      - name: is_frequent_day
+        description: "Every 15 minutes or better on average in every three-hour block from 6:00 to 21:00 on this day type, in this direction."
+      - name: is_frequent_route
+        description: "is_frequent_day holds in every direction on all three day types."
+  - name: mart_service_intensity_by_tract
+    description: "Scheduled weekday service near each census tract: departures at stops within 804.672 m, shared among tracts by population, per 1,000 residents."
+    columns:
+      - name: geoid
+        description: "Census tract GEOID."
+        data_tests: [not_null, unique]
+      - name: tract_pop_total
+        description: "Tract population, latest ACS vintage."
+      - name: sample_date
+        description: "The sample Wednesday used."
+      - name: n_stops_nearby
+        description: "Current stops within 804.672 m of the tract."
+      - name: n_frequent_stops_nearby
+        description: "Of those, stops with at least 4 departures in every hour from 9:00 to 14:59."
+      - name: weekday_departures_share
+        description: "The tract's population-weighted share of the weekday departures at nearby stops; summed over tracts it equals the network total."
+      - name: weekday_departures_per_1000_residents
+        description: "weekday_departures_share per 1,000 residents."
