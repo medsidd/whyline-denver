@@ -298,3 +298,18 @@ models:
     columns:
       - name: alert_entity_period_key
         data_tests: [not_null, unique]
+
+  - name: fct_micromobility_near_stop
+    description: "Veo scooters and bikes available within 200 m of each current stop inside Denver: per local date, stop, hour and form factor, the average over that hour's snapshots and the share of snapshots with none. Kept permanently; raw expires after 30 days."
+    data_tests:
+      - unique_combination:
+          column_names: ['date_mst', 'stop_id', 'hour_mst', 'form_factor']
+          config:
+            where: "date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: form_factor
+        data_tests:
+          - accepted_values:
+              values: ['scooter', 'bicycle']
+              config:
+                where: "date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"

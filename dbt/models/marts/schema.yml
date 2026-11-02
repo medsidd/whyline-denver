@@ -755,3 +755,26 @@ models:
         description: "Hours of the day each alert was in effect, summed over alerts."
       - name: n_stops_named
         description: "Distinct stops the route's alerts named that day."
+  - name: mart_micromobility_access_by_stop
+    description: "First and last mile: Veo scooters and bikes usually available within 200 m of each Denver stop, and how often there are none, by weekday or weekend and period, over the last 28 complete local dates."
+    data_tests:
+      - unique_combination:
+          column_names: ['stop_id', 'day_type', 'period']
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier (stops inside the City and County of Denver only)."
+        data_tests: [not_null]
+      - name: day_type
+        description: "weekday or weekend."
+      - name: period
+        description: "early, am_peak, midday, pm_peak, evening or night (local hours as in the other marts)."
+      - name: n_days
+        description: "Local dates in the group."
+      - name: avg_scooters_within_200m
+        description: "Average available scooters within 200 m across the period's 15-minute snapshots."
+      - name: avg_bikes_within_200m
+        description: "The same for bikes (e-bikes and pedal bikes)."
+      - name: pct_time_no_scooter
+        description: "Share of snapshots with no available scooter within 200 m."
+      - name: pct_time_no_bike
+        description: "Share of snapshots with no available bike within 200 m."

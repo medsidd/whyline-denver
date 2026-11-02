@@ -188,3 +188,6 @@ models:
 
   - name: stg_rt_alert_periods
     description: "Active periods per alert per snapshot; NULL start or end is open."
+
+  - name: stg_gbfs_veo_vehicles
+    description: "Veo vehicles per 15-minute snapshot, with point geometry and availability (neither reserved nor disabled). Filter snapshot_ts_utc with a constant."

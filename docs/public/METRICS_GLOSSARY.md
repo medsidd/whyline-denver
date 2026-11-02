@@ -193,6 +193,17 @@ From RTD's service alerts feed, snapshotted every 15 minutes since 2026-11-02. A
 
 Limits: alerts describe what RTD announced, not what happened. Alerts that ended before 2026-11-02 are missing. When RTD edits an alert's period, the last version wins.
 
+## Scooters and bikes near stops
+
+From Veo's public feed, Denver's only scooter and e-bike operator since May 2026, snapshotted every 15 minutes since 2026-11-02. A vehicle counts when it's neither reserved nor disabled.
+
+| Field | Meaning |
+|---|---|
+| `avg_scooters_within_200m`, `avg_bikes_within_200m` | Average available vehicles within 200 m of the stop across the period's snapshots, over 28 days. Bikes include e-bikes and pedal bikes. |
+| `pct_time_no_scooter`, `pct_time_no_bike` | Share of snapshots with none within 200 m: how often a rider would find nothing nearby. |
+
+Limits: only stops inside the City and County of Denver, Veo's service area, are included. A vehicle shown as available may be hard to unlock or out of charge. The first day is partial.
+
 ## Ridership
 
 From the National Transit Database, which RTD reports to the Federal Transit Administration monthly; figures run about two months behind and FTA revises earlier months.
