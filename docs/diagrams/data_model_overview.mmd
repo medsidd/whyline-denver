@@ -1,11 +1,12 @@
 flowchart LR
   accTitle: Current dbt model lineage
-  accDescr: 22 bronze tables and 69 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
+  accDescr: 23 bronze tables and 72 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
   subgraph bronze["Bronze: raw_denver"]
     direction TB
     raw_acs_tract["raw_acs_tract"]
     raw_crashes["raw_crashes"]
     raw_denver_tracts["raw_denver_tracts"]
+    raw_gbfs_veo_vehicles["raw_gbfs_veo_vehicles"]
     raw_gtfs_calendar["raw_gtfs_calendar"]
     raw_gtfs_calendar_dates["raw_gtfs_calendar_dates"]
     raw_gtfs_routes["raw_gtfs_routes"]
@@ -31,6 +32,7 @@ flowchart LR
     stg_acs_geo["stg_acs_geo"]
     stg_denver_crashes["stg_denver_crashes"]
     stg_denver_tracts["stg_denver_tracts"]
+    stg_gbfs_veo_vehicles["stg_gbfs_veo_vehicles"]
     stg_gtfs_calendar["stg_gtfs_calendar"]
     stg_gtfs_calendar_dates["stg_gtfs_calendar_dates"]
     stg_gtfs_routes["stg_gtfs_routes"]
@@ -62,6 +64,7 @@ flowchart LR
     fct_alert["fct_alert"]
     fct_alert_entity_period["fct_alert_entity_period"]
     fct_crash["fct_crash"]
+    fct_micromobility_near_stop["fct_micromobility_near_stop"]
     fct_ntd_service_month["fct_ntd_service_month"]
     fct_prediction_accuracy["fct_prediction_accuracy"]
     fct_scheduled_stop_time["fct_scheduled_stop_time"]
@@ -87,6 +90,7 @@ flowchart LR
     mart_frequent_network_by_route["mart_frequent_network_by_route"]
     mart_gtfs_routes["mart_gtfs_routes"]
     mart_gtfs_stops["mart_gtfs_stops"]
+    mart_micromobility_access_by_stop["mart_micromobility_access_by_stop"]
     mart_prediction_accuracy_by_route_day["mart_prediction_accuracy_by_route_day"]
     mart_priority_hotspots["mart_priority_hotspots"]
     mart_reliability_by_route_day["mart_reliability_by_route_day"]
@@ -117,12 +121,14 @@ flowchart LR
   dim_route --> mart_weather_impacts
   dim_sidewalk_segment --> mart_access_score_by_stop
   dim_stop --> bridge_stop_tract
+  dim_stop --> fct_micromobility_near_stop
   dim_stop --> fct_scheduled_stop_time
   dim_stop --> fct_trip_observation
   dim_stop --> mart_access_score_by_stop
   dim_stop --> mart_crash_proximity_by_stop
   dim_stop --> mart_crowding_by_stop
   dim_stop --> mart_gtfs_stops
+  dim_stop --> mart_micromobility_access_by_stop
   dim_stop --> mart_priority_hotspots
   dim_stop --> mart_reliability_by_stop_hour
   dim_stop --> mart_segment_speed_by_hour
@@ -132,6 +138,7 @@ flowchart LR
   dim_stop --> mart_vulnerability_by_stop
   dim_stop --> mart_wait_by_stop_period
   dim_tract --> bridge_stop_tract
+  dim_tract --> fct_micromobility_near_stop
   dim_tract --> fct_tract_demographics
   dim_trip --> fct_scheduled_stop_time
   dim_trip --> fct_trip_observation
@@ -141,6 +148,7 @@ flowchart LR
   fct_alert_entity_period --> mart_alerts_by_route_day
   fct_alert_entity_period --> mart_stop_closures
   fct_crash --> mart_crash_proximity_by_stop
+  fct_micromobility_near_stop --> mart_micromobility_access_by_stop
   fct_ntd_service_month --> mart_ridership_by_mode_month
   fct_prediction_accuracy --> mart_prediction_accuracy_by_route_day
   fct_scheduled_stop_time --> fct_stop_arrival
@@ -179,6 +187,7 @@ flowchart LR
   raw_acs_tract --> stg_acs_geo
   raw_crashes --> stg_denver_crashes
   raw_denver_tracts --> stg_denver_tracts
+  raw_gbfs_veo_vehicles --> stg_gbfs_veo_vehicles
   raw_gtfs_calendar --> stg_gtfs_calendar
   raw_gtfs_calendar_dates --> stg_gtfs_calendar_dates
   raw_gtfs_routes --> stg_gtfs_routes
@@ -201,6 +210,7 @@ flowchart LR
   stg_acs_geo --> fct_tract_demographics
   stg_denver_crashes --> fct_crash
   stg_denver_tracts --> dim_tract
+  stg_gbfs_veo_vehicles --> fct_micromobility_near_stop
   stg_gtfs_calendar --> fct_scheduled_stop_time
   stg_gtfs_calendar_dates --> fct_scheduled_stop_time
   stg_gtfs_routes --> dim_route
