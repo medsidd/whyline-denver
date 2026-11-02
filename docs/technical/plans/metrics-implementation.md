@@ -326,6 +326,13 @@ Its JobSpecs are `raw_denver_hin`, `raw_denver_transit_lanes`, `raw_denver_trans
 
 **Cost:** about 15 MB of storage a week, kept for 30 days by a staging dedupe.
 
+**As built, existing fields (2026-11-02):**
+- The crash mart gains `ped_crash_250m_cnt`, `bike_crash_250m_cnt` and `ped_bike_severe_250m_cnt`.
+- The access mart gains `crosswalk_len_m_within_200m` and `wheelchair_boarding`.
+- The inventory's sidewalk `status` is empty for every segment, so there's no status share.
+- `wheelchair_boarding` is 1 for 8,017 of 8,155 current stops and 0 for the rest, so route and tract shares would say little and are skipped.
+- The app sees the new columns at the next API redeploy.
+
 **As built, ingestion (2026-11-02):**
 - One ingestor (`arcgis_reference`) serves WP7 and WP9, and one raw table (`raw_arcgis_reference`) holds every layer. Attributes are stored as JSON, and staging picks fields, replacing the eight per-layer JobSpecs.
 - Street centerlines and the pedestrian demand index are left out until a model needs them.

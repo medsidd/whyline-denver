@@ -39,6 +39,8 @@ Observed headways are computed between selected event timestamps by route/direct
 
 `severe_*_cnt` includes severity 3 **and** 4 (serious and fatal); `fatal_*_cnt` includes severity 4 only. These counts are geographic exposure indicators, not the number of transit-caused crashes or a per-passenger risk rate. A crash can count for several nearby stops.
 
+`ped_crash_250m_cnt` and `bike_crash_250m_cnt` count the 250 m crashes that involved a pedestrian or a cyclist; `ped_bike_severe_250m_cnt` counts those with a serious injury or a death. These are the crashes riders walking or cycling to the stop are exposed to.
+
 `crash_score_0_100` min–max normalizes 250 m crash counts across stops. Larger means more exposure. Equal minimum and maximum can produce null scores through the denominator guard.
 
 ## Vulnerability
@@ -51,7 +53,9 @@ Fields are `pct_hh_no_vehicle_w`, `pct_transit_commute_w`, `pct_poverty_w`, and 
 
 `sidewalk_len_m_within_200m` sums line length intersecting a 200 m stop buffer; `buffer_m` is 200. The model min–max normalizes this to `access_score_0_100`, rounded to one decimal place. Larger means more recorded nearby sidewalk length. No matched segment contributes zero; inventory gaps can therefore look like low access. If all lengths are equal, the implementation assigns 100.
 
-This is not a connected walking route, crossing-safety score, wheelchair-accessibility certification, or on-the-ground condition inspection.
+`crosswalk_len_m_within_200m` is the part of that length Denver's inventory classes as crosswalk: a rough measure of marked crossings near the stop. `wheelchair_boarding` is RTD's GTFS flag (1 accessible, 2 not accessible, 0 no information).
+
+This is not a connected walking route, crossing-safety score, wheelchair-accessibility certification, or on-the-ground condition inspection. The sidewalk inventory covers the City and County of Denver only, so stops elsewhere show no sidewalk or crosswalk.
 
 ## Priority ranking
 

@@ -88,6 +88,12 @@ models:
         description: "Stop latitude (WGS84) from the latest GTFS version of this stop."
       - name: lon
         description: "Stop longitude (WGS84) from the latest GTFS version of this stop."
+      - name: ped_crash_250m_cnt
+        description: "Of crash_250m_cnt, crashes involving a pedestrian."
+      - name: bike_crash_250m_cnt
+        description: "Of crash_250m_cnt, crashes involving a cyclist."
+      - name: ped_bike_severe_250m_cnt
+        description: "Crashes within 250 m involving a pedestrian or cyclist with serious injury or a death."
   - name: mart_access_score_by_stop
     description: "Sidewalk length and normalized access score using a 200 m buffer per stop (one row per stop)."
     columns:
@@ -110,6 +116,14 @@ models:
           - accepted_range:
               min_value: 0
               max_value: 100
+      - name: crosswalk_len_m_within_200m
+        description: "Of sidewalk_len_m_within_200m, the length Denver inventories as crosswalk: a rough measure of marked crossings near the stop."
+      - name: wheelchair_boarding
+        description: "GTFS wheelchair_boarding for the stop: 1 accessible, 2 not accessible, 0 no information."
+        data_tests:
+          - accepted_values:
+              values: [0, 1, 2]
+              quote: false
       - name: stop_name
         description: "Stop name from the latest GTFS version of this stop."
       - name: lat
