@@ -407,6 +407,25 @@ Written by `whyline.ingest.weather_hourly` (nightly ingest, non-fatal) from Open
 | `wind_kmh` | `FLOAT64` | NULLABLE | Wind speed at 10 m |
 | `source` | `STRING` | NULLABLE | `open_meteo_archive` or `open_meteo_forecast` |
 
+## `raw_rtd_reported_performance`
+
+Written by `whyline.ingest.rtd_reported_performance` (nightly ingest, non-fatal, skipped when extracted in the last 7 days). It reads RTD's [board briefing documents](https://www.rtd-denver.com/board-briefing-documents) page, downloads every linked Bus Operations and Rail Operations PDF (40 on 2026-11-02, January 2025 to August 2026), and extracts RTD's own figures.
+
+- **Pattern:** `rtd_reported_performance/extract_date=*/rtd_reported_performance.csv.gz`, partitioned by `_extract_date`.
+- **Full history:** each extract holds every linked report.
+- **Bus figures:** text order is unreliable because two tables sit side by side, so values are placed by their position under the header words.
+- **Rail figures:** read from the three line rows.
+- **Failures:** a report that doesn't parse logs `RTD_REPORT_PARSE_FAILED` and the rest load. Fewer than 20 parsed reports logs `RTD_REPORTS_SUSPECT` and writes nothing.
+
+| Column | Type | Mode | Meaning |
+|---|---|---|---|
+| `report_month` | `DATE` | NULLABLE | First day of the reported month |
+| `mode` | `STRING` | NULLABLE | `bus` or `rail` |
+| `service` | `STRING` | NULLABLE | `all_bus`, `local`, `regional`, `regional_brt`, `light_rail`, `commuter_rail_abg` (A, B, G lines), `commuter_rail_n` |
+| `metric` | `STRING` | NULLABLE | `otp_month`, `otp_ytd` (year to date) or `service_availability` |
+| `value_pct` | `FLOAT64` | NULLABLE | The percentage as printed (0–100) |
+| `source_url` | `STRING` | NULLABLE | The report PDF |
+
 ## `raw_ntd_monthly`
 
 Written by `whyline.ingest.ntd_monthly` (nightly ingest, non-fatal, skipped when extracted in the last 7 days) from FTA's monthly module data, Socrata dataset `8bui-9xvu`, for RTD (`ntd_id = 80006`). Pattern: `ntd_monthly/extract_date=*/ntd_monthly.csv.gz`; partitioned by `_extract_date`. Each extract is the full history from 2002 (1,633 rows on 2026-11-02, through August 2026), because NTD revises earlier months. Fewer than 1,500 rows logs `NTD_SUSPECT` and writes nothing. `vrh` is rounded to whole hours.
