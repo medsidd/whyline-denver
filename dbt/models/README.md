@@ -1,6 +1,6 @@
 # dbt model reference
 
-The source tree contains 72 SQL models in three layers: 22 silver staging models, 25 gold-core models (six dimensions, 18 facts, one bridge), and 25 serving marts. The continuous realtime stream (five silver views, `fct_stop_visit`, `fct_trip_status`) was added for the [realtime stop visits plan](../../docs/technical/plans/realtime-stop-visits.md). This inventory was reconciled against SQL on October 27, 2026, when the layered model was cut over in production ([#63](https://github.com/medsidd/whyline-denver/pull/63)). Follow each linked definition for the actual SELECT list, dependencies, filters, and incremental key; schema YAML and the generated catalog provide column metadata.
+The source tree contains 76 SQL models in three layers: 23 silver staging models, 27 gold-core models (seven dimensions, 18 facts, two bridges), and 26 serving marts. The continuous realtime stream (five silver views, `fct_stop_visit`, `fct_trip_status`) was added for the [realtime stop visits plan](../../docs/technical/plans/realtime-stop-visits.md). This inventory was reconciled against SQL on October 27, 2026, when the layered model was cut over in production ([#63](https://github.com/medsidd/whyline-denver/pull/63)). Follow each linked definition for the actual SELECT list, dependencies, filters, and incremental key; schema YAML and the generated catalog provide column metadata.
 
 Project `whyline_denver_dbt`, profile `whyline_denver`. `dbt_project.yml` defaults models to views; the core folder defaults to tables; individual SQL config overrides both. Datasets: staging → `stg_denver` (`BQ_DATASET_STG`), core → `core_denver` (`BQ_DATASET_CORE`), marts → `mart_denver` (`BQ_DATASET_MART`). Bronze is `raw_denver`.
 
@@ -67,6 +67,8 @@ Dimensions carry INT64 surrogate keys (`farm_fingerprint` of the natural key and
 | [fct_alert](core/fct_alert.sql) | incremental (merge) | One RTD service alert: first and last seen in the feed, latest cause, effect and text. Permanent; full refresh disabled. |
 | [fct_alert_entity_period](core/fct_alert_entity_period.sql) | incremental (merge) | Alert × informed entity × active period, with the snapshots it appeared in. Permanent; full refresh disabled. |
 | [fct_micromobility_near_stop](core/fct_micromobility_near_stop.sql) | incremental (insert-overwrite) | Local date × Denver stop × hour × form factor: average Veo vehicles available within 200 m and share of snapshots with none. Permanent; full refresh disabled (raw keeps 30 days). |
+| [dim_block_group](core/dim_block_group.sql) | Type 1 | Denver block groups with Colorado EnviroScreen percentile and disproportionately impacted type, and DOTI equity score and group. |
+| [bridge_stop_block_group](core/bridge_stop_block_group.sql) | table | Current stop × the Denver block group containing it. |
 | [bridge_stop_tract](core/bridge_stop_tract.sql) | table | Current stop × tract within 804.672 m; `weighting_factor` is the tract's population share and sums to 1 per stop. |
 
 Bus matrix:
@@ -118,6 +120,7 @@ Schedule snapshots: a day's GTFS load counts only if every file loaded that day 
 | [mart_stop_closures](marts/disruptions/mart_stop_closures.sql) | table | Stop × alert: effect, closure flag, routes, from/until, whether in effect now. `allow_in_app: false` until release R2. |
 | [mart_alerts_by_route_day](marts/disruptions/mart_alerts_by_route_day.sql) | table | Route × local day × effect: alerts, alert hours, stops named, from 2026-11-02. `allow_in_app: false` until release R2. |
 | [mart_micromobility_access_by_stop](marts/access/mart_micromobility_access_by_stop.sql) | table | Denver stop × weekday/weekend × period over 28 days: average scooters and bikes within 200 m, share of time with none. `allow_in_app: false` until Veo's data terms are checked. |
+| [mart_service_equity_by_group](marts/equity/mart_service_equity_by_group.sql) | table | Impacted vs other and DOTI equity group × departures per stop, on-time share, excess wait, crowding over 28 days. `allow_in_app: false` until release R2. |
 | [mart_crowding_by_stop](marts/realtime/mart_crowding_by_stop.sql) | table | Stop × route × direction × weekday/weekend × hour over the last 28 service dates: share of visits arriving with few seats or standing room. `allow_in_app: false` until its coverage check. |
 
 Marts keep their names, grains, and original column order; descriptive columns are appended at the end (`stop_name`, `lat`, `lon`; `route_name`, `route_long_name`; `route_name_mode`). The per-stop marts cover stops in the latest GTFS extract (8,162 on October 27, 2026); the reference marts keep retired IDs so historical rows still resolve names.
@@ -155,7 +158,7 @@ Changing source data outside these windows does not repair historical results; r
 
 ## API, export, and schemas
 
-All 25 marts declare `meta.allow_in_app`; the 12 set to true are listed in `src/whyline/sync/constants.py`. API exposure requires both; it also needs matching manifest/catalog artifacts. The two GTFS reference marts are not in the ten-mart CSV-download list. DuckDB refresh maintains separate materialization/latest-snapshot sets and reads Parquet by column name, so appended columns load alongside older partitions. See [add a mart](../../docs/technical/guides/ADDING_A_MART.md).
+All 26 marts declare `meta.allow_in_app`; the 12 set to true are listed in `src/whyline/sync/constants.py`. API exposure requires both; it also needs matching manifest/catalog artifacts. The two GTFS reference marts are not in the ten-mart CSV-download list. DuckDB refresh maintains separate materialization/latest-snapshot sets and reads Parquet by column name, so appended columns load alongside older partitions. See [add a mart](../../docs/technical/guides/ADDING_A_MART.md).
 
 Column descriptions and tests are in [staging schema](staging/schema.yml), [core schema](core/schema.yml), and [mart schema](marts/schema.yml). Raw source declarations live in [sources_raw.yml](sources_raw.yml); custom generic tests in `dbt/macros/tests/`; singular tests in `dbt/tests/`; extract helpers (`latest_extract_date`, `recent_extracts_filter`, `scd2_from_extracts`) in `dbt/macros/extracts.sql`. Generated [dbt docs](https://medsidd.github.io/whyline-denver/) describe the last published artifact, which can differ from a working tree.
 

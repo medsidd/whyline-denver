@@ -313,3 +313,20 @@ models:
               values: ['scooter', 'bicycle']
               config:
                 where: "date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+
+  - name: dim_block_group
+    description: "Type 1: Denver census block groups (2020) with Colorado EnviroScreen 2.0 percentile and disproportionately impacted community type (CDPHE), and Denver's DOTI equity score (higher means more need) and group rank (1 highest need, 6 lowest). Unknown member at key -1."
+    columns:
+      - name: block_group_key
+        data_tests: [not_null, unique]
+      - name: doti_equity_group_rank
+        data_tests:
+          - accepted_values:
+              values: [1, 2, 3, 4, 5, 6]
+              quote: false
+
+  - name: bridge_stop_block_group
+    description: "Current stop x the Denver block group containing it; stops outside Denver have no row."
+    columns:
+      - name: stop_id
+        data_tests: [not_null, unique]

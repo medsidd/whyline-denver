@@ -49,6 +49,18 @@ The model finds Denver tracts whose geometry lies within 804.672 m of a stop. It
 
 Fields are `pct_hh_no_vehicle_w`, `pct_transit_commute_w`, `pct_poverty_w`, and `vuln_score_0_100`. This is not population clipped to a walking catchment or a survey of riders using that stop. Larger scores mean more vulnerability relative to other observed stops; missing data can remain null. If all non-null raw values are equal, the implementation assigns 100 rather than a middle score.
 
+## Equity layers
+
+For stops inside Denver, `mart_vulnerability_by_stop` adds the measures of the block group containing the stop:
+
+| Field | Meaning |
+|---|---|
+| `enviroscreen_pctl` | Colorado EnviroScreen 2.0 percentile from the state health department (CDPHE): combined environmental, health and demographic burden, ranked within Colorado. Higher is more burdened. |
+| `is_disproportionately_impacted`, `di_community_type` | Whether the block group is a disproportionately impacted community under Colorado law, and the reason CDPHE gives. |
+| `doti_equity_score`, `doti_equity_group_rank` | Denver DOTI's equity index: a score (16–68 in 2026; higher means more need) and a group from 1 (highest need) to 6. |
+
+`mart_service_equity_by_group` compares service for stops in each group over 28 days: scheduled departures per stop per day, on-time share, excess wait at frequent stops, and the share of visits arriving with standing room only. Missed trips are counted per trip, not per stop, so they aren't split by group. The groups describe where stops are, not who rides; differences show association.
+
 ## Sidewalk access
 
 `sidewalk_len_m_within_200m` sums line length intersecting a 200 m stop buffer; `buffer_m` is 200. The model min–max normalizes this to `access_score_0_100`, rounded to one decimal place. Larger means more recorded nearby sidewalk length. No matched segment contributes zero; inventory gaps can therefore look like low access. If all lengths are equal, the implementation assigns 100.
