@@ -5,6 +5,11 @@ on:
     - cron: "0 8 * * *"
   workflow_dispatch:
 
+# A manual run and a late scheduled run must not build or export at the same time; queue instead.
+concurrency:
+  group: nightly-ingest
+  cancel-in-progress: false
+
 jobs:
   ingest:
     runs-on: ubuntu-latest
