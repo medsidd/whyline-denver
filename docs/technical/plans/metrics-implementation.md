@@ -571,6 +571,6 @@ Between releases, merged marts build in BigQuery and are tested nightly, but the
 
 1. Image updates for `realtime-load` after WP8 and WP14 merge: two `gcloud run jobs update` commands, which I'll provide.
 1a. One API redeploy per release (R1–R4): `gcloud run services update whylinedenver-api` with the digest I build. The permission check blocks me from running it.
-2. The records request to RTD for route and stop boardings and stop amenities (WP11 and WP16). I'll draft the text.
+2. The records request to RTD for route and stop boardings and stop amenities (WP11 and WP16). The text is ready in [the records request](rtd-records-request.md).
 3. If no index page exists, a monthly link to the new RTD operations PDF (WP10).
 4. Approving the cutover on November 5, which unlocks publishing WP1–WP5.
