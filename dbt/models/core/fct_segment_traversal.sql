@@ -79,7 +79,7 @@ select
     timestamp_diff(arrive_ts_utc, depart_ts_utc, second) as travel_sec,
     timestamp_diff(to_scheduled_arrive_ts, scheduled_depart_ts, second) as scheduled_travel_sec,
     to_stop_dist_m - stop_dist_m as distance_m,
-    round(3.6 * (to_stop_dist_m - stop_dist_m) / timestamp_diff(arrive_ts_utc, depart_ts_utc, second), 1)
+    round(safe_divide(3.6 * (to_stop_dist_m - stop_dist_m), timestamp_diff(arrive_ts_utc, depart_ts_utc, second)), 1)
         as speed_kmh
 from pairs
 where
@@ -87,6 +87,7 @@ where
     and to_within_30s
     and route_id is not null
     and to_stop_dist_m > stop_dist_m
-    and arrive_ts_utc > depart_ts_utc
+    -- Whole seconds, so a sub-second traversal can't divide by zero.
+    and timestamp_diff(arrive_ts_utc, depart_ts_utc, second) > 0
     -- Timing error on stops a few seconds apart yields impossible speeds (0.7% over 120 km/h).
-    and 3.6 * (to_stop_dist_m - stop_dist_m) / timestamp_diff(arrive_ts_utc, depart_ts_utc, second) <= 130
+    and safe_divide(3.6 * (to_stop_dist_m - stop_dist_m), timestamp_diff(arrive_ts_utc, depart_ts_utc, second)) <= 130

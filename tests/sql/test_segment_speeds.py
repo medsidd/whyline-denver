@@ -103,3 +103,14 @@ def test_departure_window_midpoint():
     t1 = con.execute(sql).df().query("trip_id == 'T1'").set_index("from_stop_sequence")
     # T1 left stop 2 between 10:02:20 and 10:02:40, so at 10:02:30; it reached stop 3 at 10:05.
     assert t1.loc[2, "travel_sec"] == 150
+
+
+def test_sub_second_traversals_are_dropped():
+    con = connect()
+    _inputs(con)
+    con.execute(
+        "update fct_stop_visit set arrival_ts_utc = arrival_ts_utc - to_milliseconds(179500) "
+        "where trip_id = 'T1' and stop_sequence = 5"
+    )  # 0.5 s after leaving stop 4: whole seconds round it to 0
+    seg = con.execute(render_model("core/fct_segment_traversal.sql", incremental=True)).df()
+    assert set(seg[seg.trip_id == "T1"].from_stop_sequence) == {1}

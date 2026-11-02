@@ -364,7 +364,7 @@ models:
       - name: n_predictions
         description: "Of those, how many had a prediction on screen."
       - name: n_no_prediction
-        description: "How many had none: nothing predicted yet, or the stop had been dropped from the trip's predictions."
+        description: "How many had none: nothing predicted yet, the stop dropped from the trip's predictions, or the stop marked skipped (no time)."
       - name: pct_within_band
         description: "Share of predictions counted accurate under MBTA's standard: the vehicle came from 1 min early to 1 min late at 0-3 min, 1.5 early to 2 late at 3-6, 2.5 to 3.5 at 6-12, 4 to 6 at 12-30."
       - name: median_error_sec

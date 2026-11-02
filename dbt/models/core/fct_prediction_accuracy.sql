@@ -10,8 +10,8 @@
 {#
 Arrival-prediction accuracy: for each stop visit timed from a shape crossing to within 30 s, the
 prediction riders saw 1, 3, 5, 10, 15, 20 and 30 minutes before the vehicle actually arrived. That is
-the latest stop-level prediction change at or before that moment; if it was a drop, or nothing
-had been predicted yet, no prediction was on screen.
+the latest stop-level prediction change at or before that moment; if it was a drop, marked the
+stop skipped (no time), or nothing had been predicted yet, no prediction was on screen.
 
 error_sec = actual - predicted: positive means the vehicle came later than predicted (a longer
 wait), negative means earlier (a rider trusting the prediction could miss it). Buckets and bands
@@ -94,7 +94,7 @@ as_of as (
 predicted as (
     select
         *,
-        coalesce(change_type, 'dropped') != 'dropped' as has_prediction
+        coalesce(change_type, 'dropped') != 'dropped' and predicted_ts_utc is not null as has_prediction
     from as_of
 ),
 scored as (
