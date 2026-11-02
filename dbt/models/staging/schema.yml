@@ -197,3 +197,9 @@ models:
     data_tests:
       - unique_combination:
           column_names: ['layer', 'object_id']
+
+  - name: stg_rtd_reported_performance
+    description: "RTD's own monthly on-time performance and service availability from its Bus and Rail Operations reports, latest extract."
+    data_tests:
+      - unique_combination:
+          column_names: ['report_month', 'mode', 'service', 'metric']

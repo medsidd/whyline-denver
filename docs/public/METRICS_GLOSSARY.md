@@ -230,6 +230,16 @@ From Veo's public feed, Denver's only scooter and e-bike operator since May 2026
 
 Limits: only stops inside the City and County of Denver, Veo's service area, are included. A vehicle shown as available may be hard to unlock or out of charge. The first day is partial.
 
+## RTD's reported on-time performance
+
+`mart_reported_vs_measured_by_month` sets RTD's own monthly figures, from its Bus and Rail Operations reports, beside WhyLine's measured share for the same month and service (all bus, light rail, the A, B and G lines, the N Line).
+
+The two are measured differently:
+- RTD measures at timepoints, using its own rules and adjustments.
+- WhyLine measures at every stop it can time, counting from 1 minute early to 5 minutes late.
+
+A gap between them is expected; a gap that changes over time is the more telling signal. Months overlap only once WhyLine has measured them (from 2026-10-28) and RTD has published them, about two months later. RTD's Local, Regional and Regional BRT figures need RTD's route classification and aren't compared yet.
+
 ## Ridership
 
 From the National Transit Database, which RTD reports to the Federal Transit Administration monthly; figures run about two months behind and FTA revises earlier months.

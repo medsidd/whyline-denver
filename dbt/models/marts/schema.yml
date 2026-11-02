@@ -902,3 +902,25 @@ models:
         description: "Trip-weighted (p90 - p50) / p50 run time across patterns and days."
       - name: alert_hours
         description: "Service-alert hours on the route in the window."
+  - name: mart_reported_vs_measured_by_month
+    description: "RTD's reported monthly on-time performance beside WhyLine's measured share for the same month: all bus, light rail, A/B/G commuter lines and the N Line. RTD measures at timepoints with its own rules; WhyLine at every stop it times, 1 minute early to 5 minutes late."
+    data_tests:
+      - unique_combination:
+          column_names: ['report_month', 'service']
+    columns:
+      - name: report_month
+        description: "First day of the month."
+      - name: service
+        description: "all_bus, light_rail, commuter_rail_abg or commuter_rail_n."
+      - name: rtd_pct_on_time
+        description: "RTD's reported on-time performance for the month (0-1); NULL until RTD publishes it."
+      - name: rtd_service_availability
+        description: "RTD's reported service availability (0-1), where reported."
+      - name: whyline_pct_on_time
+        description: "WhyLine's measured on-time share for the month (0-1); NULL before WhyLine measured it."
+      - name: difference_pct_on_time
+        description: "whyline_pct_on_time - rtd_pct_on_time."
+      - name: n_visits_measured
+        description: "Stop visits with a known delay behind WhyLine's share."
+      - name: n_days_measured
+        description: "Service dates measured in the month."

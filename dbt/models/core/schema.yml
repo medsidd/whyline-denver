@@ -341,3 +341,12 @@ models:
           - accepted_values:
               values: [1, 2]
               quote: false
+
+  - name: fct_rtd_reported_performance
+    description: "One month x RTD service category x metric (otp_month, otp_ytd, service_availability) as RTD printed it, 0-100."
+    columns:
+      - name: value_pct
+        data_tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 100

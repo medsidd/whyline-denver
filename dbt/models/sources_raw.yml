@@ -85,3 +85,8 @@ sources:
           warn_after: {count: 60, period: minute}
           error_after: {count: 180, period: minute}
           filter: "snapshot_ts_utc >= timestamp_sub(current_timestamp(), interval 1 day)"
+      - name: raw_rtd_reported_performance
+        loaded_at_field: _ingested_at
+        freshness:
+          warn_after: {count: 9, period: day}
+          error_after: {count: 16, period: day}
