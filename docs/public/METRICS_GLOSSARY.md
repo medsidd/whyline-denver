@@ -180,6 +180,23 @@ Limits:
 
 
 
+## Ridership
+
+From the National Transit Database, which RTD reports to the Federal Transit Administration monthly; figures run about two months behind and FTA revises earlier months.
+
+| Field | Meaning |
+|---|---|
+| `boardings` | Unlinked passenger trips by mode and month: every boarding counts, so a ride with one transfer counts twice. Directly operated and purchased service are added together. |
+| `revenue_hours`, `revenue_miles`, `peak_vehicles` | Hours and miles vehicles spent in passenger service, and vehicles in maximum service. |
+| `boardings_per_revenue_hour` | Boardings per hour of service: how productive each hour is. |
+| `boardings_year_earlier`, `boardings_yoy_change` | The same month a year before, and the relative change (0.05 is 5% more). |
+
+## Weather in the hour
+
+`mart_weather_impacts_hourly` matches each stop visit with the weather in the hour the vehicle reached the stop, rather than the day's totals. Levels: precipitation `none` (under 0.1 mm in the hour), `light` (under 1 mm), `moderate` (under 4 mm), `heavy`; snowfall `snowing` or `not_snowing`; temperature `below_-10`, `-10_to_0`, `0_to_30`, `30_plus` (°C). `delta_pct_on_time` is the on-time share at that level minus the route's share when dry, not snowing, or 0–30 °C.
+
+Limits: hourly weather is modelled by Open-Meteo at Denver International Airport, and recent hours are forecast-model values until the archive catches up. It starts on 2026-10-23, so visits before then aren't matched. Few hours have heavy weather, so shares at those levels are noisy, and other things (time of day, events) vary with weather; this shows association, not cause.
+
 ## Dates, provenance, and reference tables
 
 `service_date_mst` and `event_hour_mst` use `America/Denver`, including daylight saving time despite the historical suffix. Current realtime service dates derive from event local dates, which can differ from GTFS operational service-day conventions after midnight. `build_run_at` records model rebuilding, not newest underlying observation.

@@ -1,6 +1,6 @@
 # dbt model reference
 
-The source tree contains 57 SQL models in three layers: 17 silver staging models, 20 gold-core models (six dimensions, 13 facts, one bridge), and 20 serving marts. The continuous realtime stream (five silver views, `fct_stop_visit`, `fct_trip_status`) was added for the [realtime stop visits plan](../../docs/technical/plans/realtime-stop-visits.md). This inventory was reconciled against SQL on October 27, 2026, when the layered model was cut over in production ([#63](https://github.com/medsidd/whyline-denver/pull/63)). Follow each linked definition for the actual SELECT list, dependencies, filters, and incremental key; schema YAML and the generated catalog provide column metadata.
+The source tree contains 63 SQL models in three layers: 19 silver staging models, 22 gold-core models (six dimensions, 15 facts, one bridge), and 22 serving marts. The continuous realtime stream (five silver views, `fct_stop_visit`, `fct_trip_status`) was added for the [realtime stop visits plan](../../docs/technical/plans/realtime-stop-visits.md). This inventory was reconciled against SQL on October 27, 2026, when the layered model was cut over in production ([#63](https://github.com/medsidd/whyline-denver/pull/63)). Follow each linked definition for the actual SELECT list, dependencies, filters, and incremental key; schema YAML and the generated catalog provide column metadata.
 
 Project `whyline_denver_dbt`, profile `whyline_denver`. `dbt_project.yml` defaults models to views; the core folder defaults to tables; individual SQL config overrides both. Datasets: staging → `stg_denver` (`BQ_DATASET_STG`), core → `core_denver` (`BQ_DATASET_CORE`), marts → `mart_denver` (`BQ_DATASET_MART`). Bronze is `raw_denver`.
 
@@ -62,6 +62,8 @@ Dimensions carry INT64 surrogate keys (`farm_fingerprint` of the natural key and
 | [fct_crash](core/fct_crash.sql) | table | One reported crash. |
 | [fct_weather_daily](core/fct_weather_daily.sql) | table | Station × date; `precip_bin` and `snow_day` slice the marts. |
 | [fct_tract_demographics](core/fct_tract_demographics.sql) | table | Tract × ACS vintage. |
+| [fct_ntd_service_month](core/fct_ntd_service_month.sql) | table | Month × NTD mode × type of service: RTD boardings, revenue miles and hours, peak vehicles (National Transit Database, latest extract). |
+| [fct_weather_hourly](core/fct_weather_hourly.sql) | table | Station × UTC hour: precipitation, snowfall, temperature, wind (Open-Meteo), with local date and hour. |
 | [bridge_stop_tract](core/bridge_stop_tract.sql) | table | Current stop × tract within 804.672 m; `weighting_factor` is the tract's population share and sums to 1 per stop. |
 
 Bus matrix:
@@ -108,6 +110,8 @@ Schedule snapshots: a day's GTFS load counts only if every file loaded that day 
 | [mart_wait_by_stop_period](marts/realtime/mart_wait_by_stop_period.sql) | table | Stop × route × direction × day type × period over the last 28 service dates: the same, with a frequent or infrequent `service_class`. `allow_in_app: false` until the stop-visit review. |
 | [mart_segment_speed_by_hour](marts/realtime/mart_segment_speed_by_hour.sql) | table | Stop pair × route × direction × day type × hour over the last 28 service dates: p50/p10 speed, p50/p90 running time, scheduled time, delay ratio, midpoint `lat`/`lon`. `allow_in_app: false` until the stop-visit review. |
 | [mart_trip_runtime_by_route_day](marts/realtime/mart_trip_runtime_by_route_day.sql) | incremental (insert-overwrite) | Route × direction × first/last stop × service date: p50/p90 and scheduled end-to-end run time and buffer time index. `allow_in_app: false` until the stop-visit review. |
+| [mart_ridership_by_mode_month](marts/ridership/mart_ridership_by_mode_month.sql) | table | Month × mode: boardings, revenue hours and miles, boardings per revenue hour, change from a year earlier. `allow_in_app: false` until release R3. |
+| [mart_weather_impacts_hourly](marts/reliability/mart_weather_impacts_hourly.sql) | table | Route × weather factor × level over 90 days: on-time share and delay in the hour's weather, and the difference from the route's baseline. `allow_in_app: false` until the stop-visit review. |
 | [mart_crowding_by_stop](marts/realtime/mart_crowding_by_stop.sql) | table | Stop × route × direction × weekday/weekend × hour over the last 28 service dates: share of visits arriving with few seats or standing room. `allow_in_app: false` until its coverage check. |
 
 Marts keep their names, grains, and original column order; descriptive columns are appended at the end (`stop_name`, `lat`, `lon`; `route_name`, `route_long_name`; `route_name_mode`). The per-stop marts cover stops in the latest GTFS extract (8,162 on October 27, 2026); the reference marts keep retired IDs so historical rows still resolve names.
@@ -145,7 +149,7 @@ Changing source data outside these windows does not repair historical results; r
 
 ## API, export, and schemas
 
-All 20 marts declare `meta.allow_in_app`; the 12 set to true are listed in `src/whyline/sync/constants.py`. API exposure requires both; it also needs matching manifest/catalog artifacts. The two GTFS reference marts are not in the ten-mart CSV-download list. DuckDB refresh maintains separate materialization/latest-snapshot sets and reads Parquet by column name, so appended columns load alongside older partitions. See [add a mart](../../docs/technical/guides/ADDING_A_MART.md).
+All 22 marts declare `meta.allow_in_app`; the 12 set to true are listed in `src/whyline/sync/constants.py`. API exposure requires both; it also needs matching manifest/catalog artifacts. The two GTFS reference marts are not in the ten-mart CSV-download list. DuckDB refresh maintains separate materialization/latest-snapshot sets and reads Parquet by column name, so appended columns load alongside older partitions. See [add a mart](../../docs/technical/guides/ADDING_A_MART.md).
 
 Column descriptions and tests are in [staging schema](staging/schema.yml), [core schema](core/schema.yml), and [mart schema](marts/schema.yml). Raw source declarations live in [sources_raw.yml](sources_raw.yml); custom generic tests in `dbt/macros/tests/`; singular tests in `dbt/tests/`; extract helpers (`latest_extract_date`, `recent_extracts_filter`, `scd2_from_extracts`) in `dbt/macros/extracts.sql`. Generated [dbt docs](https://medsidd.github.io/whyline-denver/) describe the last published artifact, which can differ from a working tree.
 
