@@ -381,3 +381,67 @@ models:
         description: "Share of predictions where the vehicle came more than 1 minute earlier than predicted, so a rider trusting it could miss it."
       - name: build_run_at
         description: "When the partition was built."
+  - name: mart_crowding_by_route_hour
+    description: "How crowded each route's trips were, by direction, service date and the hour the trip left its first stop. A trip's level is the highest occupancy reported anywhere on it. Shares count only trips with occupancy data; read pct_trips_with_data alongside them."
+    data_tests:
+      - unique_combination:
+          column_names: ['route_id', 'direction_id', 'service_date_mst', 'departure_hour_mst']
+          config:
+            where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null]
+      - name: direction_id
+        description: "GTFS direction (0 or 1)."
+      - name: service_date_mst
+        description: "GTFS service date (America/Denver)."
+        data_tests: [not_null]
+      - name: departure_hour_mst
+        description: "Local hour the trip left its first stop (0-23; after-midnight trips show 0-3)."
+      - name: n_trips
+        description: "Trips tracked by the realtime stream."
+      - name: n_trips_with_data
+        description: "Of those, trips with at least one occupancy report."
+      - name: pct_trips_with_data
+        description: "n_trips_with_data / n_trips. Only some vehicles report occupancy."
+      - name: pct_trips_few_seats_or_worse
+        description: "Share of trips with data that reached few seats or worse somewhere on the trip."
+      - name: pct_trips_standing_or_worse
+        description: "Share of trips with data that reached standing room only or worse."
+      - name: peak_stop_id_mode
+        description: "The stop where trips with few seats or worse most often first hit their highest level: the usual load point."
+      - name: build_run_at
+        description: "When the partition was built."
+  - name: mart_crowding_by_stop
+    description: "Load points: how often vehicles arrived at each stop with few seats or standing room only, by route, direction, weekday or weekend and hour, over the last 28 complete service dates. Shares count only visits with occupancy data."
+    data_tests:
+      - unique_combination:
+          column_names: ['stop_id', 'route_id', 'direction_id', 'day_type', 'hour_mst']
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier."
+        data_tests: [not_null]
+      - name: day_type
+        description: "weekday (Monday-Friday) or weekend; holidays are not separated."
+        data_tests:
+          - accepted_values:
+              values: ['weekday', 'weekend']
+      - name: hour_mst
+        description: "Local hour the vehicle reached the stop (0-23)."
+      - name: n_visits
+        description: "Stop visits by this route and direction in the window."
+      - name: n_visits_with_data
+        description: "Of those, visits with an occupancy report on the way to or at the stop."
+      - name: pct_visits_with_data
+        description: "n_visits_with_data / n_visits."
+      - name: pct_few_seats_or_worse
+        description: "Share of visits with data arriving with few seats or worse."
+      - name: pct_standing_or_worse
+        description: "Share of visits with data arriving with standing room only or worse."
+      - name: first_service_date
+        description: "Earliest service date in the group."
+      - name: last_service_date
+        description: "Latest service date in the group."
+      - name: build_run_at
+        description: "When the table was built."

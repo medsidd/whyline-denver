@@ -99,6 +99,22 @@ Limits:
 - The poller reads the feed every 15 seconds, so a prediction that changed between polls is seen up to 15 seconds late. Apps that cache or smooth predictions may show riders something different.
 - The first data starts on 2026-10-29, when the continuous stream started.
 
+## Crowding
+
+RTD's vehicles report how full they are as one of five levels, which WhyLine orders: 1 many seats available (or empty), 2 few seats available, 3 standing room only, 4 crushed standing room only, 5 full. "No data available" counts as no data. Each report counts toward the stop the vehicle is heading to or stopped at, so a stop's level is the highest reported on the way there.
+
+| Field | Meaning |
+|---|---|
+| `n_trips`, `n_trips_with_data`, `pct_trips_with_data` (route × hour) | Trips the realtime stream tracked, those with at least one occupancy report, and the share. The hour is when the trip left its first stop. |
+| `pct_trips_few_seats_or_worse`, `pct_trips_standing_or_worse` | Of trips with data, the share that reached that level anywhere on the trip. |
+| `peak_stop_id_mode` | The stop where trips with few seats or worse most often first hit their highest level: the usual load point. |
+| `n_visits`, `n_visits_with_data`, `pct_few_seats_or_worse`, `pct_standing_or_worse` (stop × hour) | The same at one stop, over the last 28 complete service dates, split by weekday or weekend. |
+
+Limits:
+- Only some vehicles report occupancy, and RTD sets the thresholds for each level. Always read a share with its coverage: on 2026-10-30, 88% of tracked trips and 81% of stop visits had data.
+- The level is the highest reported, not the average. One crowded stretch makes a trip count as crowded.
+- Holidays are counted as weekdays or weekends by their date.
+
 ## Dates, provenance, and reference tables
 
 `service_date_mst` and `event_hour_mst` use `America/Denver`, including daylight saving time despite the historical suffix. Current realtime service dates derive from event local dates, which can differ from GTFS operational service-day conventions after midnight. `build_run_at` records model rebuilding, not newest underlying observation.

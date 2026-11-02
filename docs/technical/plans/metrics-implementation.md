@@ -165,6 +165,8 @@ Whichever of a work package and #71 merges second rebases the README counts and 
 
 **Acceptance:** `pct_trips_with_data` is published next to every crowding share, and the 2026-10-29 totals reconcile with the raw counts above.
 
+**As built (2026-11-02):** `fct_trip_occupancy` keeps one row per stop visit, including visits with no report, and takes trip stops and their distances from `fct_stop_visit` rather than the schedule. A report counts toward its `stop_id` at the first occurrence at or ahead of the vehicle's progress, with 50 m slack as in the poller. On 2026-10-30, 95.8% of valid reports with a stop were assigned (773,301 of 807,578). 88% of tracked trips and 81% of stop visits had data; of trips with data, 20% reached few seats or worse and 2.8% standing room only. The stop mart is grouped by direction too. The landing FAQ and sources change in R1, when the marts are published. A nightly build reads about 340 MB.
+
 ## WP3: missed trips, "ghost buses" (item 1)
 
 **User question:** "My bus never came: how often does that happen on my route?"

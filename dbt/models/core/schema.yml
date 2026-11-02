@@ -216,3 +216,24 @@ models:
               values: ['0-3', '3-6', '6-12', '12-30']
               config:
                 where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+
+  - name: fct_trip_occupancy
+    description: "The highest occupancy RTD reported on the way to, or at, each stop of each trip: one row per stop visit (n_reports = 0 where nothing was reported). Levels 1 many seats, 2 few seats, 3 standing room only, 4 crushed standing room only, 5 full; NO_DATA_AVAILABLE is no data. Kept permanently; raw reports expire after 90 days."
+    data_tests:
+      - unique_combination:
+          column_names: ['service_date', 'trip_id', 'stop_sequence']
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - expression_is_true:
+          name: fct_trip_occupancy_data_within_reports
+          expression: "n_reports_with_data <= n_reports and (max_level is null) = (n_reports_with_data = 0)"
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: max_level
+        data_tests:
+          - accepted_values:
+              values: [1, 2, 3, 4, 5]
+              quote: false
+              config:
+                where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
