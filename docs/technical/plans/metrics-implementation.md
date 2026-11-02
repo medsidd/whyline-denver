@@ -326,6 +326,12 @@ Its JobSpecs are `raw_denver_hin`, `raw_denver_transit_lanes`, `raw_denver_trans
 
 **Cost:** about 15 MB of storage a week, kept for 30 days by a staging dedupe.
 
+**As built, ingestion (2026-11-02):**
+- One ingestor (`arcgis_reference`) serves WP7 and WP9, and one raw table (`raw_arcgis_reference`) holds every layer. Attributes are stored as JSON, and staging picks fields, replacing the eight per-layer JobSpecs.
+- Street centerlines and the pedestrian demand index are left out until a model needs them.
+- Each layer has a feature-count floor, and a failing layer doesn't stop the others. A full fetch takes about 2 minutes and 5 MB.
+- The dims, bridge and marts come once the first extract has loaded, so no nightly run references a missing table.
+
 ## WP8: RTD service alerts (item 10)
 
 **User question:** "Is my stop closed or detoured? Why was service bad that day?"

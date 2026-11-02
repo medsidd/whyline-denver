@@ -195,6 +195,20 @@ JOBS: tuple[JobSpec, ...] = (
             ("geometry_geojson", "STRING"),
         ),
     ),
+    # Street-safety and equity layers (whyline.ingest.arcgis_reference), refreshed weekly.
+    JobSpec(
+        name="arcgis_reference",
+        patterns=("arcgis_reference/extract_date=*/*.csv.gz",),
+        table="raw_arcgis_reference",
+        partition=Partitioning(field="_extract_date"),
+        clustering=Clustering(fields=("layer",)),
+        columns=_cols(
+            ("layer", "STRING"),
+            ("object_id", "STRING"),
+            ("properties_json", "STRING"),
+            ("geometry_geojson", "STRING"),
+        ),
+    ),
     JobSpec(
         name="noaa_daily",
         patterns=(
