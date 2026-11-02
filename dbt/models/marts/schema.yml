@@ -766,7 +766,7 @@ models:
       - name: n_stops_named
         description: "Distinct stops the route's alerts named that day."
   - name: mart_micromobility_access_by_stop
-    description: "First and last mile: Veo scooters and bikes usually available within 200 m of each Denver stop, and how often there are none, by weekday or weekend and period, over the last 28 complete local dates."
+    description: "First and last mile: Veo scooters and bikes usually available within 200 m of each Denver stop, and how often there are none, by weekday or weekend and period, over the last 28 local dates including today so far."
     data_tests:
       - unique_combination:
           column_names: ['stop_id', 'day_type', 'period']

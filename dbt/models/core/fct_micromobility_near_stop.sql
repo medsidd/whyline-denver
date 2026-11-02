@@ -12,7 +12,9 @@ Veo scooters and bikes available near each stop in Denver: per local date, stop,
 factor, the average number of available vehicles within 200 m over that hour's snapshots, and
 how often there were none. Stops outside the City and County of Denver (Veo's service area) are
 left out. Raw snapshots expire after 30 days, so this is kept permanently and full refresh is
-disabled; nightly runs replace the last micromobility_days complete local dates.
+disabled. Each run replaces the last micromobility_days local dates and today so far: availability
+is a snapshot count, so a past hour is final once its four snapshots exist; n_snapshots shows when
+an hour is still filling.
 #}
 {% set days = var('micromobility_days', 2) %}
 {% if is_incremental() %}
@@ -20,7 +22,7 @@ disabled; nightly runs replace the last micromobility_days complete local dates.
 {% else %}
     {% set first = "date '" ~ var('micromobility_start', '2026-11-02') ~ "'" %}
 {% endif %}
-{% set last = "date_sub(current_date('America/Denver'), interval 1 day)" %}
+{% set last = "current_date('America/Denver')" %}
 
 with snapshots as (
     select distinct snapshot_ts_utc
