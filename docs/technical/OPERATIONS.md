@@ -243,7 +243,8 @@ bq query --use_legacy_sql=false --project_id=whyline-denver \
 **Alerts and Veo image (owner):** WP8 [#83](https://github.com/medsidd/whyline-denver/pull/83) and WP14 [#84](https://github.com/medsidd/whyline-denver/pull/84) add two ingestors to the `realtime-load` entrypoint. Each run snapshots RTD service alerts and Veo vehicles before the load, and a failure logs `ALERTS_INGEST_FAILED` or `VEO_INGEST_FAILED` without stopping the load.
 
 - **Image:** `whylinedenver-realtime@sha256:c3fc67337b0ac6af6649ea2df4d2f6b74aa8d2184382ca667244a0854e57b459`, built with Cloud Build from `80e3cfc` (tag `80e3cfc`). The edge-case fix merged after it touches only nightly dbt models.
-- **Rollback:** both jobs run `@sha256:12384b64ebcb072f1c4e496cda827aae62c4b600820094f76852a44cf46f4ea1`. Moving both jobs keeps them on one digest:
+- **Deployed:** the owner moved both jobs to this image at about 17:45 UTC on 2026-11-02. The 17:47 `realtime-load` run was the first on it: it snapshotted 62 alerts and 8,147 Veo vehicles, created `raw_gtfsrt_alerts`, `raw_gtfsrt_alert_periods` and `raw_gbfs_veo_vehicles`, and succeeded.
+- **Rollback:** the previous image is `@sha256:12384b64ebcb072f1c4e496cda827aae62c4b600820094f76852a44cf46f4ea1`. The commands used, with that digest swapped in for a rollback:
 
 ```bash
 IMAGE=us-central1-docker.pkg.dev/whyline-denver/realtime-jobs/whylinedenver-realtime@sha256:c3fc67337b0ac6af6649ea2df4d2f6b74aa8d2184382ca667244a0854e57b459
@@ -256,6 +257,26 @@ gcloud run jobs update realtime-ingest --project=whyline-denver --region=us-cent
   - The first load creates `raw_gtfsrt_alerts`, `raw_gtfsrt_alert_periods` and `raw_gbfs_veo_vehicles`.
   - Search the job logs for `ALERTS_INGEST_FAILED`, `VEO_INGEST_FAILED` and `VEO_FEED_SUSPECT`.
 - **What follows:** the alerts and micromobility dbt models come once data has landed, so no nightly run references a missing table. Veo's feed publishes no licence, so its marts wait for a terms check before publication.
+
+### Nightly runs triggered by hand, November 2, 2026 (UTC)
+
+At the owner's request, the three nightly workflows were run by hand. Overlapping runs now queue instead of running together ([#92](https://github.com/medsidd/whyline-denver/pull/92)).
+
+| Run | Commit | Result |
+|---|---|---|
+| Nightly ingest, 17:50 (a late scheduled run at 17:31 had already fetched everything) | `1a72943` | Success. The new reference layers, NTD and hourly weather loaded at 17:39 into `raw_arcgis_reference`, `raw_ntd_monthly` and `raw_weather_hourly`. |
+| Nightly BigQuery, 17:52 | `1a72943` | 57 models passed; 136 of 137 tests passed and 1 warned (the known `assert_stop_visit_arrivals_monotonic`, 93 visits). First builds: `fct_prediction_accuracy` 5.66M rows (1.39 GB), `fct_trip_occupancy` 1.13M, `fct_stop_headway` 1.11M, `fct_segment_traversal` 0.67M. The run billed 15.4 GB in all. |
+| Nightly DuckDB, 18:03 | `1a72943` | Success |
+| Scheduled BigQuery 19:20 and DuckDB 19:40 | `e5be11b` | 72 models and 155 of 156 tests passed (the same warning). |
+| Nightly BigQuery, 21:29 | `63dc4c2` | 78 models and 166 of 167 tests passed (the same warning). |
+| Nightly DuckDB, 21:37 | `63dc4c2` | Success |
+
+**Cost finding:**
+- Billed dbt bytes are about 50–60 GB a day, mostly the 96 `realtime-load` runs. That's roughly 1.6 TB a month, over the free 1 TiB.
+- The largest nightly model is `fct_crash`, at 3.8 GB a night. `stg_denver_crashes` reads every nightly extract of `raw_crashes` to keep crashes that later fall out of the source's 5-year window.
+- Reading only the last few extracts would cut that to about 0.1 GB, but would drop crashes older than five years. That's an owner decision.
+
+**For the November 5 review:** route 15 has 43% of measured visits on time and 51% more than 5 minutes late, with a median delay of 570 s in the evening and 680 s at night. RTD reports about 84% local on-time performance. RTD measures at timepoints, but the gap is large enough to check trip matching for frequent routes before #71 publishes visit-based reliability.
 
 ### Query usage report
 
