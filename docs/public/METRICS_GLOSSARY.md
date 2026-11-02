@@ -115,6 +115,31 @@ Limits:
 - The level is the highest reported, not the average. One crowded stretch makes a trip count as crowded.
 - Holidays are counted as weekdays or weekends by their date.
 
+## Missed trips
+
+These follow every trip in the published schedule and ask whether a vehicle ran it. Each scheduled trip gets one outcome from what the realtime stream saw:
+
+| Outcome | Meaning |
+|---|---|
+| `n_delivered` | A vehicle reported on the trip and it reached at least one stop. |
+| `n_canceled` | RTD marked the trip canceled in its realtime feed. |
+| `n_no_vehicle` | The trip was listed with predictions, but no vehicle ever reported on it. This is the usual sign of a "ghost bus". |
+| `n_vehicle_no_visits` | A vehicle reported on the trip but it reached no stop. |
+| `n_not_tracked` | The trip never appeared in either realtime feed. |
+
+| Field | Meaning |
+|---|---|
+| `period` | When the trip was scheduled to leave its first stop: `early` 4:00–6:59, `am_peak` 7:00–8:59, `midday` 9:00–14:59, `pm_peak` 15:00–17:59, `evening` 18:00–20:59, `night` 21:00–3:59. |
+| `n_observable`, `stream_healthy` | Trips whose whole run, from 10 minutes before the scheduled start, fell in 15-minute windows with at least 24 of the feed's roughly 30 updates. `stream_healthy` means every trip in the row was observable. |
+| `pct_delivered`, `pct_missed_likely` | Of observable trips, the delivered share, and the canceled, no-vehicle and not-tracked share. |
+| `pct_tracked_with_vehicle` | Over 28 service dates, the share of the route's tracked, uncanceled trips with a vehicle report. Below 0.8, the route's vehicles rarely report, and both shares are NULL. |
+
+Limits:
+- "Likely missed" is inferred from the data RTD publishes. A trip can run with its tracking unit off, and that looks the same as a trip that didn't run.
+- The N Line is withheld: on 2026-10-30 only 3 of its trains reported positions, so most of its trips had no vehicle.
+- A late trip still counts as delivered; lateness is in the reliability metrics.
+
+
 ## Dates, provenance, and reference tables
 
 `service_date_mst` and `event_hour_mst` use `America/Denver`, including daylight saving time despite the historical suffix. Current realtime service dates derive from event local dates, which can differ from GTFS operational service-day conventions after midnight. `build_run_at` records model rebuilding, not newest underlying observation.

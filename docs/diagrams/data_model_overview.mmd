@@ -1,6 +1,6 @@
 flowchart LR
   accTitle: Current dbt model lineage
-  accDescr: 18 bronze tables and 49 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
+  accDescr: 18 bronze tables and 51 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
   subgraph bronze["Bronze: raw_denver"]
     direction TB
     raw_acs_tract["raw_acs_tract"]
@@ -56,6 +56,7 @@ flowchart LR
     fct_scheduled_stop_time["fct_scheduled_stop_time"]
     fct_stop_arrival["fct_stop_arrival"]
     fct_stop_visit["fct_stop_visit"]
+    fct_stream_health["fct_stream_health"]
     fct_tract_demographics["fct_tract_demographics"]
     fct_trip_observation["fct_trip_observation"]
     fct_trip_occupancy["fct_trip_occupancy"]
@@ -75,6 +76,7 @@ flowchart LR
     mart_priority_hotspots["mart_priority_hotspots"]
     mart_reliability_by_route_day["mart_reliability_by_route_day"]
     mart_reliability_by_stop_hour["mart_reliability_by_stop_hour"]
+    mart_service_delivered_by_route_day["mart_service_delivered_by_route_day"]
     mart_service_frequency_by_stop["mart_service_frequency_by_stop"]
     mart_service_intensity_by_tract["mart_service_intensity_by_tract"]
     mart_vulnerability_by_stop["mart_vulnerability_by_stop"]
@@ -114,11 +116,13 @@ flowchart LR
   fct_scheduled_stop_time --> fct_stop_visit
   fct_scheduled_stop_time --> fct_trip_observation
   fct_scheduled_stop_time --> mart_frequent_network_by_route
+  fct_scheduled_stop_time --> mart_service_delivered_by_route_day
   fct_scheduled_stop_time --> mart_service_frequency_by_stop
   fct_scheduled_stop_time --> mart_service_intensity_by_tract
   fct_stop_arrival --> mart_reliability_by_stop_hour
   fct_stop_visit --> fct_prediction_accuracy
   fct_stop_visit --> fct_trip_occupancy
+  fct_stream_health --> mart_service_delivered_by_route_day
   fct_tract_demographics --> bridge_stop_tract
   fct_tract_demographics --> mart_vulnerability_by_stop
   fct_trip_observation --> fct_stop_arrival
@@ -126,6 +130,7 @@ flowchart LR
   fct_trip_observation --> mart_reliability_by_stop_hour
   fct_trip_occupancy --> mart_crowding_by_route_hour
   fct_trip_occupancy --> mart_crowding_by_stop
+  fct_trip_status --> mart_service_delivered_by_route_day
   fct_weather_daily --> mart_reliability_by_route_day
   mart_crash_proximity_by_stop --> mart_priority_hotspots
   mart_reliability_by_route_day --> mart_weather_impacts
@@ -163,6 +168,7 @@ flowchart LR
   stg_rt_prediction_changes --> fct_prediction_accuracy
   stg_rt_stop_visits --> fct_stop_visit
   stg_rt_trip_status --> fct_trip_status
+  stg_rt_vehicle_positions --> fct_stream_health
   stg_rt_vehicle_positions --> fct_trip_occupancy
   stg_sidewalks --> dim_sidewalk_segment
   stg_weather --> fct_weather_daily
