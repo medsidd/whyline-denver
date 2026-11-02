@@ -1,6 +1,6 @@
 flowchart LR
   accTitle: Current dbt model lineage
-  accDescr: 24 bronze tables and 76 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
+  accDescr: 24 bronze tables and 78 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
   subgraph bronze["Bronze: raw_denver"]
     direction TB
     raw_acs_tract["raw_acs_tract"]
@@ -57,6 +57,7 @@ flowchart LR
   subgraph gold_core["Gold core: core_denver (Kimball)"]
     direction TB
     bridge_stop_block_group["bridge_stop_block_group"]
+    bridge_stop_street_safety["bridge_stop_street_safety"]
     bridge_stop_tract["bridge_stop_tract"]
     dim_block_group["dim_block_group"]
     dim_date["dim_date"]
@@ -106,6 +107,7 @@ flowchart LR
     mart_service_frequency_by_stop["mart_service_frequency_by_stop"]
     mart_service_intensity_by_tract["mart_service_intensity_by_tract"]
     mart_stop_closures["mart_stop_closures"]
+    mart_stop_walk_safety["mart_stop_walk_safety"]
     mart_trip_runtime_by_route_day["mart_trip_runtime_by_route_day"]
     mart_vulnerability_by_stop["mart_vulnerability_by_stop"]
     mart_wait_by_route_day["mart_wait_by_route_day"]
@@ -115,6 +117,7 @@ flowchart LR
   end
   bridge_stop_block_group --> mart_service_equity_by_group
   bridge_stop_block_group --> mart_vulnerability_by_stop
+  bridge_stop_street_safety --> mart_stop_walk_safety
   bridge_stop_tract --> mart_service_intensity_by_tract
   bridge_stop_tract --> mart_vulnerability_by_stop
   dim_block_group --> bridge_stop_block_group
@@ -131,6 +134,7 @@ flowchart LR
   dim_route --> mart_weather_impacts
   dim_sidewalk_segment --> mart_access_score_by_stop
   dim_stop --> bridge_stop_block_group
+  dim_stop --> bridge_stop_street_safety
   dim_stop --> bridge_stop_tract
   dim_stop --> fct_micromobility_near_stop
   dim_stop --> fct_scheduled_stop_time
@@ -145,9 +149,11 @@ flowchart LR
   dim_stop --> mart_segment_speed_by_hour
   dim_stop --> mart_service_frequency_by_stop
   dim_stop --> mart_stop_closures
+  dim_stop --> mart_stop_walk_safety
   dim_stop --> mart_trip_runtime_by_route_day
   dim_stop --> mart_vulnerability_by_stop
   dim_stop --> mart_wait_by_stop_period
+  dim_tract --> bridge_stop_street_safety
   dim_tract --> bridge_stop_tract
   dim_tract --> fct_micromobility_near_stop
   dim_tract --> fct_tract_demographics
@@ -223,6 +229,7 @@ flowchart LR
   raw_weather_daily --> stg_weather
   raw_weather_hourly --> stg_weather_hourly
   stg_acs_geo --> fct_tract_demographics
+  stg_arcgis_reference --> bridge_stop_street_safety
   stg_arcgis_reference --> dim_block_group
   stg_denver_crashes --> fct_crash
   stg_denver_tracts --> dim_tract
