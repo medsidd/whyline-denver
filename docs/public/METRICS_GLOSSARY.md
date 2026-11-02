@@ -228,7 +228,7 @@ From Veo's public feed, Denver's only scooter and e-bike operator since May 2026
 | `avg_scooters_within_200m`, `avg_bikes_within_200m` | Average available vehicles within 200 m of the stop across the period's snapshots, over 28 days. Bikes include e-bikes and pedal bikes. |
 | `pct_time_no_scooter`, `pct_time_no_bike` | Share of snapshots with none within 200 m: how often a rider would find nothing nearby. |
 
-Limits: only stops inside the City and County of Denver, Veo's service area, are included. A vehicle shown as available may be hard to unlock or out of charge. Today's figures fill in through the day (`n_snapshots` shows hours still filling); the first day, 2026-11-02, starts at 10:49.
+Limits: only stops inside the City and County of Denver, Veo's service area, are included. A vehicle shown as available may be hard to unlock or out of charge. Stops next to a Veo staging or charging site can show far more vehicles than a rider would usually find: W 10th Ave & Decatur St (stops 10038 and 25926) averaged about 34 scooters and 27 bikes at midday on 2026-11-02. Today's figures fill in through the day (`n_snapshots` shows hours still filling); the first day, 2026-11-02, starts at 10:49.
 
 ## RTD's reported on-time performance
 
