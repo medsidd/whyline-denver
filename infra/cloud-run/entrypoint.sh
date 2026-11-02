@@ -42,6 +42,9 @@ case "${JOB_TYPE}" in
       --state-dir "${STATE_DIR:-/state}"
     ;;
   load)
+    # Service alerts ride along every 15 minutes; a failed fetch must not block the load.
+    log "Snapshotting service alerts"
+    python -m whyline.ingest.gtfs_alerts --gcs --bucket "${GCS_BUCKET:-whylinedenver-raw}" || log "ALERTS_INGEST_FAILED"
     log "Running BigQuery load + realtime marts"
     make bq-load-realtime
     make dbt-run-realtime

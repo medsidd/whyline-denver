@@ -563,4 +563,40 @@ JOBS: tuple[JobSpec, ...] = (
         ),
         clustering=Clustering(fields=("route_id", "trip_id")),
     ),
+    # Service alerts (whyline.ingest.gtfs_alerts), snapshotted by the realtime-load job.
+    # Column order must equal gtfs_alerts.ALERT_COLUMNS / PERIOD_COLUMNS.
+    JobSpec(
+        name="gtfsrt_alerts",
+        patterns=("rtd_gtfsrt_alerts/snapshot_at=*/alerts.csv.gz",),
+        table="raw_gtfsrt_alerts",
+        columns=_cols(
+            ("feed_ts_utc", "TIMESTAMP"),
+            ("alert_id", "STRING"),
+            ("cause", "STRING"),
+            ("effect", "STRING"),
+            ("header_text", "STRING"),
+            ("description_text", "STRING"),
+            ("url", "STRING"),
+            ("agency_id", "STRING"),
+            ("route_id", "STRING"),
+            ("route_type", "INT64"),
+            ("direction_id", "INT64"),
+            ("stop_id", "STRING"),
+            ("trip_id", "STRING"),
+        ),
+        partition=Partitioning(field="feed_ts_utc", expiration_days=STREAM_RETENTION_DAYS),
+        clustering=Clustering(fields=("route_id", "stop_id")),
+    ),
+    JobSpec(
+        name="gtfsrt_alert_periods",
+        patterns=("rtd_gtfsrt_alerts/snapshot_at=*/alert_periods.csv.gz",),
+        table="raw_gtfsrt_alert_periods",
+        columns=_cols(
+            ("feed_ts_utc", "TIMESTAMP"),
+            ("alert_id", "STRING"),
+            ("active_start_utc", "TIMESTAMP"),
+            ("active_end_utc", "TIMESTAMP"),
+        ),
+        partition=Partitioning(field="feed_ts_utc", expiration_days=STREAM_RETENTION_DAYS),
+    ),
 )

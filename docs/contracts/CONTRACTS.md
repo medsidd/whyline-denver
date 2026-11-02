@@ -370,6 +370,41 @@ One row per closed trip instance: final trip relationship, `outcome` (`completed
 
 Patterns: `rtd_gtfsrt_calibration/snapshot_at=*/stop_visits.csv.gz`. Same columns, partitioning and expiry as `raw_gtfsrt_stop_visits`. Holds the backfill engine's output on stream payloads thinned to one refresh per 15 minutes (`data_version = 'calibration_v1'`), compared with stream visits by `dbt/analyses/backfill_calibration.sql`. Loaded only by the owner during calibration.
 
+## Service alerts
+
+Written by `whyline.ingest.gtfs_alerts`, which the `realtime-load` job runs before each load (every 15 minutes). One snapshot per run under `rtd_gtfsrt_alerts/snapshot_at=<UTC minute>/` with a manifest. Both tables are partitioned by day on `feed_ts_utc` with 90-day expiry. Each snapshot repeats every alert still in the feed, so an alert's first and last `feed_ts_utc` bound when it was published.
+
+### `raw_gtfsrt_alerts`
+
+Pattern: `rtd_gtfsrt_alerts/snapshot_at=*/alerts.csv.gz`. One row per alert and informed entity (one row with empty selector columns when an alert names none). Clustered on `route_id, stop_id`. Text is the English translation, else the first one.
+
+| Column | Type | Mode |
+|---|---|---|
+| `feed_ts_utc` | `TIMESTAMP` | NULLABLE |
+| `alert_id` | `STRING` | NULLABLE |
+| `cause` | `STRING` | NULLABLE |
+| `effect` | `STRING` | NULLABLE |
+| `header_text` | `STRING` | NULLABLE |
+| `description_text` | `STRING` | NULLABLE |
+| `url` | `STRING` | NULLABLE |
+| `agency_id` | `STRING` | NULLABLE |
+| `route_id` | `STRING` | NULLABLE |
+| `route_type` | `INT64` | NULLABLE |
+| `direction_id` | `INT64` | NULLABLE |
+| `stop_id` | `STRING` | NULLABLE |
+| `trip_id` | `STRING` | NULLABLE |
+
+### `raw_gtfsrt_alert_periods`
+
+Pattern: `rtd_gtfsrt_alerts/snapshot_at=*/alert_periods.csv.gz`. One row per alert and active period; an empty start or end is open. An alert with no period has no rows here and is active while it is in the feed.
+
+| Column | Type | Mode |
+|---|---|---|
+| `feed_ts_utc` | `TIMESTAMP` | NULLABLE |
+| `alert_id` | `STRING` | NULLABLE |
+| `active_start_utc` | `TIMESTAMP` | NULLABLE |
+| `active_end_utc` | `TIMESTAMP` | NULLABLE |
+
 ## Units and source semantics
 
 - Feed/event timestamps are UTC; geographic longitude/latitude outputs use WGS84 degrees. Delays and headways are seconds; speed is meters per second; bearing is degrees.
