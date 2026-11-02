@@ -29,7 +29,7 @@ Project `whyline_denver_dbt`, profile `whyline_denver`. `dbt_project.yml` defaul
 | [stg_rt_prediction_changes](staging/stg_rt_prediction_changes.sql) | view | Stream trip-update history as changes only (`new`, `changed`, `dropped`, trip-level rows). Evidence for validation. |
 | [stg_rt_stop_visits](staging/stg_rt_stop_visits.sql) | view | Final stop visits from the stream poller (`stream_v1`) or the backfill (`backfill_v1`). |
 | [stg_rt_trip_status](staging/stg_rt_trip_status.sql) | view | Trip instances the poller closed, with outcome and visit counts. |
-| [stg_denver_crashes](staging/stg_denver_crashes.sql) | view | One row per crash; the latest extract wins with a total order, so reruns agree. |
+| [stg_denver_crashes](staging/stg_denver_crashes.sql) | view | One row per crash in the latest extract: Denver's five-year window as of that day (crashes that aged out are dropped). Duplicates within it are broken with a total order, so reruns agree. |
 | [stg_sidewalks](staging/stg_sidewalks.sql) | view | Latest extract, one row per segment; line and centroid geometry. |
 | [stg_denver_tracts](staging/stg_denver_tracts.sql) | view | Latest extract; tract geometry. |
 | [stg_acs_geo](staging/stg_acs_geo.sql) | view | One row per tract and ACS vintage; GEOID conformed to the tract boundaries (no `14000US` prefix). |
