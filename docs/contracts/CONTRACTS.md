@@ -370,6 +370,29 @@ One row per closed trip instance: final trip relationship, `outcome` (`completed
 
 Patterns: `rtd_gtfsrt_calibration/snapshot_at=*/stop_visits.csv.gz`. Same columns, partitioning and expiry as `raw_gtfsrt_stop_visits`. Holds the backfill engine's output on stream payloads thinned to one refresh per 15 minutes (`data_version = 'calibration_v1'`), compared with stream visits by `dbt/analyses/backfill_calibration.sql`. Loaded only by the owner during calibration.
 
+## `raw_arcgis_reference`
+
+Written by `whyline.ingest.arcgis_reference` (nightly ingest, non-fatal). Each layer is fetched at most once a week: it's skipped when an extract from the last 7 days exists. Pattern: `arcgis_reference/extract_date=*/*.csv.gz`, one file per layer. Partitioned by `_extract_date`, clustered on `layer`. Attributes keep their source field names in `properties_json`, and staging picks what it needs, so a field the source adds or renames doesn't break the load. Geometry is GeoJSON in WGS84 (`outSR=4326`). A layer that returns fewer features than its floor (set from the 2026-11-02 counts) isn't written, and `ARCGIS_LAYER_FAILED` is logged.
+
+| `layer` | Source | Features on 2026-11-02 |
+|---|---|---|
+| `denver_hin` | Denver High Injury Network (`ODC_TRANS_HIN_L/326`) | 496 lines |
+| `denver_transit_lanes` | Denver transit lanes (`ODC_TRANS_TRANSITLANES_L/349`) | 24 lines |
+| `denver_transit_signals` | Denver transit signals (`ODC_TRANS_TRANSITSIGNALS_P/350`) | 30 points |
+| `denver_curb_ramps` | Denver curb ramps (`ODC_TRANS_CURBRAMPS_P/228`) | 72,770 points |
+| `denver_traffic_signals` | Denver traffic signals (`ODC_TRANS_TRAFFICSIGNAL_P/147`) | 1,288 points |
+| `denver_bike_facilities` | Denver bicycle facilities (`Denver_Bicycle_Facilities_ODC/450`) | 2,025 lines |
+| `denver_doti_equity` | Denver DOTI equity index (`ODC_ADMN_DOTI_EQUITY_INDEX/151`) | 572 block groups |
+| `enviroscreen_tract` | CDPHE Colorado EnviroScreen 2.0, Denver County tracts | 178 polygons |
+| `enviroscreen_block_group` | CDPHE Colorado EnviroScreen 2.0, Denver County block groups | 571 polygons |
+
+| Column | Type | Mode |
+|---|---|---|
+| `layer` | `STRING` | NULLABLE |
+| `object_id` | `STRING` | NULLABLE |
+| `properties_json` | `STRING` | NULLABLE |
+| `geometry_geojson` | `STRING` | NULLABLE |
+
 ## Service alerts
 
 Written by `whyline.ingest.gtfs_alerts`, which the `realtime-load` job runs before each load (every 15 minutes). One snapshot per run under `rtd_gtfsrt_alerts/snapshot_at=<UTC minute>/` with a manifest. Both tables are partitioned by day on `feed_ts_utc` with 90-day expiry. Each snapshot repeats every alert still in the feed, so an alert's first and last `feed_ts_utc` bound when it was published.
