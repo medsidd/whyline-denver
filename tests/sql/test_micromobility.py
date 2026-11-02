@@ -15,10 +15,7 @@ create or replace macro st_union_agg(g) as first(g);
 """
 DUCKDB = (
     ("timestamp(date_sub(current_date, interval 2 day))", "cast(current_date - 2 as timestamptz)"),
-    (
-        "timestamp(date_add(date_sub(current_date, interval 1 day), interval 2 day))",
-        "cast(current_date + 1 as timestamptz)",
-    ),
+    ("timestamp(date_add(current_date, interval 2 day))", "cast(current_date + 2 as timestamptz)"),
     (
         "cross join unnest(['scooter', 'bicycle']) as form_factor",
         "cross join (select unnest(['scooter', 'bicycle']) as form_factor)",

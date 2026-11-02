@@ -3,7 +3,7 @@
 {#
 First and last mile: how many Veo scooters and bikes are usually available within 200 m of each
 Denver stop, and how often there are none, by weekday or weekend and period, over the last
-micromobility_window_days complete local dates. Published after a check of Veo's data terms.
+micromobility_window_days local dates, today included. Goes into the app with the next release.
 #}
 {% set window_days = var('micromobility_window_days', 28) %}
 
@@ -20,8 +20,8 @@ with hours as (
             else 'night'
         end as period
     from {{ ref('fct_micromobility_near_stop') }}
-    where date_mst between date_sub(current_date('America/Denver'), interval {{ window_days }} day)
-        and date_sub(current_date('America/Denver'), interval 1 day)
+    where date_mst between date_sub(current_date('America/Denver'), interval {{ window_days - 1 }} day)
+        and current_date('America/Denver')
 )
 
 select
