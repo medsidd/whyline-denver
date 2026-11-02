@@ -832,3 +832,73 @@ models:
         description: "A transit queue-jump signal is within 50 m."
       - name: walk_safety_flags
         description: "The flags that apply, separated by '; '; empty when none."
+  - name: mart_stop_scorecard
+    description: "How is my stop doing? One row per current stop: weekday service, on-time share, excess wait, bunching, prediction accuracy, crowding, crashes and walk safety, access, alerts in effect, equity context, and nearby scooters and bikes, over the last 28 service dates where time-based. Each measured part has its count; missing parts stay NULL."
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier."
+        data_tests: [not_null, unique]
+      - name: weekday_route_ids
+        description: "Routes scheduled at the stop on the sample weekday."
+      - name: weekday_departures
+        description: "Scheduled departures on the sample weekday."
+      - name: n_visits_measured
+        description: "Vehicle visits measured in the window."
+      - name: pct_on_time
+        description: "Share of visits from 1 minute early to 5 minutes late."
+      - name: excess_wait_sec
+        description: "Extra wait over scheduled at headways scheduled every 15 minutes or better."
+      - name: pct_bunched
+        description: "Share of frequent headways under a quarter of the scheduled headway."
+      - name: n_predictions_0_3
+        description: "Predictions shown 0-3 minutes before arrival that were checked."
+      - name: pct_predictions_accurate_0_3
+        description: "Share of 0-3 minute predictions within MBTA's band (1 min early to 1 min late)."
+      - name: pct_predictions_accurate_6_12
+        description: "Share of 6-12 minute predictions within MBTA's band (2.5 min early to 3.5 min late)."
+      - name: n_visits_with_occupancy
+        description: "Visits with an occupancy report."
+      - name: pct_arrivals_standing_or_worse
+        description: "Share of those arriving with standing room only or worse."
+      - name: n_alerts_in_effect
+        description: "Service alerts naming the stop in effect when built; 0 when none."
+      - name: n_closures_in_effect
+        description: "Of those, NO_SERVICE or STOP_MOVED alerts."
+      - name: avg_scooters_within_200m
+        description: "Average available Veo scooters within 200 m (Denver stops)."
+      - name: avg_bikes_within_200m
+        description: "Average available Veo bikes within 200 m (Denver stops)."
+  - name: mart_route_scorecard
+    description: "Report card per route, both directions: frequency and weekday span, on-time share, excess wait, delivered and likely-missed trips, prediction accuracy, crowding, run-time reliability and alert hours, over the last 28 service dates. Each measured part has its count; missing parts stay NULL."
+    columns:
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null, unique]
+      - name: is_frequent_route
+        description: "Every 15 minutes or better from 6:00 to 21:00 every day, in both directions (TransitCenter)."
+      - name: weekday_first_departure
+        description: "First scheduled weekday departure, local HH:MM."
+      - name: weekday_last_departure
+        description: "Last scheduled weekday departure, local HH:MM."
+      - name: weekday_midday_headway_min
+        description: "Average scheduled minutes between weekday departures, 9:00-14:59."
+      - name: pct_on_time
+        description: "Share of measured visits from 1 minute early to 5 minutes late."
+      - name: excess_wait_sec
+        description: "Extra wait over scheduled at headways scheduled every 15 minutes or better."
+      - name: pct_delivered
+        description: "Delivered share of trips the feed fully covered; NULL for routes whose vehicles rarely report."
+      - name: pct_missed_likely
+        description: "Canceled, no-vehicle or not-tracked share of those trips."
+      - name: pct_predictions_accurate_0_3
+        description: "Share of 0-3 minute predictions within MBTA's band."
+      - name: n_trips_with_occupancy
+        description: "Trips with an occupancy report."
+      - name: pct_trips_standing_or_worse
+        description: "Share of those reaching standing room only or worse."
+      - name: n_trips_timed
+        description: "Trips timed end to end."
+      - name: buffer_time_index
+        description: "Trip-weighted (p90 - p50) / p50 run time across patterns and days."
+      - name: alert_hours
+        description: "Service-alert hours on the route in the window."
