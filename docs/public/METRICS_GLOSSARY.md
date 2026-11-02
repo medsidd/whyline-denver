@@ -180,6 +180,19 @@ Limits:
 
 
 
+## Service alerts
+
+From RTD's service alerts feed, snapshotted every 15 minutes since 2026-11-02. An alert names routes, stops or trips and gives periods when it applies.
+
+| Field | Meaning |
+|---|---|
+| `from_ts`, `until_ts` (stop closures) | When the alert applies: its stated period, starting when it was first seen if none is given. Once the alert leaves the feed, it ends no later than 15 minutes after it was last seen. An empty `until_ts` means it's open-ended and still listed. |
+| `is_closure` | The alert's effect is `NO_SERVICE` or `STOP_MOVED`. Detours often close stops too, but RTD says so only in the alert text. |
+| `is_active_now` | In the feed and within its period when the table was built (nightly). |
+| `n_alerts`, `alert_hours`, `n_stops_named` (route × day × effect) | Alerts in effect on the route that day, the hours each was in effect summed over alerts (so two at once count twice), and stops named. |
+
+Limits: alerts describe what RTD announced, not what happened. Alerts that ended before 2026-11-02 are missing. When RTD edits an alert's period, the last version wins.
+
 ## Ridership
 
 From the National Transit Database, which RTD reports to the Federal Transit Administration monthly; figures run about two months behind and FTA revises earlier months.

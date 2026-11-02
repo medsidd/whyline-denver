@@ -715,3 +715,43 @@ models:
         description: "pct_on_time minus the route's baseline (none, not_snowing or 0_to_30); NULL without a baseline."
       - name: build_run_at
         description: "When the table was built."
+  - name: mart_stop_closures
+    description: "Stops named in RTD service alerts, current and past: one row per stop and alert, with when it applied and whether it's in effect now. History starts 2026-11-02, when snapshots began."
+    data_tests:
+      - unique_combination:
+          column_names: ['stop_id', 'alert_id']
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier."
+        data_tests: [not_null]
+      - name: effect
+        description: "GTFS-RT effect, such as NO_SERVICE, DETOUR, STOP_MOVED."
+      - name: is_closure
+        description: "The alert's effect is NO_SERVICE or STOP_MOVED. Detours often close stops too, but say so only in the text."
+      - name: route_ids
+        description: "Routes the alert names at this stop, comma-separated."
+      - name: from_ts
+        description: "When the alert applied from: its period start, else when it was first seen."
+      - name: until_ts
+        description: "When it applied until; capped 15 minutes after the alert left the feed. NULL means open-ended and still in the feed."
+      - name: is_active_now
+        description: "In the feed and within its period when the table was built."
+  - name: mart_alerts_by_route_day
+    description: "Per route, local day and alert effect: alerts in effect, alert hours (each alert's overlap with the day, so simultaneous alerts add up) and stops named. From 2026-11-02."
+    data_tests:
+      - unique_combination:
+          column_names: ['route_id', 'service_date_mst', 'effect']
+    columns:
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null]
+      - name: service_date_mst
+        description: "Local calendar day (America/Denver)."
+      - name: effect
+        description: "GTFS-RT effect; UNKNOWN_EFFECT when RTD gives none."
+      - name: n_alerts
+        description: "Alerts in effect on the route that day."
+      - name: alert_hours
+        description: "Hours of the day each alert was in effect, summed over alerts."
+      - name: n_stops_named
+        description: "Distinct stops the route's alerts named that day."

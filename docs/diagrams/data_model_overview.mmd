@@ -1,6 +1,6 @@
 flowchart LR
   accTitle: Current dbt model lineage
-  accDescr: 20 bronze tables and 63 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
+  accDescr: 22 bronze tables and 69 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
   subgraph bronze["Bronze: raw_denver"]
     direction TB
     raw_acs_tract["raw_acs_tract"]
@@ -13,6 +13,8 @@ flowchart LR
     raw_gtfs_stop_times["raw_gtfs_stop_times"]
     raw_gtfs_stops["raw_gtfs_stops"]
     raw_gtfs_trips["raw_gtfs_trips"]
+    raw_gtfsrt_alert_periods["raw_gtfsrt_alert_periods"]
+    raw_gtfsrt_alerts["raw_gtfsrt_alerts"]
     raw_gtfsrt_stop_visits["raw_gtfsrt_stop_visits"]
     raw_gtfsrt_trip_status["raw_gtfsrt_trip_status"]
     raw_gtfsrt_trip_updates["raw_gtfsrt_trip_updates"]
@@ -37,6 +39,8 @@ flowchart LR
     stg_gtfs_stops["stg_gtfs_stops"]
     stg_gtfs_trips["stg_gtfs_trips"]
     stg_ntd_monthly["stg_ntd_monthly"]
+    stg_rt_alert_periods["stg_rt_alert_periods"]
+    stg_rt_alerts["stg_rt_alerts"]
     stg_rt_events["stg_rt_events"]
     stg_rt_prediction_changes["stg_rt_prediction_changes"]
     stg_rt_stop_visits["stg_rt_stop_visits"]
@@ -55,6 +59,8 @@ flowchart LR
     dim_stop["dim_stop"]
     dim_tract["dim_tract"]
     dim_trip["dim_trip"]
+    fct_alert["fct_alert"]
+    fct_alert_entity_period["fct_alert_entity_period"]
     fct_crash["fct_crash"]
     fct_ntd_service_month["fct_ntd_service_month"]
     fct_prediction_accuracy["fct_prediction_accuracy"]
@@ -74,6 +80,7 @@ flowchart LR
   subgraph gold_serving["Gold serving: mart_denver"]
     direction TB
     mart_access_score_by_stop["mart_access_score_by_stop"]
+    mart_alerts_by_route_day["mart_alerts_by_route_day"]
     mart_crash_proximity_by_stop["mart_crash_proximity_by_stop"]
     mart_crowding_by_route_hour["mart_crowding_by_route_hour"]
     mart_crowding_by_stop["mart_crowding_by_stop"]
@@ -89,6 +96,7 @@ flowchart LR
     mart_service_delivered_by_route_day["mart_service_delivered_by_route_day"]
     mart_service_frequency_by_stop["mart_service_frequency_by_stop"]
     mart_service_intensity_by_tract["mart_service_intensity_by_tract"]
+    mart_stop_closures["mart_stop_closures"]
     mart_trip_runtime_by_route_day["mart_trip_runtime_by_route_day"]
     mart_vulnerability_by_stop["mart_vulnerability_by_stop"]
     mart_wait_by_route_day["mart_wait_by_route_day"]
@@ -119,6 +127,7 @@ flowchart LR
   dim_stop --> mart_reliability_by_stop_hour
   dim_stop --> mart_segment_speed_by_hour
   dim_stop --> mart_service_frequency_by_stop
+  dim_stop --> mart_stop_closures
   dim_stop --> mart_trip_runtime_by_route_day
   dim_stop --> mart_vulnerability_by_stop
   dim_stop --> mart_wait_by_stop_period
@@ -127,6 +136,10 @@ flowchart LR
   dim_trip --> fct_scheduled_stop_time
   dim_trip --> fct_trip_observation
   dim_trip --> fct_trip_status
+  fct_alert --> mart_alerts_by_route_day
+  fct_alert --> mart_stop_closures
+  fct_alert_entity_period --> mart_alerts_by_route_day
+  fct_alert_entity_period --> mart_stop_closures
   fct_crash --> mart_crash_proximity_by_stop
   fct_ntd_service_month --> mart_ridership_by_mode_month
   fct_prediction_accuracy --> mart_prediction_accuracy_by_route_day
@@ -173,6 +186,8 @@ flowchart LR
   raw_gtfs_stop_times --> stg_gtfs_stop_times
   raw_gtfs_stops --> stg_gtfs_stops
   raw_gtfs_trips --> stg_gtfs_trips
+  raw_gtfsrt_alert_periods --> stg_rt_alert_periods
+  raw_gtfsrt_alerts --> stg_rt_alerts
   raw_gtfsrt_stop_visits --> stg_rt_stop_visits
   raw_gtfsrt_trip_status --> stg_rt_trip_status
   raw_gtfsrt_trip_updates --> stg_rt_events
@@ -194,6 +209,9 @@ flowchart LR
   stg_gtfs_trips --> dim_trip
   stg_gtfs_trips --> fct_scheduled_stop_time
   stg_ntd_monthly --> fct_ntd_service_month
+  stg_rt_alert_periods --> fct_alert_entity_period
+  stg_rt_alerts --> fct_alert
+  stg_rt_alerts --> fct_alert_entity_period
   stg_rt_events --> fct_trip_observation
   stg_rt_prediction_changes --> fct_prediction_accuracy
   stg_rt_stop_visits --> fct_stop_visit

@@ -286,3 +286,15 @@ models:
     data_tests:
       - unique_combination:
           column_names: ['station', 'ts_utc']
+
+  - name: fct_alert
+    description: "One RTD service alert, kept permanently: first and last time it was in the feed, and its latest cause, effect and text."
+    columns:
+      - name: alert_id
+        data_tests: [not_null, unique]
+
+  - name: fct_alert_entity_period
+    description: "One alert x informed entity x active period, kept permanently, with the snapshots it appeared in (first_seen_ts, last_seen_ts). Rows from an alert's last snapshot are its final definition."
+    columns:
+      - name: alert_entity_period_key
+        data_tests: [not_null, unique]

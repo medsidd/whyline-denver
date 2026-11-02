@@ -179,3 +179,12 @@ models:
         data_tests:
           - accepted_values:
               values: ['open_meteo_archive', 'open_meteo_forecast']
+
+  - name: stg_rt_alerts
+    description: "RTD service alerts per 15-minute snapshot, one row per alert and informed entity. Filter feed_ts_utc with a constant."
+    columns:
+      - name: alert_id
+        data_tests: [not_null]
+
+  - name: stg_rt_alert_periods
+    description: "Active periods per alert per snapshot; NULL start or end is open."
