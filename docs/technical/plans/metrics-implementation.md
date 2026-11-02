@@ -581,8 +581,12 @@ Between releases, merged marts build in BigQuery and are tested nightly, but the
 
 ## Owner actions, all in one place
 
-1. Image updates for `realtime-load` after WP8 and WP14 merge: two `gcloud run jobs update` commands, which I'll provide.
-1a. One API redeploy per release (R1–R4): `gcloud run services update whylinedenver-api` with the digest I build. The permission check blocks me from running it.
-2. The records request to RTD for route and stop boardings and stop amenities (WP11 and WP16). The text is ready in [the records request](rtd-records-request.md).
-3. If no index page exists, a monthly link to the new RTD operations PDF (WP10).
-4. Approving the cutover on November 5, which unlocks publishing WP1–WP5.
+Status on 2026-11-02:
+
+1. Image updates for `realtime-load` after WP8 and WP14 merge. **Done** at about 17:45 UTC: both jobs now run `@sha256:c3fc6733…`.
+1a. One API redeploy per release (R1–R4): `gcloud run services update whylinedenver-api` with the digest I build. The permission check blocks me from running it. **Pending, per release.**
+2. The records request to RTD for route and stop boardings and stop amenities (WP11 and WP16). The text is ready in [the records request](rtd-records-request.md). **Deferred by the owner** on 2026-11-02.
+3. A monthly link to each new RTD operations PDF (WP10). **Not needed:** the board briefing documents page links every report.
+4. Approving the cutover on November 5, which unlocks publishing WP1–WP5. **Pending.** The review includes the frequent-route lateness check (route 15) added to §6 of the [stop-visit plan](realtime-stop-visits.md).
+5. Rebuilding the route-day weather history before #71. **Done** at about 22:00 UTC.
+6. Decisions taken on 2026-11-02: publish Veo aggregates with credit; keep only crashes inside Denver's five-year window (#100).
