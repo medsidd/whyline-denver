@@ -247,6 +247,10 @@ From the National Transit Database, which RTD reports to the Federal Transit Adm
 
 Limits: hourly weather is modelled by Open-Meteo at Denver International Airport, and recent hours are forecast-model values until the archive catches up. It starts on 2026-10-23, so visits before then aren't matched. Few hours have heavy weather, so shares at those levels are noisy, and other things (time of day, events) vary with weather; this shows association, not cause.
 
+## Scorecards
+
+`mart_stop_scorecard` (one row per stop) and `mart_route_scorecard` (one row per route, both directions) gather the measures above over the last 28 service dates, using the same definitions. Each measured part comes with the count it rests on (`n_visits_measured`, `n_visits_with_occupancy`, `n_trips_observable` and so on). A part with no data stays empty rather than zero, so a stop with no occupancy reports isn't shown as uncrowded.
+
 ## Dates, provenance, and reference tables
 
 `service_date_mst` and `event_hour_mst` use `America/Denver`, including daylight saving time despite the historical suffix. Current realtime service dates derive from event local dates, which can differ from GTFS operational service-day conventions after midnight. `build_run_at` records model rebuilding, not newest underlying observation.

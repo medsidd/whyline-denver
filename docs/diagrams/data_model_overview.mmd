@@ -1,6 +1,6 @@
 flowchart LR
   accTitle: Current dbt model lineage
-  accDescr: 24 bronze tables and 78 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
+  accDescr: 24 bronze tables and 80 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
   subgraph bronze["Bronze: raw_denver"]
     direction TB
     raw_acs_tract["raw_acs_tract"]
@@ -101,12 +101,14 @@ flowchart LR
     mart_reliability_by_route_day["mart_reliability_by_route_day"]
     mart_reliability_by_stop_hour["mart_reliability_by_stop_hour"]
     mart_ridership_by_mode_month["mart_ridership_by_mode_month"]
+    mart_route_scorecard["mart_route_scorecard"]
     mart_segment_speed_by_hour["mart_segment_speed_by_hour"]
     mart_service_delivered_by_route_day["mart_service_delivered_by_route_day"]
     mart_service_equity_by_group["mart_service_equity_by_group"]
     mart_service_frequency_by_stop["mart_service_frequency_by_stop"]
     mart_service_intensity_by_tract["mart_service_intensity_by_tract"]
     mart_stop_closures["mart_stop_closures"]
+    mart_stop_scorecard["mart_stop_scorecard"]
     mart_stop_walk_safety["mart_stop_walk_safety"]
     mart_trip_runtime_by_route_day["mart_trip_runtime_by_route_day"]
     mart_vulnerability_by_stop["mart_vulnerability_by_stop"]
@@ -130,6 +132,7 @@ flowchart LR
   dim_route --> mart_gtfs_routes
   dim_route --> mart_reliability_by_route_day
   dim_route --> mart_reliability_by_stop_hour
+  dim_route --> mart_route_scorecard
   dim_route --> mart_service_frequency_by_stop
   dim_route --> mart_weather_impacts
   dim_sidewalk_segment --> mart_access_score_by_stop
@@ -149,6 +152,7 @@ flowchart LR
   dim_stop --> mart_segment_speed_by_hour
   dim_stop --> mart_service_frequency_by_stop
   dim_stop --> mart_stop_closures
+  dim_stop --> mart_stop_scorecard
   dim_stop --> mart_stop_walk_safety
   dim_stop --> mart_trip_runtime_by_route_day
   dim_stop --> mart_vulnerability_by_stop
@@ -166,8 +170,11 @@ flowchart LR
   fct_alert_entity_period --> mart_stop_closures
   fct_crash --> mart_crash_proximity_by_stop
   fct_micromobility_near_stop --> mart_micromobility_access_by_stop
+  fct_micromobility_near_stop --> mart_stop_scorecard
   fct_ntd_service_month --> mart_ridership_by_mode_month
   fct_prediction_accuracy --> mart_prediction_accuracy_by_route_day
+  fct_prediction_accuracy --> mart_route_scorecard
+  fct_prediction_accuracy --> mart_stop_scorecard
   fct_scheduled_stop_time --> fct_stop_arrival
   fct_scheduled_stop_time --> fct_stop_visit
   fct_scheduled_stop_time --> fct_trip_observation
@@ -178,7 +185,9 @@ flowchart LR
   fct_scheduled_stop_time --> mart_service_intensity_by_tract
   fct_segment_traversal --> mart_segment_speed_by_hour
   fct_stop_arrival --> mart_reliability_by_stop_hour
+  fct_stop_headway --> mart_route_scorecard
   fct_stop_headway --> mart_service_equity_by_group
+  fct_stop_headway --> mart_stop_scorecard
   fct_stop_headway --> mart_wait_by_route_day
   fct_stop_headway --> mart_wait_by_stop_period
   fct_stop_visit --> fct_prediction_accuracy
@@ -195,15 +204,27 @@ flowchart LR
   fct_trip_observation --> mart_reliability_by_stop_hour
   fct_trip_occupancy --> mart_crowding_by_route_hour
   fct_trip_occupancy --> mart_crowding_by_stop
+  fct_trip_occupancy --> mart_route_scorecard
   fct_trip_occupancy --> mart_service_equity_by_group
+  fct_trip_occupancy --> mart_stop_scorecard
   fct_trip_status --> fct_stop_headway
   fct_trip_status --> mart_service_delivered_by_route_day
   fct_weather_daily --> mart_reliability_by_route_day
   fct_weather_hourly --> mart_weather_impacts_hourly
+  mart_access_score_by_stop --> mart_stop_scorecard
+  mart_alerts_by_route_day --> mart_route_scorecard
   mart_crash_proximity_by_stop --> mart_priority_hotspots
+  mart_crash_proximity_by_stop --> mart_stop_scorecard
+  mart_frequent_network_by_route --> mart_route_scorecard
   mart_reliability_by_route_day --> mart_weather_impacts
   mart_reliability_by_stop_hour --> mart_priority_hotspots
+  mart_service_delivered_by_route_day --> mart_route_scorecard
+  mart_service_frequency_by_stop --> mart_stop_scorecard
+  mart_stop_closures --> mart_stop_scorecard
+  mart_stop_walk_safety --> mart_stop_scorecard
+  mart_trip_runtime_by_route_day --> mart_route_scorecard
   mart_vulnerability_by_stop --> mart_priority_hotspots
+  mart_vulnerability_by_stop --> mart_stop_scorecard
   raw_acs_tract --> stg_acs_geo
   raw_arcgis_reference --> stg_arcgis_reference
   raw_crashes --> stg_denver_crashes
