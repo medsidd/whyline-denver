@@ -298,6 +298,12 @@ Run both pipelines for at least 7 days, including a weekend.
    - STOPPED_AT check: `arrival_latest_ts` is at or before the first STOPPED_AT report;
    - 20 or more visits spot-checked against archive replays;
    - optionally, a field check or RTD's published OTP.
+2a. **Frequent-route lateness (added 2026-11-02, owner request):** route 15 has 43% of measured visits on time (45% at timepoints) and 51% more than 5 minutes late. Its median delay is 570 s in the evening and 680 s at night, against RTD's reported ~84% local on-time performance. Before #71 merges, rule out vehicles matched to the wrong trip on frequent routes.
+   - **Preliminary check (2026-10-30, read-only):** RTD's own last predictions agree with WhyLine's measured arrivals: median difference 1 s at middle stops and 8 s at last stops. RTD-predicted delay against the schedule (median 327 s) matches the measured delay (339 s). So the lateness is in RTD's feed too, not an artefact of how WhyLine assigns visits. Origin departures run a median 138 s late, while RTD predicts them on time.
+   - Across all routes, 75.9% of visits are on time at timepoints and 75.5% elsewhere, so measuring at every stop isn't what lowers the figure.
+   - **Still to check in the review:**
+     - spot-check route 15 trips against archive replays, especially trips where a vehicle changed trips at a terminal (`trip_switch_at_terminal`);
+     - compare with RTD's reported figures for October once WP10 parses them.
 3. **Old vs new by route-day**, using new marts built into a scratch dataset (`BQ_DATASET_MART=mart_denver_eval`, the #63 pattern). Every difference is classed as an intended change, a fixed defect, or a regression.
 4. **Determinism:** replay one day from the archive and diff it against the fact.
 5. **Cost:** seven days of `INFORMATION_SCHEMA.JOBS` billed bytes, old vs new.
