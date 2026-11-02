@@ -393,6 +393,20 @@ Written by `whyline.ingest.arcgis_reference` (nightly ingest, non-fatal). Each l
 | `properties_json` | `STRING` | NULLABLE |
 | `geometry_geojson` | `STRING` | NULLABLE |
 
+## `raw_weather_hourly`
+
+Written by `whyline.ingest.weather_hourly` (nightly ingest, non-fatal) from Open-Meteo at the DIA station's coordinates (`USW00003017`). Pattern: `weather_hourly/extract_date=*/weather_hourly.csv.gz`; partitioned by `_extract_date`. Each extract covers the last 10 days in UTC hours (`--start` backfills), so extracts overlap; staging keeps the latest extract per hour. Hours older than six days come from the reanalysis archive, recent past hours from the forecast API; `source` says which. An extract under 90% of the expected hours logs `WEATHER_HOURLY_SUSPECT` and writes nothing.
+
+| Column | Type | Mode | Meaning |
+|---|---|---|---|
+| `ts_utc` | `TIMESTAMP` | NULLABLE | Start of the UTC hour |
+| `station` | `STRING` | NULLABLE | NOAA station whose coordinates were used |
+| `precip_mm` | `FLOAT64` | NULLABLE | Precipitation in the hour, mm |
+| `snowfall_mm` | `FLOAT64` | NULLABLE | Snowfall in the hour, mm (Open-Meteo's cm × 10, matching the daily table) |
+| `temp_c` | `FLOAT64` | NULLABLE | Air temperature at 2 m |
+| `wind_kmh` | `FLOAT64` | NULLABLE | Wind speed at 10 m |
+| `source` | `STRING` | NULLABLE | `open_meteo_archive` or `open_meteo_forecast` |
+
 ## `raw_ntd_monthly`
 
 Written by `whyline.ingest.ntd_monthly` (nightly ingest, non-fatal, skipped when extracted in the last 7 days) from FTA's monthly module data, Socrata dataset `8bui-9xvu`, for RTD (`ntd_id = 80006`). Pattern: `ntd_monthly/extract_date=*/ntd_monthly.csv.gz`; partitioned by `_extract_date`. Each extract is the full history from 2002 (1,633 rows on 2026-11-02, through August 2026), because NTD revises earlier months. Fewer than 1,500 rows logs `NTD_SUSPECT` and writes nothing. `vrh` is rounded to whole hours.
