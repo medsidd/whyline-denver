@@ -209,6 +209,32 @@ Physical storage billing (decision 6) is deferred until after a week of real pip
 
 `whylinedenver-raw` keeps every overwritten or lifecycle-deleted object as a noncurrent version, with no rule that removes them (for example, 151 versions of the DuckDB warehouse). That is unmeasured storage cost worth reviewing alongside the billing decision.
 
+### Weather history for the DIA station, October 30, 2026 (UTC)
+
+The weather station changed from `USW00023062` to the DIA station `USW00003017` in `3d8a245`, but history was never re-fetched for DIA.
+
+- **What was found:** `fct_weather_daily` had DIA rows only from 2026-09-15. The route-day mart joins on the configured station, so in the last year 33,245 of 34,820 route-days had no weather, and none was marked as a snow day. Every weather comparison before mid-September was empty.
+- **What was done:** NOAA CDO returned complete DIA history: 622 days from 2025-01-01 to 2026-09-14, with no missing precipitation and 37 snow days. It was loaded at 18:08 into `raw_weather_daily`, from `gs://whylinedenver-raw/raw/noaa_daily/extract_date=2026-09-14/station=USW00003017/weather.csv.gz`. The ingestor now splits NOAA requests into year-long ranges, and sends dates older than six days to Open-Meteo's archive.
+- **Still to do (owner):** rebuild the route-day history. The agent's permission check blocks this production dbt run. The nightly run rebuilds `fct_weather_daily` and the last 30 days of the mart, but not older partitions. The rebuild must run before #71 merges, because after the switch older partitions are no longer rebuilt. A dry run bills about 314 MB:
+
+```bash
+PYTHONPATH=$PWD/src DBT_PROFILES_DIR=$PWD/dbt/profiles GCP_PROJECT_ID=whyline-denver BQ_DATASET_RAW=raw_denver \
+  BQ_DATASET_STG=stg_denver BQ_DATASET_CORE=core_denver BQ_DATASET_MART=mart_denver \
+  .venv/bin/python -m tools.dbt_with_env run --project-dir dbt --target prod \
+  --select fct_weather_daily mart_reliability_by_route_day mart_weather_impacts --vars '{route_day_window_days: 400}'
+```
+
+### Query usage report
+
+Since WP0 of the [metrics plan](plans/metrics-implementation.md), every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:
+
+```bash
+gcloud logging read 'resource.type="cloud_run_revision" AND jsonPayload.event="query"' --project=whyline-denver \
+  --freshness=7d --format='value(jsonPayload.model_names,jsonPayload.prebuilt_index,jsonPayload.status)' | sort | uniq -c | sort -rn | head -30
+```
+
+Vercel also receives `question_run` and `download` events. Custom events only show on Vercel plans that include them.
+
 ## Refresh state read-only
 
 ```bash

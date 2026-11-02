@@ -8,7 +8,7 @@ import gzip
 import os
 from collections import defaultdict
 from collections.abc import Sequence
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Union
@@ -26,6 +26,11 @@ DEFAULT_STATION = "USW00003017"
 DEFAULT_DATASET = "GHCND"
 DATATYPES = ["SNOW", "PRCP", "TMIN", "TMAX", "TAVG"]
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
+# The archive serves reanalysis history; it trails real time by about five days.
+OPEN_METEO_ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive"
+ARCHIVE_LAG_DAYS = 6
+# NOAA CDO rejects ranges of a year or more.
+CDO_MAX_DAYS = 365
 # Fallback coordinates per GHCND station; Open-Meteo returns gridded model values, not observations.
 STATION_COORDS = {DEFAULT_STATION: (39.8467, -104.6562)}
 DEFAULT_LOCAL_SOURCE = Path("data/external/noaa_raw.csv")
@@ -190,8 +195,21 @@ def fetch_noaa_cdo(
     end: str,
     timeout: int,
 ) -> list[dict[str, Any]]:
-    headers = {"token": token}
     records: dict[str, dict[str, Any]] = defaultdict(dict)
+    for chunk_start, chunk_end in _date_chunks(start, end, CDO_MAX_DAYS):
+        _fetch_noaa_cdo_range(records, token, station, chunk_start, chunk_end, timeout)
+    return list(records.values())
+
+
+def _fetch_noaa_cdo_range(
+    records: dict[str, dict[str, Any]],
+    token: str,
+    station: str,
+    start: str,
+    end: str,
+    timeout: int,
+) -> None:
+    headers = {"token": token}
     limit = 1000
     offset = 1
     station_id = station if station.startswith("GHCND:") else f"GHCND:{station}"
@@ -237,7 +255,16 @@ def fetch_noaa_cdo(
             break
         offset += limit
 
-    return list(records.values())
+
+def _date_chunks(start: str, end: str, days: int) -> list[tuple[str, str]]:
+    """Split an inclusive ISO date range into consecutive pieces of at most `days` days."""
+    first, last = date.fromisoformat(start), date.fromisoformat(end)
+    chunks = []
+    while first <= last:
+        stop = min(first + timedelta(days=days - 1), last)
+        chunks.append((first.isoformat(), stop.isoformat()))
+        first = stop + timedelta(days=1)
+    return chunks
 
 
 def fill_missing_days(
@@ -297,24 +324,40 @@ def fetch_open_meteo(
     end: str,
     timeout: int,
 ) -> dict[str, dict[str, Any]]:
-    """Daily Open-Meteo values keyed by date, in NOAA datatype names and units (mm, Celsius)."""
+    """Daily Open-Meteo values keyed by date, in NOAA datatype names and units (mm, Celsius).
+
+    Dates older than the archive lag come from the reanalysis archive, recent ones from the
+    forecast API, which only reaches a few months back.
+    """
     lat, lon = STATION_COORDS[station]
-    response = io.http_get_with_retry(
-        OPEN_METEO_URL,
-        params={
-            "latitude": lat,
-            "longitude": lon,
-            "daily": "precipitation_sum,snowfall_sum,temperature_2m_max,"
-            "temperature_2m_min,temperature_2m_mean",
-            "timezone": "America/Denver",
-            "start_date": start,
-            "end_date": end,
-        },
-        timeout=timeout,
-        logger=LOGGER,
-    )
-    response.raise_for_status()
-    daily = response.json().get("daily", {})
+    split = (date.today() - timedelta(days=ARCHIVE_LAG_DAYS)).isoformat()
+    requests_ = []
+    if start < split:
+        requests_.append((OPEN_METEO_ARCHIVE_URL, start, min(end, split)))
+    if end > split:
+        requests_.append((OPEN_METEO_URL, max(start, split), end))
+    values: dict[str, dict[str, Any]] = {}
+    for url, first, last in requests_:
+        response = io.http_get_with_retry(
+            url,
+            params={
+                "latitude": lat,
+                "longitude": lon,
+                "daily": "precipitation_sum,snowfall_sum,temperature_2m_max,"
+                "temperature_2m_min,temperature_2m_mean",
+                "timezone": "America/Denver",
+                "start_date": first,
+                "end_date": last,
+            },
+            timeout=timeout,
+            logger=LOGGER,
+        )
+        response.raise_for_status()
+        values.update(_open_meteo_daily(response.json().get("daily", {})))
+    return values
+
+
+def _open_meteo_daily(daily: dict[str, Any]) -> dict[str, dict[str, Any]]:
     snow_cm = daily.get("snowfall_sum", [])
     return {
         day: {

@@ -37,6 +37,8 @@ def log_query(
     question: str,
     bq_est_bytes: int | None = None,
     cache_hit: bool | None = None,
+    prebuilt_index: int | None = None,
+    status: str = "ok",
     path: Path = LOG_PATH,
 ) -> None:
     record: dict[str, Any] = {
@@ -47,11 +49,17 @@ def log_query(
         "model_names": sorted(set(models)),
         "sql_hash": sha256(sql.encode("utf-8")).hexdigest(),
         "question_hash": sha256(question.encode("utf-8")).hexdigest(),
+        "status": status,
     }
     if bq_est_bytes is not None:
         record["bq_est_bytes"] = bq_est_bytes
     if cache_hit is not None:
         record["cache_hit"] = cache_hit
+    if prebuilt_index is not None:
+        record["prebuilt_index"] = prebuilt_index
+    # The file is on the container's disk on Cloud Run, so also send one JSON line to Cloud Logging.
+    if os.getenv("K_SERVICE"):
+        print(json.dumps({"event": "query", **record}, separators=(",", ":")), flush=True)
 
     with _log_lock:
         _rotate_log_if_needed(path)

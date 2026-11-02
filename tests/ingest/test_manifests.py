@@ -13,7 +13,10 @@ def _latest_partition(*paths: Path) -> Path:
             continue
         partitions = sorted([p for p in base.iterdir() if p.is_dir()])
         if partitions:
-            return partitions[-1]
+            latest = partitions[-1]
+            # Weather extracts nest one more level (station=<id>/) under the date.
+            nested = sorted(d for d in latest.iterdir() if (d / "manifest.json").exists())
+            return latest if (latest / "manifest.json").exists() or not nested else nested[-1]
     raise FileNotFoundError(f"No partitions found in {[str(p) for p in paths]}")
 
 

@@ -33,6 +33,7 @@ Start with the [project README](../README.md). Current implementation guides liv
 | [Naming and time](guides/BQ_Naming_and_Time.md) | Actual dataset names, raw metadata, and Denver time handling |
 | [Realtime strategy](guides/GTFS_RT_Strategy.md) | Sampling, execution, and measurement limitations |
 | [Realtime stop visits plan](technical/plans/realtime-stop-visits.md) | Approved design, discovery evidence, costs, and owner runbook for continuous capture and `fct_stop_visit` |
+| [Metrics implementation plan](technical/plans/metrics-implementation.md) | Approved work packages for the new rider-facing metrics and sources: crowding, prediction accuracy, missed trips, wait time, speeds, alerts, equity, access and more |
 | [Weather strategy](guides/NOAA_Data_Collection_Strategy.md) | Rolling collection, unknown weather, and late corrections |
 
 ## Extension guides

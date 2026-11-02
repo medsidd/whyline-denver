@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { track } from "@vercel/analytics";
 import dynamic from "next/dynamic";
 import { runQuery, triggerDownload } from "@/lib/api";
 import { useDashboardStore } from "@/store/dashboardStore";
@@ -9,6 +10,7 @@ import { detectChartType, detectMapData } from "@/lib/chartLogic";
 import { StepShell, type StepStatus } from "@/components/steps/StepShell";
 import { DataTable } from "@/components/ui/DataTable";
 import { RouteBarChart } from "@/components/viz/RouteBarChart";
+import { StopHourHeatmap } from "@/components/viz/StopHourHeatmap";
 import { TimeSeriesChart } from "@/components/viz/TimeSeriesChart";
 import { WeatherSmallMultiples } from "@/components/viz/WeatherSmallMultiples";
 
@@ -27,16 +29,17 @@ const VIEW_LABELS: Record<View, string> = { chart: "Chart", map: "Map", table: "
 
 /** Step 3: run the query, then see the result as a chart, map or table and download it. */
 export function Step3Results({ status }: { status: StepStatus }) {
-  const { editedSql, sanitizedSql, generatedSql, question, sqlError, queryResult, runError, setQueryResult } =
+  const { editedSql, sanitizedSql, generatedSql, question, sqlError, queryResult, runError, setQueryResult, prebuiltIndex } =
     useDashboardStore();
   const [picked, setPicked] = useState<View | null>(null);
   // A new result opens on its best view (chart, then map, then table).
   useEffect(() => setPicked(null), [queryResult]);
 
   const mutation = useMutation({
-    mutationFn: () => runQuery(sanitizedSql ?? editedSql, question),
+    mutationFn: () => runQuery(sanitizedSql ?? editedSql, question, prebuiltIndex),
     onSuccess: (data) => {
       setQueryResult(data.error ? null : data, data.error ?? null);
+      track("question_run", { source: prebuiltIndex === null ? "own" : "ready_made", prebuilt: prebuiltIndex, ok: !data.error });
     },
     onError: (err) => {
       setQueryResult(null, String(err));
@@ -188,27 +191,10 @@ function ChartRenderer({
         />
       );
     }
-    case "route_bar":
-      return (
-        <RouteBarChart
-          data={data}
-          xKey="route_id"
-          yKey="avg_delay_ratio"
-          title="Delay ratio by route, top 15"
-        />
-      );
     case "weather_multiples":
       return <WeatherSmallMultiples data={data} title="On-time share by weather" />;
     case "heatmap":
-      // Simplified: render as grouped bar chart (full heatmap requires custom SVG)
-      return (
-        <RouteBarChart
-          data={data.slice(0, 15)}
-          xKey="stop_id"
-          yKey="pct_on_time"
-          title="On-time share by stop, first 15"
-        />
-      );
+      return <StopHourHeatmap data={data} title="On-time share by stop and hour, first 15 stops" />;
     case "generic_bar": {
       const cols = Object.keys(data[0] ?? {});
       const catCol = cols.find((c) =>

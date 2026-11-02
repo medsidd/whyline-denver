@@ -55,7 +55,7 @@ Guardrails accept one SELECT/WITH statement, reject denylisted write keywords, a
 
 ## Prebuilt SQL
 
-Indices 0–3 correspond to worst routes, crash exposure, a weather comparison, and equity gaps. Prefer the engine-specific endpoint used by the frontend. The weather card's label mentions snow, but its SQL filters moderate/heavy precipitation (`mod`, `heavy`), not `snow_day`; it must not be interpreted as a snow-only comparison.
+Indices follow the order of `PREBUILT` in `api/routers/sql.py`: worst routes, crash exposure, snow days against other days per route, and equity gaps. Prefer the engine-specific endpoint used by the frontend.
 
 ## Execute
 
