@@ -574,3 +574,75 @@ models:
         description: "90th percentile delay in seconds (approximate)."
       - name: build_run_at
         description: "When the partition was built."
+  - name: mart_segment_speed_by_hour
+    description: "Where buses and trains crawl: speed and running time between consecutive stops, by route, direction, day type and hour of departure, over the last 28 complete service dates. lat and lon are the segment's midpoint."
+    data_tests:
+      - unique_combination:
+          column_names: ['from_stop_id', 'to_stop_id', 'route_id', 'direction_id', 'day_type', 'hour_mst']
+    columns:
+      - name: from_stop_id
+        description: "Stop the segment starts at."
+        data_tests: [not_null]
+      - name: to_stop_id
+        description: "Next stop on the trip."
+      - name: lat
+        description: "Latitude halfway between the two stops."
+      - name: lon
+        description: "Longitude halfway between the two stops."
+      - name: day_type
+        description: "weekday, saturday or sunday."
+        data_tests:
+          - accepted_values:
+              values: ['weekday', 'saturday', 'sunday']
+      - name: hour_mst
+        description: "Local hour the vehicle left the first stop."
+      - name: n_traversals
+        description: "Timed trips over the segment in the window."
+      - name: n_days
+        description: "Service dates with a timed trip."
+      - name: distance_m
+        description: "Median distance along the route between the stops, in meters."
+      - name: p50_speed_kmh
+        description: "Median speed between the stops, km/h, dwell excluded."
+      - name: p10_speed_kmh
+        description: "10th percentile speed: the slow end."
+      - name: p50_travel_sec
+        description: "Median running time in seconds."
+      - name: p90_travel_sec
+        description: "90th percentile running time."
+      - name: scheduled_travel_sec
+        description: "Median scheduled time between the stops; 0 when the schedule gives both the same minute."
+      - name: delay_ratio
+        description: "p50_travel_sec / scheduled_travel_sec; NULL when the scheduled time is 0."
+      - name: build_run_at
+        description: "When the table was built."
+  - name: mart_trip_runtime_by_route_day
+    description: "How long trips really take end to end, per route, direction, pattern (first and last stop) and service date, from trips timed to within 30 s at both ends."
+    data_tests:
+      - unique_combination:
+          column_names: ['route_id', 'direction_id', 'first_stop_id', 'last_stop_id', 'service_date_mst']
+          config:
+            where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null]
+      - name: service_date_mst
+        description: "GTFS service date (America/Denver)."
+        data_tests: [not_null]
+      - name: first_stop_id
+        description: "Where the trips start."
+      - name: last_stop_id
+        description: "Where the trips end."
+      - name: n_trips
+        description: "Trips timed at both ends."
+      - name: p50_runtime_min
+        description: "Median minutes from leaving the first stop to reaching the last."
+      - name: p90_runtime_min
+        description: "90th percentile run time."
+      - name: scheduled_runtime_min
+        description: "Median scheduled run time."
+      - name: buffer_time_index
+        description: "(p90 - p50) / p50: the extra share of time to allow to arrive on time 9 times in 10. Includes the difference between peak and off-peak trips."
+      - name: build_run_at
+        description: "When the partition was built."

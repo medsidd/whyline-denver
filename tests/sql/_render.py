@@ -21,6 +21,8 @@ create or replace macro farm_fingerprint(s) as hash(s);
 create or replace macro timestamp_diff(a, b, unit) as date_diff(unit, b, a);
 create or replace macro date_sub(d, i) as cast(d - i as date);
 create or replace macro timestamp_sub(t, i) as t - i;
+create or replace macro timestamp_add(t, i) as t + i;
+create or replace macro div(a, b) as a // b;
 create or replace macro format_date(fmt, d) as strftime(d, fmt);
 create or replace macro format_datetime(fmt, d) as strftime(d, fmt);
 create or replace macro logical_and(x) as bool_and(x);
