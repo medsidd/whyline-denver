@@ -156,6 +156,24 @@ Limits:
 - Each headway belongs to the period when the later vehicle arrived. The first vehicle of the day has no headway.
 - Holidays are counted by their date, as weekdays, Saturdays or Sundays.
 
+## Speed and travel time
+
+A segment runs from one stop of a trip to the next. Its running time is from leaving the first stop to reaching the second, with both ends measured to within 30 seconds; dwell at the stops is excluded. Distance is along the route's shape.
+
+| Field | Meaning |
+|---|---|
+| `p50_speed_kmh`, `p10_speed_kmh` | Median and 10th percentile speed between the two stops, by route, direction, day type and hour, over 28 days. |
+| `p50_travel_sec`, `p90_travel_sec`, `scheduled_travel_sec`, `delay_ratio` | Median and 90th percentile running time, the median scheduled time, and median over scheduled. The ratio is NULL when the schedule gives both stops the same minute. |
+| `lat`, `lon` (segment) | The midpoint between the two stops. |
+| `p50_runtime_min`, `p90_runtime_min`, `scheduled_runtime_min` | End-to-end run time from leaving the first stop to reaching the last, per route, direction, first and last stop, and day. |
+| `buffer_time_index` | `(p90 − p50) / p50`: the extra share of time to allow to arrive on time nine times in ten. 0.2 means allowing 20% more than the typical trip. |
+
+Limits:
+- Segments only count when both stops were timed to within 30 seconds, so rail, which reports less often, has fewer segments.
+- Speeds over 130 km/h, faster than any RTD vehicle, are timing error on closely spaced stops and are dropped.
+- The day's buffer time index mixes peak and off-peak trips.
+
+
 
 
 ## Dates, provenance, and reference tables

@@ -261,3 +261,16 @@ models:
           expression: "observed_headway_sec is null or observed_headway_sec >= 0"
           config:
             where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+
+  - name: fct_segment_traversal
+    description: "Running time between consecutive stops of a trip, both ends timed to within 30 s: from leaving stop n (middle of its departure window, or its arrival when it didn't stop) to reaching stop n+1, with distance along the shape, speed and scheduled time. Speeds over 130 km/h are dropped as timing error. Rebuildable from fct_stop_visit."
+    data_tests:
+      - unique_combination:
+          column_names: ['service_date', 'trip_id', 'from_stop_sequence']
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - expression_is_true:
+          name: fct_segment_traversal_positive
+          expression: "travel_sec > 0 and distance_m > 0 and speed_kmh <= 130"
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
