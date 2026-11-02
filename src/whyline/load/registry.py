@@ -226,6 +226,22 @@ JOBS: tuple[JobSpec, ...] = (
             ("voms", "INT64"),
         ),
     ),
+    # Hourly weather at the DIA station (whyline.ingest.weather_hourly); overlapping extracts.
+    JobSpec(
+        name="weather_hourly",
+        patterns=("weather_hourly/extract_date=*/weather_hourly.csv.gz",),
+        table="raw_weather_hourly",
+        partition=Partitioning(field="_extract_date"),
+        columns=_cols(
+            ("ts_utc", "TIMESTAMP"),
+            ("station", "STRING"),
+            ("precip_mm", "FLOAT64"),
+            ("snowfall_mm", "FLOAT64"),
+            ("temp_c", "FLOAT64"),
+            ("wind_kmh", "FLOAT64"),
+            ("source", "STRING"),
+        ),
+    ),
     JobSpec(
         name="noaa_daily",
         patterns=(
