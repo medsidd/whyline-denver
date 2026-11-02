@@ -1,7 +1,7 @@
 {{ config(materialized='table', meta={"allow_in_app": true}) }}
 
 with current_stops as (
-    select stop_id, stop_name, lat, lon, geom
+    select stop_id, stop_name, lat, lon, geom, wheelchair_boarding
     from {{ ref('dim_stop') }}
     where is_current
 ),
@@ -14,7 +14,8 @@ buffers as (
 sidewalk_len as (
     select
         b.stop_id,
-        sum(st_length(st_intersection(sw.geom, b.buf))) as tot_len_m
+        sum(st_length(st_intersection(sw.geom, b.buf))) as tot_len_m,
+        sum(if(sw.class = 'crosswalk', st_length(st_intersection(sw.geom, b.buf)), 0)) as crosswalk_len_m
     from buffers as b
     join {{ ref('dim_sidewalk_segment') }} as sw
         on st_intersects(sw.geom, b.buf)
@@ -26,7 +27,8 @@ stops as (
     select
         b.stop_id,
         200 as buffer_m,
-        coalesce(s.tot_len_m, 0) as sidewalk_len_m_within_200m
+        coalesce(s.tot_len_m, 0) as sidewalk_len_m_within_200m,
+        coalesce(s.crosswalk_len_m, 0) as crosswalk_len_m_within_200m
     from buffers as b
     left join sidewalk_len as s
         using (stop_id)
@@ -55,7 +57,9 @@ select
     current_timestamp() as build_run_at,
     cs.stop_name,
     cs.lat,
-    cs.lon
+    cs.lon,
+    crosswalk_len_m_within_200m,
+    cs.wheelchair_boarding
 from stops
 left join current_stops as cs
     using (stop_id)
