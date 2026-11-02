@@ -189,3 +189,30 @@ models:
               values: ['completed', 'partial', 'vanished', 'canceled', 'no_static']
               config:
                 where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+
+  - name: fct_prediction_accuracy
+    description: "The arrival prediction riders saw 1, 3, 5, 10, 15, 20 and 30 minutes before each measured stop visit (shape crossing within 30 s), against the actual arrival. One row per service date x trip x stop_sequence x horizon. error_sec = actual - predicted; horizon_bucket is the countdown shown (countdown_sec) and within_band follows MBTA's published accuracy standard. Kept permanently; raw prediction history expires after 90 days."
+    data_tests:
+      - unique_combination:
+          column_names: ['service_date', 'trip_id', 'stop_sequence', 'horizon_min']
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - expression_is_true:
+          name: fct_prediction_accuracy_error_when_predicted
+          expression: "has_prediction = (error_sec is not null)"
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: horizon_min
+        data_tests:
+          - accepted_values:
+              values: [1, 3, 5, 10, 15, 20, 30]
+              quote: false
+              config:
+                where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - name: horizon_bucket
+        data_tests:
+          - accepted_values:
+              values: ['0-3', '3-6', '6-12', '12-30']
+              config:
+                where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"

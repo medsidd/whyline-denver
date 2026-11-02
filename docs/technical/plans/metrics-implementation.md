@@ -114,9 +114,9 @@ Whichever of a work package and #71 merges second rebases the README counts and 
 
 **Definitions:**
 - For each visit with a measured arrival `A` (methods `shape_crossing` and `shape_crossing_gap`), and each horizon `h` in {1, 3, 5, 10, 15, 20, 30} minutes, take the prediction in effect at `A − h`. That's the latest stop-level (`is_trip_level = false`) `stg_rt_prediction_changes` row for that trip, start date and stop sequence with `feed_ts_utc ≤ A − h`. If that row is `new` or `changed`, its `predicted_ts_utc` is the prediction. If it is `dropped`, or no row exists yet, no prediction was on screen, and the case is counted as `no_prediction` instead.
-- The error is `e = predicted_arrival − A`; a negative value means the bus came later than predicted.
-- **Accurate** means within a band that tightens near arrival: −60 s to +60 s at 0–3 minutes out; −60 to +90 at 3–6; −90 to +150 at 6–12; −120 to +210 at 12–30. These are WMATA-style fixed bands; the glossary records them so they can be adjusted.
-- **Padding** is the 5th-percentile lateness, `−P05(e)` when negative: the extra time a rider has to add (after Caltrans).
+- The error is `e = A − predicted_arrival`; a positive value means the vehicle came later than predicted.
+- **Accurate** follows the [MBTA's published standard](https://www.mbta.com/performance-metrics/arrival-prediction-accuracy), bucketed by the countdown shown (`predicted − (A − h)`): 1 min early to 1 min late at 0–3 minutes; 1.5 early to 2 late at 3–6; 2.5 to 3.5 at 6–12; 4 to 6 at 12–30. A due prediction (negative countdown) counts as 0–3 and one above 30 minutes as 12–30; with no prediction, the bucket is `h`. (The draft used tighter, unsourced "WMATA-style" bands; WP1 switched to the MBTA's, which can be cited.)
+- **Padding** is `−P05(e)` when negative: how early the earliest 5% of vehicles came, so the extra time a rider has to allow (after Caltrans).
 
 **Files:**
 - `dbt/models/core/fct_prediction_accuracy.sql`: incremental by `service_date`, `insert_overwrite`, `full_refresh=false`, clustered on `route_id`. Grain: service date × trip × stop sequence × horizon.
@@ -135,6 +135,8 @@ Whichever of a work package and #71 merges second rebases the README counts and 
 **Owner:** none.
 
 **Acceptance:** the fact covers every service date since 2026-10-29. The dual-run checks give a sanity range: median error falls as the horizon shrinks, and the accurate share at 0–3 minutes is above that at 12–30.
+
+**As built (2026-11-02):** on 2026-11-01, 146,941 measured visits on 94 routes; mean absolute error fell from 124 s at 30 minutes out to 35 s at 1 minute. Under the MBTA bands, 78% of 0–3 minute predictions were accurate against 88–96% for the longer buckets, because the near band is only ±1 minute. The second acceptance check above therefore doesn't hold under these bands and was dropped. A nightly build reads about 1.0 GB (3 service dates of visits and 4 to 5 days of prediction changes), roughly 31 GB a month.
 
 ## WP2: crowding (item 3, urgent)
 
