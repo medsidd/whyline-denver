@@ -299,6 +299,22 @@ After this cycle:
 - `mart_reported_vs_measured_by_month` has RTD figures for 20 months × 4 services, and WhyLine measurements for October and November 2026; none overlap yet.
 - `fct_micromobility_near_stop` stays empty until the first complete local day, 2026-11-02, builds in the next nightly run.
 
+### Veo availability validated, November 2, 2026 (UTC)
+
+[#105](https://github.com/medsidd/whyline-denver/pull/105) lets `fct_micromobility_near_stop` build today so far, rather than complete days only. The owner asked for the nightly runs again to fill it: ingest (23:21), BigQuery (23:23, 83 models, 172 of 173 tests, the known warning) and DuckDB (23:35), all successful.
+
+| Check | Result |
+|---|---|
+| Raw snapshots since the image update | 23 from 17:49 to 23:17 UTC, 13 to 16 minutes apart, each loaded once. 8,135–8,206 vehicles per snapshot (7,622–7,880 available), all inside the RTD box, no unknown vehicle types. |
+| Load job | All 25 recent `realtime-load` runs succeeded; no `VEO_FEED_SUSPECT`, `VEO_INGEST_FAILED` or `ALERTS_INGEST_FAILED` in the logs. |
+| Fact grid | 37,898 rows = 2,707 Denver stops × 7 local hours (10:00–16:00 MST) × 2 form factors. The stop set equals `bridge_stop_street_safety`'s. |
+| Snapshots per hour | Equal to the raw count for every complete hour (4). Hour 16 had 2 at build time, and fills in on the next run. |
+| Independent recomputation | For 60 stops × 2 form factors at 12:00, counts recomputed straight from raw with `ST_DWITHIN` matched the fact exactly (average and share with none). |
+| Value checks | Averages ≥ 0 and shares between 0 and 1; an average of 0 if and only if every snapshot had none; the dbt unique and accepted-values tests pass. |
+| Mart | 5,414 rows = 2,707 stops × weekday × midday and PM peak, so far. On average there are 3.0 scooters and 3.8 bikes within 200 m; 34% of the time no scooter is nearby, and 29% no bike. |
+
+The highest counts are at Larimer St & 26th St in RiNo (38 scooters and 26 bikes at midday) and at W 10th Ave & Decatur St (34 and 27). The second looks like a Veo staging or charging site, and is worth a look before publication.
+
 ### Query usage report
 
 Since WP0 of the [metrics plan](plans/metrics-implementation.md), every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:
