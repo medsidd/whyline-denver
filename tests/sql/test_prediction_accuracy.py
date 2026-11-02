@@ -51,6 +51,7 @@ def _inputs(con):
         ("T1", None, "10:28:40", "changed", None),  # trip-level row, ignored
         ("T1", 6, "10:28:40", "changed", "10:40:00"),  # another stop
         ("T1", 5, "10:31:00", "changed", "10:31:00"),  # after the arrival
+        ("T2", 5, "10:59:00", "new", None),  # stop marked skipped: no time shown
     ]
     con.execute(
         "create table stg_rt_prediction_changes as "

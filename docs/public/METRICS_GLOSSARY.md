@@ -88,7 +88,7 @@ These compare the arrival time RTD's realtime feed predicted with when the vehic
 | Field | Meaning |
 |---|---|
 | `horizon_bucket` | The countdown the prediction showed: `0-3`, `3-6`, `6-12` or `12-30` minutes. A prediction already past its time ("due") counts as `0-3`; one showing more than 30 minutes counts as `12-30`, so early arrivals aren't dropped. With no prediction on screen, the bucket is the true time to arrival. |
-| `n_predictions`, `n_no_prediction` | Visit-horizons with a prediction on screen, and those with none: nothing predicted yet, or the stop had been dropped from the trip's predictions. |
+| `n_predictions`, `n_no_prediction` | Visit-horizons with a prediction on screen, and those with none: nothing predicted yet, the stop dropped from the trip's predictions, or the stop marked skipped. |
 | `pct_within_band` | Share of predictions counted accurate under the [MBTA's published standard](https://www.mbta.com/performance-metrics/arrival-prediction-accuracy): the vehicle came from 1 minute early to 1 minute late at 0–3 minutes, 1.5 early to 2 late at 3–6, 2.5 early to 3.5 late at 6–12, and 4 early to 6 late at 12–30. The bands allow more lateness than earliness, because an early vehicle can be missed. We found no RTD standard for prediction accuracy. |
 | `median_error_sec`, `p05_error_sec`, `p95_error_sec` | The middle, 5th and 95th percentiles of the error (approximate quantiles). |
 | `padding_sec` | How many seconds before the predicted time a rider must be at the stop to catch 95% of vehicles: `−p05_error_sec`, or 0 when vehicles rarely come early. |
