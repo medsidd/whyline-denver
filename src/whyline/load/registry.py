@@ -209,6 +209,23 @@ JOBS: tuple[JobSpec, ...] = (
             ("geometry_geojson", "STRING"),
         ),
     ),
+    # RTD monthly ridership from the National Transit Database (whyline.ingest.ntd_monthly).
+    JobSpec(
+        name="ntd_monthly",
+        patterns=("ntd_monthly/extract_date=*/ntd_monthly.csv.gz",),
+        table="raw_ntd_monthly",
+        partition=Partitioning(field="_extract_date"),
+        columns=_cols(
+            ("month", "DATE"),
+            ("mode", "STRING"),
+            ("tos", "STRING"),
+            ("mode_group", "STRING"),
+            ("upt", "INT64"),
+            ("vrm", "INT64"),
+            ("vrh", "INT64"),
+            ("voms", "INT64"),
+        ),
+    ),
     JobSpec(
         name="noaa_daily",
         patterns=(

@@ -393,6 +393,21 @@ Written by `whyline.ingest.arcgis_reference` (nightly ingest, non-fatal). Each l
 | `properties_json` | `STRING` | NULLABLE |
 | `geometry_geojson` | `STRING` | NULLABLE |
 
+## `raw_ntd_monthly`
+
+Written by `whyline.ingest.ntd_monthly` (nightly ingest, non-fatal, skipped when extracted in the last 7 days) from FTA's monthly module data, Socrata dataset `8bui-9xvu`, for RTD (`ntd_id = 80006`). Pattern: `ntd_monthly/extract_date=*/ntd_monthly.csv.gz`; partitioned by `_extract_date`. Each extract is the full history from 2002 (1,633 rows on 2026-11-02, through August 2026), because NTD revises earlier months. Fewer than 1,500 rows logs `NTD_SUSPECT` and writes nothing. `vrh` is rounded to whole hours.
+
+| Column | Type | Mode | Meaning |
+|---|---|---|---|
+| `month` | `DATE` | NULLABLE | First day of the month |
+| `mode` | `STRING` | NULLABLE | NTD mode: `MB` bus, `LR` light rail, `CR` commuter rail, `DR` demand response, `VP` vanpool |
+| `tos` | `STRING` | NULLABLE | Type of service: `DO` directly operated, `PT` purchased transportation |
+| `mode_group` | `STRING` | NULLABLE | NTD's three-way grouping (Bus, Rail, Other) |
+| `upt` | `INT64` | NULLABLE | Unlinked passenger trips (boardings) |
+| `vrm` | `INT64` | NULLABLE | Vehicle revenue miles |
+| `vrh` | `INT64` | NULLABLE | Vehicle revenue hours |
+| `voms` | `INT64` | NULLABLE | Vehicles operated in maximum service |
+
 ## Service alerts
 
 Written by `whyline.ingest.gtfs_alerts`, which the `realtime-load` job runs before each load (every 15 minutes). One snapshot per run under `rtd_gtfsrt_alerts/snapshot_at=<UTC minute>/` with a manifest. Both tables are partitioned by day on `feed_ts_utc` with 90-day expiry. Each snapshot repeats every alert still in the feed, so an alert's first and last `feed_ts_utc` bound when it was published.
