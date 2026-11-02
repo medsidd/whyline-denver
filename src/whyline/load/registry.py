@@ -599,4 +599,23 @@ JOBS: tuple[JobSpec, ...] = (
         ),
         partition=Partitioning(field="feed_ts_utc", expiration_days=STREAM_RETENTION_DAYS),
     ),
+    # Veo micromobility (whyline.ingest.gbfs_veo), snapshotted by the realtime-load job.
+    # About 8k rows per snapshot, so raw keeps 30 days; dbt keeps the aggregates.
+    JobSpec(
+        name="gbfs_veo_vehicles",
+        patterns=("gbfs_veo/snapshot_at=*/vehicles.csv.gz",),
+        table="raw_gbfs_veo_vehicles",
+        columns=_cols(
+            ("snapshot_ts_utc", "TIMESTAMP"),
+            ("vehicle_type_id", "STRING"),
+            ("form_factor", "STRING"),
+            ("propulsion", "STRING"),
+            ("lat", "FLOAT64"),
+            ("lon", "FLOAT64"),
+            ("is_reserved", "BOOL"),
+            ("is_disabled", "BOOL"),
+            ("current_range_m", "INT64"),
+        ),
+        partition=Partitioning(field="snapshot_ts_utc", expiration_days=30),
+    ),
 )

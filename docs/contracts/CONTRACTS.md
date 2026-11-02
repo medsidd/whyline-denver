@@ -405,6 +405,24 @@ Pattern: `rtd_gtfsrt_alerts/snapshot_at=*/alert_periods.csv.gz`. One row per ale
 | `active_start_utc` | `TIMESTAMP` | NULLABLE |
 | `active_end_utc` | `TIMESTAMP` | NULLABLE |
 
+## Veo micromobility
+
+### `raw_gbfs_veo_vehicles`
+
+Written by `whyline.ingest.gbfs_veo`, which the `realtime-load` job runs before each load (every 15 minutes), from Veo's Denver GBFS 2.2 feed (`free_bike_status` with `vehicle_types`). Pattern: `gbfs_veo/snapshot_at=*/vehicles.csv.gz`. Partitioned by day on `snapshot_ts_utc` with **30-day expiry** (about 8,000 rows per snapshot). `bike_id` and rental URIs are not stored: GBFS rotates the ID for privacy, and the URIs carry a persistent vehicle number. A snapshot is skipped, and `VEO_FEED_SUSPECT` logged, when it lists under 1,000 vehicles or under 95% inside the RTD bounding box.
+
+| Column | Type | Mode |
+|---|---|---|
+| `snapshot_ts_utc` | `TIMESTAMP` | NULLABLE |
+| `vehicle_type_id` | `STRING` | NULLABLE |
+| `form_factor` | `STRING` | NULLABLE |
+| `propulsion` | `STRING` | NULLABLE |
+| `lat` | `FLOAT64` | NULLABLE |
+| `lon` | `FLOAT64` | NULLABLE |
+| `is_reserved` | `BOOL` | NULLABLE |
+| `is_disabled` | `BOOL` | NULLABLE |
+| `current_range_m` | `INT64` | NULLABLE |
+
 ## Units and source semantics
 
 - Feed/event timestamps are UTC; geographic longitude/latitude outputs use WGS84 degrees. Delays and headways are seconds; speed is meters per second; bearing is degrees.
