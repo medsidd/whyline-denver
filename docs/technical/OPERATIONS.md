@@ -224,6 +224,39 @@ PYTHONPATH=$PWD/src DBT_PROFILES_DIR=$PWD/dbt/profiles GCP_PROJECT_ID=whyline-de
   --select fct_weather_daily mart_reliability_by_route_day mart_weather_impacts --vars '{route_day_window_days: 400}'
 ```
 
+### Metrics facts and the alerts and Veo image, November 2, 2026 (UTC)
+
+These [metrics plan](plans/metrics-implementation.md) work packages merged: WP1 [#78](https://github.com/medsidd/whyline-denver/pull/78), WP2 [#79](https://github.com/medsidd/whyline-denver/pull/79), WP3 [#80](https://github.com/medsidd/whyline-denver/pull/80), WP4 [#81](https://github.com/medsidd/whyline-denver/pull/81), WP5 [#82](https://github.com/medsidd/whyline-denver/pull/82) and the edge-case fix [#85](https://github.com/medsidd/whyline-denver/pull/85).
+
+- **What builds:** six core facts and nine marts, built by the nightly `staging core marts` run only; the 15-minute realtime selection is unchanged.
+  - Facts: `fct_prediction_accuracy`, `fct_trip_occupancy`, `fct_stream_health`, `fct_stop_headway` and `fct_segment_traversal`.
+  - All new marts are `allow_in_app: false`, so the app, exports and DuckDB are unchanged until release R1.
+- **Cost:** the first build starts at 2026-10-29 and reads about 2.5 GB, mostly `fct_prediction_accuracy` (1.37 GB). After that, about 1.9 GB a night, or 57 GB a month, inside the free 1 TiB.
+- **Raw expiry:** `fct_prediction_accuracy` and `fct_trip_occupancy` have full refresh disabled, because their raw inputs expire after 90 days.
+- **Check after the first nightly run:** every new model passed and its tests ran. Then this read-only count should show one row per service date from 2026-10-29:
+
+```bash
+bq query --use_legacy_sql=false --project_id=whyline-denver \
+  'select service_date, count(*) n, countif(has_prediction) n_pred from `whyline-denver.core_denver.fct_prediction_accuracy` group by 1 order by 1'
+```
+
+**Alerts and Veo image (owner):** WP8 [#83](https://github.com/medsidd/whyline-denver/pull/83) and WP14 [#84](https://github.com/medsidd/whyline-denver/pull/84) add two ingestors to the `realtime-load` entrypoint. Each run snapshots RTD service alerts and Veo vehicles before the load, and a failure logs `ALERTS_INGEST_FAILED` or `VEO_INGEST_FAILED` without stopping the load.
+
+- **Image:** `whylinedenver-realtime@sha256:c3fc67337b0ac6af6649ea2df4d2f6b74aa8d2184382ca667244a0854e57b459`, built with Cloud Build from `80e3cfc` (tag `80e3cfc`). The edge-case fix merged after it touches only nightly dbt models.
+- **Rollback:** both jobs run `@sha256:12384b64ebcb072f1c4e496cda827aae62c4b600820094f76852a44cf46f4ea1`. Moving both jobs keeps them on one digest:
+
+```bash
+IMAGE=us-central1-docker.pkg.dev/whyline-denver/realtime-jobs/whylinedenver-realtime@sha256:c3fc67337b0ac6af6649ea2df4d2f6b74aa8d2184382ca667244a0854e57b459
+gcloud run jobs update realtime-load --project=whyline-denver --region=us-central1 --image="$IMAGE"
+gcloud run jobs update realtime-ingest --project=whyline-denver --region=us-central1 --image="$IMAGE"
+```
+
+- **Verify after the next load:**
+  - `gcloud storage ls gs://whylinedenver-raw/raw/rtd_gtfsrt_alerts/ gs://whylinedenver-raw/raw/gbfs_veo/ | tail -4` shows new snapshots.
+  - The first load creates `raw_gtfsrt_alerts`, `raw_gtfsrt_alert_periods` and `raw_gbfs_veo_vehicles`.
+  - Search the job logs for `ALERTS_INGEST_FAILED`, `VEO_INGEST_FAILED` and `VEO_FEED_SUSPECT`.
+- **What follows:** the alerts and micromobility dbt models come once data has landed, so no nightly run references a missing table. Veo's feed publishes no licence, so its marts wait for a terms check before publication.
+
 ### Query usage report
 
 Since WP0 of the [metrics plan](plans/metrics-implementation.md), every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:
