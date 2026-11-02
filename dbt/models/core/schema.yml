@@ -330,3 +330,14 @@ models:
     columns:
       - name: stop_id
         data_tests: [not_null, unique]
+
+  - name: bridge_stop_street_safety
+    description: "One row per current stop inside Denver with the street around it from Denver's open-data layers: High Injury Network within 30 m and its tier (1 has the highest crash rates), nearest traffic signal (NULL beyond 1 km), curb ramps within 50 m, existing bikeway within 100 m, transit lane within 20 m, transit signal priority or queue jump within 50 m."
+    columns:
+      - name: stop_id
+        data_tests: [not_null, unique]
+      - name: hin_tier
+        data_tests:
+          - accepted_values:
+              values: [1, 2]
+              quote: false

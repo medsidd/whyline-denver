@@ -43,6 +43,20 @@ Observed headways are computed between selected event timestamps by route/direct
 
 `crash_score_0_100` min–max normalizes 250 m crash counts across stops. Larger means more exposure. Equal minimum and maximum can produce null scores through the denominator guard.
 
+## Walking to the stop
+
+`mart_stop_walk_safety` describes the street around each stop inside Denver from the city's open-data layers, refreshed weekly:
+
+| Field | Meaning |
+|---|---|
+| `on_hin`, `hin_tier` | A High Injury Network street (Denver's streets with the most serious and fatal crashes) is within 30 m; tier 1 streets have the highest crash rates. |
+| `nearest_signal_m` | Meters to the nearest traffic signal, a proxy for a controlled crossing; NULL beyond 1 km. |
+| `n_curb_ramps_50m` | Curb ramps in the city's inventory within 50 m. |
+| `existing_bikeway_within_100m`, `on_transit_lane`, `transit_signal_priority_within_50m`, `queue_jump_within_50m` | Bike and bus infrastructure next to the stop. |
+| `walk_safety_flags` | Plain-language flags: on the High Injury Network with no signal within 100 m; on a tier 1 street; no curb ramp recorded within 50 m. |
+
+Limits: the layers cover the City and County of Denver only, so other stops are left out rather than shown as safe. Inventories can lag construction, and a signal isn't always a marked crosswalk at the stop.
+
 ## Vulnerability
 
 The model finds Denver tracts whose geometry lies within 804.672 m of a stop. It weights each matching tract's household-no-vehicle, transit-commuting, and poverty shares by **the whole tract's population**, then averages those three weighted indicators and min–max normalizes the result.

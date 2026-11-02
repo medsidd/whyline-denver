@@ -808,3 +808,27 @@ models:
         description: "Extra wait over scheduled at headways scheduled every 15 minutes or better."
       - name: pct_visits_standing_or_worse
         description: "Share of visits with occupancy data arriving with standing room only or worse."
+  - name: mart_stop_walk_safety
+    description: "The street around each stop inside Denver, with plain-language flags: on the High Injury Network with no traffic signal within 100 m, on a tier 1 High Injury Network street, no curb ramp recorded within 50 m."
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier (Denver stops only)."
+        data_tests: [not_null, unique]
+      - name: on_hin
+        description: "A High Injury Network street is within 30 m: Denver's streets with the most serious and fatal crashes."
+      - name: hin_tier
+        description: "1 for the highest-crash-rate HIN streets, 2 for the rest; NULL when not on the HIN."
+      - name: nearest_signal_m
+        description: "Meters to the nearest traffic signal; NULL when none is within 1 km."
+      - name: n_curb_ramps_50m
+        description: "Curb ramps in Denver's inventory within 50 m."
+      - name: existing_bikeway_within_100m
+        description: "An existing bikeway (not a planned one) is within 100 m."
+      - name: on_transit_lane
+        description: "A transit-only lane is within 20 m."
+      - name: transit_signal_priority_within_50m
+        description: "A transit signal with signal priority is within 50 m."
+      - name: queue_jump_within_50m
+        description: "A transit queue-jump signal is within 50 m."
+      - name: walk_safety_flags
+        description: "The flags that apply, separated by '; '; empty when none."

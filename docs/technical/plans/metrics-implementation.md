@@ -339,6 +339,8 @@ Its JobSpecs are `raw_denver_hin`, `raw_denver_transit_lanes`, `raw_denver_trans
 - Each layer has a feature-count floor, and a failing layer doesn't stop the others. A full fetch takes about 2 minutes and 5 MB.
 - The dims, bridge and marts come once the first extract has loaded, so no nightly run references a missing table.
 
+**As built, models (2026-11-02):** one bridge (`bridge_stop_street_safety`) and `mart_stop_walk_safety`, for Denver stops only. Per-layer dimensions weren't needed: the bridge reads the layers from `stg_arcgis_reference` directly. On 2026-11-02, 801 of 2,707 Denver stops were on the High Injury Network (342 on tier 1), and 352 had no recorded curb ramp within 50 m.
+
 ## WP8: RTD service alerts (item 10)
 
 **User question:** "Is my stop closed or detoured? Why was service bad that day?"
