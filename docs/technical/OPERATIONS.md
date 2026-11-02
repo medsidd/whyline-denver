@@ -215,14 +215,13 @@ The weather station changed from `USW00023062` to the DIA station `USW00003017` 
 
 - **What was found:** `fct_weather_daily` had DIA rows only from 2026-09-15. The route-day mart joins on the configured station, so in the last year 33,245 of 34,820 route-days had no weather, and none was marked as a snow day. Every weather comparison before mid-September was empty.
 - **What was done:** NOAA CDO returned complete DIA history: 622 days from 2025-01-01 to 2026-09-14, with no missing precipitation and 37 snow days. It was loaded at 18:08 into `raw_weather_daily`, from `gs://whylinedenver-raw/raw/noaa_daily/extract_date=2026-09-14/station=USW00003017/weather.csv.gz`. The ingestor now splits NOAA requests into year-long ranges, and sends dates older than six days to Open-Meteo's archive.
-- **Still to do (owner):** rebuild the route-day history. The agent's permission check blocks this production dbt run. The nightly run rebuilds `fct_weather_daily` and the last 30 days of the mart, but not older partitions. The rebuild must run before #71 merges, because after the switch older partitions are no longer rebuilt. A dry run bills about 314 MB:
+- **Done (owner, 2026-11-02 about 22:00 UTC):** rebuilt the route-day history with `--vars '{route_day_window_days: 400}'`, running `fct_weather_daily`, `mart_reliability_by_route_day` and `mart_weather_impacts`. Afterwards, 127 of 28,006 route-days in 2026 had no weather, all of them today (2026-11-02), whose weather arrives the next night, against 33,245 of 34,820 before. Every 2025 route-day has weather, and 14 snow days are marked (3 in 2025, 11 in 2026). The command, for any later rebuild:
 
 ```bash
-PYTHONPATH=$PWD/src DBT_PROFILES_DIR=$PWD/dbt/profiles GCP_PROJECT_ID=whyline-denver BQ_DATASET_RAW=raw_denver \
-  BQ_DATASET_STG=stg_denver BQ_DATASET_CORE=core_denver BQ_DATASET_MART=mart_denver \
-  .venv/bin/python -m tools.dbt_with_env run --project-dir dbt --target prod \
-  --select fct_weather_daily mart_reliability_by_route_day mart_weather_impacts --vars '{route_day_window_days: 400}'
+cd /Users/medsidd/dev/whyline-denver && PYTHONPATH=$PWD/src DBT_PROFILES_DIR=$PWD/dbt/profiles GCP_PROJECT_ID=whyline-denver BQ_DATASET_RAW=raw_denver BQ_DATASET_STG=stg_denver BQ_DATASET_CORE=core_denver BQ_DATASET_MART=mart_denver .venv/bin/python -m tools.dbt_with_env run --project-dir dbt --target prod --select fct_weather_daily mart_reliability_by_route_day mart_weather_impacts --vars '{route_day_window_days: 400}'
 ```
+
+Run it from the repository root. A local dbt run rewrites the tracked `dbt/target` artifacts; restore them with `git checkout -- dbt/target` unless a release is regenerating them on purpose.
 
 ### Metrics facts and the alerts and Veo image, November 2, 2026 (UTC)
 
@@ -273,8 +272,12 @@ At the owner's request, the three nightly workflows were run by hand. Overlappin
 
 **Cost finding:**
 - Billed dbt bytes are about 50–60 GB a day, mostly the 96 `realtime-load` runs. That's roughly 1.6 TB a month, over the free 1 TiB.
-- The largest nightly model is `fct_crash`, at 3.8 GB a night. `stg_denver_crashes` reads every nightly extract of `raw_crashes` to keep crashes that later fall out of the source's 5-year window.
-- Reading only the last few extracts would cut that to about 0.1 GB, but would drop crashes older than five years. That's an owner decision.
+- The largest nightly model is `fct_crash`, at 3.8 GB a night.
+
+**Crash fix ([#100](https://github.com/medsidd/whyline-denver/pull/100)):** the owner chose to keep only crashes inside Denver's five-year window, so `stg_denver_crashes` now reads only the latest extract. That also fixed double counting.
+- **The defect:** Denver re-numbered crashes between extracts (`2023163372` against `DP2023163372`), so the merged view held 194,547 crashes against 87,526.
+- **Published counts:** 250 m crash counts were 13% high (69,029 against 60,910). Priority-hotspot ranks shift with the fix.
+- **Cost:** bytes don't fall, because `raw_crashes` is partitioned by event date. Re-laying it out by `_extract_date` would save about $0.70 a month, so it's left alone.
 
 **For the November 5 review:** route 15 has 43% of measured visits on time and 51% more than 5 minutes late, with a median delay of 570 s in the evening and 680 s at night. RTD reports about 84% local on-time performance. RTD measures at timepoints, but the gap is large enough to check trip matching for frequent routes before #71 publishes visit-based reliability.
 

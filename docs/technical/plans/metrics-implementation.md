@@ -482,6 +482,8 @@ I'll draft the request text. When data arrives, ingest it as a reference file (`
 
 **Licence:** check Veo's data terms before publishing, and credit Veo on the attribution page.
 
+**Decision (owner, 2026-11-02):** publish. Veo's Denver GBFS feed is openly published, and the owner understands open availability to be part of Veo's agreement with Denver. The feed itself has no `license_url`. WhyLine publishes aggregates near stops only, credits Veo and the City and County of Denver on the attribution page, and stores no vehicle identifiers. `mart_micromobility_access_by_stop` goes into the next app release.
+
 **Owner:** after merge, the same image update as WP8. WP8 and WP14 can share one release.
 
 ## WP15: "my stop" and "my route" scorecards (item 7)
