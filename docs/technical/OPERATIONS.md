@@ -281,6 +281,24 @@ At the owner's request, the three nightly workflows were run by hand. Overlappin
 
 **For the November 5 review:** route 15 has 43% of measured visits on time and 51% more than 5 minutes late, with a median delay of 570 s in the evening and 680 s at night. RTD reports about 84% local on-time performance. RTD measures at timepoints, but the gap is large enough to check trip matching for frequent routes before #71 publishes visit-based reliability.
 
+### Second hand-triggered cycle, November 2, 2026 (UTC)
+
+At the owner's request, the nightly workflows were run again after the crash fix ([#100](https://github.com/medsidd/whyline-denver/pull/100)), the scorecards ([#98](https://github.com/medsidd/whyline-denver/pull/98)) and RTD's reported figures ([#102](https://github.com/medsidd/whyline-denver/pull/102), [#103](https://github.com/medsidd/whyline-denver/pull/103)).
+
+| Run | Commit | Result |
+|---|---|---|
+| Nightly ingest, 22:15 | `f51d857` | Success |
+| Nightly BigQuery, 22:17 | `f51d857` | 80 models and 170 of 171 tests passed (the known `assert_stop_visit_arrivals_monotonic` warning, 103 visits). The export took 20 minutes instead of about 3, because the owner's weather rebuild had changed every route-day partition, and each changed partition is re-exported. |
+| Nightly DuckDB and ingest, 22:47 | `0a371e1` | Success. The ingest loaded RTD's reported figures (340 values from 40 reports) into the new `raw_rtd_reported_performance`. |
+| Nightly BigQuery, 22:53 | `33781ea` | 83 models and 172 of 173 tests passed (the same warning, 108 visits). |
+| Nightly DuckDB, 23:06 | `33781ea` | Success |
+
+After this cycle:
+- `fct_crash` holds 87,526 crashes, and the published 250 m crash total is 60,910 (it was 69,029).
+- The scorecards cover 8,155 stops and 134 routes.
+- `mart_reported_vs_measured_by_month` has RTD figures for 20 months × 4 services, and WhyLine measurements for October and November 2026; none overlap yet.
+- `fct_micromobility_near_stop` stays empty until the first complete local day, 2026-11-02, builds in the next nightly run.
+
 ### Query usage report
 
 Since WP0 of the [metrics plan](plans/metrics-implementation.md), every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:
