@@ -495,3 +495,82 @@ models:
         description: "Canceled, no-vehicle and not-tracked share of observable trips; NULL when withheld."
       - name: build_run_at
         description: "When the partition was built."
+  - name: mart_wait_by_stop_period
+    description: "How long riders actually wait at each stop, by route, direction, day type and period, over the last 28 complete service dates: expected and scheduled wait for riders arriving at random, excess wait, bunching, gaps, on-time share and late running."
+    data_tests:
+      - unique_combination:
+          column_names: ['stop_id', 'route_id', 'direction_id', 'day_type', 'period']
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier."
+        data_tests: [not_null]
+      - name: day_type
+        description: "weekday, saturday or sunday (holidays by their date)."
+        data_tests:
+          - accepted_values:
+              values: ['weekday', 'saturday', 'sunday']
+      - name: period
+        description: "When the vehicle reached the stop: early (4:00-6:59), am_peak (7:00-8:59), midday (9:00-14:59), pm_peak (15:00-17:59), evening (18:00-20:59), night (21:00-3:59)."
+        data_tests:
+          - accepted_values:
+              values: ['early', 'am_peak', 'midday', 'pm_peak', 'evening', 'night']
+      - name: service_class
+        description: "frequent when scheduled every 15 minutes or better on average, else infrequent. Read frequent groups by excess wait and infrequent ones by on-time share."
+      - name: n_days
+        description: "Service dates in the group."
+      - name: n_visits
+        description: "Vehicle visits counted."
+      - name: n_headways
+        description: "Visits with both an observed and a scheduled headway (the day's first vehicle has neither)."
+      - name: avg_scheduled_headway_sec
+        description: "Average scheduled seconds between vehicles."
+      - name: expected_wait_sec
+        description: "Average wait for a rider arriving at random: sum of squared observed headways over twice their sum."
+      - name: scheduled_wait_sec
+        description: "The same over the scheduled headways."
+      - name: excess_wait_sec
+        description: "expected_wait_sec - scheduled_wait_sec: extra waiting caused by uneven or missing service."
+      - name: pct_bunched
+        description: "Share of headways under a quarter of the scheduled headway."
+      - name: pct_gap
+        description: "Share of headways over 1.5 times the scheduled headway."
+      - name: pct_on_time
+        description: "Share of visits with known delay from 1 minute early to 5 minutes late."
+      - name: p90_delay_sec
+        description: "90th percentile delay in seconds (approximate)."
+      - name: build_run_at
+        description: "When the table was built."
+  - name: mart_wait_by_route_day
+    description: "Wait time, bunching and gaps per route and service date over every stop. Excess wait uses headways scheduled every 15 minutes or better; on-time share and late running cover every visit."
+    data_tests:
+      - unique_combination:
+          column_names: ['route_id', 'service_date_mst']
+          config:
+            where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null]
+      - name: service_date_mst
+        description: "GTFS service date (America/Denver)."
+        data_tests: [not_null]
+      - name: n_visits
+        description: "Vehicle visits on the route that day."
+      - name: n_frequent_headways
+        description: "Headways scheduled every 15 minutes or better, with an observed headway."
+      - name: expected_wait_sec
+        description: "Average wait for a rider arriving at random at frequent stops."
+      - name: scheduled_wait_sec
+        description: "The same if service ran as scheduled."
+      - name: excess_wait_sec
+        description: "expected_wait_sec - scheduled_wait_sec."
+      - name: pct_bunched
+        description: "Share of frequent headways under a quarter of the scheduled headway."
+      - name: pct_gap
+        description: "Share of frequent headways over 1.5 times the scheduled headway."
+      - name: pct_on_time
+        description: "Share of visits with known delay from 1 minute early to 5 minutes late."
+      - name: p90_delay_sec
+        description: "90th percentile delay in seconds (approximate)."
+      - name: build_run_at
+        description: "When the partition was built."

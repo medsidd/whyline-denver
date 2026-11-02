@@ -221,6 +221,13 @@ Whichever of a work package and #71 merges second rebases the README counts and 
 
 **Cost:** about 0.33M visits a day: about 50 MiB a night.
 
+**As built (2026-11-02):**
+- The headway logic lives in a core fact, `fct_stop_headway`, which both marts read. It's rebuildable from `fct_stop_visit`.
+- A visit counts if it was timed from a crossing or an origin departure, or from the last prediction when the trip had a vehicle (1.3% of visits on 2026-10-30). Prediction-only visits of trips with no vehicle are dropped, so ghost trips leave a gap.
+- The stop mart's day types are weekday, Saturday and Sunday, and its periods match WP3. The route-day mart classifies each headway (scheduled every 15 minutes or better), not each group.
+- Weekday network excess wait was 68–69 s per frequent headway on 2026-10-29 and 2026-10-30, with 3.6–3.8% bunched and 9% gaps. Route 15 had 2.6 minutes of excess wait, with 15% of headways bunched.
+- A nightly build reads about 100 MB.
+
 ## WP5: travel time, speed and slow zones (item 5)
 
 **User questions:** "How long does the trip really take? Where does the bus crawl? Did the bus lane help?"
