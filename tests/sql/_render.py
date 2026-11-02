@@ -24,6 +24,7 @@ create or replace macro timestamp_sub(t, i) as t - i;
 create or replace macro format_date(fmt, d) as strftime(d, fmt);
 create or replace macro format_datetime(fmt, d) as strftime(d, fmt);
 create or replace macro logical_and(x) as bool_and(x);
+create or replace macro countif(x) as count_if(x);
 create or replace macro safe_divide(a, b) as case when b = 0 then null else a / b end;
 """
 

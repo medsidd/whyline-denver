@@ -340,3 +340,44 @@ models:
         description: "The tract's population-weighted share of the weekday departures at nearby stops; summed over tracts it equals the network total."
       - name: weekday_departures_per_1000_residents
         description: "weekday_departures_share per 1,000 residents."
+  - name: mart_prediction_accuracy_by_route_day
+    description: "How far RTD's arrival predictions were off, per route, service date and how far ahead they were shown, from measured stop visits. error = actual - predicted: positive means the vehicle came later than predicted."
+    data_tests:
+      - unique_combination:
+          column_names: ['route_id', 'service_date_mst', 'horizon_bucket']
+          config:
+            where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null]
+      - name: service_date_mst
+        description: "GTFS service date (America/Denver)."
+        data_tests: [not_null]
+      - name: horizon_bucket
+        description: "The countdown the prediction showed, in minutes: 0-3, 3-6, 6-12 or 12-30 (MBTA's buckets). Visit-horizons with no prediction are bucketed by the true time to arrival."
+        data_tests:
+          - accepted_values:
+              values: ['0-3', '3-6', '6-12', '12-30']
+      - name: n_visits
+        description: "Measured stop visits sampled 1, 3, 5, 10, 15, 20 and 30 minutes before arrival that fall in this bucket."
+      - name: n_predictions
+        description: "Of those, how many had a prediction on screen."
+      - name: n_no_prediction
+        description: "How many had none: nothing predicted yet, or the stop had been dropped from the trip's predictions."
+      - name: pct_within_band
+        description: "Share of predictions counted accurate under MBTA's standard: the vehicle came from 1 min early to 1 min late at 0-3 min, 1.5 early to 2 late at 3-6, 2.5 to 3.5 at 6-12, 4 to 6 at 12-30."
+      - name: median_error_sec
+        description: "Median of actual minus predicted arrival, in seconds (approximate)."
+      - name: p05_error_sec
+        description: "5th percentile of the error: how early the earliest 5% of vehicles came."
+      - name: p95_error_sec
+        description: "95th percentile of the error: how late the latest 5% came."
+      - name: padding_sec
+        description: "Seconds to arrive before the predicted time to catch 95% of vehicles: -p05_error_sec, or 0 when vehicles rarely come early."
+      - name: pct_later_by_2min
+        description: "Share of predictions where the vehicle came more than 2 minutes later than predicted."
+      - name: pct_earlier_by_1min
+        description: "Share of predictions where the vehicle came more than 1 minute earlier than predicted, so a rider trusting it could miss it."
+      - name: build_run_at
+        description: "When the partition was built."

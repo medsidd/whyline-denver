@@ -1,6 +1,6 @@
 flowchart LR
   accTitle: Current dbt model lineage
-  accDescr: 18 bronze tables and 44 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
+  accDescr: 18 bronze tables and 46 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
   subgraph bronze["Bronze: raw_denver"]
     direction TB
     raw_acs_tract["raw_acs_tract"]
@@ -52,6 +52,7 @@ flowchart LR
     dim_tract["dim_tract"]
     dim_trip["dim_trip"]
     fct_crash["fct_crash"]
+    fct_prediction_accuracy["fct_prediction_accuracy"]
     fct_scheduled_stop_time["fct_scheduled_stop_time"]
     fct_stop_arrival["fct_stop_arrival"]
     fct_stop_visit["fct_stop_visit"]
@@ -67,6 +68,7 @@ flowchart LR
     mart_frequent_network_by_route["mart_frequent_network_by_route"]
     mart_gtfs_routes["mart_gtfs_routes"]
     mart_gtfs_stops["mart_gtfs_stops"]
+    mart_prediction_accuracy_by_route_day["mart_prediction_accuracy_by_route_day"]
     mart_priority_hotspots["mart_priority_hotspots"]
     mart_reliability_by_route_day["mart_reliability_by_route_day"]
     mart_reliability_by_stop_hour["mart_reliability_by_stop_hour"]
@@ -103,6 +105,7 @@ flowchart LR
   dim_trip --> fct_trip_observation
   dim_trip --> fct_trip_status
   fct_crash --> mart_crash_proximity_by_stop
+  fct_prediction_accuracy --> mart_prediction_accuracy_by_route_day
   fct_scheduled_stop_time --> fct_stop_arrival
   fct_scheduled_stop_time --> fct_stop_visit
   fct_scheduled_stop_time --> fct_trip_observation
@@ -110,6 +113,7 @@ flowchart LR
   fct_scheduled_stop_time --> mart_service_frequency_by_stop
   fct_scheduled_stop_time --> mart_service_intensity_by_tract
   fct_stop_arrival --> mart_reliability_by_stop_hour
+  fct_stop_visit --> fct_prediction_accuracy
   fct_tract_demographics --> bridge_stop_tract
   fct_tract_demographics --> mart_vulnerability_by_stop
   fct_trip_observation --> fct_stop_arrival
@@ -149,6 +153,7 @@ flowchart LR
   stg_gtfs_trips --> dim_trip
   stg_gtfs_trips --> fct_scheduled_stop_time
   stg_rt_events --> fct_trip_observation
+  stg_rt_prediction_changes --> fct_prediction_accuracy
   stg_rt_stop_visits --> fct_stop_visit
   stg_rt_trip_status --> fct_trip_status
   stg_sidewalks --> dim_sidewalk_segment

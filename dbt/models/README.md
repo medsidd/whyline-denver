@@ -1,6 +1,6 @@
 # dbt model reference
 
-The source tree contains 44 SQL models in three layers: 17 silver staging models, 15 gold-core models (six dimensions, eight facts, one bridge), and 12 serving marts. The continuous realtime stream (five silver views, `fct_stop_visit`, `fct_trip_status`) was added for the [realtime stop visits plan](../../docs/technical/plans/realtime-stop-visits.md). This inventory was reconciled against SQL on October 27, 2026, when the layered model was cut over in production ([#63](https://github.com/medsidd/whyline-denver/pull/63)). Follow each linked definition for the actual SELECT list, dependencies, filters, and incremental key; schema YAML and the generated catalog provide column metadata.
+The source tree contains 46 SQL models in three layers: 17 silver staging models, 16 gold-core models (six dimensions, nine facts, one bridge), and 13 serving marts. The continuous realtime stream (five silver views, `fct_stop_visit`, `fct_trip_status`) was added for the [realtime stop visits plan](../../docs/technical/plans/realtime-stop-visits.md). This inventory was reconciled against SQL on October 27, 2026, when the layered model was cut over in production ([#63](https://github.com/medsidd/whyline-denver/pull/63)). Follow each linked definition for the actual SELECT list, dependencies, filters, and incremental key; schema YAML and the generated catalog provide column metadata.
 
 Project `whyline_denver_dbt`, profile `whyline_denver`. `dbt_project.yml` defaults models to views; the core folder defaults to tables; individual SQL config overrides both. Datasets: staging → `stg_denver` (`BQ_DATASET_STG`), core → `core_denver` (`BQ_DATASET_CORE`), marts → `mart_denver` (`BQ_DATASET_MART`). Bronze is `raw_denver`.
 
@@ -11,7 +11,7 @@ Project `whyline_denver_dbt`, profile `whyline_denver`. `dbt_project.yml` defaul
 | Bronze | `raw_denver` | As loaded; append-only; every extract retained. Snapshot sources (GTFS static, sidewalks, tracts, ACS) are partitioned by `_extract_date`; realtime by feed time. |
 | Silver | `stg_denver` | One cleaned, typed, deduplicated model per source entity. No cross-domain joins or business rules. Rebuildable from bronze. |
 | Gold core | `core_denver` | Kimball star schema: conformed dimensions, atomic facts, a bridge. Not exposed to the app. |
-| Gold serving | `mart_denver` | The 12 app marts: aggregates with dimension attributes appended. Built only from gold core. Exported to DuckDB. |
+| Gold serving | `mart_denver` | Aggregates with dimension attributes appended, built only from gold core. The 12 app marts are exported to DuckDB; marts with `allow_in_app: false` build in BigQuery only. |
 
 ## Silver (staging)
 
@@ -54,6 +54,7 @@ Dimensions carry INT64 surrogate keys (`farm_fingerprint` of the natural key and
 | [fct_stop_arrival](core/fct_stop_arrival.sql) | incremental | Observed stop event with observed headway, nearest scheduled headway, and adherence flag (1,800-second match, 0.5 relative tolerance). |
 | [fct_stop_visit](core/fct_stop_visit.sql) | incremental (insert-only merge) | Service date × trip × stop sequence: arrival estimate with earliest/latest bounds, method, dwell, schedule, `delay_sec` (NULL when unknown), prediction error. Permanent; full refresh disabled. |
 | [fct_trip_status](core/fct_trip_status.sql) | incremental (insert-only merge) | Service date × trip: final relationship, outcome (`completed`, `partial`, `vanished`, `canceled`, `no_static`), first/last seen, visit counts. |
+| [fct_prediction_accuracy](core/fct_prediction_accuracy.sql) | incremental (insert-overwrite) | Service date × trip × stop sequence × horizon (1–30 min): the prediction on screen that long before a measured arrival, its error and accuracy band. Nightly runs replace the last `prediction_accuracy_days` (3) complete service dates. Permanent; full refresh disabled. |
 | [fct_crash](core/fct_crash.sql) | table | One reported crash. |
 | [fct_weather_daily](core/fct_weather_daily.sql) | table | Station × date; `precip_bin` and `snow_day` slice the marts. |
 | [fct_tract_demographics](core/fct_tract_demographics.sql) | table | Tract × ACS vintage. |
@@ -68,6 +69,7 @@ Bus matrix:
 | `fct_stop_arrival` | ✓ | ✓ | ✓ | | |
 | `fct_stop_visit` | ✓ | ✓ | ✓ | ✓ | |
 | `fct_trip_status` | ✓ | | ✓ | ✓ | |
+| `fct_prediction_accuracy` | ✓ | ✓ | ✓ | ✓ | |
 | `fct_crash` | ✓ | | | | |
 | `fct_weather_daily` | ✓ | | | | |
 | `fct_tract_demographics` | | | | | ✓ |
@@ -91,6 +93,7 @@ Schedule snapshots: a day's GTFS load counts only if every file loaded that day 
 | [mart_service_frequency_by_stop](marts/service/mart_service_frequency_by_stop.sql) | table | Scheduled departures per stop, route, direction and hour on the next Wednesday, Saturday and Sunday (`schedule_sample_dates` macro). |
 | [mart_frequent_network_by_route](marts/service/mart_frequent_network_by_route.sql) | table | Span, headway by period and TransitCenter frequent-network flags per route, direction and day type, at the busiest stop. |
 | [mart_service_intensity_by_tract](marts/service/mart_service_intensity_by_tract.sql) | table | Weekday departures near each tract, shared by population through `bridge_stop_tract`, per 1,000 residents. |
+| [mart_prediction_accuracy_by_route_day](marts/realtime/mart_prediction_accuracy_by_route_day.sql) | incremental (insert-overwrite) | Route × service date × horizon bucket: share of predictions within the accuracy band, error percentiles and padding. `allow_in_app: false` until the stop-visit review. |
 
 Marts keep their names, grains, and original column order; descriptive columns are appended at the end (`stop_name`, `lat`, `lon`; `route_name`, `route_long_name`; `route_name_mode`). The per-stop marts cover stops in the latest GTFS extract (8,162 on October 27, 2026); the reference marts keep retired IDs so historical rows still resolve names.
 
@@ -98,6 +101,7 @@ Marts keep their names, grains, and original column order; descriptive columns a
 
 - `stg_rt_events` and `fct_trip_observation` merge on `(feed_ts_utc, trip_id)` over a 12-hour window; a full refresh reads `rt_events_lookback_days` (default 45; 400 rebuilds all bronze since 2025-10-23).
 - `fct_stop_arrival` and stop-hour reliability use three days incrementally.
+- `fct_prediction_accuracy` and its route-day mart replace the last `prediction_accuracy_days` (3) service dates; the first build starts at `prediction_accuracy_start` (2026-10-29). Prediction changes are read with constant `feed_ts_utc` bounds, from the window's first date to two days after its last.
 - `fct_stop_visit` and `fct_trip_status` insert rows loaded in the last `stop_visit_lookback_hours` (6) for service dates from yesterday (`stop_visit_service_days`, 1) and skip keys already present, so a MERGE never rewrites a partition. Older service dates wait in raw for a run with a wider window; the one-off backfill load runs with `stop_visit_backfill: true` and `stream_start_date`.
 - Route-day reliability replaces `route_day_window_days` partitions: 2 on realtime runs, 30 nightly so late weather lands.
 - Incremental merges set `incremental_predicates` so BigQuery scans only recent target partitions.
@@ -116,12 +120,13 @@ Changing source data outside these windows does not repair historical results; r
 - Priority: stop, vulnerability/crash/unreliability component scores, weighted priority, dense rank, build timestamp, stop name and coordinates.
 - GTFS references: stops (ID/name/lat/lon), routes (ID/name/long name/type).
 - Scheduled service: departures and average headway by stop and hour; route span, period headways, `min_departures_per_3h` and the `is_frequent_day` / `is_frequent_route` flags; tract departures per 1,000 residents and frequent stops nearby. All describe the published schedule, not service that ran.
+- Prediction accuracy: route, `service_date_mst`, `horizon_bucket`, visit and prediction counts, `pct_within_band`, median/p05/p95 error (actual minus predicted), `padding_sec`, shares more than 2 minutes late and 1 minute early, build timestamp.
 
 `n_reported_events` counts events with a reported or schedule-derived delay. On-time share uses absolute delay at most 300 seconds by default and counts an unresolved delay as zero. `reliability_score_0_100` is actually unreliability (higher is worse). Priority coalesces missing components to zero. `_mst` date/hour fields use `America/Denver` including DST. These caveats and full formula interpretations are in the [metrics glossary](../../docs/public/METRICS_GLOSSARY.md).
 
 ## API, export, and schemas
 
-All 12 marts declare `meta.allow_in_app` and are listed in `src/whyline/sync/constants.py`. API exposure requires both; it also needs matching manifest/catalog artifacts. The two GTFS reference marts are not in the ten-mart CSV-download list. DuckDB refresh maintains separate materialization/latest-snapshot sets and reads Parquet by column name, so appended columns load alongside older partitions. See [add a mart](../../docs/technical/guides/ADDING_A_MART.md).
+All 13 marts declare `meta.allow_in_app`; the 12 set to true are listed in `src/whyline/sync/constants.py`. API exposure requires both; it also needs matching manifest/catalog artifacts. The two GTFS reference marts are not in the ten-mart CSV-download list. DuckDB refresh maintains separate materialization/latest-snapshot sets and reads Parquet by column name, so appended columns load alongside older partitions. See [add a mart](../../docs/technical/guides/ADDING_A_MART.md).
 
 Column descriptions and tests are in [staging schema](staging/schema.yml), [core schema](core/schema.yml), and [mart schema](marts/schema.yml). Raw source declarations live in [sources_raw.yml](sources_raw.yml); custom generic tests in `dbt/macros/tests/`; singular tests in `dbt/tests/`; extract helpers (`latest_extract_date`, `recent_extracts_filter`, `scd2_from_extracts`) in `dbt/macros/extracts.sql`. Generated [dbt docs](https://medsidd.github.io/whyline-denver/) describe the last published artifact, which can differ from a working tree.
 

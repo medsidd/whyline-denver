@@ -81,6 +81,24 @@ Limits:
 - The frequency test is strict. Many routes run every 15 minutes at midday but every 20–30 minutes in the evening or at weekends, so they are frequent on some day types only. `is_frequent_day` and the period headways show that.
 - Service per resident favours dense tracts near busy corridors and says nothing about where the service goes.
 
+## Arrival-prediction accuracy
+
+These compare the arrival time RTD's realtime feed predicted with when the vehicle actually reached the stop. For each stop visit measured from a shape crossing to within 30 seconds, the prediction "on screen" at 1, 3, 5, 10, 15, 20 and 30 minutes before the arrival is the latest prediction the feed had published by then. Each of those moments counts once, so a route's numbers weight every measured visit equally. The error is **actual minus predicted**: positive means the vehicle came later than predicted (a longer wait), negative means earlier (a rider trusting the prediction could miss it).
+
+| Field | Meaning |
+|---|---|
+| `horizon_bucket` | The countdown the prediction showed: `0-3`, `3-6`, `6-12` or `12-30` minutes. A prediction already past its time ("due") counts as `0-3`; one showing more than 30 minutes counts as `12-30`, so early arrivals aren't dropped. With no prediction on screen, the bucket is the true time to arrival. |
+| `n_predictions`, `n_no_prediction` | Visit-horizons with a prediction on screen, and those with none: nothing predicted yet, or the stop had been dropped from the trip's predictions. |
+| `pct_within_band` | Share of predictions counted accurate under the [MBTA's published standard](https://www.mbta.com/performance-metrics/arrival-prediction-accuracy): the vehicle came from 1 minute early to 1 minute late at 0–3 minutes, 1.5 early to 2 late at 3–6, 2.5 early to 3.5 late at 6–12, and 4 early to 6 late at 12–30. The bands allow more lateness than earliness, because an early vehicle can be missed. We found no RTD standard for prediction accuracy. |
+| `median_error_sec`, `p05_error_sec`, `p95_error_sec` | The middle, 5th and 95th percentiles of the error (approximate quantiles). |
+| `padding_sec` | How many seconds before the predicted time a rider must be at the stop to catch 95% of vehicles: `−p05_error_sec`, or 0 when vehicles rarely come early. |
+| `pct_later_by_2min`, `pct_earlier_by_1min` | Share of predictions where the vehicle came more than 2 minutes late or more than 1 minute early. |
+
+Limits:
+- Only visits with a precisely measured arrival count; stops timed from the last prediction are excluded, since they would compare the prediction with itself.
+- The poller reads the feed every 15 seconds, so a prediction that changed between polls is seen up to 15 seconds late. Apps that cache or smooth predictions may show riders something different.
+- The first data starts on 2026-10-29, when the continuous stream started.
+
 ## Dates, provenance, and reference tables
 
 `service_date_mst` and `event_hour_mst` use `America/Denver`, including daylight saving time despite the historical suffix. Current realtime service dates derive from event local dates, which can differ from GTFS operational service-day conventions after midnight. `build_run_at` records model rebuilding, not newest underlying observation.
