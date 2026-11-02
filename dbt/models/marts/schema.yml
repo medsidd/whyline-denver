@@ -445,3 +445,53 @@ models:
         description: "Latest service date in the group."
       - name: build_run_at
         description: "When the table was built."
+  - name: mart_service_delivered_by_route_day
+    description: "Ghost buses: what happened to every scheduled trip, per route, direction, service date and the period it was scheduled to start. Shares count only trips the realtime feed fully covered, and are withheld for routes whose vehicles rarely report."
+    data_tests:
+      - unique_combination:
+          column_names: ['route_id', 'direction_id', 'service_date_mst', 'period']
+          config:
+            where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - expression_is_true:
+          name: mart_service_delivered_outcomes_add_up
+          expression: "n_delivered + n_canceled + n_no_vehicle + n_vehicle_no_visits + n_not_tracked = n_scheduled"
+          config:
+            where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null]
+      - name: direction_id
+        description: "GTFS direction (0 or 1)."
+      - name: service_date_mst
+        description: "GTFS service date (America/Denver)."
+        data_tests: [not_null]
+      - name: period
+        description: "When the trip was scheduled to leave its first stop: early (4:00-6:59), am_peak (7:00-8:59), midday (9:00-14:59), pm_peak (15:00-17:59), evening (18:00-20:59), night (21:00-3:59)."
+        data_tests:
+          - accepted_values:
+              values: ['early', 'am_peak', 'midday', 'pm_peak', 'evening', 'night']
+      - name: n_scheduled
+        description: "Trips in the published schedule."
+      - name: n_delivered
+        description: "A vehicle reported on the trip and it reached at least one stop."
+      - name: n_canceled
+        description: "RTD marked the trip canceled in the realtime feed."
+      - name: n_no_vehicle
+        description: "Listed in the realtime feed but no vehicle ever reported on it: likely missed. Includes trips whose stops were passed only by predictions."
+      - name: n_vehicle_no_visits
+        description: "A vehicle reported on the trip but it reached no stop."
+      - name: n_not_tracked
+        description: "Never seen in either realtime feed: likely missed when the feed was healthy."
+      - name: n_observable
+        description: "Trips whose whole scheduled run, from 10 minutes before the start, had a healthy feed."
+      - name: stream_healthy
+        description: "Every scheduled trip in the group was observable."
+      - name: pct_tracked_with_vehicle
+        description: "Over the 28 service dates to the latest rebuilt one, the route's tracked, uncanceled trips that had a vehicle report. Under 0.8 means its vehicles rarely report, and the shares are withheld."
+      - name: pct_delivered
+        description: "Delivered share of observable trips; NULL when withheld."
+      - name: pct_missed_likely
+        description: "Canceled, no-vehicle and not-tracked share of observable trips; NULL when withheld."
+      - name: build_run_at
+        description: "When the partition was built."

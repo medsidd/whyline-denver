@@ -192,6 +192,13 @@ Whichever of a work package and #71 merges second rebases the README counts and 
 
 **Cost:** small, about 60 MiB a night.
 
+**As built (2026-11-02):**
+- Outcomes are `delivered` (a vehicle reported and at least one stop was reached), `canceled`, `no_vehicle`, `vehicle_no_visits` and `not_tracked`. The plan's "vanished" split was widened, because the poller also counts visits inferred from predictions alone: 23 trips on 2026-10-30 were "completed" with no vehicle. Those count as no vehicle.
+- `fct_stream_health` counts distinct feed updates per 15-minute window: RTD publishes about every 30 s, and 24 or more counts as healthy. That catches poller and feed outages alike, without needing seal markers. A trip is observable when every window from 10 minutes before its start to its end was healthy.
+- Real data showed that the N Line's vehicles rarely report: only 3 trains on 2026-10-30, so 39% of its trips had no vehicle. Shares are therefore withheld for routes where under 80% of tracked, uncanceled trips had a vehicle over 28 days. Only `117N` is affected; the next lowest route is at 83%.
+- From 2026-10-29 to 2026-11-01, 97.4–98.7% of observable trips were delivered and 1.3–2.4% were likely missed. The highest was Sunday 2026-11-01, with 49 cancellations.
+- A nightly build reads about 135 MB.
+
 ## WP4: wait time, bunching and gaps (item 2)
 
 **User question:** "How long will I actually wait at my stop?"

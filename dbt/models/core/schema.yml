@@ -237,3 +237,14 @@ models:
               quote: false
               config:
                 where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+
+  - name: fct_stream_health
+    description: "Realtime coverage per 15-minute UTC window: distinct vehicle-feed updates the stream recorded (RTD publishes about every 30 seconds, so 30 is complete). is_healthy means at least 24; windows with no data have 0. Kept permanently."
+    data_tests:
+      - unique_combination:
+          column_names: ['window_start_utc']
+          config:
+            where: "window_date_utc >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: window_start_utc
+        data_tests: [not_null]
