@@ -174,6 +174,16 @@ models:
         description: "Stop latitude (WGS84) from the latest GTFS version of this stop."
       - name: lon
         description: "Stop longitude (WGS84) from the latest GTFS version of this stop."
+      - name: enviroscreen_pctl
+        description: "Colorado EnviroScreen 2.0 percentile (within Colorado, higher is more burdened) of the block group containing the stop; Denver stops only."
+      - name: is_disproportionately_impacted
+        description: "The stop's block group is a disproportionately impacted community under Colorado law (CDPHE, November 2024 definition)."
+      - name: di_community_type
+        description: "Why it qualifies, as CDPHE states it (for example, People of color population above 40%)."
+      - name: doti_equity_score
+        description: "Denver DOTI equity index score of the stop's block group (16-68 in 2026; higher means more need)."
+      - name: doti_equity_group_rank
+        description: "Denver DOTI equity group, 1 (highest need) to 6 (lowest)."
   - name: mart_priority_hotspots
     description: "Composite priority ranking per stop that blends vulnerability, crash exposure, and reliability problems."
     columns:
@@ -778,3 +788,23 @@ models:
         description: "Share of snapshots with no available scooter within 200 m."
       - name: pct_time_no_bike
         description: "Share of snapshots with no available bike within 200 m."
+  - name: mart_service_equity_by_group
+    description: "Service at Denver stops grouped by their block group's disproportionately impacted status (CDPHE) and Denver DOTI equity group, over the last 28 service dates: scheduled departures per stop per day, on-time share, excess wait at frequent stops, and the share of visits arriving with standing room only or worse."
+    data_tests:
+      - unique_combination:
+          column_names: ['group_type', 'group_value']
+    columns:
+      - name: group_type
+        description: "disproportionately_impacted or doti_equity_group."
+      - name: group_value
+        description: "impacted / not_impacted, or the DOTI equity group 1 (highest need) to 6."
+      - name: n_stops
+        description: "Denver stops in the group."
+      - name: avg_departures_per_stop_day
+        description: "Scheduled departures per stop per service date."
+      - name: pct_on_time
+        description: "Share of visits with known delay from 1 minute early to 5 minutes late."
+      - name: excess_wait_sec
+        description: "Extra wait over scheduled at headways scheduled every 15 minutes or better."
+      - name: pct_visits_standing_or_worse
+        description: "Share of visits with occupancy data arriving with standing room only or worse."

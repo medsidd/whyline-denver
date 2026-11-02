@@ -191,3 +191,9 @@ models:
 
   - name: stg_gbfs_veo_vehicles
     description: "Veo vehicles per 15-minute snapshot, with point geometry and availability (neither reserved nor disabled). Filter snapshot_ts_utc with a constant."
+
+  - name: stg_arcgis_reference
+    description: "Street-safety and equity reference layers from each layer's latest weekly extract: attributes as JSON (source field names) and parsed geometry. Core models pick their layer and fields."
+    data_tests:
+      - unique_combination:
+          column_names: ['layer', 'object_id']
