@@ -248,3 +248,16 @@ models:
     columns:
       - name: window_start_utc
         data_tests: [not_null]
+
+  - name: fct_stop_headway
+    description: "One row per stop visit a vehicle made (visits timed from the last prediction count only when the trip had a vehicle): observed headway since the previous vehicle of the same route and direction at the stop that service day, the arriving trip's scheduled headway, delay, day type and period. Rebuildable from fct_stop_visit."
+    data_tests:
+      - unique_combination:
+          column_names: ['service_date', 'trip_id', 'stop_sequence']
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - expression_is_true:
+          name: fct_stop_headway_not_negative
+          expression: "observed_headway_sec is null or observed_headway_sec >= 0"
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"

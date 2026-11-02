@@ -139,6 +139,24 @@ Limits:
 - The N Line is withheld: on 2026-10-30 only 3 of its trains reported positions, so most of its trips had no vehicle.
 - A late trip still counts as delivered; lateness is in the reliability metrics.
 
+## Wait time, bunching and gaps
+
+For frequent service, riders turn up without checking a timetable, so what matters is how evenly vehicles are spaced. A headway is the time between one vehicle of a route and direction reaching a stop and the next one reaching it.
+
+| Field | Meaning |
+|---|---|
+| `expected_wait_sec` | Average wait for a rider arriving at random: the sum of squared observed headways divided by twice their sum. Uneven spacing raises it even when the number of vehicles is right. |
+| `scheduled_wait_sec`, `excess_wait_sec` | The same calculation over the scheduled headways, and the difference: the extra waiting caused by bunching, gaps and missed trips. |
+| `pct_bunched`, `pct_gap` | Share of headways under a quarter of the scheduled headway, and over one and a half times it. |
+| `service_class` (stop) | `frequent` when scheduled every 15 minutes or better on average in that stop, route, direction, day type and period; else `infrequent`. The route-day mart uses only headways scheduled every 15 minutes or better for wait, bunching and gaps. |
+| `pct_on_time`, `p90_delay_sec` | Share of visits from 1 minute early to 5 minutes late (RTD's window), and the 90th percentile delay. For infrequent service, read these instead of wait. |
+
+Limits:
+- A trip that ran without being seen at the stop makes a false gap. Visits timed from the last prediction count only when a vehicle reported on the trip, so a ghost trip leaves the gap riders saw, but a vehicle that was never seen at all looks like one.
+- Each headway belongs to the period when the later vehicle arrived. The first vehicle of the day has no headway.
+- Holidays are counted by their date, as weekdays, Saturdays or Sundays.
+
+
 
 ## Dates, provenance, and reference tables
 
