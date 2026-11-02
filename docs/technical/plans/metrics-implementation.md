@@ -415,6 +415,14 @@ That mart is built after WP3, WP4 and WP6; until then it covers only the existin
 
 **Owner:** none, beyond the monthly URL if no index page exists.
 
+**As built, ingestion (2026-11-02):** RTD's [board briefing documents](https://www.rtd-denver.com/board-briefing-documents) page links every monthly report, so the ingestor discovers them there and no tracked URL list or monthly owner step is needed.
+- **Coverage:** all 40 reports linked on 2026-11-02 (January 2025 to August 2026) parsed, giving 340 values.
+- **Bus parsing:** bus values are placed by position under the header words, because the text runs two tables together.
+- **Footnotes:** footnote asterisks (`62.58%*`) are ignored.
+- **Dependencies:** `pdfplumber` 0.11.4 is pinned, with `pdfminer.six` 20231228 and `pypdfium2` 4.30.0.
+- **Fixtures:** three reports are saved under `tests/fixtures/rtd_reports/`.
+- **Next:** the comparison mart follows once the first extract has loaded.
+
 ## WP11: ridership (item 12)
 
 **NTD:**

@@ -209,6 +209,21 @@ JOBS: tuple[JobSpec, ...] = (
             ("geometry_geojson", "STRING"),
         ),
     ),
+    # RTD's own monthly on-time figures from its operations reports (rtd_reported_performance).
+    JobSpec(
+        name="rtd_reported_performance",
+        patterns=("rtd_reported_performance/extract_date=*/rtd_reported_performance.csv.gz",),
+        table="raw_rtd_reported_performance",
+        partition=Partitioning(field="_extract_date"),
+        columns=_cols(
+            ("report_month", "DATE"),
+            ("mode", "STRING"),
+            ("service", "STRING"),
+            ("metric", "STRING"),
+            ("value_pct", "FLOAT64"),
+            ("source_url", "STRING"),
+        ),
+    ),
     # RTD monthly ridership from the National Transit Database (whyline.ingest.ntd_monthly).
     JobSpec(
         name="ntd_monthly",
