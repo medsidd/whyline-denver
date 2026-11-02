@@ -35,7 +35,7 @@ Observed headways are computed between selected event timestamps by route/direct
 
 ## Safety
 
-`crash_100m_cnt` and `crash_250m_cnt` count crashes within those distances of a stop. The window runs from the latest staged crash date minus 365 days through that date, inclusively. `as_of_date` is the latest crash date, not automatically today's date; `window_days` is 365.
+`crash_100m_cnt` and `crash_250m_cnt` count crashes within those distances of a stop, from Denver's latest crash extract (its five-year window; before 2026-11-03 older extracts were merged in, which counted crashes Denver had re-numbered twice). The window runs from the latest staged crash date minus 365 days through that date, inclusively. `as_of_date` is the latest crash date, not automatically today's date; `window_days` is 365.
 
 `severe_*_cnt` includes severity 3 **and** 4 (serious and fatal); `fatal_*_cnt` includes severity 4 only. These counts are geographic exposure indicators, not the number of transit-caused crashes or a per-passenger risk rate. A crash can count for several nearby stops.
 
