@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from whyline.semantics.dbt_artifacts import DbtArtifacts
+from whyline.sync.constants import ALLOWLISTED_MARTS
 
 
 @pytest.fixture(scope="module")
@@ -70,20 +71,9 @@ def artifacts(tmp_path_factory) -> DbtArtifacts:
     return loader
 
 
-def test_allowed_models_include_week4_marts(artifacts: DbtArtifacts) -> None:
-    models = artifacts.allowed_models()
-    expected = {
-        "mart_reliability_by_route_day",
-        "mart_reliability_by_stop_hour",
-        "mart_crash_proximity_by_stop",
-        "mart_access_score_by_stop",
-        "mart_vulnerability_by_stop",
-        "mart_priority_hotspots",
-        "mart_weather_impacts",
-        "mart_gtfs_stops",
-        "mart_gtfs_routes",
-    }
-    assert set(models) == expected
+def test_every_allowlisted_mart_is_exposed(artifacts: DbtArtifacts) -> None:
+    # Each allowlisted mart must also set meta.allow_in_app, or the app silently drops it.
+    assert set(artifacts.allowed_models()) == set(ALLOWLISTED_MARTS)
 
 
 def test_columns_and_descriptions_loaded(artifacts: DbtArtifacts) -> None:

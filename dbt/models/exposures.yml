@@ -19,3 +19,6 @@ exposures:
       - ref('mart_weather_impacts')
       - ref('mart_gtfs_stops')
       - ref('mart_gtfs_routes')
+      - ref('mart_service_frequency_by_stop')
+      - ref('mart_frequent_network_by_route')
+      - ref('mart_service_intensity_by_tract')

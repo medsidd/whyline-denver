@@ -61,6 +61,26 @@ Despite its name, `reliability_score_0_100` measures **unreliability**: `100 * (
 
 The formula substitutes zero for missing component scores. Missing coverage can therefore reduce apparent priority; zero does not establish low need. `priority_rank` is a descending dense rank: 1 is highest priority, ties share a rank, and the next distinct score gets the next rank. Weights are project choices, not a validated official allocation rule.
 
+## Scheduled service
+
+These describe the **published schedule**, not the service that ran. Each nightly build samples the next Wednesday (as `weekday`), Saturday and Sunday in the schedule. If a holiday falls on a sample date, its holiday service shows.
+
+| Field | Meaning |
+|---|---|
+| `n_departures`, `avg_headway_min` (stop × route × direction × hour) | Scheduled departures in a local clock hour, and 60 divided by that count. Trips after midnight count in hours 0–3 of their service day. |
+| `busiest_stop_id` | The stop with the most scheduled departures for the route, direction and day. Route frequency is measured there, so short-turn trips count. |
+| `first_departure`, `last_departure`, `span_hours` | First and last scheduled departure at the busiest stop (local HH:MM) and the hours between them. |
+| `headway_am_peak_min`, `headway_midday_min`, `headway_pm_peak_min`, `headway_evening_min` | Average minutes between departures over 7:00–8:59, 9:00–14:59, 15:00–17:59 and 18:00–20:59. NULL when nothing runs in that period. |
+| `min_departures_per_3h`, `is_frequent_day` | Fewest departures in any three-hour block from 6:00 to 21:00, and whether that's at least 12. Twelve means every 15 minutes or better on average. Blocks are used rather than clock hours, so a departure slipping past the hour doesn't count against a 15-minute route. |
+| `is_frequent_route` | `is_frequent_day` in every direction on all three day types: TransitCenter's frequent-network standard of 15 minutes or better, all day, every day. |
+| `weekday_departures_share`, `weekday_departures_per_1000_residents` (tract) | Each stop's sample-Wednesday departures are shared among the tracts within 804.672 m by population, the same weights as `bridge_stop_tract`. Summed over tracts this equals the network total. Divided by tract population per 1,000. |
+| `n_frequent_stops_nearby` | Stops within 804.672 m with at least 4 departures in every hour from 9:00 to 14:59. |
+
+Limits:
+- The schedule is what RTD planned. Missed trips and late running don't change these numbers.
+- The frequency test is strict. Many routes run every 15 minutes at midday but every 20–30 minutes in the evening or at weekends, so they are frequent on some day types only. `is_frequent_day` and the period headways show that.
+- Service per resident favours dense tracts near busy corridors and says nothing about where the service goes.
+
 ## Dates, provenance, and reference tables
 
 `service_date_mst` and `event_hour_mst` use `America/Denver`, including daylight saving time despite the historical suffix. Current realtime service dates derive from event local dates, which can differ from GTFS operational service-day conventions after midnight. `build_run_at` records model rebuilding, not newest underlying observation.
