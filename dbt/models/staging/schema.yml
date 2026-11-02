@@ -159,3 +159,23 @@ models:
 
   - name: stg_gtfs_shapes
     description: "One GEOGRAPHY line per GTFS extract x shape_id, with geodesic length and the last shape_dist_traveled. Filter _extract_date with a constant."
+
+  - name: stg_ntd_monthly
+    description: "RTD's NTD monthly module rows (boardings, revenue miles and hours, peak vehicles) by month, mode and type of service, from the latest extract."
+    data_tests:
+      - unique_combination:
+          column_names: ['month', 'mode', 'tos']
+    columns:
+      - name: month
+        data_tests: [not_null]
+
+  - name: stg_weather_hourly
+    description: "Hourly weather per station and UTC hour from the latest extract that covers it (archive values replace forecast ones)."
+    data_tests:
+      - unique_combination:
+          column_names: ['station', 'ts_utc']
+    columns:
+      - name: source
+        data_tests:
+          - accepted_values:
+              values: ['open_meteo_archive', 'open_meteo_forecast']

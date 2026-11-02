@@ -1,6 +1,6 @@
 flowchart LR
   accTitle: Current dbt model lineage
-  accDescr: 18 bronze tables and 57 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
+  accDescr: 20 bronze tables and 63 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
   subgraph bronze["Bronze: raw_denver"]
     direction TB
     raw_acs_tract["raw_acs_tract"]
@@ -19,8 +19,10 @@ flowchart LR
     raw_gtfsrt_tu_changes["raw_gtfsrt_tu_changes"]
     raw_gtfsrt_vehicle_positions["raw_gtfsrt_vehicle_positions"]
     raw_gtfsrt_vp_stream["raw_gtfsrt_vp_stream"]
+    raw_ntd_monthly["raw_ntd_monthly"]
     raw_sidewalks["raw_sidewalks"]
     raw_weather_daily["raw_weather_daily"]
+    raw_weather_hourly["raw_weather_hourly"]
   end
   subgraph silver["Silver: stg_denver"]
     direction TB
@@ -34,6 +36,7 @@ flowchart LR
     stg_gtfs_stop_times["stg_gtfs_stop_times"]
     stg_gtfs_stops["stg_gtfs_stops"]
     stg_gtfs_trips["stg_gtfs_trips"]
+    stg_ntd_monthly["stg_ntd_monthly"]
     stg_rt_events["stg_rt_events"]
     stg_rt_prediction_changes["stg_rt_prediction_changes"]
     stg_rt_stop_visits["stg_rt_stop_visits"]
@@ -41,6 +44,7 @@ flowchart LR
     stg_rt_vehicle_positions["stg_rt_vehicle_positions"]
     stg_sidewalks["stg_sidewalks"]
     stg_weather["stg_weather"]
+    stg_weather_hourly["stg_weather_hourly"]
   end
   subgraph gold_core["Gold core: core_denver (Kimball)"]
     direction TB
@@ -52,6 +56,7 @@ flowchart LR
     dim_tract["dim_tract"]
     dim_trip["dim_trip"]
     fct_crash["fct_crash"]
+    fct_ntd_service_month["fct_ntd_service_month"]
     fct_prediction_accuracy["fct_prediction_accuracy"]
     fct_scheduled_stop_time["fct_scheduled_stop_time"]
     fct_segment_traversal["fct_segment_traversal"]
@@ -64,6 +69,7 @@ flowchart LR
     fct_trip_occupancy["fct_trip_occupancy"]
     fct_trip_status["fct_trip_status"]
     fct_weather_daily["fct_weather_daily"]
+    fct_weather_hourly["fct_weather_hourly"]
   end
   subgraph gold_serving["Gold serving: mart_denver"]
     direction TB
@@ -78,6 +84,7 @@ flowchart LR
     mart_priority_hotspots["mart_priority_hotspots"]
     mart_reliability_by_route_day["mart_reliability_by_route_day"]
     mart_reliability_by_stop_hour["mart_reliability_by_stop_hour"]
+    mart_ridership_by_mode_month["mart_ridership_by_mode_month"]
     mart_segment_speed_by_hour["mart_segment_speed_by_hour"]
     mart_service_delivered_by_route_day["mart_service_delivered_by_route_day"]
     mart_service_frequency_by_stop["mart_service_frequency_by_stop"]
@@ -87,6 +94,7 @@ flowchart LR
     mart_wait_by_route_day["mart_wait_by_route_day"]
     mart_wait_by_stop_period["mart_wait_by_stop_period"]
     mart_weather_impacts["mart_weather_impacts"]
+    mart_weather_impacts_hourly["mart_weather_impacts_hourly"]
   end
   bridge_stop_tract --> mart_service_intensity_by_tract
   bridge_stop_tract --> mart_vulnerability_by_stop
@@ -120,6 +128,7 @@ flowchart LR
   dim_trip --> fct_trip_observation
   dim_trip --> fct_trip_status
   fct_crash --> mart_crash_proximity_by_stop
+  fct_ntd_service_month --> mart_ridership_by_mode_month
   fct_prediction_accuracy --> mart_prediction_accuracy_by_route_day
   fct_scheduled_stop_time --> fct_stop_arrival
   fct_scheduled_stop_time --> fct_stop_visit
@@ -137,6 +146,7 @@ flowchart LR
   fct_stop_visit --> fct_stop_headway
   fct_stop_visit --> fct_trip_occupancy
   fct_stop_visit --> mart_trip_runtime_by_route_day
+  fct_stop_visit --> mart_weather_impacts_hourly
   fct_stream_health --> mart_service_delivered_by_route_day
   fct_tract_demographics --> bridge_stop_tract
   fct_tract_demographics --> mart_vulnerability_by_stop
@@ -148,6 +158,7 @@ flowchart LR
   fct_trip_status --> fct_stop_headway
   fct_trip_status --> mart_service_delivered_by_route_day
   fct_weather_daily --> mart_reliability_by_route_day
+  fct_weather_hourly --> mart_weather_impacts_hourly
   mart_crash_proximity_by_stop --> mart_priority_hotspots
   mart_reliability_by_route_day --> mart_weather_impacts
   mart_reliability_by_stop_hour --> mart_priority_hotspots
@@ -168,8 +179,10 @@ flowchart LR
   raw_gtfsrt_tu_changes --> stg_rt_prediction_changes
   raw_gtfsrt_vehicle_positions --> stg_rt_events
   raw_gtfsrt_vp_stream --> stg_rt_vehicle_positions
+  raw_ntd_monthly --> stg_ntd_monthly
   raw_sidewalks --> stg_sidewalks
   raw_weather_daily --> stg_weather
+  raw_weather_hourly --> stg_weather_hourly
   stg_acs_geo --> fct_tract_demographics
   stg_denver_crashes --> fct_crash
   stg_denver_tracts --> dim_tract
@@ -180,6 +193,7 @@ flowchart LR
   stg_gtfs_stops --> dim_stop
   stg_gtfs_trips --> dim_trip
   stg_gtfs_trips --> fct_scheduled_stop_time
+  stg_ntd_monthly --> fct_ntd_service_month
   stg_rt_events --> fct_trip_observation
   stg_rt_prediction_changes --> fct_prediction_accuracy
   stg_rt_stop_visits --> fct_stop_visit
@@ -188,3 +202,4 @@ flowchart LR
   stg_rt_vehicle_positions --> fct_trip_occupancy
   stg_sidewalks --> dim_sidewalk_segment
   stg_weather --> fct_weather_daily
+  stg_weather_hourly --> fct_weather_hourly

@@ -274,3 +274,15 @@ models:
           expression: "travel_sec > 0 and distance_m > 0 and speed_kmh <= 130"
           config:
             where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+
+  - name: fct_ntd_service_month
+    description: "RTD service and ridership as reported to the National Transit Database: one row per month, mode and type of service (directly operated or purchased)."
+    data_tests:
+      - unique_combination:
+          column_names: ['month', 'mode', 'tos']
+
+  - name: fct_weather_hourly
+    description: "Hourly weather per station and UTC hour, with the local date and hour (Open-Meteo, modelled at the station's coordinates)."
+    data_tests:
+      - unique_combination:
+          column_names: ['station', 'ts_utc']

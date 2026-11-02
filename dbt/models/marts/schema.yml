@@ -660,3 +660,58 @@ models:
         description: "(p90 - p50) / p50: the extra share of time to allow to arrive on time 9 times in 10. Includes the difference between peak and off-peak trips."
       - name: build_run_at
         description: "When the partition was built."
+  - name: mart_ridership_by_mode_month
+    description: "RTD boardings, revenue hours and miles, and peak vehicles by mode and month from the National Transit Database (about two months behind), with boardings per revenue hour and the change from a year earlier."
+    data_tests:
+      - unique_combination:
+          column_names: ['month', 'mode']
+    columns:
+      - name: month
+        description: "First day of the month."
+        data_tests: [not_null]
+      - name: mode
+        description: "NTD mode code: MB bus, LR light rail, CR commuter rail, DR demand response, VP vanpool."
+      - name: mode_name
+        description: "Plain name of the mode."
+      - name: boardings
+        description: "Unlinked passenger trips: every boarding counts, so a ride with one transfer counts twice."
+      - name: revenue_hours
+        description: "Vehicle revenue hours, directly operated and purchased service combined."
+      - name: revenue_miles
+        description: "Vehicle revenue miles."
+      - name: peak_vehicles
+        description: "Vehicles operated in maximum service."
+      - name: boardings_per_revenue_hour
+        description: "boardings / revenue_hours."
+      - name: boardings_year_earlier
+        description: "Boardings in the same month a year earlier; NULL when that month wasn't reported."
+      - name: boardings_yoy_change
+        description: "boardings / boardings_year_earlier - 1 (0.05 means 5% more)."
+  - name: mart_weather_impacts_hourly
+    description: "On-time share by the weather in the hour the vehicle reached the stop, per route, over the last 90 service dates: precipitation band, snow falling or not, and temperature band, with the difference from the route's baseline level. Weather is modelled at the airport; association is not causation."
+    data_tests:
+      - unique_combination:
+          column_names: ['route_id', 'factor', 'level']
+    columns:
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null]
+      - name: factor
+        description: "precipitation, snowfall or temperature."
+        data_tests:
+          - accepted_values:
+              values: ['precipitation', 'snowfall', 'temperature']
+      - name: level
+        description: "precipitation: none (<0.1 mm in the hour), light (<1), moderate (<4), heavy. snowfall: snowing or not_snowing. temperature: below_-10, -10_to_0, 0_to_30, 30_plus (C)."
+      - name: n_visits
+        description: "Stop visits with a known delay in hours at this level."
+      - name: pct_on_time
+        description: "Share from 1 minute early to 5 minutes late."
+      - name: mean_delay_sec
+        description: "Mean delay in seconds."
+      - name: p90_delay_sec
+        description: "90th percentile delay in seconds (approximate)."
+      - name: delta_pct_on_time
+        description: "pct_on_time minus the route's baseline (none, not_snowing or 0_to_30); NULL without a baseline."
+      - name: build_run_at
+        description: "When the table was built."

@@ -35,6 +35,8 @@ JINJA_OVERRIDES = {
     "as_mst": lambda c: f"timezone('America/Denver', {c})",
     "date_mst": lambda c: f"cast(timezone('America/Denver', {c}) as date)",
     "hour_mst": lambda c: f"extract(hour from timezone('America/Denver', {c}))",
+    # The BigQuery body reads INFORMATION_SCHEMA at compile time.
+    "latest_extract_date": lambda rel: f"(select max(_extract_date) from {rel})",
 }
 
 REPLACEMENTS = (
@@ -76,6 +78,7 @@ def render_model(
         .render(
             config=lambda **kwargs: "",
             ref=lambda name: name,
+            source=lambda schema, table: table,
             var=lambda name, default=None: variables.get(name, default),
             is_incremental=lambda: incremental,
             this=this,
