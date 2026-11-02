@@ -3,7 +3,8 @@
 {#
 First and last mile: how many Veo scooters and bikes are usually available within 200 m of each
 Denver stop, and how often there are none, by weekday or weekend and period, over the last
-micromobility_window_days local dates, today included. Goes into the app with the next release.
+micromobility_window_days local dates, today included. Stops beside a Veo staging site (W 10th Ave & Decatur St)
+show inflated counts; they're kept, with the caveat in the glossary. Goes into the app with the next release.
 #}
 {% set window_days = var('micromobility_window_days', 28) %}
 
