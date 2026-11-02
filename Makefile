@@ -1,6 +1,6 @@
 .SHELLFLAGS := -o pipefail -c
 SHELL := /bin/bash
-.PHONY: install lint format test test-ingest run app ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-gtfs-alerts ingest-gbfs-veo ingest-arcgis-reference ingest-gtfs-rt-stream replay-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local bq-load-realtime bq-load-historical dbt-source-freshness dbt-compile dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dbt-run-realtime dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams
+.PHONY: install lint format test test-ingest run app ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-gtfs-alerts ingest-gbfs-veo ingest-arcgis-reference ingest-ntd ingest-gtfs-rt-stream replay-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local bq-load-realtime bq-load-historical dbt-source-freshness dbt-compile dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dbt-run-realtime dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams
 .PHONY: sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams dbt-run-realtime api-dev api-test api-build api-deploy artifact-repo-create-api frontend-dev frontend-build frontend-test
 
 # Shared command helpers ------------------------------------------------------
@@ -94,7 +94,7 @@ test-ingest:
 	pytest -k ingest
 
 # Ingest ----------------------------------------------------------------------
-ingest-all: ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts ingest-arcgis-reference
+ingest-all: ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts ingest-arcgis-reference ingest-ntd
 
 # Ingest without realtime (realtime handled by cloud run workflow)
 # ingest-tracts is non-fatal (-) because census tract geometry is static reference data
@@ -102,6 +102,7 @@ ingest-all: ingest-gtfs-static ingest-gtfs-rt ingest-crashes ingest-sidewalks in
 ingest-static: ingest-gtfs-static ingest-crashes ingest-sidewalks ingest-noaa ingest-acs
 	-$(MAKE) ingest-tracts
 	-$(MAKE) ingest-arcgis-reference
+	-$(MAKE) ingest-ntd
 
 ingest-gtfs-static:
 	$(PY) -m whyline.ingest.gtfs_static $(INGEST_MODE_ARGS)
@@ -118,6 +119,10 @@ ingest-gbfs-veo:
 # Weekly in effect: each layer is skipped when it was extracted in the last 7 days.
 ingest-arcgis-reference:
 	$(PY) -m whyline.ingest.arcgis_reference $(INGEST_MODE_ARGS)
+
+# Weekly in effect: skipped when extracted in the last 7 days.
+ingest-ntd:
+	$(PY) -m whyline.ingest.ntd_monthly $(INGEST_MODE_ARGS)
 
 # Continuous 15 s capture; locally it runs STREAM_RUNTIME_SEC (default 10 min) and seals the open window
 ingest-gtfs-rt-stream:
