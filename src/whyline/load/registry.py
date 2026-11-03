@@ -209,6 +209,23 @@ JOBS: tuple[JobSpec, ...] = (
             ("geometry_geojson", "STRING"),
         ),
     ),
+    # Jobs reachable by transit per tract (whyline.ingest.job_access), weekly from GitHub Actions.
+    JobSpec(
+        name="job_access",
+        patterns=("job_access/extract_date=*/job_access.csv.gz",),
+        table="raw_job_access",
+        partition=Partitioning(field="_extract_date"),
+        columns=_cols(
+            ("origin_geoid", "STRING"),
+            ("window", "STRING"),
+            ("departure_date", "DATE"),
+            ("minutes_threshold", "INT64"),
+            ("jobs_reachable", "INT64"),
+            ("total_jobs_region", "INT64"),
+            ("lodes_year", "INT64"),
+            ("gtfs_md5", "STRING"),
+        ),
+    ),
     # RTD's own monthly on-time figures from its operations reports (rtd_reported_performance).
     JobSpec(
         name="rtd_reported_performance",
