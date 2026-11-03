@@ -550,6 +550,13 @@ Each is a short investigation, which gets a work package only if it proves usefu
 
 ---
 
+**As built (2026-11-02):** findings are in [metrics spikes](metrics-spikes.md).
+- **Event schedules:** worth doing once two to three months of crowding data exist.
+- **Traffic speeds:** not pursued; no free source covers the arterials.
+- **Air quality:** a cheap Open-Meteo add-on when a comfort measure is wanted.
+- **Peer agencies:** deferred.
+- **Stop amenities:** OpenStreetMap offers a partial interim layer, about 16% of stops with a shelter tag.
+
 ## Releases (how the marts reach the app)
 
 Because the API bakes in the dbt artifacts, new marts become visible in batches:
