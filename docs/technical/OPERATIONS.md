@@ -325,6 +325,17 @@ The highest counts are at Larimer St & 26th St in RiNo (38 scooters and 26 bikes
 
 It uses the same repository secrets as the nightly ingest. It doesn't change any Cloud schedule. A run takes about 10 to 20 minutes of a free public-repository runner. It needs about 12 GB of Java heap; the runner has 16 GB.
 
+### Job access, bus lanes and spikes, November 3, 2026 (UTC)
+
+- **Weekly job access ([#109](https://github.com/medsidd/whyline-denver/pull/109), [#111](https://github.com/medsidd/whyline-denver/pull/111)):** the first `weekly-access.yml` run was dispatched at 00:08 and succeeded in about 10 minutes.
+  - Geofabrik's Colorado extract (387 MB) was clipped to 120 MB, and routing took about 1 minute per window.
+  - It created `raw_job_access` with 9,360 rows.
+  - The scheduled run is Mondays at 06:00 UTC.
+- **Bus lanes ([#108](https://github.com/medsidd/whyline-denver/pull/108)):** `bridge_segment_transit_lane` has 115 segment-lane pairs on 8 corridors. No before-and-after is possible yet: every lane predates the data.
+- **Spikes ([#110](https://github.com/medsidd/whyline-denver/pull/110)):** findings are in [metrics spikes](plans/metrics-spikes.md). Nothing is ingested.
+- **Nightly runs:** BigQuery at 00:27 (`e7eeb4a`): 88 models and 179 of 180 tests passed, with the known monotonic-arrivals warning (113 visits). DuckDB at 00:42 succeeded.
+- **Results:** `mart_job_access_by_tract` has 3,120 rows (780 tracts × 4 windows), and the stop scorecard carries job access for 3,275 stops.
+
 ### Query usage report
 
 Since WP0 of the [metrics plan](plans/metrics-implementation.md), every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:
