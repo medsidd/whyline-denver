@@ -315,6 +315,16 @@ After this cycle:
 
 The highest counts are at Larimer St & 26th St in RiNo (38 scooters and 26 bikes at midday) and at W 10th Ave & Decatur St (34 and 27). The second looks like a Veo staging or charging site, and is worth a look before publication.
 
+### Weekly job access workflow, November 2, 2026 (UTC)
+
+`.github/workflows/weekly-access.yml` (WP12) runs on Mondays at 06:00 UTC and can be dispatched by hand. It:
+1. installs Java 21, `osmium-tool` and `r5py==1.1.7`;
+2. downloads Geofabrik's Colorado extract (about 390 MB), clips it to the RTD box, and downloads RTD's GTFS;
+3. routes the RTD-county tracts in four windows;
+4. writes `raw/job_access/extract_date=<day>/` and loads that day's files into BigQuery.
+
+It uses the same repository secrets as the nightly ingest. It doesn't change any Cloud schedule. A run takes about 10 to 20 minutes of a free public-repository runner. It needs about 12 GB of Java heap; the runner has 16 GB.
+
 ### Query usage report
 
 Since WP0 of the [metrics plan](plans/metrics-implementation.md), every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:

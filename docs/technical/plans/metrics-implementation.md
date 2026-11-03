@@ -468,6 +468,14 @@ I'll draft the request text. When data arrives, ingest it as a reference file (`
 
 **Caveats for the glossary:** LODES suppresses or adjusts some small counts for privacy, and the travel times come from the schedule, not from what actually ran. A later variant could use measured travel times.
 
+**As built, ingestion (2026-11-02):**
+- `whyline.ingest.job_access` and the weekly workflow `weekly-access.yml` (Mondays 06:00 UTC).
+- **Origins:** all RTD-county tracts inside the box (about 780), not only Denver's, so every stop's tract can be scored.
+- **Tract points** come from TIGERweb, which the tract ingestor already uses.
+- **The workflow loads its own output** (`bq_load` for the day), so the nightly run only builds the models.
+- **Local trial:** on the BBBike Denver extract with Java 21, routing took about 40 seconds per window, 4 minutes in all. The median Denver tract reached 96,400 jobs within 45 minutes in the weekday morning peak, out of 1.81M in the region; the highest reached 337,000.
+- **The mart follows** once the first weekly extract has loaded.
+
 ## WP13: hourly weather (item 16)
 
 **Change:** extend `noaa_daily.py` with `--hourly`, or add a sibling `weather_hourly.py`.

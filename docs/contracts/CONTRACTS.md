@@ -407,6 +407,28 @@ Written by `whyline.ingest.weather_hourly` (nightly ingest, non-fatal) from Open
 | `wind_kmh` | `FLOAT64` | NULLABLE | Wind speed at 10 m |
 | `source` | `STRING` | NULLABLE | `open_meteo_archive` or `open_meteo_forecast` |
 
+## `raw_job_access`
+
+Written by `whyline.ingest.job_access`, which the weekly GitHub workflow `.github/workflows/weekly-access.yml` runs on Mondays at 06:00 UTC, then loads.
+
+- **Pattern:** `job_access/extract_date=*/job_access.csv.gz`, partitioned by `_extract_date`.
+- **Origins and destinations:** every 2020 census tract in the RTD counties (Adams, Arapahoe, Boulder, Broomfield, Denver, Douglas, Jefferson, Weld) whose internal point lies inside the RTD box. That was about 780 tracts on 2026-11-02, from TIGERweb.
+- **Routing:** r5py 1.1.7 (Java 21) walks and rides transit on OpenStreetMap (Geofabrik Colorado, clipped to the box) and RTD's current GTFS.
+  - Four two-hour departure windows: the next Tuesday at 7:00, 12:00 and 19:00, and the next Saturday at 10:00.
+  - The median travel time over each window is used.
+- **Jobs:** LEHD LODES8 workplace-area counts (all jobs, `C000`, default year 2023), summed from blocks to tracts.
+
+| Column | Type | Mode | Meaning |
+|---|---|---|---|
+| `origin_geoid` | `STRING` | NULLABLE | Origin tract |
+| `window` | `STRING` | NULLABLE | `weekday_am_peak`, `weekday_midday`, `weekday_evening`, `saturday_midday` |
+| `departure_date` | `DATE` | NULLABLE | The date the window was routed on |
+| `minutes_threshold` | `INT64` | NULLABLE | 30, 45 or 60 |
+| `jobs_reachable` | `INT64` | NULLABLE | Jobs in tracts reachable within the threshold, own tract included |
+| `total_jobs_region` | `INT64` | NULLABLE | Jobs in all routed tracts |
+| `lodes_year` | `INT64` | NULLABLE | LODES vintage |
+| `gtfs_md5` | `STRING` | NULLABLE | The schedule routed on |
+
 ## `raw_rtd_reported_performance`
 
 Written by `whyline.ingest.rtd_reported_performance` (nightly ingest, non-fatal, skipped when extracted in the last 7 days). It reads RTD's [board briefing documents](https://www.rtd-denver.com/board-briefing-documents) page, downloads every linked Bus Operations and Rail Operations PDF (40 on 2026-11-02, January 2025 to August 2026), and extracts RTD's own figures.
