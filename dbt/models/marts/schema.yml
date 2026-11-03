@@ -868,6 +868,8 @@ models:
         description: "Average available Veo scooters within 200 m (Denver stops)."
       - name: avg_bikes_within_200m
         description: "Average available Veo bikes within 200 m (Denver stops)."
+      - name: jobs_within_45min_am_peak
+        description: "Jobs reachable within 45 minutes by walking and transit at the weekday morning peak, weighted over the Denver tracts near the stop (schedule-based)."
   - name: mart_route_scorecard
     description: "Report card per route, both directions: frequency and weekday span, on-time share, excess wait, delivered and likely-missed trips, prediction accuracy, crowding, run-time reliability and alert hours, over the last 28 service dates. Each measured part has its count; missing parts stay NULL."
     columns:
@@ -953,3 +955,32 @@ models:
         description: "Latest build year among the corridor's lanes."
       - name: weeks_since_opening
         description: "Weeks from the opening date set in var('lane_openings'); NULL when no date is set."
+  - name: mart_job_access_by_tract
+    description: "Jobs reachable by walking and transit within 30, 45 and 60 minutes, per tract in the RTD counties and departure window (next Tuesday 7:00, 12:00, 19:00; Saturday 10:00; two-hour windows, median travel time), from the published schedule. Denver tracts carry their EnviroScreen percentile."
+    data_tests:
+      - unique_combination:
+          column_names: ['geoid', 'departure_window']
+    columns:
+      - name: geoid
+        description: "Census tract GEOID (2020)."
+        data_tests: [not_null]
+      - name: is_denver
+        description: "The tract is in the City and County of Denver."
+      - name: departure_window
+        description: "weekday_am_peak, weekday_midday, weekday_evening or saturday_midday."
+      - name: departure_date
+        description: "The date routed."
+      - name: jobs_within_30min
+        description: "Jobs reachable within 30 minutes, own tract included."
+      - name: jobs_within_45min
+        description: "Jobs reachable within 45 minutes."
+      - name: jobs_within_60min
+        description: "Jobs reachable within 60 minutes."
+      - name: pct_region_jobs_45min
+        description: "jobs_within_45min / total_jobs_region."
+      - name: total_jobs_region
+        description: "Jobs in all routed tracts (LODES)."
+      - name: lodes_year
+        description: "LODES vintage."
+      - name: enviroscreen_pctl
+        description: "Colorado EnviroScreen percentile of the tract (Denver tracts)."

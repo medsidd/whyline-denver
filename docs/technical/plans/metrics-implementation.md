@@ -474,7 +474,13 @@ I'll draft the request text. When data arrives, ingest it as a reference file (`
 - **Tract points** come from TIGERweb, which the tract ingestor already uses.
 - **The workflow loads its own output** (`bq_load` for the day), so the nightly run only builds the models.
 - **Local trial:** on the BBBike Denver extract with Java 21, routing took about 40 seconds per window, 4 minutes in all. The median Denver tract reached 96,400 jobs within 45 minutes in the weekday morning peak, out of 1.81M in the region; the highest reached 337,000.
-- **The mart follows** once the first weekly extract has loaded.
+- **First workflow run** (dispatched 2026-11-03 00:08 UTC): about 10 minutes in all.
+  - The Colorado extract (387 MB) was clipped to 120 MB, and routing took about 1 minute per window.
+  - It loaded 9,360 rows into `raw_job_access`.
+  - The median Denver tract reaches 95,100 jobs within 45 minutes in the weekday morning peak (61,400 in the evening), against 8,300 for the median tract in the region.
+- **Models (2026-11-03):** `fct_job_access` and `mart_job_access_by_tract`.
+  - The stop scorecard gains `jobs_within_45min_am_peak`: 3,275 stops near Denver tracts, with a median of 73,600.
+  - Across Denver tracts, EnviroScreen percentile and morning-peak job access are essentially uncorrelated (r = −0.03).
 
 ## WP13: hourly weather (item 16)
 

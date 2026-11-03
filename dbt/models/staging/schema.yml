@@ -203,3 +203,9 @@ models:
     data_tests:
       - unique_combination:
           column_names: ['report_month', 'mode', 'service', 'metric']
+
+  - name: stg_job_access
+    description: "Jobs reachable by transit per tract, departure window and threshold, from the latest weekly routing. The raw column `window` is renamed departure_window (WINDOW is reserved)."
+    data_tests:
+      - unique_combination:
+          column_names: ['origin_geoid', 'departure_window', 'minutes_threshold']
