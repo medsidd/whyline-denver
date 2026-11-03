@@ -68,6 +68,16 @@ alerts as (
     from {{ ref('mart_stop_closures') }}
     group by 1
 ),
+jobs as (
+    -- Population-weighted over the Denver tracts within 804.672 m (bridge_stop_tract).
+    select b.stop_id, round(sum(cast(b.weighting_factor as float64) * j.jobs_reachable)) as jobs_within_45min_am_peak
+    from {{ ref('bridge_stop_tract') }} as b
+    join {{ ref('fct_job_access') }} as j
+        on j.geoid = b.geoid
+        and j.departure_window = 'weekday_am_peak'
+        and j.minutes_threshold = 45
+    group by 1
+),
 micromobility as (
     select
         stop_id,
@@ -109,6 +119,7 @@ select
     v.doti_equity_group_rank,
     m.avg_scooters_within_200m,
     m.avg_bikes_within_200m,
+    jb.jobs_within_45min_am_peak,
     current_timestamp() as build_run_at
 from stops as s
 left join service as sv using (stop_id)
@@ -121,3 +132,4 @@ left join {{ ref('mart_access_score_by_stop') }} as ac using (stop_id)
 left join alerts as al using (stop_id)
 left join {{ ref('mart_vulnerability_by_stop') }} as v using (stop_id)
 left join micromobility as m using (stop_id)
+left join jobs as jb using (stop_id)

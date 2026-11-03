@@ -90,3 +90,8 @@ sources:
         freshness:
           warn_after: {count: 9, period: day}
           error_after: {count: 16, period: day}
+      - name: raw_job_access
+        loaded_at_field: _ingested_at
+        freshness:
+          warn_after: {count: 9, period: day}
+          error_after: {count: 16, period: day}

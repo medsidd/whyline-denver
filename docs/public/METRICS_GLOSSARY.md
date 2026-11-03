@@ -266,6 +266,20 @@ From the National Transit Database, which RTD reports to the Federal Transit Adm
 
 Limits: hourly weather is modelled by Open-Meteo at Denver International Airport, and recent hours are forecast-model values until the archive catches up. It starts on 2026-10-23, so visits before then aren't matched. Few hours have heavy weather, so shares at those levels are noisy, and other things (time of day, events) vary with weather; this shows association, not cause.
 
+## Jobs reachable by transit
+
+`mart_job_access_by_tract` counts the jobs a resident of each tract can reach by walking and transit within 30, 45 and 60 minutes.
+- **Coverage:** every tract in the RTD counties inside the RTD area.
+- **Windows:** the next Tuesday at 7:00, 12:00 and 19:00, and the next Saturday at 10:00. Each is two hours, and the travel time is the median over it, so it reflects a typical, not lucky, departure.
+- **Jobs:** U.S. Census LEHD (LODES) workplace counts, all jobs. `pct_region_jobs_45min` is the share of all routed jobs.
+- **Stop scorecard:** it carries `jobs_within_45min_am_peak`, weighted over the Denver tracts near each stop.
+
+Limits:
+- **Schedule, not reality:** travel times come from the published schedule, not from what ran, so late or missed trips aren't reflected.
+- **Approximation:** routing runs between tract centre points, which approximates longer walks in large tracts.
+- **Privacy noise:** LODES adds noise to small job counts for privacy.
+- **Refresh:** results refresh weekly with the schedule.
+
 ## Scorecards
 
 `mart_stop_scorecard` (one row per stop) and `mart_route_scorecard` (one row per route, both directions) gather the measures above over the last 28 service dates, using the same definitions. Each measured part comes with the count it rests on (`n_visits_measured`, `n_visits_with_occupancy`, `n_trips_observable` and so on). A part with no data stays empty rather than zero, so a stop with no occupancy reports isn't shown as uncrowded.

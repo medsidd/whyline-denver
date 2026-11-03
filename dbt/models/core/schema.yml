@@ -356,3 +356,16 @@ models:
     data_tests:
       - unique_combination:
           column_names: ['from_stop_id', 'to_stop_id', 'corridor', 'lane_type', 'year_built']
+
+  - name: fct_job_access
+    description: "One tract x departure window x threshold (30, 45, 60 minutes): jobs reachable by walking and transit, median travel time over a two-hour window on the published schedule, own tract included."
+    columns:
+      - name: departure_window
+        data_tests:
+          - accepted_values:
+              values: ['weekday_am_peak', 'weekday_midday', 'weekday_evening', 'saturday_midday']
+      - name: minutes_threshold
+        data_tests:
+          - accepted_values:
+              values: [30, 45, 60]
+              quote: false
