@@ -1,6 +1,6 @@
 # dbt model reference
 
-The source tree contains 83 SQL models in three layers: 24 silver staging models, 29 gold-core models (seven dimensions, 19 facts, three bridges), and 30 serving marts. The continuous realtime stream (five silver views, `fct_stop_visit`, `fct_trip_status`) was added for the [realtime stop visits plan](../../docs/technical/plans/realtime-stop-visits.md). This inventory was reconciled against SQL on October 27, 2026, when the layered model was cut over in production ([#63](https://github.com/medsidd/whyline-denver/pull/63)). Follow each linked definition for the actual SELECT list, dependencies, filters, and incremental key; schema YAML and the generated catalog provide column metadata.
+The source tree contains 85 SQL models in three layers: 24 silver staging models, 30 gold-core models (seven dimensions, 19 facts, four bridges), and 31 serving marts. The continuous realtime stream (five silver views, `fct_stop_visit`, `fct_trip_status`) was added for the [realtime stop visits plan](../../docs/technical/plans/realtime-stop-visits.md). This inventory was reconciled against SQL on October 27, 2026, when the layered model was cut over in production ([#63](https://github.com/medsidd/whyline-denver/pull/63)). Follow each linked definition for the actual SELECT list, dependencies, filters, and incremental key; schema YAML and the generated catalog provide column metadata.
 
 Project `whyline_denver_dbt`, profile `whyline_denver`. `dbt_project.yml` defaults models to views; the core folder defaults to tables; individual SQL config overrides both. Datasets: staging → `stg_denver` (`BQ_DATASET_STG`), core → `core_denver` (`BQ_DATASET_CORE`), marts → `mart_denver` (`BQ_DATASET_MART`). Bronze is `raw_denver`.
 
@@ -71,6 +71,7 @@ Dimensions carry INT64 surrogate keys (`farm_fingerprint` of the natural key and
 | [bridge_stop_block_group](core/bridge_stop_block_group.sql) | table | Current stop × the Denver block group containing it. |
 | [bridge_stop_street_safety](core/bridge_stop_street_safety.sql) | table | Current Denver stop: High Injury Network within 30 m and tier, nearest signal, curb ramps within 50 m, bikeway, transit lane and transit signals nearby. |
 | [fct_rtd_reported_performance](core/fct_rtd_reported_performance.sql) | table | Month × RTD service category × metric as RTD reported it (operations reports, from January 2025). |
+| [bridge_segment_transit_lane](core/bridge_segment_transit_lane.sql) | table | Stop-to-stop segment × Denver transit lane it runs along (at least half within 15 m). |
 | [bridge_stop_tract](core/bridge_stop_tract.sql) | table | Current stop × tract within 804.672 m; `weighting_factor` is the tract's population share and sums to 1 per stop. |
 
 Bus matrix:
@@ -127,6 +128,7 @@ Schedule snapshots: a day's GTFS load counts only if every file loaded that day 
 | [mart_stop_scorecard](marts/scorecards/mart_stop_scorecard.sql) | table | Current stop: service, reliability, wait, predictions, crowding, safety, access, alerts, equity and micromobility over 28 days, each with its count. `allow_in_app: false` until release R4. |
 | [mart_route_scorecard](marts/scorecards/mart_route_scorecard.sql) | table | Route: frequency and span, on-time share, excess wait, delivered and missed trips, predictions, crowding, buffer time index, alert hours over 28 days. `allow_in_app: false` until release R4. |
 | [mart_reported_vs_measured_by_month](marts/reliability/mart_reported_vs_measured_by_month.sql) | table | Month × service: RTD's reported on-time share beside WhyLine's measured one. `allow_in_app: false` until release R3. |
+| [mart_transit_lane_speed_by_week](marts/reliability/mart_transit_lane_speed_by_week.sql) | table | Lane corridor × lane or same-routes-no-lane × week × period: median speed and delay ratio; before-and-after via `lane_openings`. `allow_in_app: false`. |
 | [mart_crowding_by_stop](marts/realtime/mart_crowding_by_stop.sql) | table | Stop × route × direction × weekday/weekend × hour over the last 28 service dates: share of visits arriving with few seats or standing room. `allow_in_app: false` until its coverage check. |
 
 Marts keep their names, grains, and original column order; descriptive columns are appended at the end (`stop_name`, `lat`, `lon`; `route_name`, `route_long_name`; `route_name_mode`). The per-stop marts cover stops in the latest GTFS extract (8,162 on October 27, 2026); the reference marts keep retired IDs so historical rows still resolve names.
@@ -164,7 +166,7 @@ Changing source data outside these windows does not repair historical results; r
 
 ## API, export, and schemas
 
-All 30 marts declare `meta.allow_in_app`; the 12 set to true are listed in `src/whyline/sync/constants.py`. API exposure requires both; it also needs matching manifest/catalog artifacts. The two GTFS reference marts are not in the ten-mart CSV-download list. DuckDB refresh maintains separate materialization/latest-snapshot sets and reads Parquet by column name, so appended columns load alongside older partitions. See [add a mart](../../docs/technical/guides/ADDING_A_MART.md).
+All 31 marts declare `meta.allow_in_app`; the 12 set to true are listed in `src/whyline/sync/constants.py`. API exposure requires both; it also needs matching manifest/catalog artifacts. The two GTFS reference marts are not in the ten-mart CSV-download list. DuckDB refresh maintains separate materialization/latest-snapshot sets and reads Parquet by column name, so appended columns load alongside older partitions. See [add a mart](../../docs/technical/guides/ADDING_A_MART.md).
 
 Column descriptions and tests are in [staging schema](staging/schema.yml), [core schema](core/schema.yml), and [mart schema](marts/schema.yml). Raw source declarations live in [sources_raw.yml](sources_raw.yml); custom generic tests in `dbt/macros/tests/`; singular tests in `dbt/tests/`; extract helpers (`latest_extract_date`, `recent_extracts_filter`, `scd2_from_extracts`) in `dbt/macros/extracts.sql`. Generated [dbt docs](https://medsidd.github.io/whyline-denver/) describe the last published artifact, which can differ from a working tree.
 

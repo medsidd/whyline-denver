@@ -1,6 +1,6 @@
 flowchart LR
   accTitle: Current dbt model lineage
-  accDescr: 25 bronze tables and 83 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
+  accDescr: 25 bronze tables and 85 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
   subgraph bronze["Bronze: raw_denver"]
     direction TB
     raw_acs_tract["raw_acs_tract"]
@@ -58,6 +58,7 @@ flowchart LR
   end
   subgraph gold_core["Gold core: core_denver (Kimball)"]
     direction TB
+    bridge_segment_transit_lane["bridge_segment_transit_lane"]
     bridge_stop_block_group["bridge_stop_block_group"]
     bridge_stop_street_safety["bridge_stop_street_safety"]
     bridge_stop_tract["bridge_stop_tract"]
@@ -114,6 +115,7 @@ flowchart LR
     mart_stop_closures["mart_stop_closures"]
     mart_stop_scorecard["mart_stop_scorecard"]
     mart_stop_walk_safety["mart_stop_walk_safety"]
+    mart_transit_lane_speed_by_week["mart_transit_lane_speed_by_week"]
     mart_trip_runtime_by_route_day["mart_trip_runtime_by_route_day"]
     mart_vulnerability_by_stop["mart_vulnerability_by_stop"]
     mart_wait_by_route_day["mart_wait_by_route_day"]
@@ -121,6 +123,7 @@ flowchart LR
     mart_weather_impacts["mart_weather_impacts"]
     mart_weather_impacts_hourly["mart_weather_impacts_hourly"]
   end
+  bridge_segment_transit_lane --> mart_transit_lane_speed_by_week
   bridge_stop_block_group --> mart_service_equity_by_group
   bridge_stop_block_group --> mart_vulnerability_by_stop
   bridge_stop_street_safety --> mart_stop_walk_safety
@@ -141,6 +144,7 @@ flowchart LR
   dim_route --> mart_service_frequency_by_stop
   dim_route --> mart_weather_impacts
   dim_sidewalk_segment --> mart_access_score_by_stop
+  dim_stop --> bridge_segment_transit_lane
   dim_stop --> bridge_stop_block_group
   dim_stop --> bridge_stop_street_safety
   dim_stop --> bridge_stop_tract
@@ -189,7 +193,9 @@ flowchart LR
   fct_scheduled_stop_time --> mart_service_equity_by_group
   fct_scheduled_stop_time --> mart_service_frequency_by_stop
   fct_scheduled_stop_time --> mart_service_intensity_by_tract
+  fct_segment_traversal --> bridge_segment_transit_lane
   fct_segment_traversal --> mart_segment_speed_by_hour
+  fct_segment_traversal --> mart_transit_lane_speed_by_week
   fct_stop_arrival --> mart_reliability_by_stop_hour
   fct_stop_headway --> mart_route_scorecard
   fct_stop_headway --> mart_service_equity_by_group
@@ -258,6 +264,7 @@ flowchart LR
   raw_weather_daily --> stg_weather
   raw_weather_hourly --> stg_weather_hourly
   stg_acs_geo --> fct_tract_demographics
+  stg_arcgis_reference --> bridge_segment_transit_lane
   stg_arcgis_reference --> bridge_stop_street_safety
   stg_arcgis_reference --> dim_block_group
   stg_denver_crashes --> fct_crash

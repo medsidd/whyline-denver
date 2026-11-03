@@ -924,3 +924,32 @@ models:
         description: "Stop visits with a known delay behind WhyLine's share."
       - name: n_days_measured
         description: "Service dates measured in the month."
+  - name: mart_transit_lane_speed_by_week
+    description: "Weekly running speed on each Denver transit-lane corridor beside the same routes' segments without a lane, by period. Every lane in the city's layer predates WhyLine's data, so this is cross-sectional until a lane opens with a date set in var('lane_openings')."
+    data_tests:
+      - unique_combination:
+          column_names: ['corridor', 'segment_group', 'week_start', 'period']
+    columns:
+      - name: corridor
+        description: "Lane corridor name from Denver's layer (trimmed)."
+      - name: segment_group
+        description: "lane (the corridor's lane segments) or same_routes_no_lane (segments of the routes that use the lane, where there is no lane)."
+        data_tests:
+          - accepted_values:
+              values: ['lane', 'same_routes_no_lane']
+      - name: week_start
+        description: "Monday of the week (service dates)."
+      - name: period
+        description: "early, am_peak, midday, pm_peak, evening or night, by departure hour."
+      - name: n_traversals
+        description: "Timed segment traversals."
+      - name: p50_speed_kmh
+        description: "Median speed, km/h."
+      - name: p50_delay_ratio
+        description: "Median running time over scheduled running time; below 1 is faster than scheduled."
+      - name: first_year_built
+        description: "Earliest build year among the corridor's lanes."
+      - name: last_year_built
+        description: "Latest build year among the corridor's lanes."
+      - name: weeks_since_opening
+        description: "Weeks from the opening date set in var('lane_openings'); NULL when no date is set."

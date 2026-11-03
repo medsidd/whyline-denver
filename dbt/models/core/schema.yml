@@ -350,3 +350,9 @@ models:
           - accepted_range:
               min_value: 0
               max_value: 100
+
+  - name: bridge_segment_transit_lane
+    description: "Stop-to-stop segments that run along a Denver transit lane (at least half of the line between the stops within 15 m of the lane), with the lane's corridor, type and build year. One row per segment and lane."
+    data_tests:
+      - unique_combination:
+          column_names: ['from_stop_id', 'to_stop_id', 'corridor', 'lane_type', 'year_built']
