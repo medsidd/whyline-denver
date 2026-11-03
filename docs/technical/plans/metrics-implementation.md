@@ -265,6 +265,15 @@ Whichever of a work package and #71 merges second rebases the README counts and 
 - The bus-lane before-and-after comparison waits for WP7's lane layer, as planned.
 - A nightly build reads about 100 MB per model.
 
+**As built, bus lanes (2026-11-02):**
+- **No before-and-after is possible yet.** Denver's lane layer has 24 lane features on 13 corridors, all built between 1975 and 2022, before WhyLine's timed data starts on 2026-10-28.
+- **What was built instead:**
+  - `bridge_segment_transit_lane`: 115 segment-lane pairs, where at least half the stop-to-stop line lies within 15 m;
+  - `mart_transit_lane_speed_by_week`: weekly speed and delay ratio on each corridor beside the same routes' segments without a lane;
+  - a `lane_openings` variable that adds weeks since opening for any lane opened later.
+- **First reading (2026-10-28 to 2026-11-02), confounded:** lane segments run slower in km/h, being downtown with close stops. On 15th Street (0.70 vs 0.84 at midday), Broadway (0.75 vs 0.81) and the 16th Street Mall (0.55 vs 0.62), lane segments beat their schedule by more than the same routes elsewhere. On 17th Street and Colfax they do worse.
+- **Data fix:** one corridor name has a trailing space in the city's data, and is trimmed.
+
 ## WP6: scheduled frequency and span (item 6, static GTFS only)
 
 **User question:** "How often does my bus run, and is my neighbourhood underserved?"

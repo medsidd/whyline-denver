@@ -169,6 +169,15 @@ Limits:
 - The N Line is withheld: on 2026-10-30 only 3 of its trains reported positions, so most of its trips had no vehicle.
 - A late trip still counts as delivered; lateness is in the reliability metrics.
 
+## Bus lanes
+
+`mart_transit_lane_speed_by_week` compares, week by week and by period, the median speed and delay ratio (running time over scheduled) on each Denver transit-lane corridor with the same routes' segments that have no lane. A segment counts as on the lane when at least half of the straight line between its stops lies within 15 m of the lane.
+
+Limits:
+- **No before-and-after yet.** Every lane in the city's layer was built by 2022, before WhyLine's timed data starts on 2026-10-28.
+- **The comparison is confounded.** Lane segments are on busy downtown streets with closely spaced stops, so they're slower in km/h whatever the lane does. Compare delay ratios, and the change between midday and the peaks, rather than raw speed.
+- **For a new lane:** set its opening date in the `lane_openings` variable, and `weeks_since_opening` counts the weeks before and after.
+
 ## Wait time, bunching and gaps
 
 For frequent service, riders turn up without checking a timetable, so what matters is how evenly vehicles are spaced. A headway is the time between one vehicle of a route and direction reaching a stop and the next one reaching it.
