@@ -52,7 +52,11 @@ w as (
     select
         weather_date as service_date_mst,
         precip_bin,
-        snow_day
+        snow_day,
+        precip_mm,
+        snow_mm,
+        tmin_c,
+        tmax_c
     from {{ ref('fct_weather_daily') }}
     where station = '{{ var("weather_station", "USW00003017") }}'
 ),
@@ -110,7 +114,11 @@ agg as (
         ) as pct_shape_crossing,
         safe_divide(countif(arrival_method like '%prediction%'), countif(not skipped)) as pct_last_prediction,
         safe_divide(countif(within_30s), countif(not skipped)) as pct_within_30s,
-        approx_quantiles(arrival_window_sec, 100)[offset(50)] as median_window_sec
+        approx_quantiles(arrival_window_sec, 100)[offset(50)] as median_window_sec,
+        any_value(w.precip_mm) as precip_mm,
+        any_value(w.snow_mm) as snow_mm,
+        any_value(w.tmin_c) as tmin_c,
+        any_value(w.tmax_c) as tmax_c
     from e
     left join w
         using (service_date_mst)
@@ -124,7 +132,7 @@ agg as (
 select
     agg.* except (
         data_version, n_skipped, pct_shape_crossing, pct_last_prediction, pct_within_30s,
-        median_window_sec
+        median_window_sec, precip_mm, snow_mm, tmin_c, tmax_c
     ),
     r.route_name,
     r.route_long_name,
@@ -138,7 +146,18 @@ select
     agg.pct_shape_crossing,
     agg.pct_last_prediction,
     agg.pct_within_30s,
-    agg.median_window_sec
+    agg.median_window_sec,
+    agg.precip_mm,
+    agg.snow_mm,
+    agg.tmin_c,
+    agg.tmax_c,
+    -- The same bands as mart_weather_impacts_hourly, on the day's mean temperature.
+    case
+        when (agg.tmin_c + agg.tmax_c) / 2 < -10 then 'below_-10'
+        when (agg.tmin_c + agg.tmax_c) / 2 < 0 then '-10_to_0'
+        when (agg.tmin_c + agg.tmax_c) / 2 < 30 then '0_to_30'
+        when (agg.tmin_c + agg.tmax_c) / 2 >= 30 then '30_plus'
+    end as temp_band
 from agg
 left join canceled as c
     on c.route_id = agg.route_id

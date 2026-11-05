@@ -51,6 +51,19 @@ models:
         description: "Share of visits whose arrival window (earliest to latest) is at most 30 seconds."
       - name: median_window_sec
         description: "Median arrival window in seconds."
+      - name: precip_mm
+        description: "Precipitation that day in millimetres at the weather station. NULL before the stop-visit cutover."
+      - name: snow_mm
+        description: "Snowfall that day in millimetres. NULL before the stop-visit cutover."
+      - name: tmin_c
+        description: "Lowest temperature that day in Celsius. NULL before the stop-visit cutover."
+      - name: tmax_c
+        description: "Highest temperature that day in Celsius. NULL before the stop-visit cutover."
+      - name: temp_band
+        description: "Band of the day's mean temperature."
+        data_tests:
+          - accepted_values:
+              values: ['below_-10', '-10_to_0', '0_to_30', '30_plus']
   - name: mart_reliability_by_stop_hour
     description: "Hourly reliability per stop (one row per stop_id, service date, arrival hour) from observed stop visits, with headways between consecutive visits by the same route and direction. Partitions before the cutover keep the legacy sampled method (data_version NULL)."
     columns:
