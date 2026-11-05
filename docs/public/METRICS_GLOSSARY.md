@@ -74,6 +74,8 @@ The backfill (`backfill_v1`) recomputes the earlier dates as stop visits from th
 
 `snow_day` is derived from snow observations and can be null when unavailable. Precipitation category alone does not identify snow. The ready-made snow question compares each route's on-time share on snow days (`snow_day` true) with other days over the last year, for routes with at least three snow days.
 
+`mart_reliability_by_route_day` also carries the day's `precip_mm`, `snow_mm`, `tmin_c` and `tmax_c`, plus `temp_band` on the mean of the low and high: below −10 °C, −10 to 0, 0 to 30, and 30 °C and above. They're NULL on partitions from before the cutover, which can't be rebuilt. For on-time by temperature, `mart_weather_impacts_hourly` uses the temperature in the hour of each visit.
+
 `mart_weather_impacts` averages route-day `pct_on_time` values per route/bin over the configured 30-day window, using stop-visit days only so the change of method isn't read as a weather effect. It subtracts that route's dry (`none`) average to form `delta_pct_on_time`. A delta of -0.15 means 15 percentage points lower than the dry baseline, not a 15% relative drop. Unknown days are excluded; absent dry observations yield a null baseline/delta. The averages weight route-day rows equally rather than by event count and establish association, not causation.
 
 ## Safety

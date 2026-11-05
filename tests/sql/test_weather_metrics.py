@@ -69,11 +69,11 @@ def test_missing_weather_is_unknown_and_excluded_from_weather_comparison():
             """
             CREATE TABLE fct_weather_daily AS
             SELECT * FROM (VALUES
-                (DATE '2026-10-01', 'USW00003017', 'none', false),
-                (DATE '2026-10-02', 'USW00003017', 'light', false),
-                (DATE '2026-10-03', 'OTHER', 'heavy', true),
-                (DATE '2026-10-04', 'USW00003017', NULL, NULL)
-            ) w(weather_date, station, precip_bin, snow_day);
+                (DATE '2026-10-01', 'USW00003017', 'none', false, 0.0, 0.0, -20.0, -4.0),
+                (DATE '2026-10-02', 'USW00003017', 'light', false, 2.0, 0.0, 10.0, 22.0),
+                (DATE '2026-10-03', 'OTHER', 'heavy', true, 9.0, 5.0, 28.0, 36.0),
+                (DATE '2026-10-04', 'USW00003017', NULL, NULL, NULL, NULL, NULL, NULL)
+            ) w(weather_date, station, precip_bin, snow_day, precip_mm, snow_mm, tmin_c, tmax_c);
             CREATE TABLE dim_route AS
             SELECT * FROM (VALUES
                 ('15', '15', 'Old name', false),
@@ -86,15 +86,15 @@ def test_missing_weather_is_unknown_and_excluded_from_weather_comparison():
             + render_model("mart_reliability_by_route_day")
         )
         rows = con.execute(
-            "SELECT precip_bin, snow_day, route_long_name FROM mart_reliability_by_route_day "
-            "ORDER BY service_date_mst"
+            "SELECT precip_bin, snow_day, route_long_name, temp_band, precip_mm "
+            "FROM mart_reliability_by_route_day ORDER BY service_date_mst"
         ).fetchall()
         # Other stations are ignored; names come from the latest route version only.
         assert rows == [
-            ("none", False, "East Colfax"),
-            ("light", False, "East Colfax"),
-            ("unknown", None, "East Colfax"),
-            ("unknown", None, "East Colfax"),
+            ("none", False, "East Colfax", "below_-10", 0.0),
+            ("light", False, "East Colfax", "0_to_30", 2.0),
+            ("unknown", None, "East Colfax", None, None),
+            ("unknown", None, "East Colfax", None, None),
         ]
         con.execute(
             "INSERT INTO mart_reliability_by_route_day "
@@ -115,7 +115,8 @@ def test_on_time_follows_rtd_and_unknown_delays_are_excluded():
         visits(con, [("15", "2026-10-01", d) for d in (-90, -30, 0, 300, 301, None)])
         con.execute(
             "CREATE TABLE fct_weather_daily AS SELECT DATE '2026-10-01' AS weather_date, "
-            "'USW00003017' AS station, 'none' AS precip_bin, false AS snow_day"
+            "'USW00003017' AS station, 'none' AS precip_bin, false AS snow_day, 0.0 AS precip_mm, "
+            "0.0 AS snow_mm, 5.0 AS tmin_c, 15.0 AS tmax_c"
         )
         con.execute(
             "CREATE TABLE dim_route AS SELECT '15' AS route_id, '15' AS route_name, "
