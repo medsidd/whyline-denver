@@ -12,7 +12,7 @@ Published after the stop-visit review.
 with visits as (
     select
         v.route_id,
-        if(v.delay_sec between -{{ var('on_time_early_sec', 60) }} and {{ var('on_time_late_sec', 300) }}, 1, 0) as on_time,
+        if(v.delay_sec > -{{ var('on_time_early_sec', 60) }} and v.delay_sec <= {{ var('on_time_late_sec', 300) }}, 1, 0) as on_time,
         v.delay_sec,
         w.precip_mm,
         w.snowfall_mm,

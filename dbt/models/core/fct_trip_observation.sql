@@ -1,5 +1,6 @@
 {{
     config(
+        enabled=false,
         materialized='incremental',
         incremental_strategy='merge',
         unique_key=['feed_ts_utc', 'trip_id'],
@@ -10,6 +11,9 @@
 }}
 
 {#
+LEGACY, frozen at the stop-visit cutover (enabled=false keeps the table but stops all runs and
+tests). It sampled one predicted terminal arrival per poll and trip, not observed stop arrivals;
+fct_stop_visit replaces it. Remove the flag only to rebuild history deliberately.
 Grain: one realtime observation per feed poll x trip (sampled, not every arrival).
 Delay resolution: the reported delay, else event time minus the scheduled time for the
 same trip/stop/date, else NULL in *_raw and 0 in delay_sec (counted as on time).

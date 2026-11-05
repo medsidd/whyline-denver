@@ -43,6 +43,7 @@ models:
           - not_null
 
   - name: stg_rt_events
+    description: "LEGACY (disabled at the stop-visit cutover): one sampled trip-update and vehicle-position row per feed poll x trip. Replaced by the stream views and core.fct_stop_visit."
     columns:
       - name: feed_ts_utc
         data_tests:

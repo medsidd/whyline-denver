@@ -1,5 +1,6 @@
 {{
     config(
+        enabled=false,
         materialized='incremental',
         incremental_strategy='merge',
         unique_key='stop_arrival_key',
@@ -10,6 +11,9 @@
 }}
 
 {#
+LEGACY, frozen at the stop-visit cutover (enabled=false keeps the table but stops all runs and
+tests). It sampled one predicted terminal arrival per poll and trip, not observed stop arrivals;
+fct_stop_visit replaces it. Remove the flag only to rebuild history deliberately.
 Grain: one observed stop event per route x direction x stop x service date x event time,
 with the observed headway, the nearest scheduled headway, and an adherence flag.
 Incremental: 3 days; full refresh: rt_events_lookback_days.

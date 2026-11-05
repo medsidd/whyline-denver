@@ -5,7 +5,9 @@ with rel as (
         stop_id,
         100.0 * (1 - avg(pct_on_time)) as reliability_score_0_100
     from {{ ref('mart_reliability_by_stop_hour') }}
-    where service_date_mst >= date_sub(current_date("America/Denver"), interval 35 day)
+    -- Stop-visit days only, so a window that spans the cutover doesn't average the two methods.
+    where data_version is not null
+      and service_date_mst >= date_sub(current_date("America/Denver"), interval 35 day)
     group by stop_id
 ),
 cr as (

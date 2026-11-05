@@ -46,17 +46,19 @@ SELECT service_date_mst, COUNT(*) AS route_day_rows,
        COUNTIF(route_id IS NULL) AS null_routes,
        COUNTIF(precip_bin = 'unknown') AS unknown_weather_rows,
        SUM(n_events) AS events,
-       SUM(n_reported_events) AS reported_delay_events
+       SUM(n_reported_events) AS reported_delay_events,
+       SUM(n_scheduled) AS scheduled_stop_events,
+       COUNTIF(data_version IS NULL) AS legacy_rows
 FROM `whyline-denver.mart_denver.mart_reliability_by_route_day`
 WHERE service_date_mst >= DATE_SUB(CURRENT_DATE('America/Denver'), INTERVAL 7 DAY)
 GROUP BY service_date_mst ORDER BY service_date_mst;
 ```
 
-Check zero null routes and on-time values within 0–1; inspect event/reporting coverage before trusting the rate. Missing transit delay can be coalesced to zero, while missing weather must remain unknown/null. Weather-impact rows require observed weather; dry baselines can be null if no dry-day overlap exists. A daily window need not have a fixed completeness percentage.
+Check zero null routes and on-time values within 0–1; inspect event/reporting coverage before trusting the rate. Unknown transit delays are excluded from on-time shares (compare `n_reported_events` with `n_events`), and missing weather must remain unknown/null. Dates after the cutover should have no legacy rows. Weather-impact rows require observed weather; dry baselines can be null if no dry-day overlap exists. A daily window need not have a fixed completeness percentage.
 
 ### Stream and stop visits
 
-Once the stream poller is deployed, check that batches keep arriving and how visits were timed. Raw stop visits are partitioned by load hour, so this reads one day:
+Check that stream batches keep arriving and how visits were timed. Raw stop visits are partitioned by load hour, so this reads one day:
 
 ```sql
 SELECT TIMESTAMP_TRUNC(_ingested_at, HOUR) AS load_hour,

@@ -35,7 +35,7 @@ headways as (
         if(scheduled_headway_sec between 1 and 900, observed_headway_sec, null) as h,
         if(observed_headway_sec is not null and scheduled_headway_sec between 1 and 900, scheduled_headway_sec, null) as s,
         if(delay_sec is null, null,
-            if(delay_sec between -{{ var('on_time_early_sec', 60) }} and {{ var('on_time_late_sec', 300) }}, 1, 0)) as on_time
+            if(delay_sec > -{{ var('on_time_early_sec', 60) }} and delay_sec <= {{ var('on_time_late_sec', 300) }}, 1, 0)) as on_time
     from {{ ref('fct_stop_headway') }}
     where service_date between {{ since }} and {{ until }}
 ),

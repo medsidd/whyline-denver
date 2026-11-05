@@ -7,10 +7,13 @@ sources:
       warn_after: {count: 2, period: day}
       error_after: {count: 5, period: day}
     tables:
+      # Frozen when realtime-ingest paused at the stop-visit cutover.
       - name: raw_gtfsrt_trip_updates
         loaded_at_field: _ingested_at
+        freshness: null
       - name: raw_gtfsrt_vehicle_positions
         loaded_at_field: _ingested_at
+        freshness: null
       - name: raw_crashes
         loaded_at_field: _ingested_at
       - name: raw_sidewalks

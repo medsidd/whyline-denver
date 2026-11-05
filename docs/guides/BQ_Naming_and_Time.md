@@ -25,7 +25,7 @@ UTC timestamp names such as `feed_ts_utc` and `event_ts_utc` preserve an absolut
 
 GTFS times can exceed 24:00. `dbt/macros/` contains the conversion/calendar helpers; do not truncate late-night times modulo 24 without advancing the date. `fct_scheduled_stop_time` expands each service date from the GTFS snapshot current on that date and keeps past dates as published; nightly runs replace only today through +30 days.
 
-`fct_stop_visit` and `fct_trip_status` take `service_date` from GTFS `start_date`, so a trip that runs past midnight belongs to the day it began. The reliability marts still derive service dates from the event timestamp in Denver time. This can differ from an agency's operational service-day assignment for trips after midnight. Review SQL before treating a service-date label as an exact GTFS `start_date` match.
+`fct_stop_visit` and `fct_trip_status` take `service_date` from GTFS `start_date`, so a trip that runs past midnight belongs to the day it began; the reliability marts' `service_date_mst` is that service date. Their legacy partitions (before the stop-visit cutover) used the Denver date of the poll instead, which can differ for trips after midnight.
 
 Loader Makefile date windows are UTC: before 06:00 UTC include yesterday, otherwise today. That cutoff is not 06:00 Mountain Time. GitHub cron expressions are UTC; user-facing operations reports specify their timezone explicitly.
 

@@ -7,6 +7,8 @@ exposures:
     url: https://www.whylinedenver.com/app
     description: |
       Next.js dashboard backed by FastAPI, querying curated marts through DuckDB or BigQuery.
+      The reliability marts count observed stop visits (core.fct_stop_visit) since the
+      stop-visit cutover; earlier partitions keep the legacy sampled method.
     owner:
       name: WhyLine Team
     depends_on:

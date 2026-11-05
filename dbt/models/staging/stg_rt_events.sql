@@ -1,5 +1,6 @@
 {{
     config(
+        enabled=false,
         materialized='incremental',
         unique_key=['feed_ts_utc', 'trip_id'],
         partition_by={'field': 'event_date_mst', 'data_type': 'date'},
@@ -10,6 +11,9 @@
 }}
 
 {#
+LEGACY, frozen at the stop-visit cutover (enabled=false keeps the table but stops all runs and
+tests). It sampled one predicted terminal arrival per poll and trip, not observed stop arrivals;
+fct_stop_visit replaces it. Remove the flag only to rebuild history deliberately.
 Silver: trip updates merged with vehicle positions, one row per feed poll x trip. Reported
 delays only; schedule-derived delays and dimension keys are added in core.fct_trip_observation.
 - Full refresh: 45-day lookback (raise rt_events_lookback_days to rebuild from all bronze)

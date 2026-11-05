@@ -41,7 +41,7 @@ grouped as (
         avg(if(h is null, null, if(h > 1.5 * s, 1, 0))) as pct_gap,
         avg(if(
             delay_sec is null, null,
-            if(delay_sec between -{{ var('on_time_early_sec', 60) }} and {{ var('on_time_late_sec', 300) }}, 1, 0)
+            if(delay_sec > -{{ var('on_time_early_sec', 60) }} and delay_sec <= {{ var('on_time_late_sec', 300) }}, 1, 0)
         )) as pct_on_time,
         approx_quantiles(delay_sec, 10)[offset(9)] as p90_delay_sec
     from headways

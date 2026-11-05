@@ -61,7 +61,7 @@ models:
         data_tests: [not_null, unique]
 
   - name: fct_trip_observation
-    description: "One realtime observation per feed poll x trip. delay_sec_raw = reported delay, else schedule-derived; delay_sec defaults missing to 0."
+    description: "LEGACY (disabled at the stop-visit cutover): one sampled prediction per feed poll x trip, usually of the trip's terminal arrival, not an observed stop arrival. delay_sec defaulted unknown delays to 0. Replaced by fct_stop_visit."
     data_tests:
       - unique_combination:
           column_names: ['feed_ts_utc', 'trip_id']
@@ -97,7 +97,7 @@ models:
         data_tests: [not_null]
 
   - name: fct_stop_arrival
-    description: "One observed stop event per route x direction x stop x date x event time, with observed and nearest scheduled headways."
+    description: "LEGACY (disabled at the stop-visit cutover): headways between sampled predicted terminal arrivals, not observed stop arrivals. Replaced by headways between consecutive fct_stop_visit rows in mart_reliability_by_stop_hour."
     columns:
       - name: stop_arrival_key
         data_tests:

@@ -30,7 +30,7 @@ reliability as (
         stop_id,
         count(*) as n_visits_measured,
         avg(if(delay_sec is null, null,
-            if(delay_sec between -{{ var('on_time_early_sec', 60) }} and {{ var('on_time_late_sec', 300) }}, 1, 0))) as pct_on_time,
+            if(delay_sec > -{{ var('on_time_early_sec', 60) }} and delay_sec <= {{ var('on_time_late_sec', 300) }}, 1, 0))) as pct_on_time,
         safe_divide(
             sum(if(scheduled_headway_sec between 1 and 900, pow(observed_headway_sec, 2), null)),
             2 * sum(if(scheduled_headway_sec between 1 and 900, observed_headway_sec, null))

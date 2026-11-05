@@ -1,6 +1,6 @@
 flowchart LR
   accTitle: Current dbt model lineage
-  accDescr: 26 bronze tables and 88 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
+  accDescr: 24 bronze tables and 85 SQL models in silver, gold-core, and gold-serving layers, with edges extracted from source and ref calls.
   subgraph bronze["Bronze: raw_denver"]
     direction TB
     raw_acs_tract["raw_acs_tract"]
@@ -19,9 +19,7 @@ flowchart LR
     raw_gtfsrt_alerts["raw_gtfsrt_alerts"]
     raw_gtfsrt_stop_visits["raw_gtfsrt_stop_visits"]
     raw_gtfsrt_trip_status["raw_gtfsrt_trip_status"]
-    raw_gtfsrt_trip_updates["raw_gtfsrt_trip_updates"]
     raw_gtfsrt_tu_changes["raw_gtfsrt_tu_changes"]
-    raw_gtfsrt_vehicle_positions["raw_gtfsrt_vehicle_positions"]
     raw_gtfsrt_vp_stream["raw_gtfsrt_vp_stream"]
     raw_job_access["raw_job_access"]
     raw_ntd_monthly["raw_ntd_monthly"]
@@ -48,7 +46,6 @@ flowchart LR
     stg_ntd_monthly["stg_ntd_monthly"]
     stg_rt_alert_periods["stg_rt_alert_periods"]
     stg_rt_alerts["stg_rt_alerts"]
-    stg_rt_events["stg_rt_events"]
     stg_rt_prediction_changes["stg_rt_prediction_changes"]
     stg_rt_stop_visits["stg_rt_stop_visits"]
     stg_rt_trip_status["stg_rt_trip_status"]
@@ -81,12 +78,10 @@ flowchart LR
     fct_rtd_reported_performance["fct_rtd_reported_performance"]
     fct_scheduled_stop_time["fct_scheduled_stop_time"]
     fct_segment_traversal["fct_segment_traversal"]
-    fct_stop_arrival["fct_stop_arrival"]
     fct_stop_headway["fct_stop_headway"]
     fct_stop_visit["fct_stop_visit"]
     fct_stream_health["fct_stream_health"]
     fct_tract_demographics["fct_tract_demographics"]
-    fct_trip_observation["fct_trip_observation"]
     fct_trip_occupancy["fct_trip_occupancy"]
     fct_trip_status["fct_trip_status"]
     fct_weather_daily["fct_weather_daily"]
@@ -138,7 +133,6 @@ flowchart LR
   dim_block_group --> mart_service_equity_by_group
   dim_block_group --> mart_vulnerability_by_stop
   dim_route --> fct_scheduled_stop_time
-  dim_route --> fct_trip_observation
   dim_route --> fct_trip_status
   dim_route --> mart_frequent_network_by_route
   dim_route --> mart_gtfs_routes
@@ -155,7 +149,6 @@ flowchart LR
   dim_stop --> bridge_stop_tract
   dim_stop --> fct_micromobility_near_stop
   dim_stop --> fct_scheduled_stop_time
-  dim_stop --> fct_trip_observation
   dim_stop --> mart_access_score_by_stop
   dim_stop --> mart_crash_proximity_by_stop
   dim_stop --> mart_crowding_by_stop
@@ -176,7 +169,6 @@ flowchart LR
   dim_tract --> fct_micromobility_near_stop
   dim_tract --> fct_tract_demographics
   dim_trip --> fct_scheduled_stop_time
-  dim_trip --> fct_trip_observation
   dim_trip --> fct_trip_status
   fct_alert --> mart_alerts_by_route_day
   fct_alert --> mart_stop_closures
@@ -192,10 +184,9 @@ flowchart LR
   fct_prediction_accuracy --> mart_route_scorecard
   fct_prediction_accuracy --> mart_stop_scorecard
   fct_rtd_reported_performance --> mart_reported_vs_measured_by_month
-  fct_scheduled_stop_time --> fct_stop_arrival
   fct_scheduled_stop_time --> fct_stop_visit
-  fct_scheduled_stop_time --> fct_trip_observation
   fct_scheduled_stop_time --> mart_frequent_network_by_route
+  fct_scheduled_stop_time --> mart_reliability_by_route_day
   fct_scheduled_stop_time --> mart_service_delivered_by_route_day
   fct_scheduled_stop_time --> mart_service_equity_by_group
   fct_scheduled_stop_time --> mart_service_frequency_by_stop
@@ -203,7 +194,6 @@ flowchart LR
   fct_segment_traversal --> bridge_segment_transit_lane
   fct_segment_traversal --> mart_segment_speed_by_hour
   fct_segment_traversal --> mart_transit_lane_speed_by_week
-  fct_stop_arrival --> mart_reliability_by_stop_hour
   fct_stop_headway --> mart_route_scorecard
   fct_stop_headway --> mart_service_equity_by_group
   fct_stop_headway --> mart_stop_scorecard
@@ -213,21 +203,21 @@ flowchart LR
   fct_stop_visit --> fct_segment_traversal
   fct_stop_visit --> fct_stop_headway
   fct_stop_visit --> fct_trip_occupancy
+  fct_stop_visit --> mart_reliability_by_route_day
+  fct_stop_visit --> mart_reliability_by_stop_hour
   fct_stop_visit --> mart_reported_vs_measured_by_month
   fct_stop_visit --> mart_trip_runtime_by_route_day
   fct_stop_visit --> mart_weather_impacts_hourly
   fct_stream_health --> mart_service_delivered_by_route_day
   fct_tract_demographics --> bridge_stop_tract
   fct_tract_demographics --> mart_vulnerability_by_stop
-  fct_trip_observation --> fct_stop_arrival
-  fct_trip_observation --> mart_reliability_by_route_day
-  fct_trip_observation --> mart_reliability_by_stop_hour
   fct_trip_occupancy --> mart_crowding_by_route_hour
   fct_trip_occupancy --> mart_crowding_by_stop
   fct_trip_occupancy --> mart_route_scorecard
   fct_trip_occupancy --> mart_service_equity_by_group
   fct_trip_occupancy --> mart_stop_scorecard
   fct_trip_status --> fct_stop_headway
+  fct_trip_status --> mart_reliability_by_route_day
   fct_trip_status --> mart_service_delivered_by_route_day
   fct_weather_daily --> mart_reliability_by_route_day
   fct_weather_hourly --> mart_weather_impacts_hourly
@@ -261,9 +251,7 @@ flowchart LR
   raw_gtfsrt_alerts --> stg_rt_alerts
   raw_gtfsrt_stop_visits --> stg_rt_stop_visits
   raw_gtfsrt_trip_status --> stg_rt_trip_status
-  raw_gtfsrt_trip_updates --> stg_rt_events
   raw_gtfsrt_tu_changes --> stg_rt_prediction_changes
-  raw_gtfsrt_vehicle_positions --> stg_rt_events
   raw_gtfsrt_vp_stream --> stg_rt_vehicle_positions
   raw_job_access --> stg_job_access
   raw_ntd_monthly --> stg_ntd_monthly
@@ -291,7 +279,6 @@ flowchart LR
   stg_rt_alert_periods --> fct_alert_entity_period
   stg_rt_alerts --> fct_alert
   stg_rt_alerts --> fct_alert_entity_period
-  stg_rt_events --> fct_trip_observation
   stg_rt_prediction_changes --> fct_prediction_accuracy
   stg_rt_stop_visits --> fct_stop_visit
   stg_rt_trip_status --> fct_trip_status

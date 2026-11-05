@@ -29,7 +29,7 @@ measured as (
         end as service,
         count(*) as n_visits_measured,
         count(distinct v.service_date) as n_days_measured,
-        avg(if(v.delay_sec between -{{ var('on_time_early_sec', 60) }} and {{ var('on_time_late_sec', 300) }}, 1, 0))
+        avg(if(v.delay_sec > -{{ var('on_time_early_sec', 60) }} and v.delay_sec <= {{ var('on_time_late_sec', 300) }}, 1, 0))
             as whyline_pct_on_time
     from {{ ref('fct_stop_visit') }} as v
     join {{ ref('dim_route') }} as r

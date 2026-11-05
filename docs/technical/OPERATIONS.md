@@ -205,7 +205,7 @@ First readings, which are not yet dual-run results:
 
 The dual run (plan §6) starts with these partitions. Earliest cutover review: November 5, after a weekend.
 
-Physical storage billing (decision 6) is deferred until after a week of real pipeline runs, so it can be judged on billed costs.
+Physical storage billing (decision 6) was deferred until after a week of real pipeline runs, so it could be judged on billed costs. The owner chose it on November 5.
 
 `whylinedenver-raw` keeps every overwritten or lifecycle-deleted object as a noncurrent version, with no rule that removes them (for example, 151 versions of the DuckDB warehouse). That is unmeasured storage cost worth reviewing alongside the billing decision.
 
@@ -221,7 +221,7 @@ The weather station changed from `USW00023062` to the DIA station `USW00003017` 
 cd /Users/medsidd/dev/whyline-denver && PYTHONPATH=$PWD/src DBT_PROFILES_DIR=$PWD/dbt/profiles GCP_PROJECT_ID=whyline-denver BQ_DATASET_RAW=raw_denver BQ_DATASET_STG=stg_denver BQ_DATASET_CORE=core_denver BQ_DATASET_MART=mart_denver .venv/bin/python -m tools.dbt_with_env run --project-dir dbt --target prod --select fct_weather_daily mart_reliability_by_route_day mart_weather_impacts --vars '{route_day_window_days: 400}'
 ```
 
-Run it from the repository root. A local dbt run rewrites the tracked `dbt/target` artifacts; restore them with `git checkout -- dbt/target` unless a release is regenerating them on purpose.
+Run it from the repository root. Since the stop-visit cutover it only rebuilds stop-visit partitions, because the legacy models are disabled. A local dbt run rewrites the tracked `dbt/target` artifacts; restore them with `git checkout -- dbt/target` unless a release is regenerating them on purpose.
 
 ### Metrics facts and the alerts and Veo image, November 2, 2026 (UTC)
 
@@ -402,6 +402,17 @@ Restricting Nov 3 to GTFS timepoints and using departures where known moves bus 
 **Caveats if approved:**
 1. Published fleet on-time drops about 14 points on cutover, and bus stays 5–10 points below RTD's figure. The glossary and app note must say so.
 2. Compare with RTD again when its October report appears, likely around the end of the year. Until then, the bus gap is unexplained.
+
+### Cutover approved and physical storage billing, November 5, 2026 (UTC)
+
+The owner approved the cutover after the review above, and chose physical storage billing.
+
+- **Storage billing:** `raw_denver` moved from logical to physical at 11:56 UTC. The setting can't change again for 14 days, so November 19 at the earliest. Rollback: `bq update --storage_billing_model=LOGICAL whyline-denver:raw_denver`.
+- **Found while merging #71 with main:**
+  - **First day:** any rebuild would have replaced October 28's full legacy partitions (128 routes, 48,551 events on route-day) with the stream's 107 visits on 6 routes. Both marts now leave out service dates before `stream_first_full_date`.
+  - **Windows across the cutover:** `mart_weather_impacts` and `mart_priority_hotspots` averaged 30 and 35 days, which would have mixed the two methods. Both now read stop-visit days only, so they start with about a week of data.
+  - **On-time boundary:** seven newer marts counted exactly 60 s early as on time, unlike the reliability marts and RTD's "less than one minute early". All now use `-60 < delay <= 300`.
+  - **Freshness:** `raw_gtfsrt_trip_updates` and `raw_gtfsrt_vehicle_positions` no longer have freshness checks, because they freeze when `realtime-ingest` pauses.
 
 ### Query usage report
 
