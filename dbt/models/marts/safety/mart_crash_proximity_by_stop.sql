@@ -20,7 +20,9 @@ cr as (
     select
         event_ts_utc,
         geom,
-        severity
+        severity,
+        ped_involved = 1 as ped_involved,
+        bike_involved = 1 as bike_involved
     from {{ ref('fct_crash') }}
     cross join params
     where date(event_ts_utc) between date_sub(params.as_of_date, interval params.window_days day) and params.as_of_date
@@ -31,6 +33,8 @@ stop_crash as (
         params.as_of_date,
         params.window_days,
         cr.severity,
+        cr.ped_involved,
+        cr.bike_involved,
         st_distance(s.geom, cr.geom) as distance_m
     from params
     cross join st as s
@@ -47,7 +51,10 @@ agg as (
         countif(distance_m <= 100 and severity = 4) as fatal_100m_cnt,
         count(*) as crash_250m_cnt,
         countif(severity >= 3) as severe_250m_cnt,
-        countif(severity = 4) as fatal_250m_cnt
+        countif(severity = 4) as fatal_250m_cnt,
+        countif(ped_involved) as ped_crash_250m_cnt,
+        countif(bike_involved) as bike_crash_250m_cnt,
+        countif((ped_involved or bike_involved) and severity >= 3) as ped_bike_severe_250m_cnt
     from stop_crash
     group by
         stop_id,
@@ -68,7 +75,10 @@ select
     current_timestamp() as build_run_at,
     s.stop_name,
     s.lat,
-    s.lon
+    s.lon,
+    coalesce(a.ped_crash_250m_cnt, 0) as ped_crash_250m_cnt,
+    coalesce(a.bike_crash_250m_cnt, 0) as bike_crash_250m_cnt,
+    coalesce(a.ped_bike_severe_250m_cnt, 0) as ped_bike_severe_250m_cnt
 from st as s
 cross join params
 left join agg as a

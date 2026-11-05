@@ -6,7 +6,10 @@ with base as (
         precip_bin,
         pct_on_time
     from {{ ref('mart_reliability_by_route_day') }}
-    where precip_bin != 'unknown'
+    -- Stop-visit days only: legacy on-time runs about 14 points higher, so a window that spans the
+    -- cutover would read the method change as a weather effect.
+    where data_version is not null
+      and precip_bin != 'unknown'
       and service_date_mst >= date_sub(current_date("America/Denver"), interval {{ var('weather_lookback_days', 30) }} day)
 ),
 avgd as (

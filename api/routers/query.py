@@ -13,7 +13,6 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from api.deps import (
-    get_allowlist,
     get_guardrail_config,
     get_models,
     get_route_lookup,
@@ -23,7 +22,7 @@ from api.models import RunQueryRequest, RunQueryResponse
 from whyline.engines import bigquery_engine, duckdb_engine
 from whyline.llm import adapt_sql_for_engine
 from whyline.logs import log_query, query_cache
-from whyline.sql_guardrails import SqlValidationError, sanitize_sql
+from whyline.sql_guardrails import SqlValidationError, referenced_tables, sanitize_sql
 
 router = APIRouter()
 
@@ -65,7 +64,6 @@ def run_query(req: RunQueryRequest) -> RunQueryResponse:
     Checks query_cache before executing; logs every query.
     """
     models = get_models()
-    allowlist = get_allowlist()
     guardrail_config = get_guardrail_config(req.engine)
     engine_module = duckdb_engine if req.engine == "duckdb" else bigquery_engine
 
@@ -98,11 +96,12 @@ def run_query(req: RunQueryRequest) -> RunQueryResponse:
             engine=req.engine,
             rows=len(df),
             latency_ms=latency_ms,
-            models=list(allowlist),
+            models=referenced_tables(sanitized),
             sql=sanitized,
             question=req.question,
             cache_hit=cache_hit,
             bq_est_bytes=stats.get("bq_est_bytes"),
+            prebuilt_index=req.prebuilt_index,
         )
 
         total_rows = len(df)
@@ -123,4 +122,14 @@ def run_query(req: RunQueryRequest) -> RunQueryResponse:
         )
 
     except Exception as exc:
+        log_query(
+            engine=req.engine,
+            rows=0,
+            latency_ms=0.0,
+            models=referenced_tables(sanitized),
+            sql=sanitized,
+            question=req.question,
+            prebuilt_index=req.prebuilt_index,
+            status="error",
+        )
         return RunQueryResponse(rows=0, columns=[], data=[], total_rows=0, stats={}, error=str(exc))

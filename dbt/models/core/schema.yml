@@ -189,3 +189,183 @@ models:
               values: ['completed', 'partial', 'vanished', 'canceled', 'no_static']
               config:
                 where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+
+  - name: fct_prediction_accuracy
+    description: "The arrival prediction riders saw 1, 3, 5, 10, 15, 20 and 30 minutes before each measured stop visit (shape crossing within 30 s), against the actual arrival. One row per service date x trip x stop_sequence x horizon. error_sec = actual - predicted; horizon_bucket is the countdown shown (countdown_sec) and within_band follows MBTA's published accuracy standard. Kept permanently; raw prediction history expires after 90 days."
+    data_tests:
+      - unique_combination:
+          column_names: ['service_date', 'trip_id', 'stop_sequence', 'horizon_min']
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - expression_is_true:
+          name: fct_prediction_accuracy_error_when_predicted
+          expression: "has_prediction = (error_sec is not null)"
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: horizon_min
+        data_tests:
+          - accepted_values:
+              values: [1, 3, 5, 10, 15, 20, 30]
+              quote: false
+              config:
+                where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - name: horizon_bucket
+        data_tests:
+          - accepted_values:
+              values: ['0-3', '3-6', '6-12', '12-30']
+              config:
+                where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+
+  - name: fct_trip_occupancy
+    description: "The highest occupancy RTD reported on the way to, or at, each stop of each trip: one row per stop visit (n_reports = 0 where nothing was reported). Levels 1 many seats, 2 few seats, 3 standing room only, 4 crushed standing room only, 5 full; NO_DATA_AVAILABLE is no data. Kept permanently; raw reports expire after 90 days."
+    data_tests:
+      - unique_combination:
+          column_names: ['service_date', 'trip_id', 'stop_sequence']
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - expression_is_true:
+          name: fct_trip_occupancy_data_within_reports
+          expression: "n_reports_with_data <= n_reports and (max_level is null) = (n_reports_with_data = 0)"
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: max_level
+        data_tests:
+          - accepted_values:
+              values: [1, 2, 3, 4, 5]
+              quote: false
+              config:
+                where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+
+  - name: fct_stream_health
+    description: "Realtime coverage per 15-minute UTC window: distinct vehicle-feed updates the stream recorded (RTD publishes about every 30 seconds, so 30 is complete). is_healthy means at least 24; windows with no data have 0. Kept permanently."
+    data_tests:
+      - unique_combination:
+          column_names: ['window_start_utc']
+          config:
+            where: "window_date_utc >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: window_start_utc
+        data_tests: [not_null]
+
+  - name: fct_stop_headway
+    description: "One row per stop visit a vehicle made (visits timed from the last prediction count only when the trip had a vehicle): observed headway since the previous vehicle of the same route and direction at the stop that service day, the arriving trip's scheduled headway, delay, day type and period. Rebuildable from fct_stop_visit."
+    data_tests:
+      - unique_combination:
+          column_names: ['service_date', 'trip_id', 'stop_sequence']
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - expression_is_true:
+          name: fct_stop_headway_not_negative
+          expression: "observed_headway_sec is null or observed_headway_sec >= 0"
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+
+  - name: fct_segment_traversal
+    description: "Running time between consecutive stops of a trip, both ends timed to within 30 s: from leaving stop n (middle of its departure window, or its arrival when it didn't stop) to reaching stop n+1, with distance along the shape, speed and scheduled time. Speeds over 130 km/h are dropped as timing error. Rebuildable from fct_stop_visit."
+    data_tests:
+      - unique_combination:
+          column_names: ['service_date', 'trip_id', 'from_stop_sequence']
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - expression_is_true:
+          name: fct_segment_traversal_positive
+          expression: "travel_sec > 0 and distance_m > 0 and speed_kmh <= 130"
+          config:
+            where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+
+  - name: fct_ntd_service_month
+    description: "RTD service and ridership as reported to the National Transit Database: one row per month, mode and type of service (directly operated or purchased)."
+    data_tests:
+      - unique_combination:
+          column_names: ['month', 'mode', 'tos']
+
+  - name: fct_weather_hourly
+    description: "Hourly weather per station and UTC hour, with the local date and hour (Open-Meteo, modelled at the station's coordinates)."
+    data_tests:
+      - unique_combination:
+          column_names: ['station', 'ts_utc']
+
+  - name: fct_alert
+    description: "One RTD service alert, kept permanently: first and last time it was in the feed, and its latest cause, effect and text."
+    columns:
+      - name: alert_id
+        data_tests: [not_null, unique]
+
+  - name: fct_alert_entity_period
+    description: "One alert x informed entity x active period, kept permanently, with the snapshots it appeared in (first_seen_ts, last_seen_ts). Rows from an alert's last snapshot are its final definition."
+    columns:
+      - name: alert_entity_period_key
+        data_tests: [not_null, unique]
+
+  - name: fct_micromobility_near_stop
+    description: "Veo scooters and bikes available within 200 m of each current stop inside Denver: per local date, stop, hour and form factor, the average over that hour's snapshots and the share of snapshots with none. Kept permanently; raw expires after 30 days."
+    data_tests:
+      - unique_combination:
+          column_names: ['date_mst', 'stop_id', 'hour_mst', 'form_factor']
+          config:
+            where: "date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: form_factor
+        data_tests:
+          - accepted_values:
+              values: ['scooter', 'bicycle']
+              config:
+                where: "date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+
+  - name: dim_block_group
+    description: "Type 1: Denver census block groups (2020) with Colorado EnviroScreen 2.0 percentile and disproportionately impacted community type (CDPHE), and Denver's DOTI equity score (higher means more need) and group rank (1 highest need, 6 lowest). Unknown member at key -1."
+    columns:
+      - name: block_group_key
+        data_tests: [not_null, unique]
+      - name: doti_equity_group_rank
+        data_tests:
+          - accepted_values:
+              values: [1, 2, 3, 4, 5, 6]
+              quote: false
+
+  - name: bridge_stop_block_group
+    description: "Current stop x the Denver block group containing it; stops outside Denver have no row."
+    columns:
+      - name: stop_id
+        data_tests: [not_null, unique]
+
+  - name: bridge_stop_street_safety
+    description: "One row per current stop inside Denver with the street around it from Denver's open-data layers: High Injury Network within 30 m and its tier (1 has the highest crash rates), nearest traffic signal (NULL beyond 1 km), curb ramps within 50 m, existing bikeway within 100 m, transit lane within 20 m, transit signal priority or queue jump within 50 m."
+    columns:
+      - name: stop_id
+        data_tests: [not_null, unique]
+      - name: hin_tier
+        data_tests:
+          - accepted_values:
+              values: [1, 2]
+              quote: false
+
+  - name: fct_rtd_reported_performance
+    description: "One month x RTD service category x metric (otp_month, otp_ytd, service_availability) as RTD printed it, 0-100."
+    columns:
+      - name: value_pct
+        data_tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 100
+
+  - name: bridge_segment_transit_lane
+    description: "Stop-to-stop segments that run along a Denver transit lane (at least half of the line between the stops within 15 m of the lane), with the lane's corridor, type and build year. One row per segment and lane."
+    data_tests:
+      - unique_combination:
+          column_names: ['from_stop_id', 'to_stop_id', 'corridor', 'lane_type', 'year_built']
+
+  - name: fct_job_access
+    description: "One tract x departure window x threshold (30, 45, 60 minutes): jobs reachable by walking and transit, median travel time over a two-hour window on the published schedule, own tract included."
+    columns:
+      - name: departure_window
+        data_tests:
+          - accepted_values:
+              values: ['weekday_am_peak', 'weekday_midday', 'weekday_evening', 'saturday_midday']
+      - name: minutes_threshold
+        data_tests:
+          - accepted_values:
+              values: [30, 45, 60]
+              quote: false

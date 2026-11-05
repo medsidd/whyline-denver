@@ -13,18 +13,18 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "WhyLine Denver | RTD Reliability Analytics",
+  title: "WhyLine Denver | Independent Denver Transit Reliability Analytics",
   description:
-    "WhyLine Denver — Ask anything about Denver transit. Analyze RTD bus reliability, delays, safety, and equity gaps using natural language powered by BigQuery.",
+    "WhyLine Denver — an independent, unofficial project. Ask anything about Denver-area bus and rail, built from public GTFS schedule and realtime feeds. Analyze reliability, delays, safety, and equity gaps in plain English, powered by BigQuery.",
   keywords: [
-    "WhyLine Denver", "Denver transit analytics", "RTD bus delays",
+    "WhyLine Denver", "Denver transit analytics", "Denver bus delays",
     "Denver public transportation", "transit reliability dashboard",
-    "Denver bus equity analysis", "RTD real-time GTFS",
+    "Denver bus equity analysis", "Denver GTFS-Realtime",
   ],
   openGraph: {
     type: "website",
     url: "https://www.whylinedenver.com/app/",
-    title: "WhyLine Denver | RTD Reliability Analytics",
+    title: "WhyLine Denver | Independent Denver Transit Reliability Analytics",
     description:
       "Ask questions about Denver transit in plain English. Powered by BigQuery.",
     images: [{ url: "https://www.whylinedenver.com/assets/og-image.png", width: 1200, height: 630 }],
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "WhyLine Denver | RTD Reliability Analytics",
+    title: "WhyLine Denver | Independent Denver Transit Reliability Analytics",
     description: "Ask questions about Denver transit in plain English.",
     images: ["https://www.whylinedenver.com/assets/og-image.png"],
   },

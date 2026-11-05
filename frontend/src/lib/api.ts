@@ -75,8 +75,9 @@ export function fetchPrebuilt(index: number): Promise<GenerateSqlResponse> {
 
 // ─── Query ────────────────────────────────────────────────────────────────
 
-export function runQuery(sql: string, question: string): Promise<RunQueryResponse> {
-  return post("/api/query/run", { sql, engine: ENGINE, question });
+/** `prebuiltIndex` marks a ready-made question run unedited, for usage counts. */
+export function runQuery(sql: string, question: string, prebuiltIndex: number | null = null): Promise<RunQueryResponse> {
+  return post("/api/query/run", { sql, engine: ENGINE, question, prebuilt_index: prebuiltIndex });
 }
 
 // ─── Downloads ────────────────────────────────────────────────────────────

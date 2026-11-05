@@ -39,6 +39,11 @@ with base as (
     where stop_id is not null
       and arrival_ts_utc is not null
       and data_version in ({{ versions }})
+    {%- if not var('publish_backfill', false) %}
+      -- The poller started early on 2026-10-29, so the service date before holds only a few late
+      -- trips; rebuilding that date would replace its full legacy partition with them.
+      and service_date >= '{{ var("stream_first_full_date", "2026-10-29") }}'
+    {%- endif %}
     {% if is_incremental() %}
         and service_date >= date_sub(current_date("America/Denver"), interval {{ window_days }} day)
     {% endif %}

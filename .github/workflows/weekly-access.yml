@@ -1,0 +1,69 @@
+name: Weekly Job Access
+
+# Jobs reachable by transit per tract (metrics WP12). Routing needs Java 21 and several GB of
+# memory, so it runs here weekly rather than in the nightly jobs. Output lands in
+# raw/job_access/ and is loaded into raw_job_access; the nightly BigQuery run builds the marts.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: weekly-access
+  cancel-in-progress: false
+
+jobs:
+  job-access:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q osmium-tool
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install "r5py==1.1.7"
+
+      - name: Download streets and schedule
+        run: |
+          mkdir -p access_inputs
+          curl -sSfL -o access_inputs/colorado.osm.pbf https://download.geofabrik.de/north-america/us/colorado-latest.osm.pbf
+          # Clip to the RTD box (the same bounds the realtime pipeline uses).
+          osmium extract -b -105.7,39.4,-104.4,40.3 access_inputs/colorado.osm.pbf -o access_inputs/rtd.osm.pbf --overwrite
+          curl -sSfL -A "WhyLineDenver/1.0 (https://github.com/medsidd/whyline-denver)" \
+            -o access_inputs/gtfs.zip https://www.rtd-denver.com/files/gtfs/google_transit.zip
+          ls -la access_inputs
+
+      - name: Configure gcloud credentials
+        env:
+          GCP_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+        run: |
+          echo "$GCP_SERVICE_ACCOUNT" > ${{ github.workspace }}/gcp-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${{ github.workspace }}/gcp-key.json" >> $GITHUB_ENV
+
+      - name: Route and count jobs, then load
+        env:
+          GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          BQ_DATASET_RAW: ${{ secrets.BQ_DATASET_RAW }}
+        run: |
+          PYTHONPATH=$PWD/src python -m whyline.ingest.job_access --gcs --bucket "$GCS_BUCKET" \
+            --osm access_inputs/rtd.osm.pbf --gtfs access_inputs/gtfs.zip --max-memory 12G
+          TODAY=$(date -u +%Y-%m-%d)
+          PYTHONPATH=$PWD/src python -m whyline.load.bq_load --src gcs --bucket "$GCS_BUCKET" --from "$TODAY" --until "$TODAY"

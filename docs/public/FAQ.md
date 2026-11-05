@@ -18,7 +18,7 @@ Missingness can reflect source coverage, delayed publication, unmatched IDs, art
 
 ## Do I need SQL?
 
-No. You can generate SQL from a plain-English question or load a ready-made question, then review and run it. You can edit SQL if comfortable. Filters do not automatically rewrite every edited/prebuilt query, so check the SQL contains the dates/routes you intended. The weather card currently mentions snow but filters moderate/heavy precipitation rather than snow specifically.
+No. You can generate SQL from a plain-English question or load a ready-made question, then review and run it. You can edit SQL if comfortable. Filters do not automatically rewrite every edited/prebuilt query, so check the SQL contains the dates/routes you intended. The snow question compares each route's snow days with its other days.
 
 ## What is stored or sent when I use it?
 

@@ -7,7 +7,7 @@ The warehouse/API/dashboard pattern is reusable, but this checkout is Denver-spe
 | Area | Actual locations and work |
 |---|---|
 | Static transit | `ingest/gtfs_static.py::DEFAULT_GTFS_URL`; inspect feed tables/calendar semantics and IDs |
-| Realtime transit | `gtfs_realtime.py` feed defaults and `DENVER_*` bounding-box constants; inspect authentication, coverage, event-time interpretation |
+| Realtime transit | `gtfs_realtime.py` feed defaults (the stream poller imports them) and the bounding box in `rt_engine.py`; inspect authentication, coverage, event-time interpretation |
 | Crashes / sidewalks | Denver ArcGIS defaults, field mappings, severity rules, projections, validation bounds; a different portal often needs a new/changed parser |
 | Weather | `noaa_daily.py::DEFAULT_STATION`, CLI station, and `dbt/dbt_project.yml::weather_station`; verify actual metric/date coverage before choosing a station |
 | Census | ACS CLI `--state-fips`, `--county-fips`, vintage/variable configuration in `acs_variables.yml`; tract CLI geography and geometry source |

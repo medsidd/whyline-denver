@@ -7,9 +7,9 @@ import { DOCS, GITHUB, GLOSSARY } from "@/lib/links";
 import type { FreshnessResponse } from "@/types/api";
 
 export const metadata: Metadata = {
-  title: "WhyLine Denver | Free RTD Transit Analytics Dashboard",
+  title: "WhyLine Denver | Free, Independent Denver Transit Analytics",
   description:
-    "WhyLine Denver — Ask plain-English questions about RTD Denver reliability, delays, equity gaps, safety, and weather impacts. Free, open-source transit analytics.",
+    "WhyLine Denver — ask plain-English questions about Denver-area transit reliability, delays, equity gaps, safety, and weather impacts. Free, open-source and unofficial, built from public transit feeds.",
 };
 
 // Re-render hourly even if the freshness fetch failed at build time.
@@ -132,7 +132,7 @@ const jsonLd = [
     url: "https://www.whylinedenver.com",
     logo: "https://www.whylinedenver.com/assets/logo-512.png",
     description:
-      "WhyLine Denver turns plain-English questions into trusted RTD transit insights across reliability, delays, safety, weather, and equity.",
+      "WhyLine Denver turns plain-English questions into Denver transit insights across reliability, delays, safety, weather, and equity.",
     sameAs: [GITHUB, DOCS],
   },
   {
@@ -229,7 +229,7 @@ export default async function LandingPage() {
               Ask how Denver’s buses are really running.
             </h1>
             <p className="mt-6 text-[clamp(17px,1.5vw,20px)] text-wl-ink2 max-w-[52ch]">
-              Ask about RTD service in plain English. WhyLine writes the SQL, shows it to you before it runs, and gives you
+              Ask about Denver-area bus and rail service in plain English. WhyLine writes the SQL, shows it to you before it runs, and gives you
               a table, chart or map to download. Free and open source.
             </p>
 

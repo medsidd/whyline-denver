@@ -11,7 +11,7 @@ def render_model(name):
     sql = env.from_string((root / f"{name}.sql").read_text()).render(
         config=lambda **kwargs: "",
         ref=lambda name: name,
-        var=lambda name, default: default,
+        var=lambda name, default: {"stream_first_full_date": "2026-01-01"}.get(name, default),
         is_incremental=lambda: False,
     )
     # Only the percentile, clock, array and column-list syntax differ for this offline execution.

@@ -370,6 +370,152 @@ One row per closed trip instance: final trip relationship, `outcome` (`completed
 
 Patterns: `rtd_gtfsrt_calibration/snapshot_at=*/stop_visits.csv.gz`. Same columns, partitioning and expiry as `raw_gtfsrt_stop_visits`. Holds the backfill engine's output on stream payloads thinned to one refresh per 15 minutes (`data_version = 'calibration_v1'`), compared with stream visits by `dbt/analyses/backfill_calibration.sql`. Loaded only by the owner during calibration.
 
+## `raw_arcgis_reference`
+
+Written by `whyline.ingest.arcgis_reference` (nightly ingest, non-fatal). Each layer is fetched at most once a week: it's skipped when an extract from the last 7 days exists. Pattern: `arcgis_reference/extract_date=*/*.csv.gz`, one file per layer. Partitioned by `_extract_date`, clustered on `layer`. Attributes keep their source field names in `properties_json`, and staging picks what it needs, so a field the source adds or renames doesn't break the load. Geometry is GeoJSON in WGS84 (`outSR=4326`). A layer that returns fewer features than its floor (set from the 2026-11-02 counts) isn't written, and `ARCGIS_LAYER_FAILED` is logged.
+
+| `layer` | Source | Features on 2026-11-02 |
+|---|---|---|
+| `denver_hin` | Denver High Injury Network (`ODC_TRANS_HIN_L/326`) | 496 lines |
+| `denver_transit_lanes` | Denver transit lanes (`ODC_TRANS_TRANSITLANES_L/349`) | 24 lines |
+| `denver_transit_signals` | Denver transit signals (`ODC_TRANS_TRANSITSIGNALS_P/350`) | 30 points |
+| `denver_curb_ramps` | Denver curb ramps (`ODC_TRANS_CURBRAMPS_P/228`) | 72,770 points |
+| `denver_traffic_signals` | Denver traffic signals (`ODC_TRANS_TRAFFICSIGNAL_P/147`) | 1,288 points |
+| `denver_bike_facilities` | Denver bicycle facilities (`Denver_Bicycle_Facilities_ODC/450`) | 2,025 lines |
+| `denver_doti_equity` | Denver DOTI equity index (`ODC_ADMN_DOTI_EQUITY_INDEX/151`) | 572 block groups |
+| `enviroscreen_tract` | CDPHE Colorado EnviroScreen 2.0, Denver County tracts | 178 polygons |
+| `enviroscreen_block_group` | CDPHE Colorado EnviroScreen 2.0, Denver County block groups | 571 polygons |
+
+| Column | Type | Mode |
+|---|---|---|
+| `layer` | `STRING` | NULLABLE |
+| `object_id` | `STRING` | NULLABLE |
+| `properties_json` | `STRING` | NULLABLE |
+| `geometry_geojson` | `STRING` | NULLABLE |
+
+## `raw_weather_hourly`
+
+Written by `whyline.ingest.weather_hourly` (nightly ingest, non-fatal) from Open-Meteo at the DIA station's coordinates (`USW00003017`). Pattern: `weather_hourly/extract_date=*/weather_hourly.csv.gz`; partitioned by `_extract_date`. Each extract covers the last 10 days in UTC hours (`--start` backfills), so extracts overlap; staging keeps the latest extract per hour. Hours older than six days come from the reanalysis archive, recent past hours from the forecast API; `source` says which. An extract under 90% of the expected hours logs `WEATHER_HOURLY_SUSPECT` and writes nothing.
+
+| Column | Type | Mode | Meaning |
+|---|---|---|---|
+| `ts_utc` | `TIMESTAMP` | NULLABLE | Start of the UTC hour |
+| `station` | `STRING` | NULLABLE | NOAA station whose coordinates were used |
+| `precip_mm` | `FLOAT64` | NULLABLE | Precipitation in the hour, mm |
+| `snowfall_mm` | `FLOAT64` | NULLABLE | Snowfall in the hour, mm (Open-Meteo's cm × 10, matching the daily table) |
+| `temp_c` | `FLOAT64` | NULLABLE | Air temperature at 2 m |
+| `wind_kmh` | `FLOAT64` | NULLABLE | Wind speed at 10 m |
+| `source` | `STRING` | NULLABLE | `open_meteo_archive` or `open_meteo_forecast` |
+
+## `raw_job_access`
+
+Written by `whyline.ingest.job_access`, which the weekly GitHub workflow `.github/workflows/weekly-access.yml` runs on Mondays at 06:00 UTC, then loads.
+
+- **Pattern:** `job_access/extract_date=*/job_access.csv.gz`, partitioned by `_extract_date`.
+- **Origins and destinations:** every 2020 census tract in the RTD counties (Adams, Arapahoe, Boulder, Broomfield, Denver, Douglas, Jefferson, Weld) whose internal point lies inside the RTD box. That was about 780 tracts on 2026-11-02, from TIGERweb.
+- **Routing:** r5py 1.1.7 (Java 21) walks and rides transit on OpenStreetMap (Geofabrik Colorado, clipped to the box) and RTD's current GTFS.
+  - Four two-hour departure windows: the next Tuesday at 7:00, 12:00 and 19:00, and the next Saturday at 10:00.
+  - The median travel time over each window is used.
+- **Jobs:** LEHD LODES8 workplace-area counts (all jobs, `C000`, default year 2023), summed from blocks to tracts.
+
+| Column | Type | Mode | Meaning |
+|---|---|---|---|
+| `origin_geoid` | `STRING` | NULLABLE | Origin tract |
+| `window` | `STRING` | NULLABLE | `weekday_am_peak`, `weekday_midday`, `weekday_evening`, `saturday_midday` |
+| `departure_date` | `DATE` | NULLABLE | The date the window was routed on |
+| `minutes_threshold` | `INT64` | NULLABLE | 30, 45 or 60 |
+| `jobs_reachable` | `INT64` | NULLABLE | Jobs in tracts reachable within the threshold, own tract included |
+| `total_jobs_region` | `INT64` | NULLABLE | Jobs in all routed tracts |
+| `lodes_year` | `INT64` | NULLABLE | LODES vintage |
+| `gtfs_md5` | `STRING` | NULLABLE | The schedule routed on |
+
+## `raw_rtd_reported_performance`
+
+Written by `whyline.ingest.rtd_reported_performance` (nightly ingest, non-fatal, skipped when extracted in the last 7 days). It reads RTD's [board briefing documents](https://www.rtd-denver.com/board-briefing-documents) page, downloads every linked Bus Operations and Rail Operations PDF (40 on 2026-11-02, January 2025 to August 2026), and extracts RTD's own figures.
+
+- **Pattern:** `rtd_reported_performance/extract_date=*/rtd_reported_performance.csv.gz`, partitioned by `_extract_date`.
+- **Full history:** each extract holds every linked report.
+- **Bus figures:** text order is unreliable because two tables sit side by side, so values are placed by their position under the header words.
+- **Rail figures:** read from the three line rows.
+- **Failures:** a report that doesn't parse logs `RTD_REPORT_PARSE_FAILED` and the rest load. Fewer than 20 parsed reports logs `RTD_REPORTS_SUSPECT` and writes nothing.
+
+| Column | Type | Mode | Meaning |
+|---|---|---|---|
+| `report_month` | `DATE` | NULLABLE | First day of the reported month |
+| `mode` | `STRING` | NULLABLE | `bus` or `rail` |
+| `service` | `STRING` | NULLABLE | `all_bus`, `local`, `regional`, `regional_brt`, `light_rail`, `commuter_rail_abg` (A, B, G lines), `commuter_rail_n` |
+| `metric` | `STRING` | NULLABLE | `otp_month`, `otp_ytd` (year to date) or `service_availability` |
+| `value_pct` | `FLOAT64` | NULLABLE | The percentage as printed (0–100) |
+| `source_url` | `STRING` | NULLABLE | The report PDF |
+
+## `raw_ntd_monthly`
+
+Written by `whyline.ingest.ntd_monthly` (nightly ingest, non-fatal, skipped when extracted in the last 7 days) from FTA's monthly module data, Socrata dataset `8bui-9xvu`, for RTD (`ntd_id = 80006`). Pattern: `ntd_monthly/extract_date=*/ntd_monthly.csv.gz`; partitioned by `_extract_date`. Each extract is the full history from 2002 (1,633 rows on 2026-11-02, through August 2026), because NTD revises earlier months. Fewer than 1,500 rows logs `NTD_SUSPECT` and writes nothing. `vrh` is rounded to whole hours.
+
+| Column | Type | Mode | Meaning |
+|---|---|---|---|
+| `month` | `DATE` | NULLABLE | First day of the month |
+| `mode` | `STRING` | NULLABLE | NTD mode: `MB` bus, `LR` light rail, `CR` commuter rail, `DR` demand response, `VP` vanpool |
+| `tos` | `STRING` | NULLABLE | Type of service: `DO` directly operated, `PT` purchased transportation |
+| `mode_group` | `STRING` | NULLABLE | NTD's three-way grouping (Bus, Rail, Other) |
+| `upt` | `INT64` | NULLABLE | Unlinked passenger trips (boardings) |
+| `vrm` | `INT64` | NULLABLE | Vehicle revenue miles |
+| `vrh` | `INT64` | NULLABLE | Vehicle revenue hours |
+| `voms` | `INT64` | NULLABLE | Vehicles operated in maximum service |
+
+## Service alerts
+
+Written by `whyline.ingest.gtfs_alerts`, which the `realtime-load` job runs before each load (every 15 minutes). One snapshot per run under `rtd_gtfsrt_alerts/snapshot_at=<UTC minute>/` with a manifest. Both tables are partitioned by day on `feed_ts_utc` with 90-day expiry. Each snapshot repeats every alert still in the feed, so an alert's first and last `feed_ts_utc` bound when it was published.
+
+### `raw_gtfsrt_alerts`
+
+Pattern: `rtd_gtfsrt_alerts/snapshot_at=*/alerts.csv.gz`. One row per alert and informed entity (one row with empty selector columns when an alert names none). Clustered on `route_id, stop_id`. Text is the English translation, else the first one.
+
+| Column | Type | Mode |
+|---|---|---|
+| `feed_ts_utc` | `TIMESTAMP` | NULLABLE |
+| `alert_id` | `STRING` | NULLABLE |
+| `cause` | `STRING` | NULLABLE |
+| `effect` | `STRING` | NULLABLE |
+| `header_text` | `STRING` | NULLABLE |
+| `description_text` | `STRING` | NULLABLE |
+| `url` | `STRING` | NULLABLE |
+| `agency_id` | `STRING` | NULLABLE |
+| `route_id` | `STRING` | NULLABLE |
+| `route_type` | `INT64` | NULLABLE |
+| `direction_id` | `INT64` | NULLABLE |
+| `stop_id` | `STRING` | NULLABLE |
+| `trip_id` | `STRING` | NULLABLE |
+
+### `raw_gtfsrt_alert_periods`
+
+Pattern: `rtd_gtfsrt_alerts/snapshot_at=*/alert_periods.csv.gz`. One row per alert and active period; an empty start or end is open. An alert with no period has no rows here and is active while it is in the feed.
+
+| Column | Type | Mode |
+|---|---|---|
+| `feed_ts_utc` | `TIMESTAMP` | NULLABLE |
+| `alert_id` | `STRING` | NULLABLE |
+| `active_start_utc` | `TIMESTAMP` | NULLABLE |
+| `active_end_utc` | `TIMESTAMP` | NULLABLE |
+
+## Veo micromobility
+
+### `raw_gbfs_veo_vehicles`
+
+Written by `whyline.ingest.gbfs_veo`, which the `realtime-load` job runs before each load (every 15 minutes), from Veo's Denver GBFS 2.2 feed (`free_bike_status` with `vehicle_types`). Pattern: `gbfs_veo/snapshot_at=*/vehicles.csv.gz`. Partitioned by day on `snapshot_ts_utc` with **30-day expiry** (about 8,000 rows per snapshot). `bike_id` and rental URIs are not stored: GBFS rotates the ID for privacy, and the URIs carry a persistent vehicle number. A snapshot is skipped, and `VEO_FEED_SUSPECT` logged, when it lists under 1,000 vehicles or under 95% inside the RTD bounding box.
+
+| Column | Type | Mode |
+|---|---|---|
+| `snapshot_ts_utc` | `TIMESTAMP` | NULLABLE |
+| `vehicle_type_id` | `STRING` | NULLABLE |
+| `form_factor` | `STRING` | NULLABLE |
+| `propulsion` | `STRING` | NULLABLE |
+| `lat` | `FLOAT64` | NULLABLE |
+| `lon` | `FLOAT64` | NULLABLE |
+| `is_reserved` | `BOOL` | NULLABLE |
+| `is_disabled` | `BOOL` | NULLABLE |
+| `current_range_m` | `INT64` | NULLABLE |
+
 ## Units and source semantics
 
 - Feed/event timestamps are UTC; geographic longitude/latitude outputs use WGS84 degrees. Delays and headways are seconds; speed is meters per second; bearing is degrees.

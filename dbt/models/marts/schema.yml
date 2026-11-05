@@ -120,6 +120,12 @@ models:
         description: "Stop latitude (WGS84) from the latest GTFS version of this stop."
       - name: lon
         description: "Stop longitude (WGS84) from the latest GTFS version of this stop."
+      - name: ped_crash_250m_cnt
+        description: "Of crash_250m_cnt, crashes involving a pedestrian."
+      - name: bike_crash_250m_cnt
+        description: "Of crash_250m_cnt, crashes involving a cyclist."
+      - name: ped_bike_severe_250m_cnt
+        description: "Crashes within 250 m involving a pedestrian or cyclist with serious injury or a death."
   - name: mart_access_score_by_stop
     description: "Sidewalk length and normalized access score using a 200 m buffer per stop (one row per stop)."
     columns:
@@ -142,6 +148,14 @@ models:
           - accepted_range:
               min_value: 0
               max_value: 100
+      - name: crosswalk_len_m_within_200m
+        description: "Of sidewalk_len_m_within_200m, the length Denver inventories as crosswalk: a rough measure of marked crossings near the stop."
+      - name: wheelchair_boarding
+        description: "GTFS wheelchair_boarding for the stop: 1 accessible, 2 not accessible, 0 no information."
+        data_tests:
+          - accepted_values:
+              values: [0, 1, 2]
+              quote: false
       - name: stop_name
         description: "Stop name from the latest GTFS version of this stop."
       - name: lat
@@ -192,6 +206,16 @@ models:
         description: "Stop latitude (WGS84) from the latest GTFS version of this stop."
       - name: lon
         description: "Stop longitude (WGS84) from the latest GTFS version of this stop."
+      - name: enviroscreen_pctl
+        description: "Colorado EnviroScreen 2.0 percentile (within Colorado, higher is more burdened) of the block group containing the stop; Denver stops only."
+      - name: is_disproportionately_impacted
+        description: "The stop's block group is a disproportionately impacted community under Colorado law (CDPHE, November 2024 definition)."
+      - name: di_community_type
+        description: "Why it qualifies, as CDPHE states it (for example, People of color population above 40%)."
+      - name: doti_equity_score
+        description: "Denver DOTI equity index score of the stop's block group (16-68 in 2026; higher means more need)."
+      - name: doti_equity_group_rank
+        description: "Denver DOTI equity group, 1 (highest need) to 6 (lowest)."
   - name: mart_priority_hotspots
     description: "Composite priority ranking per stop that blends vulnerability, crash exposure, and reliability problems."
     columns:
@@ -215,7 +239,7 @@ models:
       - name: lon
         description: "Stop longitude (WGS84) from the latest GTFS version of this stop."
   - name: mart_weather_impacts
-    description: "Equal-weight average route-day on-time shares by observed precipitation bin over the configured lookback; dry baseline and delta can be null."
+    description: "Equal-weight average route-day on-time shares by observed precipitation bin over the configured lookback, stop-visit days only; dry baseline and delta can be null."
     columns:
       - name: route_id
         description: "GTFS route identifier; joins to mart_gtfs_routes.route_id."
@@ -277,3 +301,718 @@ models:
         description: "Stop latitude (WGS84)."
       - name: lon
         description: "Stop longitude (WGS84)."
+  - name: mart_service_frequency_by_stop
+    description: "Scheduled departures per stop, route, direction and hour of day on the next Wednesday, Saturday and Sunday in the published schedule. Schedule, not observed service."
+    data_tests:
+      - unique_combination:
+          column_names: ['day_type', 'stop_id', 'route_id', 'direction_id', 'hour_mst']
+    columns:
+      - name: day_type
+        description: "weekday (the sample Wednesday), saturday or sunday."
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['weekday', 'saturday', 'sunday']
+      - name: sample_date
+        description: "The service date sampled for this day type. Holiday service shows if a holiday falls on it."
+      - name: stop_id
+        description: "GTFS stop identifier."
+        data_tests: [not_null]
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null]
+      - name: direction_id
+        description: "GTFS direction (0 or 1)."
+      - name: hour_mst
+        description: "Local hour of the scheduled departure (0-23). Trips after midnight count in hours 0-3 of their service day."
+      - name: n_departures
+        description: "Scheduled departures in that hour."
+        data_tests:
+          - accepted_range:
+              min_value: 1
+      - name: avg_headway_min
+        description: "60 divided by the departures in that hour: the average minutes between buses or trains."
+      - name: stop_name
+        description: "Stop name from the current GTFS version."
+      - name: lat
+        description: "Stop latitude (WGS84)."
+      - name: lon
+        description: "Stop longitude (WGS84)."
+      - name: route_name
+        description: "Route short name from the latest GTFS version."
+      - name: build_run_at
+        description: "When this mart was rebuilt (UTC)."
+  - name: mart_frequent_network_by_route
+    description: "Span and scheduled frequency per route, direction and day type, measured at each direction's busiest stop. is_frequent_route follows TransitCenter's frequent-network definition: every 15 minutes or better from 6:00 to 21:00, every day."
+    data_tests:
+      - unique_combination:
+          column_names: ['route_id', 'direction_id', 'day_type']
+    columns:
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null]
+      - name: day_type
+        description: "weekday (the sample Wednesday), saturday or sunday."
+        data_tests:
+          - accepted_values:
+              values: ['weekday', 'saturday', 'sunday']
+      - name: busiest_stop_id
+        description: "The stop with the most scheduled departures for this route, direction and day; frequency is measured there so short turns count."
+      - name: first_departure
+        description: "First scheduled departure at the busiest stop, local HH:MM."
+      - name: last_departure
+        description: "Last scheduled departure at the busiest stop, local HH:MM (after midnight for late service)."
+      - name: span_hours
+        description: "Hours from first to last departure at the busiest stop."
+      - name: headway_am_peak_min
+        description: "Average minutes between departures from 7:00 to 8:59; NULL with no service then."
+      - name: headway_midday_min
+        description: "Average minutes between departures from 9:00 to 14:59."
+      - name: headway_pm_peak_min
+        description: "Average minutes between departures from 15:00 to 17:59."
+      - name: headway_evening_min
+        description: "Average minutes between departures from 18:00 to 20:59."
+      - name: min_departures_per_3h
+        description: "Fewest departures in any three-hour block from 6:00 to 21:00 (12 means every 15 minutes on average)."
+      - name: is_frequent_day
+        description: "Every 15 minutes or better on average in every three-hour block from 6:00 to 21:00 on this day type, in this direction."
+      - name: is_frequent_route
+        description: "is_frequent_day holds in every direction on all three day types."
+  - name: mart_service_intensity_by_tract
+    description: "Scheduled weekday service near each census tract: departures at stops within 804.672 m, shared among tracts by population, per 1,000 residents."
+    columns:
+      - name: geoid
+        description: "Census tract GEOID."
+        data_tests: [not_null, unique]
+      - name: tract_pop_total
+        description: "Tract population, latest ACS vintage."
+      - name: sample_date
+        description: "The sample Wednesday used."
+      - name: n_stops_nearby
+        description: "Current stops within 804.672 m of the tract."
+      - name: n_frequent_stops_nearby
+        description: "Of those, stops with at least 4 departures in every hour from 9:00 to 14:59."
+      - name: weekday_departures_share
+        description: "The tract's population-weighted share of the weekday departures at nearby stops; summed over tracts it equals the network total."
+      - name: weekday_departures_per_1000_residents
+        description: "weekday_departures_share per 1,000 residents."
+  - name: mart_prediction_accuracy_by_route_day
+    description: "How far RTD's arrival predictions were off, per route, service date and how far ahead they were shown, from measured stop visits. error = actual - predicted: positive means the vehicle came later than predicted."
+    data_tests:
+      - unique_combination:
+          column_names: ['route_id', 'service_date_mst', 'horizon_bucket']
+          config:
+            where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null]
+      - name: service_date_mst
+        description: "GTFS service date (America/Denver)."
+        data_tests: [not_null]
+      - name: horizon_bucket
+        description: "The countdown the prediction showed, in minutes: 0-3, 3-6, 6-12 or 12-30 (MBTA's buckets). Visit-horizons with no prediction are bucketed by the true time to arrival."
+        data_tests:
+          - accepted_values:
+              values: ['0-3', '3-6', '6-12', '12-30']
+      - name: n_visits
+        description: "Measured stop visits sampled 1, 3, 5, 10, 15, 20 and 30 minutes before arrival that fall in this bucket."
+      - name: n_predictions
+        description: "Of those, how many had a prediction on screen."
+      - name: n_no_prediction
+        description: "How many had none: nothing predicted yet, the stop dropped from the trip's predictions, or the stop marked skipped (no time)."
+      - name: pct_within_band
+        description: "Share of predictions counted accurate under MBTA's standard: the vehicle came from 1 min early to 1 min late at 0-3 min, 1.5 early to 2 late at 3-6, 2.5 to 3.5 at 6-12, 4 to 6 at 12-30."
+      - name: median_error_sec
+        description: "Median of actual minus predicted arrival, in seconds (approximate)."
+      - name: p05_error_sec
+        description: "5th percentile of the error: how early the earliest 5% of vehicles came."
+      - name: p95_error_sec
+        description: "95th percentile of the error: how late the latest 5% came."
+      - name: padding_sec
+        description: "Seconds to arrive before the predicted time to catch 95% of vehicles: -p05_error_sec, or 0 when vehicles rarely come early."
+      - name: pct_later_by_2min
+        description: "Share of predictions where the vehicle came more than 2 minutes later than predicted."
+      - name: pct_earlier_by_1min
+        description: "Share of predictions where the vehicle came more than 1 minute earlier than predicted, so a rider trusting it could miss it."
+      - name: build_run_at
+        description: "When the partition was built."
+  - name: mart_crowding_by_route_hour
+    description: "How crowded each route's trips were, by direction, service date and the hour the trip left its first stop. A trip's level is the highest occupancy reported anywhere on it. Shares count only trips with occupancy data; read pct_trips_with_data alongside them."
+    data_tests:
+      - unique_combination:
+          column_names: ['route_id', 'direction_id', 'service_date_mst', 'departure_hour_mst']
+          config:
+            where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null]
+      - name: direction_id
+        description: "GTFS direction (0 or 1)."
+      - name: service_date_mst
+        description: "GTFS service date (America/Denver)."
+        data_tests: [not_null]
+      - name: departure_hour_mst
+        description: "Local hour the trip left its first stop (0-23; after-midnight trips show 0-3)."
+      - name: n_trips
+        description: "Trips tracked by the realtime stream."
+      - name: n_trips_with_data
+        description: "Of those, trips with at least one occupancy report."
+      - name: pct_trips_with_data
+        description: "n_trips_with_data / n_trips. Only some vehicles report occupancy."
+      - name: pct_trips_few_seats_or_worse
+        description: "Share of trips with data that reached few seats or worse somewhere on the trip."
+      - name: pct_trips_standing_or_worse
+        description: "Share of trips with data that reached standing room only or worse."
+      - name: peak_stop_id_mode
+        description: "The stop where trips with few seats or worse most often first hit their highest level: the usual load point."
+      - name: build_run_at
+        description: "When the partition was built."
+  - name: mart_crowding_by_stop
+    description: "Load points: how often vehicles arrived at each stop with few seats or standing room only, by route, direction, weekday or weekend and hour, over the last 28 complete service dates. Shares count only visits with occupancy data."
+    data_tests:
+      - unique_combination:
+          column_names: ['stop_id', 'route_id', 'direction_id', 'day_type', 'hour_mst']
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier."
+        data_tests: [not_null]
+      - name: day_type
+        description: "weekday (Monday-Friday) or weekend; holidays are not separated."
+        data_tests:
+          - accepted_values:
+              values: ['weekday', 'weekend']
+      - name: hour_mst
+        description: "Local hour the vehicle reached the stop (0-23)."
+      - name: n_visits
+        description: "Stop visits by this route and direction in the window."
+      - name: n_visits_with_data
+        description: "Of those, visits with an occupancy report on the way to or at the stop."
+      - name: pct_visits_with_data
+        description: "n_visits_with_data / n_visits."
+      - name: pct_few_seats_or_worse
+        description: "Share of visits with data arriving with few seats or worse."
+      - name: pct_standing_or_worse
+        description: "Share of visits with data arriving with standing room only or worse."
+      - name: first_service_date
+        description: "Earliest service date in the group."
+      - name: last_service_date
+        description: "Latest service date in the group."
+      - name: build_run_at
+        description: "When the table was built."
+  - name: mart_service_delivered_by_route_day
+    description: "Ghost buses: what happened to every scheduled trip, per route, direction, service date and the period it was scheduled to start. Shares count only trips the realtime feed fully covered, and are withheld for routes whose vehicles rarely report."
+    data_tests:
+      - unique_combination:
+          column_names: ['route_id', 'direction_id', 'service_date_mst', 'period']
+          config:
+            where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - expression_is_true:
+          name: mart_service_delivered_outcomes_add_up
+          expression: "n_delivered + n_canceled + n_no_vehicle + n_vehicle_no_visits + n_not_tracked = n_scheduled"
+          config:
+            where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null]
+      - name: direction_id
+        description: "GTFS direction (0 or 1)."
+      - name: service_date_mst
+        description: "GTFS service date (America/Denver)."
+        data_tests: [not_null]
+      - name: period
+        description: "When the trip was scheduled to leave its first stop: early (4:00-6:59), am_peak (7:00-8:59), midday (9:00-14:59), pm_peak (15:00-17:59), evening (18:00-20:59), night (21:00-3:59)."
+        data_tests:
+          - accepted_values:
+              values: ['early', 'am_peak', 'midday', 'pm_peak', 'evening', 'night']
+      - name: n_scheduled
+        description: "Trips in the published schedule."
+      - name: n_delivered
+        description: "A vehicle reported on the trip and it reached at least one stop."
+      - name: n_canceled
+        description: "RTD marked the trip canceled in the realtime feed."
+      - name: n_no_vehicle
+        description: "Listed in the realtime feed but no vehicle ever reported on it: likely missed. Includes trips whose stops were passed only by predictions."
+      - name: n_vehicle_no_visits
+        description: "A vehicle reported on the trip but it reached no stop."
+      - name: n_not_tracked
+        description: "Never seen in either realtime feed: likely missed when the feed was healthy."
+      - name: n_observable
+        description: "Trips whose whole scheduled run, from 10 minutes before the start, had a healthy feed."
+      - name: stream_healthy
+        description: "Every scheduled trip in the group was observable."
+      - name: pct_tracked_with_vehicle
+        description: "Over the 28 service dates to the latest rebuilt one, the route's tracked, uncanceled trips that had a vehicle report. Under 0.8 means its vehicles rarely report, and the shares are withheld."
+      - name: pct_delivered
+        description: "Delivered share of observable trips; NULL when withheld."
+      - name: pct_missed_likely
+        description: "Canceled, no-vehicle and not-tracked share of observable trips; NULL when withheld."
+      - name: build_run_at
+        description: "When the partition was built."
+  - name: mart_wait_by_stop_period
+    description: "How long riders actually wait at each stop, by route, direction, day type and period, over the last 28 complete service dates: expected and scheduled wait for riders arriving at random, excess wait, bunching, gaps, on-time share and late running."
+    data_tests:
+      - unique_combination:
+          column_names: ['stop_id', 'route_id', 'direction_id', 'day_type', 'period']
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier."
+        data_tests: [not_null]
+      - name: day_type
+        description: "weekday, saturday or sunday (holidays by their date)."
+        data_tests:
+          - accepted_values:
+              values: ['weekday', 'saturday', 'sunday']
+      - name: period
+        description: "When the vehicle reached the stop: early (4:00-6:59), am_peak (7:00-8:59), midday (9:00-14:59), pm_peak (15:00-17:59), evening (18:00-20:59), night (21:00-3:59)."
+        data_tests:
+          - accepted_values:
+              values: ['early', 'am_peak', 'midday', 'pm_peak', 'evening', 'night']
+      - name: service_class
+        description: "frequent when scheduled every 15 minutes or better on average, else infrequent. Read frequent groups by excess wait and infrequent ones by on-time share."
+      - name: n_days
+        description: "Service dates in the group."
+      - name: n_visits
+        description: "Vehicle visits counted."
+      - name: n_headways
+        description: "Visits with both an observed and a scheduled headway (the day's first vehicle has neither)."
+      - name: avg_scheduled_headway_sec
+        description: "Average scheduled seconds between vehicles."
+      - name: expected_wait_sec
+        description: "Average wait for a rider arriving at random: sum of squared observed headways over twice their sum."
+      - name: scheduled_wait_sec
+        description: "The same over the scheduled headways."
+      - name: excess_wait_sec
+        description: "expected_wait_sec - scheduled_wait_sec: extra waiting caused by uneven or missing service."
+      - name: pct_bunched
+        description: "Share of headways under a quarter of the scheduled headway."
+      - name: pct_gap
+        description: "Share of headways over 1.5 times the scheduled headway."
+      - name: pct_on_time
+        description: "Share of visits with known delay from 1 minute early to 5 minutes late."
+      - name: p90_delay_sec
+        description: "90th percentile delay in seconds (approximate)."
+      - name: build_run_at
+        description: "When the table was built."
+  - name: mart_wait_by_route_day
+    description: "Wait time, bunching and gaps per route and service date over every stop. Excess wait uses headways scheduled every 15 minutes or better; on-time share and late running cover every visit."
+    data_tests:
+      - unique_combination:
+          column_names: ['route_id', 'service_date_mst']
+          config:
+            where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null]
+      - name: service_date_mst
+        description: "GTFS service date (America/Denver)."
+        data_tests: [not_null]
+      - name: n_visits
+        description: "Vehicle visits on the route that day."
+      - name: n_frequent_headways
+        description: "Headways scheduled every 15 minutes or better, with an observed headway."
+      - name: expected_wait_sec
+        description: "Average wait for a rider arriving at random at frequent stops."
+      - name: scheduled_wait_sec
+        description: "The same if service ran as scheduled."
+      - name: excess_wait_sec
+        description: "expected_wait_sec - scheduled_wait_sec."
+      - name: pct_bunched
+        description: "Share of frequent headways under a quarter of the scheduled headway."
+      - name: pct_gap
+        description: "Share of frequent headways over 1.5 times the scheduled headway."
+      - name: pct_on_time
+        description: "Share of visits with known delay from 1 minute early to 5 minutes late."
+      - name: p90_delay_sec
+        description: "90th percentile delay in seconds (approximate)."
+      - name: build_run_at
+        description: "When the partition was built."
+  - name: mart_segment_speed_by_hour
+    description: "Where buses and trains crawl: speed and running time between consecutive stops, by route, direction, day type and hour of departure, over the last 28 complete service dates. lat and lon are the segment's midpoint."
+    data_tests:
+      - unique_combination:
+          column_names: ['from_stop_id', 'to_stop_id', 'route_id', 'direction_id', 'day_type', 'hour_mst']
+    columns:
+      - name: from_stop_id
+        description: "Stop the segment starts at."
+        data_tests: [not_null]
+      - name: to_stop_id
+        description: "Next stop on the trip."
+      - name: lat
+        description: "Latitude halfway between the two stops."
+      - name: lon
+        description: "Longitude halfway between the two stops."
+      - name: day_type
+        description: "weekday, saturday or sunday."
+        data_tests:
+          - accepted_values:
+              values: ['weekday', 'saturday', 'sunday']
+      - name: hour_mst
+        description: "Local hour the vehicle left the first stop."
+      - name: n_traversals
+        description: "Timed trips over the segment in the window."
+      - name: n_days
+        description: "Service dates with a timed trip."
+      - name: distance_m
+        description: "Median distance along the route between the stops, in meters."
+      - name: p50_speed_kmh
+        description: "Median speed between the stops, km/h, dwell excluded."
+      - name: p10_speed_kmh
+        description: "10th percentile speed: the slow end."
+      - name: p50_travel_sec
+        description: "Median running time in seconds."
+      - name: p90_travel_sec
+        description: "90th percentile running time."
+      - name: scheduled_travel_sec
+        description: "Median scheduled time between the stops; 0 when the schedule gives both the same minute."
+      - name: delay_ratio
+        description: "p50_travel_sec / scheduled_travel_sec; NULL when the scheduled time is 0."
+      - name: build_run_at
+        description: "When the table was built."
+  - name: mart_trip_runtime_by_route_day
+    description: "How long trips really take end to end, per route, direction, pattern (first and last stop) and service date, from trips timed to within 30 s at both ends."
+    data_tests:
+      - unique_combination:
+          column_names: ['route_id', 'direction_id', 'first_stop_id', 'last_stop_id', 'service_date_mst']
+          config:
+            where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null]
+      - name: service_date_mst
+        description: "GTFS service date (America/Denver)."
+        data_tests: [not_null]
+      - name: first_stop_id
+        description: "Where the trips start."
+      - name: last_stop_id
+        description: "Where the trips end."
+      - name: n_trips
+        description: "Trips timed at both ends."
+      - name: p50_runtime_min
+        description: "Median minutes from leaving the first stop to reaching the last."
+      - name: p90_runtime_min
+        description: "90th percentile run time."
+      - name: scheduled_runtime_min
+        description: "Median scheduled run time."
+      - name: buffer_time_index
+        description: "(p90 - p50) / p50: the extra share of time to allow to arrive on time 9 times in 10. Includes the difference between peak and off-peak trips."
+      - name: build_run_at
+        description: "When the partition was built."
+  - name: mart_ridership_by_mode_month
+    description: "RTD boardings, revenue hours and miles, and peak vehicles by mode and month from the National Transit Database (about two months behind), with boardings per revenue hour and the change from a year earlier."
+    data_tests:
+      - unique_combination:
+          column_names: ['month', 'mode']
+    columns:
+      - name: month
+        description: "First day of the month."
+        data_tests: [not_null]
+      - name: mode
+        description: "NTD mode code: MB bus, LR light rail, CR commuter rail, DR demand response, VP vanpool."
+      - name: mode_name
+        description: "Plain name of the mode."
+      - name: boardings
+        description: "Unlinked passenger trips: every boarding counts, so a ride with one transfer counts twice."
+      - name: revenue_hours
+        description: "Vehicle revenue hours, directly operated and purchased service combined."
+      - name: revenue_miles
+        description: "Vehicle revenue miles."
+      - name: peak_vehicles
+        description: "Vehicles operated in maximum service."
+      - name: boardings_per_revenue_hour
+        description: "boardings / revenue_hours."
+      - name: boardings_year_earlier
+        description: "Boardings in the same month a year earlier; NULL when that month wasn't reported."
+      - name: boardings_yoy_change
+        description: "boardings / boardings_year_earlier - 1 (0.05 means 5% more)."
+  - name: mart_weather_impacts_hourly
+    description: "On-time share by the weather in the hour the vehicle reached the stop, per route, over the last 90 service dates: precipitation band, snow falling or not, and temperature band, with the difference from the route's baseline level. Weather is modelled at the airport; association is not causation."
+    data_tests:
+      - unique_combination:
+          column_names: ['route_id', 'factor', 'level']
+    columns:
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null]
+      - name: factor
+        description: "precipitation, snowfall or temperature."
+        data_tests:
+          - accepted_values:
+              values: ['precipitation', 'snowfall', 'temperature']
+      - name: level
+        description: "precipitation: none (<0.1 mm in the hour), light (<1), moderate (<4), heavy. snowfall: snowing or not_snowing. temperature: below_-10, -10_to_0, 0_to_30, 30_plus (C)."
+      - name: n_visits
+        description: "Stop visits with a known delay in hours at this level."
+      - name: pct_on_time
+        description: "Share from 1 minute early to 5 minutes late."
+      - name: mean_delay_sec
+        description: "Mean delay in seconds."
+      - name: p90_delay_sec
+        description: "90th percentile delay in seconds (approximate)."
+      - name: delta_pct_on_time
+        description: "pct_on_time minus the route's baseline (none, not_snowing or 0_to_30); NULL without a baseline."
+      - name: build_run_at
+        description: "When the table was built."
+  - name: mart_stop_closures
+    description: "Stops named in RTD service alerts, current and past: one row per stop and alert, with when it applied and whether it's in effect now. History starts 2026-11-02, when snapshots began."
+    data_tests:
+      - unique_combination:
+          column_names: ['stop_id', 'alert_id']
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier."
+        data_tests: [not_null]
+      - name: effect
+        description: "GTFS-RT effect, such as NO_SERVICE, DETOUR, STOP_MOVED."
+      - name: is_closure
+        description: "The alert's effect is NO_SERVICE or STOP_MOVED. Detours often close stops too, but say so only in the text."
+      - name: route_ids
+        description: "Routes the alert names at this stop, comma-separated."
+      - name: from_ts
+        description: "When the alert applied from: its period start, else when it was first seen."
+      - name: until_ts
+        description: "When it applied until; capped 15 minutes after the alert left the feed. NULL means open-ended and still in the feed."
+      - name: is_active_now
+        description: "In the feed and within its period when the table was built."
+  - name: mart_alerts_by_route_day
+    description: "Per route, local day and alert effect: alerts in effect, alert hours (each alert's overlap with the day, so simultaneous alerts add up) and stops named. From 2026-11-02."
+    data_tests:
+      - unique_combination:
+          column_names: ['route_id', 'service_date_mst', 'effect']
+    columns:
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null]
+      - name: service_date_mst
+        description: "Local calendar day (America/Denver)."
+      - name: effect
+        description: "GTFS-RT effect; UNKNOWN_EFFECT when RTD gives none."
+      - name: n_alerts
+        description: "Alerts in effect on the route that day."
+      - name: alert_hours
+        description: "Hours of the day each alert was in effect, summed over alerts."
+      - name: n_stops_named
+        description: "Distinct stops the route's alerts named that day."
+  - name: mart_micromobility_access_by_stop
+    description: "First and last mile: Veo scooters and bikes usually available within 200 m of each Denver stop, and how often there are none, by weekday or weekend and period, over the last 28 local dates including today so far."
+    data_tests:
+      - unique_combination:
+          column_names: ['stop_id', 'day_type', 'period']
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier (stops inside the City and County of Denver only)."
+        data_tests: [not_null]
+      - name: day_type
+        description: "weekday or weekend."
+      - name: period
+        description: "early, am_peak, midday, pm_peak, evening or night (local hours as in the other marts)."
+      - name: n_days
+        description: "Local dates in the group."
+      - name: avg_scooters_within_200m
+        description: "Average available scooters within 200 m across the period's 15-minute snapshots."
+      - name: avg_bikes_within_200m
+        description: "The same for bikes (e-bikes and pedal bikes)."
+      - name: pct_time_no_scooter
+        description: "Share of snapshots with no available scooter within 200 m."
+      - name: pct_time_no_bike
+        description: "Share of snapshots with no available bike within 200 m."
+  - name: mart_service_equity_by_group
+    description: "Service at Denver stops grouped by their block group's disproportionately impacted status (CDPHE) and Denver DOTI equity group, over the last 28 service dates: scheduled departures per stop per day, on-time share, excess wait at frequent stops, and the share of visits arriving with standing room only or worse."
+    data_tests:
+      - unique_combination:
+          column_names: ['group_type', 'group_value']
+    columns:
+      - name: group_type
+        description: "disproportionately_impacted or doti_equity_group."
+      - name: group_value
+        description: "impacted / not_impacted, or the DOTI equity group 1 (highest need) to 6."
+      - name: n_stops
+        description: "Denver stops in the group."
+      - name: avg_departures_per_stop_day
+        description: "Scheduled departures per stop per service date."
+      - name: pct_on_time
+        description: "Share of visits with known delay from 1 minute early to 5 minutes late."
+      - name: excess_wait_sec
+        description: "Extra wait over scheduled at headways scheduled every 15 minutes or better."
+      - name: pct_visits_standing_or_worse
+        description: "Share of visits with occupancy data arriving with standing room only or worse."
+  - name: mart_stop_walk_safety
+    description: "The street around each stop inside Denver, with plain-language flags: on the High Injury Network with no traffic signal within 100 m, on a tier 1 High Injury Network street, no curb ramp recorded within 50 m."
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier (Denver stops only)."
+        data_tests: [not_null, unique]
+      - name: on_hin
+        description: "A High Injury Network street is within 30 m: Denver's streets with the most serious and fatal crashes."
+      - name: hin_tier
+        description: "1 for the highest-crash-rate HIN streets, 2 for the rest; NULL when not on the HIN."
+      - name: nearest_signal_m
+        description: "Meters to the nearest traffic signal; NULL when none is within 1 km."
+      - name: n_curb_ramps_50m
+        description: "Curb ramps in Denver's inventory within 50 m."
+      - name: existing_bikeway_within_100m
+        description: "An existing bikeway (not a planned one) is within 100 m."
+      - name: on_transit_lane
+        description: "A transit-only lane is within 20 m."
+      - name: transit_signal_priority_within_50m
+        description: "A transit signal with signal priority is within 50 m."
+      - name: queue_jump_within_50m
+        description: "A transit queue-jump signal is within 50 m."
+      - name: walk_safety_flags
+        description: "The flags that apply, separated by '; '; empty when none."
+  - name: mart_stop_scorecard
+    description: "How is my stop doing? One row per current stop: weekday service, on-time share, excess wait, bunching, prediction accuracy, crowding, crashes and walk safety, access, alerts in effect, equity context, and nearby scooters and bikes, over the last 28 service dates where time-based. Each measured part has its count; missing parts stay NULL."
+    columns:
+      - name: stop_id
+        description: "GTFS stop identifier."
+        data_tests: [not_null, unique]
+      - name: weekday_route_ids
+        description: "Routes scheduled at the stop on the sample weekday."
+      - name: weekday_departures
+        description: "Scheduled departures on the sample weekday."
+      - name: n_visits_measured
+        description: "Vehicle visits measured in the window."
+      - name: pct_on_time
+        description: "Share of visits from 1 minute early to 5 minutes late."
+      - name: excess_wait_sec
+        description: "Extra wait over scheduled at headways scheduled every 15 minutes or better."
+      - name: pct_bunched
+        description: "Share of frequent headways under a quarter of the scheduled headway."
+      - name: n_predictions_0_3
+        description: "Predictions shown 0-3 minutes before arrival that were checked."
+      - name: pct_predictions_accurate_0_3
+        description: "Share of 0-3 minute predictions within MBTA's band (1 min early to 1 min late)."
+      - name: pct_predictions_accurate_6_12
+        description: "Share of 6-12 minute predictions within MBTA's band (2.5 min early to 3.5 min late)."
+      - name: n_visits_with_occupancy
+        description: "Visits with an occupancy report."
+      - name: pct_arrivals_standing_or_worse
+        description: "Share of those arriving with standing room only or worse."
+      - name: n_alerts_in_effect
+        description: "Service alerts naming the stop in effect when built; 0 when none."
+      - name: n_closures_in_effect
+        description: "Of those, NO_SERVICE or STOP_MOVED alerts."
+      - name: avg_scooters_within_200m
+        description: "Average available Veo scooters within 200 m (Denver stops)."
+      - name: avg_bikes_within_200m
+        description: "Average available Veo bikes within 200 m (Denver stops)."
+      - name: jobs_within_45min_am_peak
+        description: "Jobs reachable within 45 minutes by walking and transit at the weekday morning peak, weighted over the Denver tracts near the stop (schedule-based)."
+  - name: mart_route_scorecard
+    description: "Report card per route, both directions: frequency and weekday span, on-time share, excess wait, delivered and likely-missed trips, prediction accuracy, crowding, run-time reliability and alert hours, over the last 28 service dates. Each measured part has its count; missing parts stay NULL."
+    columns:
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests: [not_null, unique]
+      - name: is_frequent_route
+        description: "Every 15 minutes or better from 6:00 to 21:00 every day, in both directions (TransitCenter)."
+      - name: weekday_first_departure
+        description: "First scheduled weekday departure, local HH:MM."
+      - name: weekday_last_departure
+        description: "Last scheduled weekday departure, local HH:MM."
+      - name: weekday_midday_headway_min
+        description: "Average scheduled minutes between weekday departures, 9:00-14:59."
+      - name: pct_on_time
+        description: "Share of measured visits from 1 minute early to 5 minutes late."
+      - name: excess_wait_sec
+        description: "Extra wait over scheduled at headways scheduled every 15 minutes or better."
+      - name: pct_delivered
+        description: "Delivered share of trips the feed fully covered; NULL for routes whose vehicles rarely report."
+      - name: pct_missed_likely
+        description: "Canceled, no-vehicle or not-tracked share of those trips."
+      - name: pct_predictions_accurate_0_3
+        description: "Share of 0-3 minute predictions within MBTA's band."
+      - name: n_trips_with_occupancy
+        description: "Trips with an occupancy report."
+      - name: pct_trips_standing_or_worse
+        description: "Share of those reaching standing room only or worse."
+      - name: n_trips_timed
+        description: "Trips timed end to end."
+      - name: buffer_time_index
+        description: "Trip-weighted (p90 - p50) / p50 run time across patterns and days."
+      - name: alert_hours
+        description: "Service-alert hours on the route in the window."
+  - name: mart_reported_vs_measured_by_month
+    description: "RTD's reported monthly on-time performance beside WhyLine's measured share for the same month: all bus, light rail, A/B/G commuter lines and the N Line. RTD measures at timepoints with its own rules; WhyLine at every stop it times, 1 minute early to 5 minutes late."
+    data_tests:
+      - unique_combination:
+          column_names: ['report_month', 'service']
+    columns:
+      - name: report_month
+        description: "First day of the month."
+      - name: service
+        description: "all_bus, light_rail, commuter_rail_abg or commuter_rail_n."
+      - name: rtd_pct_on_time
+        description: "RTD's reported on-time performance for the month (0-1); NULL until RTD publishes it."
+      - name: rtd_service_availability
+        description: "RTD's reported service availability (0-1), where reported."
+      - name: whyline_pct_on_time
+        description: "WhyLine's measured on-time share for the month (0-1); NULL before WhyLine measured it."
+      - name: difference_pct_on_time
+        description: "whyline_pct_on_time - rtd_pct_on_time."
+      - name: n_visits_measured
+        description: "Stop visits with a known delay behind WhyLine's share."
+      - name: n_days_measured
+        description: "Service dates measured in the month."
+  - name: mart_transit_lane_speed_by_week
+    description: "Weekly running speed on each Denver transit-lane corridor beside the same routes' segments without a lane, by period. Every lane in the city's layer predates WhyLine's data, so this is cross-sectional until a lane opens with a date set in var('lane_openings')."
+    data_tests:
+      - unique_combination:
+          column_names: ['corridor', 'segment_group', 'week_start', 'period']
+    columns:
+      - name: corridor
+        description: "Lane corridor name from Denver's layer (trimmed)."
+      - name: segment_group
+        description: "lane (the corridor's lane segments) or same_routes_no_lane (segments of the routes that use the lane, where there is no lane)."
+        data_tests:
+          - accepted_values:
+              values: ['lane', 'same_routes_no_lane']
+      - name: week_start
+        description: "Monday of the week (service dates)."
+      - name: period
+        description: "early, am_peak, midday, pm_peak, evening or night, by departure hour."
+      - name: n_traversals
+        description: "Timed segment traversals."
+      - name: p50_speed_kmh
+        description: "Median speed, km/h."
+      - name: p50_delay_ratio
+        description: "Median running time over scheduled running time; below 1 is faster than scheduled."
+      - name: first_year_built
+        description: "Earliest build year among the corridor's lanes."
+      - name: last_year_built
+        description: "Latest build year among the corridor's lanes."
+      - name: weeks_since_opening
+        description: "Weeks from the opening date set in var('lane_openings'); NULL when no date is set."
+  - name: mart_job_access_by_tract
+    description: "Jobs reachable by walking and transit within 30, 45 and 60 minutes, per tract in the RTD counties and departure window (next Tuesday 7:00, 12:00, 19:00; Saturday 10:00; two-hour windows, median travel time), from the published schedule. Denver tracts carry their EnviroScreen percentile."
+    data_tests:
+      - unique_combination:
+          column_names: ['geoid', 'departure_window']
+    columns:
+      - name: geoid
+        description: "Census tract GEOID (2020)."
+        data_tests: [not_null]
+      - name: is_denver
+        description: "The tract is in the City and County of Denver."
+      - name: departure_window
+        description: "weekday_am_peak, weekday_midday, weekday_evening or saturday_midday."
+      - name: departure_date
+        description: "The date routed."
+      - name: jobs_within_30min
+        description: "Jobs reachable within 30 minutes, own tract included."
+      - name: jobs_within_45min
+        description: "Jobs reachable within 45 minutes."
+      - name: jobs_within_60min
+        description: "Jobs reachable within 60 minutes."
+      - name: pct_region_jobs_45min
+        description: "jobs_within_45min / total_jobs_region."
+      - name: total_jobs_region
+        description: "Jobs in all routed tracts (LODES)."
+      - name: lodes_year
+        description: "LODES vintage."
+      - name: enviroscreen_pctl
+        description: "Colorado EnviroScreen percentile of the tract (Denver tracts)."

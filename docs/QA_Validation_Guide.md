@@ -100,7 +100,7 @@ Authorized `make dbt-test-staging` / `make dbt-test-marts` run data assertions. 
 - Confirm the BigQuery export completed and the expected `marts/{name}/run_date=…/` objects changed. A job timestamp can advance while an older partition remains stale.
 - For a late weather correction, check the older partition's `build_run_at` and export selection as well as the latest service date.
 - Confirm DuckDB refresh uploaded the intended file and updated sync state.
-- Query the actual DuckDB file to check the nine expected tables, date ranges, and the same bounded aggregate used in BigQuery. Compare matching cutoffs; realtime BigQuery can be newer than the nightly warehouse.
+- Query the actual DuckDB file to check the 12 expected tables, date ranges, and the same bounded aggregate used in BigQuery. Compare matching cutoffs; realtime BigQuery can be newer than the nightly warehouse.
 - Requery through the public DuckDB API. Existing connections, result caches, lookups, or stale schema artifacts can disagree with the newest GCS object.
 
 For a local downloaded warehouse, this inspection does not contact BigQuery:
@@ -117,9 +117,9 @@ PYTHON
 
 ## Browser and API checks
 
-Open `/app`, load a prebuilt query, review/validate/run it, and inspect table/chart/map. Check a known stop name/coordinate, route enrichment, result CSV, mart CSV, warehouse download, and freshness labels. Verify `/api/models` lists the expected nine marts; `/api/health` does not test those artifacts.
+Open `/app`, load a prebuilt query, review/validate/run it, and inspect table/chart/map. Check a known stop name/coordinate, route enrichment, result CSV, mart CSV, warehouse download, and freshness labels. Verify `/api/models` lists the expected 12 marts; `/api/health` does not test those artifacts.
 
-For generated SQL, use stub locally or an authorized provider configuration. The weather prebuilt label refers to snow, but its current SQL tests moderate/heavy precipitation; do not report snow-specific results from it.
+For generated SQL, use stub locally or an authorized provider configuration. The snow ready-made question compares snow days with other days per route (`snow_day`, last 365 days, at least three snow days); check `n_snow_days` before reporting a route.
 
 ## Legacy QA helper
 

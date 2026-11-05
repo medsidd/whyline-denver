@@ -63,7 +63,7 @@ Phase 0 plan, approved by the owner on 2026-10-28 with the departures in section
 | D9 | Confirmed from the official reference. `ST_LINELOCATEPOINT(line, point)` returns the 0–1 fraction of the closest point, ties unspecified; `ST_LINESUBSTRING` and `ST_LINEINTERPOLATEPOINT` exist. A 0-byte literal query on an out-and-back line snapped a bus at 427 m to 1,283 m (the return pass); `ST_LINESUBSTRING(line, 0, 0.5)` returned 427.5 m. | Not used on the hot path; available for SQL QA |
 | D10 | Every endpoint has an IPv6 address: RTD realtime (Azure Front Door), RTD static (Cloudflare), `storage`, `*-docker.pkg.dev`, `logging`, `monitoring`, `oauth2`, `dl.google.com`/`update.googleapis.com` (COS updates), `gcr.io`. The metadata server and NTP are link-local. Private Google Access covers the IPv4 path to Google APIs. `github.com` has no AAAA and isn't needed. | Container must run with `--network host` (Docker's bridge is IPv4-only); Compute API must be enabled |
 | D11 | The analysis process peaked at 356 MB RSS holding all static data as Python tuples. Building compact `array` geometry peaked at 222 MB, mostly transient (the zip held in memory plus temporary row lists). The poller will parse `stop_times` as a stream, straight into arrays. Target under 250 MB peak; measured in Phase 1 alongside the OS and logging agent. | Streamed compact static; no pandas in the loop |
-| D12 | **Owner action.** RTD's license grants "non-exclusive, limited and revocable rights to use, reproduce, and redistribute the Data". It sets no polling limit and says nothing about archiving or derived metrics. RTD trademarks may not be used with the data, and RTD may change or revoke the terms at any time. | Please read the agreement before deploy |
+| D12 | **Owner action.** RTD's license grants "non-exclusive, limited and revocable rights to use, reproduce, and redistribute the Data". It sets no polling limit and says nothing about archiving or derived metrics. RTD trademarks may not be used with the data, and RTD may change or revoke the terms at any time. | The owner read it on 2026-10-28; flags in §8 |
 | D13 | RTD: on time = "less than one minute early or five minutes late", against scheduled arrival at a stop or station, same window for bus and rail. Current marts use `abs(delay) <= 300` and count unknown delays as on time. **Decision:** −60 s < delay ≤ +300 s on arrival (departure at origin stops), unknown delays excluded from the denominator. Vars `on_time_early_sec: 60`, `on_time_late_sec: 300`. | Mart definition change, documented |
 | D14 | Alerts feed: 114 alerts (99 active). Effects: 45 NO_SERVICE (mostly stop closures for construction), 27 DETOUR, 31 NO_EFFECT; 263 informed entities name route + stop. Closures likely explain many SKIPPED stops, and detours produce off-route reports. Ingesting it is out of scope; worth a later daily snapshot. | Report only |
 
@@ -117,7 +117,7 @@ State is held per trip instance `(trip_id, start_date)`; `service_date = start_d
 - **Report validity:**
   - not a repeat;
   - age ≤ 120 s (drops about 1–2%: vehicles whose link lags more than RTD's own 2-minute accuracy claim);
-  - inside the existing Denver bbox;
+  - inside the bounding box around RTD's network (lon −105.7 to −104.4, lat 39.4 to 40.3). The owner widened it on 2026-10-28; the earlier Denver box left out Nederland and Eldora service, about 0.6% of reports;
   - lateral offset ≤ 100 m (bus p90 25 m and CR p90 40 m; detours and layover yards exceed it);
   - projected distance within [first stop − 100 m, last stop + 100 m] (interlining rule).
 - **Projection:** nearest point on the trip's shape, limited to the stretch between the previous stop and the reported `stop_id`. `stop_id` resolves to its first occurrence at or after the vehicle's progress index, which handles loops; ±150 m applies when STOPPED_AT. The search is also clamped to at least the last valid distance − 50 m.
@@ -264,6 +264,13 @@ Daily averages are taken as 70% of the peak rate until D1.
 
 New-component storage at 3 / 12 / 24 months (logical): about $4.1 / $5.2 / $6.4; with physical billing about $1.0 / $1.7 / $2.6, by then mostly Coldline.
 
+**Pricing calculator check (October 29, 2026).** The Google Cloud Pricing Calculator [estimate](https://cloud.google.com/products/calculator/estimate-preview/CiQ3ZTdmY2FjMC0zNWE2LTRlNTctYThjMC0wNmFkOTAxNjIyMDQQAQ%3D%3D) covers the new components at month 3 plus all project queries after the cutover. It comes to $10.53 a month at list price.
+- The calculator charges the e2-micro at $6.11, because it doesn't apply that free tier; it does show the 30 GB disk as free.
+- It deducts BigQuery's 10 GiB and Cloud Storage's 5 GB free tiers, which existing data already uses (+$0.25).
+- Adjusted, the total is about $4.7 a month: BigQuery storage $3.69 (0.19 TiB), queries $0.44 (1.07 TiB), Coldline $0.24, staging about $0.10, logging and the heartbeat metric $0. This matches the table above.
+- At today's 1.38 TiB, queries cost $2.38 a month; at the dual-run rate (2.28 TiB), $8.00. A 10-day dual run therefore adds about $1.9.
+- [PR #71](https://github.com/medsidd/whyline-denver/pull/71) raises the per-run estimate to about 360 MiB. At that rate, queries after the cutover come to 1.18 TiB, or $1.13 a month.
+
 **Budget arithmetic.**
 
 1. Non-query costs at month 3 come to about $7.1: existing BigQuery storage ~$2.5 (falls once the backups are dropped), new raw ~$3.7, facts ~$0.2, GCS ~$0.4, Artifact Registry ~$0.3.
@@ -297,16 +304,24 @@ Run both pipelines for at least 7 days, including a weekend.
    - interpolation bias: linear interpolation favours early estimates for a bus decelerating into the stop, so measure interpolated arrivals against the first STOPPED_AT report;
    - 20 or more visits spot-checked against archive replays;
    - optionally, a field check or RTD's published OTP.
+2a. **Frequent-route lateness (added 2026-11-02, owner request):** route 15 has 43% of measured visits on time (45% at timepoints) and 51% more than 5 minutes late. Its median delay is 570 s in the evening and 680 s at night, against RTD's reported ~84% local on-time performance. Before #71 merges, rule out vehicles matched to the wrong trip on frequent routes.
+   - **Preliminary check (2026-10-30, read-only):** RTD's own last predictions agree with WhyLine's measured arrivals: median difference 1 s at middle stops and 8 s at last stops. RTD-predicted delay against the schedule (median 327 s) matches the measured delay (339 s). So the lateness is in RTD's feed too, not an artefact of how WhyLine assigns visits. Origin departures run a median 138 s late, while RTD predicts them on time.
+   - Across all routes, 75.9% of visits are on time at timepoints and 75.5% elsewhere, so measuring at every stop isn't what lowers the figure.
+   - **Still to check in the review:**
+     - spot-check route 15 trips against archive replays, especially trips where a vehicle changed trips at a terminal (`trip_switch_at_terminal`);
+     - compare with RTD's reported figures for October once WP10 parses them.
 3. **Old vs new by route-day**, using new marts built into a scratch dataset (`BQ_DATASET_MART=mart_denver_eval`, the #63 pattern). Every difference is classed as an intended change, a fixed defect, or a regression.
 4. **Determinism:** replay one day from the archive and diff it against the fact.
 5. **Cost:** seven days of `INFORMATION_SCHEMA.JOBS` billed bytes, old vs new.
-6. **Cutover.** FIRST is the first service date with stream visits; N is the number of days from FIRST to today.
+6. **Cutover.** FIRST is `stream_first_full_date`, 2026-10-29: the poller started at 02:41 local that day, so October 28 holds only 107 late visits and both marts leave it on the legacy method. N only has to reach FIRST, and a larger N changes nothing earlier.
    1. Merge Phase 5, build, and deploy the digest to both jobs (runbook step 6). Phase 5 disables `stg_rt_events`, `fct_trip_observation` and `fct_stop_arrival` (their tables stay, frozen), drops them from `dbt-run-realtime`, and relabels them as legacy.
    2. Rebuild the marts from FIRST. Both reliability marts replace whole date partitions, so no legacy rows survive on those dates; earlier partitions keep the legacy method (`data_version` NULL). Full refreshes are disabled on both, by design.
       `python -m tools.dbt_with_env run --project-dir dbt --target prod --select mart_reliability_by_route_day mart_reliability_by_stop_hour mart_weather_impacts mart_priority_hotspots --vars '{route_day_window_days: N, stop_hour_window_days: N}'`
    3. Pause the snapshot job: `gcloud scheduler jobs pause realtime-ingest --location=us-central1` (rollback: `resume`). Its raw tables are kept.
    4. Set `STOP_VISITS_SINCE` in `frontend/src/lib/links.ts` to FIRST and deploy the frontend. Regenerate the dbt artifacts (the #65 pattern) and redeploy the API, so the schema brief lists the new columns. Re-export the DuckDB marts with `--force` from FIRST.
 7. **Later, after calibration:** record the results in `METRICS_GLOSSARY.md`, set `publish_backfill: true` in `dbt_project.yml`, and rebuild from 2025-10-23 with the window widened to cover it (step 6.2 with N counted from 2025-10-23). The stream's first, partial day then fills with backfill visits for the trips before the poller started; its route-day rows read `mixed`.
+
+**Reviewed 2026-11-05:** checks 1–5 are recorded in [operations](../OPERATIONS.md). They pass, except that the comparison with RTD's October figures in 2a has to wait for RTD's report; the latest is August. Cutover awaits the owner's approval.
 
 ## 7. Runbook (owner commands, in order)
 
@@ -377,7 +392,7 @@ gcloud beta monitoring channels create --display-name="WhyLine owner" --type=ema
   --channel-labels=email_address=<owner email>
 CHANNEL=$(gcloud beta monitoring channels list --filter='displayName="WhyLine owner"' --format='value(name)')
 gcloud logging metrics create rt_stream_heartbeat --description="RTD stream poller heartbeat" \
-  --log-filter='resource.type="gce_instance" AND (textPayload:"RT_STREAM_HEARTBEAT" OR jsonPayload.MESSAGE:"RT_STREAM_HEARTBEAT" OR jsonPayload.message:"RT_STREAM_HEARTBEAT")'
+  --log-filter='resource.type="gce_instance" AND logName="projects/whyline-denver/logs/cos_docker" AND (textPayload:"RT_STREAM_HEARTBEAT" OR jsonPayload.MESSAGE:"RT_STREAM_HEARTBEAT" OR jsonPayload.message:"RT_STREAM_HEARTBEAT")'
 for f in infra/stream-vm/alert-stream-stale.json infra/stream-vm/alert-stream-heartbeat.json; do
   sed "s#projects/whyline-denver/notificationChannels/CHANNEL_ID#$CHANNEL#" "$f" > /tmp/policy.json
   gcloud alpha monitoring policies create --policy-from-file=/tmp/policy.json
@@ -424,4 +439,11 @@ bq update --storage_billing_model=PHYSICAL whyline-denver:raw_denver
 - **Duplicate visits** after a lost VM disk or two pollers running at once. The checkpoints prevent normal-restart duplicates, and the grain test catches the rest.
 - **DST.** The 2026-11-01 DST change falls inside the likely dual run. GTFS times count from noon − 12 h; the existing `gtfs_time_to_ts` macro is wrong for those few hours. Flagged in validation.
 - **Mart history discontinuity** at cutover (new on-time definition) until the backfill is published.
-- **Open:** D12 license reading (owner); the email address for alerts; whether to drop F3 orphans and backups (separate approval).
+- **License (D12), flagged after the owner's reading on 2026-10-28:**
+  - RTD can change or revoke the agreement at any time without notice, and continued use accepts the change. The permanent archive, the backfill and the published history all rest on it. Check the agreement page for changes, and be ready to stop redistribution.
+  - The agreement bars RTD trademarks "in association with Data", and RTD's 2011 site terms bar its trade names "in any manner" without written permission. The site's page titles and search keywords use "RTD" as branding ("WhyLine Denver | RTD Reliability Analytics"), which contradicts the attribution page's statement that RTD's names don't brand the site. Fixed on 2026-10-29: titles, descriptions and keywords now describe an independent Denver transit project, and RTD is named only as the data source.
+  - `pct_on_time` now uses RTD's own definition, so it is easier to mistake for RTD's published on-time performance. The site already says it is unofficial; the glossary should say these are WhyLine's estimates.
+  - The owner indemnifies RTD, without a cap, for claims arising from use of the data. WhyLine's terms disclaim accuracy, which matters more once the dashboard states 30-second precision for buses.
+  - RTD's GTFS page asks for permission before using RTD logos, maps or other website content (developer@rtd-denver.com). The glossary paraphrases RTD's on-time definition and the attribution page links the agreement; low risk, but confirmation can be requested there.
+  - Not a concern: polling rate (no limit stated), private archiving (reproduction is granted), redistribution of derived data (granted), Colorado law and Denver venue.
+- **Open:** the email address for alerts; whether to drop the `*_v2` datasets and the `__unpartitioned_bak` backups. The F3 `stg_denver` orphans and the April temp table were dropped on 2026-10-29 ([operations](../OPERATIONS.md)).

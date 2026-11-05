@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { track } from "@vercel/analytics";
 import { downloadMartCsv, triggerDownload } from "@/lib/api";
 
 const MART_OPTIONS = [
@@ -42,6 +43,7 @@ export function DownloadPanel() {
         date_end: null,
       });
       triggerDownload(blob, `${mart}_${new Date().toISOString().slice(0, 10)}.csv`);
+      track("download", { mart });
       setStatus("done");
     } catch (err) {
       setError(String(err));

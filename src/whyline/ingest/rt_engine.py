@@ -17,8 +17,9 @@ from google.transit import gtfs_realtime_pb2 as rt
 
 from whyline.ingest.rt_static import Shape, StaticFeed, Trip, project, to_xy
 
-# Same Denver box as the snapshot ingestor (gtfs_realtime.py), which imports pandas.
-LON_MIN, LON_MAX, LAT_MIN, LAT_MAX = -105.5, -104.4, 39.4, 40.2
+# Also used by the snapshot ingestor (gtfs_realtime.py). It holds every RTD shape with margin:
+# Eldora reaches -105.58 and north Longmont 40.21 in the October 2026 feed.
+LON_MIN, LON_MAX, LAT_MIN, LAT_MAX = -105.7, -104.4, 39.4, 40.3
 
 STALE_SEC = {"stream": 120, "backfill": 600}
 LATERAL_MAX_M = 100.0

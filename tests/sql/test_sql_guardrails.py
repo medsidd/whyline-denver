@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
-from whyline.sql_guardrails import GuardrailConfig, SqlValidationError, sanitize_sql
+from whyline.logs import log_query
+from whyline.sql_guardrails import (
+    GuardrailConfig,
+    SqlValidationError,
+    referenced_tables,
+    sanitize_sql,
+)
 
 
 def test_valid_query_passes_without_modification():
@@ -101,3 +109,30 @@ def test_bigquery_allows_configured_namespace():
     )
     sanitized = sanitize_sql(sql, config)
     assert "mart_access_score_by_stop" in sanitized
+
+
+def test_referenced_tables_skip_ctes_and_qualifiers():
+    sql = (
+        "WITH recent AS (SELECT * FROM `whyline-denver.mart_denver.mart_reliability_by_route_day`) "
+        "SELECT * FROM recent JOIN mart_weather_impacts USING (route_id)"
+    )
+    assert referenced_tables(sql) == ["mart_reliability_by_route_day", "mart_weather_impacts"]
+
+
+def test_query_log_records_marts_status_and_ready_made_question(tmp_path):
+    path = tmp_path / "queries.jsonl"
+    log_query(
+        engine="bigquery",
+        rows=3,
+        latency_ms=1.234,
+        models=["mart_weather_impacts", "mart_weather_impacts"],
+        sql="SELECT 1",
+        question="Where snow hurts reliability most",
+        prebuilt_index=2,
+        status="error",
+        path=path,
+    )
+    record = json.loads(path.read_text())
+    assert record["model_names"] == ["mart_weather_impacts"]
+    assert record["prebuilt_index"] == 2 and record["status"] == "error"
+    assert "Where snow" not in path.read_text()

@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -184,3 +185,35 @@ def test_noaa_outage_publishes_open_meteo_extract(monkeypatch, tmp_path):
     assert df.loc[0, "precip_mm"] == 1.5
     assert df.loc[0, "snow_mm"] == 4.0  # cm converted to mm
     assert "open_meteo_fallback" in next(tmp_path.rglob("manifest.json")).read_text()
+
+
+def test_noaa_requests_are_split_into_year_long_ranges(monkeypatch):
+    ranges = []
+    monkeypatch.setattr(
+        noaa, "_fetch_noaa_cdo_range", lambda records, t, s, a, b, o: ranges.append((a, b))
+    )
+    noaa.fetch_noaa_cdo(
+        token="t",  # noqa: S106
+        station="USW00003017",
+        start="2025-01-01",
+        end="2026-10-29",
+        timeout=5,
+    )
+    assert ranges == [("2025-01-01", "2025-12-31"), ("2026-01-01", "2026-10-29")]
+
+
+def test_open_meteo_uses_the_archive_for_old_dates(monkeypatch):
+    urls = []
+
+    def fake_get(url, **kwargs):
+        urls.append((url, kwargs["params"]["start_date"], kwargs["params"]["end_date"]))
+        return Mock(json=lambda: {"daily": {}}, raise_for_status=lambda: None)
+
+    monkeypatch.setattr(noaa.io, "http_get_with_retry", fake_get)
+    noaa.fetch_open_meteo(station="USW00003017", start="2025-01-01", end="2025-01-31", timeout=5)
+    assert urls == [(noaa.OPEN_METEO_ARCHIVE_URL, "2025-01-01", "2025-01-31")]
+    urls.clear()
+    today = date.today().isoformat()
+    noaa.fetch_open_meteo(station="USW00003017", start="2025-01-01", end=today, timeout=5)
+    assert [u for u, _, _ in urls] == [noaa.OPEN_METEO_ARCHIVE_URL, noaa.OPEN_METEO_URL]
+    assert urls[1][2] == today

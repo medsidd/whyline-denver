@@ -7,10 +7,13 @@ sources:
       warn_after: {count: 2, period: day}
       error_after: {count: 5, period: day}
     tables:
+      # Frozen when realtime-ingest paused at the stop-visit cutover.
       - name: raw_gtfsrt_trip_updates
         loaded_at_field: _ingested_at
+        freshness: null
       - name: raw_gtfsrt_vehicle_positions
         loaded_at_field: _ingested_at
+        freshness: null
       - name: raw_crashes
         loaded_at_field: _ingested_at
       - name: raw_sidewalks
@@ -56,3 +59,42 @@ sources:
           filter: "_ingested_at >= timestamp_sub(current_timestamp(), interval 1 day)"
       - name: raw_gtfsrt_stop_visits_calibration
         description: "Thinned-replay visits (backfill engine on stream payloads) for the backfill calibration; owner-loaded."
+      # Weekly reference snapshots (arcgis_reference, ntd_monthly): a layer or extract is
+      # refetched at most every 7 days.
+      - name: raw_arcgis_reference
+        loaded_at_field: _ingested_at
+        freshness:
+          warn_after: {count: 9, period: day}
+          error_after: {count: 16, period: day}
+      - name: raw_ntd_monthly
+        loaded_at_field: _ingested_at
+        freshness:
+          warn_after: {count: 9, period: day}
+          error_after: {count: 16, period: day}
+      - name: raw_weather_hourly
+        loaded_at_field: _ingested_at
+      # Snapshotted by the realtime-load job every 15 minutes; 90-day (alerts) and 30-day
+      # (Veo) expiry.
+      - name: raw_gtfsrt_alerts
+        loaded_at_field: feed_ts_utc
+        freshness:
+          warn_after: {count: 60, period: minute}
+          error_after: {count: 180, period: minute}
+          filter: "feed_ts_utc >= timestamp_sub(current_timestamp(), interval 1 day)"
+      - name: raw_gtfsrt_alert_periods
+      - name: raw_gbfs_veo_vehicles
+        loaded_at_field: snapshot_ts_utc
+        freshness:
+          warn_after: {count: 60, period: minute}
+          error_after: {count: 180, period: minute}
+          filter: "snapshot_ts_utc >= timestamp_sub(current_timestamp(), interval 1 day)"
+      - name: raw_rtd_reported_performance
+        loaded_at_field: _ingested_at
+        freshness:
+          warn_after: {count: 9, period: day}
+          error_after: {count: 16, period: day}
+      - name: raw_job_access
+        loaded_at_field: _ingested_at
+        freshness:
+          warn_after: {count: 9, period: day}
+          error_after: {count: 16, period: day}

@@ -39,6 +39,11 @@ with e as (
     -- Unassigned visits remain in the fact (route_key -1) but cannot contribute to route metrics.
     where route_id is not null
       and data_version in ({{ versions }})
+    {%- if not var('publish_backfill', false) %}
+      -- The poller started early on 2026-10-29, so the service date before holds only a few late
+      -- trips; rebuilding that date would replace its full legacy partition with them.
+      and service_date >= '{{ var("stream_first_full_date", "2026-10-29") }}'
+    {%- endif %}
     {% if is_incremental() %}
         and service_date >= date_sub(current_date("America/Denver"), interval {{ window_days }} day)
     {% endif %}

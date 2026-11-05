@@ -195,6 +195,85 @@ JOBS: tuple[JobSpec, ...] = (
             ("geometry_geojson", "STRING"),
         ),
     ),
+    # Street-safety and equity layers (whyline.ingest.arcgis_reference), refreshed weekly.
+    JobSpec(
+        name="arcgis_reference",
+        patterns=("arcgis_reference/extract_date=*/*.csv.gz",),
+        table="raw_arcgis_reference",
+        partition=Partitioning(field="_extract_date"),
+        clustering=Clustering(fields=("layer",)),
+        columns=_cols(
+            ("layer", "STRING"),
+            ("object_id", "STRING"),
+            ("properties_json", "STRING"),
+            ("geometry_geojson", "STRING"),
+        ),
+    ),
+    # Jobs reachable by transit per tract (whyline.ingest.job_access), weekly from GitHub Actions.
+    JobSpec(
+        name="job_access",
+        patterns=("job_access/extract_date=*/job_access.csv.gz",),
+        table="raw_job_access",
+        partition=Partitioning(field="_extract_date"),
+        columns=_cols(
+            ("origin_geoid", "STRING"),
+            ("window", "STRING"),
+            ("departure_date", "DATE"),
+            ("minutes_threshold", "INT64"),
+            ("jobs_reachable", "INT64"),
+            ("total_jobs_region", "INT64"),
+            ("lodes_year", "INT64"),
+            ("gtfs_md5", "STRING"),
+        ),
+    ),
+    # RTD's own monthly on-time figures from its operations reports (rtd_reported_performance).
+    JobSpec(
+        name="rtd_reported_performance",
+        patterns=("rtd_reported_performance/extract_date=*/rtd_reported_performance.csv.gz",),
+        table="raw_rtd_reported_performance",
+        partition=Partitioning(field="_extract_date"),
+        columns=_cols(
+            ("report_month", "DATE"),
+            ("mode", "STRING"),
+            ("service", "STRING"),
+            ("metric", "STRING"),
+            ("value_pct", "FLOAT64"),
+            ("source_url", "STRING"),
+        ),
+    ),
+    # RTD monthly ridership from the National Transit Database (whyline.ingest.ntd_monthly).
+    JobSpec(
+        name="ntd_monthly",
+        patterns=("ntd_monthly/extract_date=*/ntd_monthly.csv.gz",),
+        table="raw_ntd_monthly",
+        partition=Partitioning(field="_extract_date"),
+        columns=_cols(
+            ("month", "DATE"),
+            ("mode", "STRING"),
+            ("tos", "STRING"),
+            ("mode_group", "STRING"),
+            ("upt", "INT64"),
+            ("vrm", "INT64"),
+            ("vrh", "INT64"),
+            ("voms", "INT64"),
+        ),
+    ),
+    # Hourly weather at the DIA station (whyline.ingest.weather_hourly); overlapping extracts.
+    JobSpec(
+        name="weather_hourly",
+        patterns=("weather_hourly/extract_date=*/weather_hourly.csv.gz",),
+        table="raw_weather_hourly",
+        partition=Partitioning(field="_extract_date"),
+        columns=_cols(
+            ("ts_utc", "TIMESTAMP"),
+            ("station", "STRING"),
+            ("precip_mm", "FLOAT64"),
+            ("snowfall_mm", "FLOAT64"),
+            ("temp_c", "FLOAT64"),
+            ("wind_kmh", "FLOAT64"),
+            ("source", "STRING"),
+        ),
+    ),
     JobSpec(
         name="noaa_daily",
         patterns=(
@@ -562,5 +641,60 @@ JOBS: tuple[JobSpec, ...] = (
             field="_ingested_at", granularity="HOUR", expiration_days=STREAM_RETENTION_DAYS
         ),
         clustering=Clustering(fields=("route_id", "trip_id")),
+    ),
+    # Service alerts (whyline.ingest.gtfs_alerts), snapshotted by the realtime-load job.
+    # Column order must equal gtfs_alerts.ALERT_COLUMNS / PERIOD_COLUMNS.
+    JobSpec(
+        name="gtfsrt_alerts",
+        patterns=("rtd_gtfsrt_alerts/snapshot_at=*/alerts.csv.gz",),
+        table="raw_gtfsrt_alerts",
+        columns=_cols(
+            ("feed_ts_utc", "TIMESTAMP"),
+            ("alert_id", "STRING"),
+            ("cause", "STRING"),
+            ("effect", "STRING"),
+            ("header_text", "STRING"),
+            ("description_text", "STRING"),
+            ("url", "STRING"),
+            ("agency_id", "STRING"),
+            ("route_id", "STRING"),
+            ("route_type", "INT64"),
+            ("direction_id", "INT64"),
+            ("stop_id", "STRING"),
+            ("trip_id", "STRING"),
+        ),
+        partition=Partitioning(field="feed_ts_utc", expiration_days=STREAM_RETENTION_DAYS),
+        clustering=Clustering(fields=("route_id", "stop_id")),
+    ),
+    JobSpec(
+        name="gtfsrt_alert_periods",
+        patterns=("rtd_gtfsrt_alerts/snapshot_at=*/alert_periods.csv.gz",),
+        table="raw_gtfsrt_alert_periods",
+        columns=_cols(
+            ("feed_ts_utc", "TIMESTAMP"),
+            ("alert_id", "STRING"),
+            ("active_start_utc", "TIMESTAMP"),
+            ("active_end_utc", "TIMESTAMP"),
+        ),
+        partition=Partitioning(field="feed_ts_utc", expiration_days=STREAM_RETENTION_DAYS),
+    ),
+    # Veo micromobility (whyline.ingest.gbfs_veo), snapshotted by the realtime-load job.
+    # About 8k rows per snapshot, so raw keeps 30 days; dbt keeps the aggregates.
+    JobSpec(
+        name="gbfs_veo_vehicles",
+        patterns=("gbfs_veo/snapshot_at=*/vehicles.csv.gz",),
+        table="raw_gbfs_veo_vehicles",
+        columns=_cols(
+            ("snapshot_ts_utc", "TIMESTAMP"),
+            ("vehicle_type_id", "STRING"),
+            ("form_factor", "STRING"),
+            ("propulsion", "STRING"),
+            ("lat", "FLOAT64"),
+            ("lon", "FLOAT64"),
+            ("is_reserved", "BOOL"),
+            ("is_disabled", "BOOL"),
+            ("current_range_m", "INT64"),
+        ),
+        partition=Partitioning(field="snapshot_ts_utc", expiration_days=30),
     ),
 )

@@ -36,6 +36,8 @@ frontend/.vercel/
 
 # Misc
 /*.json
+# Local task-observer notes; never committed.
+skill-observations/
 .DS_Store
 .vscode/
 site/

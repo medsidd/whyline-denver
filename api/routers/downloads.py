@@ -34,6 +34,9 @@ MART_OPTIONS: list[tuple[str, str]] = [
     ("mart_vulnerability_by_stop", "Vulnerability by stop"),
     ("mart_priority_hotspots", "Priority hotspots"),
     ("mart_weather_impacts", "Weather impacts"),
+    ("mart_service_frequency_by_stop", "Scheduled departures by stop & hour"),
+    ("mart_frequent_network_by_route", "Route frequency & span"),
+    ("mart_service_intensity_by_tract", "Scheduled service by census tract"),
 ]
 ALLOWED_MARTS = {name for name, _ in MART_OPTIONS}
 
