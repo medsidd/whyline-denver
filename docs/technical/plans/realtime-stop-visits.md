@@ -310,6 +310,8 @@ Run both pipelines for at least 7 days, including a weekend.
 6. **Cutover:** merge Phase 5 and deploy the digest; rebuild the mart partitions from the stream start; pause `realtime-ingest`; take the old models out of `dbt-run-realtime`; relabel them.
 7. **Later:** after calibration, publish `backfill_v1` and rebuild the earlier partitions.
 
+**Reviewed 2026-11-05:** checks 1–5 are recorded in [operations](../OPERATIONS.md). They pass, except that the comparison with RTD's October figures in 2a has to wait for RTD's report; the latest is August. Cutover awaits the owner's approval.
+
 ## 7. Runbook (owner commands, in order)
 
 Project `whyline-denver`, region `us-central1`, zone `us-central1-a`. Each step lists its rollback.
