@@ -427,7 +427,7 @@ The owner ran the three cutover steps between about 17:29 and 17:32 UTC.
 - **Stop visits:** October 29 to November 6 are all `stream_v1` in both marts, and the two marts agree on events for every day. November 3 has 331,997 visits, matching the replay in the review. Fleet on-time on full days is 73.0–76.9%.
 - **First run on the new image:** `realtime-load-49lbh` (17:32) succeeded. It snapshotted 80 alerts and 8,205 Veo vehicles, built the six models of the stop-visit selection, and updated the freshness timestamp.
 - **Cost per realtime run** (`INFORMATION_SCHEMA.JOBS_BY_PROJECT`, billed): 509–548 MiB on the new image against 714–753 MiB on the old one that afternoon. That's about 19 GB a day less. The 10 MB minimum per query is most of the gap between billed and processed bytes.
-- **Re-export:** a hand-triggered Nightly BigQuery ([run 42263388383](https://github.com/medsidd/whyline-denver/actions/runs/42263388383)) built 85 models and passed 175 of 176 tests; the warning was the known `assert_stop_visit_arrivals_monotonic` (138 visits). It re-exported the 9 rebuilt partitions (October 29 to November 6) of each reliability mart. Nightly DuckDB followed.
+- **Re-export:** a hand-triggered Nightly BigQuery ([run 42263388383](https://github.com/medsidd/whyline-denver/actions/runs/42263388383)) built 85 models and passed 175 of 176 tests; the warning was the known `assert_stop_visit_arrivals_monotonic` (138 visits). It re-exported the 9 rebuilt partitions (October 29 to November 6) of each reliability mart. Nightly DuckDB ([run 42265450843](https://github.com/medsidd/whyline-denver/actions/runs/42265450843)) then refreshed both marts and succeeded.
 
 **Rollback:**
 
