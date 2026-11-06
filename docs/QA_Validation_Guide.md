@@ -117,9 +117,9 @@ PYTHON
 
 ## Browser and API checks
 
-Open `/app`, load a prebuilt query, review/validate/run it, and inspect table/chart/map. Check a known stop name/coordinate, route enrichment, result CSV, mart CSV, warehouse download, and freshness labels. Verify `/api/models` lists the expected 12 marts; `/api/health` does not test those artifacts.
+Open `/app`, load a prebuilt query, review/validate/run it, and inspect table/chart/map. Check a known stop name/coordinate, route enrichment, result CSV, mart CSV, warehouse download, and freshness labels. Verify `/api/models` lists the expected 20 marts; `/api/health` does not test those artifacts.
 
-For generated SQL, use stub locally or an authorized provider configuration. The snow ready-made question compares snow days with other days per route (`snow_day`, last 365 days, at least three snow days); check `n_snow_days` before reporting a route.
+For generated SQL, use stub locally or an authorized provider configuration. The snow ready-made question compares snow days with other days per route and method (`snow_day`, last 365 days, at least three snow days); check `n_snow_days` and `method` before reporting a route. The worst-routes and equity questions filter `data_version IS NOT NULL`, so they read stop-visit dates only.
 
 ## Legacy QA helper
 

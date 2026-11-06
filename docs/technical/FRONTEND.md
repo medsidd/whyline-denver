@@ -10,7 +10,7 @@
 | `components/layout/` | Header (glass nav, data freshness) and Sidebar (filter rail, collapsible below `lg`) |
 | `components/steps/StepShell.tsx` | Numbered stop, connecting line and card for each step; status is done, current or upcoming |
 | `components/steps/Step1QuestionInput.tsx` | Natural-language question and generation request; renders the ready-made questions |
-| `components/steps/PrebuiltQuestions.tsx` | Four ready-made question chips (BigQuery SQL from the API) |
+| `components/steps/PrebuiltQuestions.tsx` | Eight ready-made question chips (BigQuery SQL from the API; the list is `PREBUILT_QUERIES` in `types/api.ts`) |
 | `components/steps/Step2SqlEditor.tsx` | CodeMirror SQL editing (navy theme), debounced validation, BigQuery estimate |
 | `components/steps/Step3Results.tsx` | Execution, Chart/Map/Table tabs, result CSV |
 | `components/ui/` | DataTable, DownloadPanel (whole-table downloads below the steps) |

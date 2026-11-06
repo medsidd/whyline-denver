@@ -31,6 +31,7 @@ PREBUILT: list[tuple[str, str]] = [
         "SELECT route_id, AVG(pct_on_time) AS avg_pct_on_time\n"
         "FROM mart_reliability_by_route_day\n"
         "WHERE service_date_mst >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)\n"
+        "  AND data_version IS NOT NULL\n"
         "GROUP BY route_id\n"
         "ORDER BY avg_pct_on_time ASC\n"
         "LIMIT 10",
@@ -45,6 +46,7 @@ PREBUILT: list[tuple[str, str]] = [
     (
         "Where snow hurts reliability most",
         "SELECT route_id,\n"
+        "  COALESCE(data_version, 'sampled') AS method,\n"
         "  AVG(CASE WHEN snow_day THEN pct_on_time END)\n"
         "    - AVG(CASE WHEN NOT snow_day THEN pct_on_time END) AS delta_pct_on_time,\n"
         "  AVG(CASE WHEN snow_day THEN pct_on_time END) AS pct_on_time_snow_days,\n"
@@ -52,7 +54,7 @@ PREBUILT: list[tuple[str, str]] = [
         "  SUM(CASE WHEN snow_day THEN 1 ELSE 0 END) AS n_snow_days\n"
         "FROM mart_reliability_by_route_day\n"
         "WHERE service_date_mst >= DATE_SUB(CURRENT_DATE, INTERVAL 365 DAY)\n"
-        "GROUP BY route_id\n"
+        "GROUP BY route_id, method\n"
         "HAVING SUM(CASE WHEN snow_day THEN 1 ELSE 0 END) >= 3\n"
         "ORDER BY delta_pct_on_time ASC\n"
         "LIMIT 10",
@@ -66,6 +68,7 @@ PREBUILT: list[tuple[str, str]] = [
         "  SELECT stop_id, 100 * (1 - AVG(pct_on_time)) AS reliability_score_0_100\n"
         "  FROM mart_reliability_by_stop_hour\n"
         "  WHERE service_date_mst >= DATE_SUB(CURRENT_DATE, INTERVAL 35 DAY)\n"
+        "    AND data_version IS NOT NULL\n"
         "  GROUP BY stop_id\n"
         ") r USING(stop_id)\n"
         "ORDER BY p.priority_score DESC\n"
@@ -79,6 +82,49 @@ PREBUILT: list[tuple[str, str]] = [
         "WHERE direction_id = 0\n"
         "ORDER BY is_frequent_route DESC, day_type, headway_midday_min\n"
         "LIMIT 60",
+    ),
+    (
+        "Which routes have the least reliable arrival predictions?",
+        "SELECT route_id,\n"
+        "  SUM(n_predictions) AS n_predictions_30d,\n"
+        "  SUM(pct_within_band * n_predictions) / SUM(n_predictions) AS pct_accurate,\n"
+        "  AVG(median_error_sec) AS avg_median_error_sec,\n"
+        "  AVG(padding_sec) AS avg_padding_sec\n"
+        "FROM mart_prediction_accuracy_by_route_day\n"
+        "WHERE horizon_bucket = '6-12'\n"
+        "  AND service_date_mst >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)\n"
+        "GROUP BY route_id\n"
+        "HAVING SUM(n_predictions) >= 200\n"
+        "ORDER BY pct_accurate ASC\n"
+        "LIMIT 10",
+    ),
+    (
+        "Which routes missed the most scheduled trips last week?",
+        "SELECT route_id,\n"
+        "  SUM(n_observable) AS n_trips_observable,\n"
+        "  ROUND(SUM(pct_missed_likely * n_observable)) AS n_missed_likely,\n"
+        "  SUM(pct_missed_likely * n_observable) / SUM(n_observable) AS share_missed_likely\n"
+        "FROM mart_service_delivered_by_route_day\n"
+        "WHERE service_date_mst >= DATE_SUB(CURRENT_DATE, INTERVAL 7 DAY)\n"
+        "  AND service_date_mst < CURRENT_DATE\n"
+        "  AND pct_missed_likely IS NOT NULL\n"
+        "GROUP BY route_id\n"
+        "HAVING SUM(n_observable) >= 50\n"
+        "ORDER BY share_missed_likely DESC\n"
+        "LIMIT 10",
+    ),
+    (
+        "Where are the slowest bus segments at rush hour?",
+        "SELECT s.route_id, s.direction_id, s.from_stop_name, s.to_stop_name, s.hour_mst,\n"
+        "  s.p50_speed_kmh, s.delay_ratio, s.n_traversals, s.lat, s.lon\n"
+        "FROM mart_segment_speed_by_hour s\n"
+        "JOIN mart_gtfs_routes r USING(route_id)\n"
+        "WHERE r.route_type = '3'\n"
+        "  AND s.day_type = 'weekday'\n"
+        "  AND s.hour_mst IN (7, 8, 16, 17)\n"
+        "  AND s.n_traversals >= 20\n"
+        "ORDER BY s.p50_speed_kmh ASC\n"
+        "LIMIT 20",
     ),
 ]
 

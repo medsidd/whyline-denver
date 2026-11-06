@@ -4,7 +4,7 @@
     partition_by={'field': 'service_date_mst', 'data_type': 'date'},
     cluster_by=['route_id'],
     on_schema_change='append_new_columns',
-    meta={"allow_in_app": false}
+    meta={"allow_in_app": true}
 ) }}
 
 {#

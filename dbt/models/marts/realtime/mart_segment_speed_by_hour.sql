@@ -1,7 +1,7 @@
 {{ config(
     materialized='table',
     cluster_by=['from_stop_id'],
-    meta={"allow_in_app": false}
+    meta={"allow_in_app": true}
 ) }}
 
 {#

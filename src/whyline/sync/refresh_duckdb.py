@@ -42,6 +42,14 @@ HOT_MARTS = {
     "mart_service_frequency_by_stop",
     "mart_frequent_network_by_route",
     "mart_service_intensity_by_tract",
+    "mart_prediction_accuracy_by_route_day",
+    "mart_crowding_by_route_hour",
+    "mart_crowding_by_stop",
+    "mart_service_delivered_by_route_day",
+    "mart_wait_by_stop_period",
+    "mart_wait_by_route_day",
+    "mart_segment_speed_by_hour",
+    "mart_trip_runtime_by_route_day",
 }
 
 # Marts loaded from local GTFS zip rather than the parquet export pipeline.
@@ -64,6 +72,9 @@ LATEST_RUN_DATE_ONLY_MARTS = {
     "mart_service_frequency_by_stop",
     "mart_frequent_network_by_route",
     "mart_service_intensity_by_tract",
+    "mart_crowding_by_stop",
+    "mart_wait_by_stop_period",
+    "mart_segment_speed_by_hour",
 }
 
 

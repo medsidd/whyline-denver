@@ -12,6 +12,17 @@ const MART_OPTIONS = [
   { value: "mart_vulnerability_by_stop", label: "Vulnerability by stop" },
   { value: "mart_priority_hotspots", label: "Priority hotspots" },
   { value: "mart_weather_impacts", label: "Weather impacts" },
+  { value: "mart_service_frequency_by_stop", label: "Scheduled departures by stop and hour" },
+  { value: "mart_frequent_network_by_route", label: "Route frequency and span" },
+  { value: "mart_service_intensity_by_tract", label: "Scheduled service by census tract" },
+  { value: "mart_prediction_accuracy_by_route_day", label: "Arrival-prediction accuracy by route and day" },
+  { value: "mart_crowding_by_route_hour", label: "Crowding by route and hour" },
+  { value: "mart_crowding_by_stop", label: "Crowding by stop and hour" },
+  { value: "mart_service_delivered_by_route_day", label: "Missed trips by route and day" },
+  { value: "mart_wait_by_stop_period", label: "Wait time by stop and time of day" },
+  { value: "mart_wait_by_route_day", label: "Wait time by route and day" },
+  { value: "mart_segment_speed_by_hour", label: "Speed between stops by hour" },
+  { value: "mart_trip_runtime_by_route_day", label: "Trip run time by route and day" },
 ];
 
 const label = "block text-sm font-extrabold text-wl-navy mb-1.5";

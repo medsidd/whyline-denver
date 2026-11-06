@@ -40,8 +40,10 @@ export default function DashboardPage() {
             <p role="note" className="-mt-5 mb-8 text-[15px] text-wl-ink2 max-w-[60ch]">
               Arrival times before {STOP_VISITS_SINCE} are estimated from 15-minute samples (accuracy ±minutes); from{" "}
               {STOP_VISITS_SINCE}, from 30-second vehicle reports (usually within 30 s for buses; each visit records its
-              own uncertainty).{" "}
-              <a href={GLOSSARY} className="text-wl-navy font-extrabold underline">
+              own uncertainty). On-time shares fall about 14 points at the switch, mostly because arrivals more than a
+              minute early no longer count as on time, so don&apos;t compare the two periods. Bus figures also run 5–10
+              points below RTD&apos;s own.{" "}
+              <a href={`${GLOSSARY}#changed-definitions-at-the-cutover`} className="text-wl-navy font-extrabold underline">
                 How arrivals are timed
               </a>
             </p>

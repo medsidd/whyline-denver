@@ -576,6 +576,20 @@ Because the API bakes in the dbt artifacts, new marts become visible in batches:
 
 Between releases, merged marts build in BigQuery and are tested nightly, but the app doesn't list them until the next API deploy.
 
+**As built, R1 (2026-11-06):**
+- **Published:** eight marts from WP1–WP5: `mart_prediction_accuracy_by_route_day`, `mart_crowding_by_route_hour`, `mart_crowding_by_stop`, `mart_service_delivered_by_route_day`, `mart_wait_by_route_day`, `mart_wait_by_stop_period`, `mart_segment_speed_by_hour` and `mart_trip_runtime_by_route_day`. The WP6 marts were already allowlisted, but the dashboard's download list and ready-made chips had missed them; R1 adds them.
+- **Held back:**
+  - `mart_transit_lane_speed_by_week`, because no lane opened inside the data;
+  - `mart_weather_impacts_hourly`, which stays with WP13 in R3.
+- **Ready-made questions:** the API's five become eight, and the dashboard shows all eight instead of four. The new ones cover prediction accuracy (6–12 minutes out), missed trips last week and the slowest bus segments at rush hour.
+  - The worst-routes and equity questions read stop-visit dates only.
+  - The snow question compares within each method.
+- **Coverage check (WP2):** 83–88% of tracked trips had occupancy data on every day from October 29 to November 5.
+- **Dashboard and AI rules:**
+  - The dashboard note names October 29, 2026, the 14-point drop and the bus gap.
+  - The SQL generator is told not to compare `pct_on_time` across methods, and to return coverage columns with rates.
+- **Order:** the API goes first, because the frontend deploys on merge and would otherwise offer questions and downloads that the running API rejects. The running API is still the October 27 image, so WP0's query-log line and the snow-question fix also arrive with R1.
+
 ## Sequence and timing
 
 | Order | Work package | Why now | Depends on |
@@ -611,12 +625,12 @@ Between releases, merged marts build in BigQuery and are tested nightly, but the
 
 ## Owner actions, all in one place
 
-Status on 2026-11-02:
+Status on 2026-11-06:
 
 1. Image updates for `realtime-load` after WP8 and WP14 merge. **Done** at about 17:45 UTC: both jobs now run `@sha256:c3fc6733…`.
-1a. One API redeploy per release (R1–R4): `gcloud run services update whylinedenver-api` with the digest I build. The permission check blocks me from running it. **Pending, per release.**
+1a. One API redeploy per release (R1–R4): `gcloud run services update whylinedenver-api` with the digest I build. The permission check blocks me from running it. **R1 pending:** image `whylinedenver-api@sha256:2efd070f…6505d4b1`, command in [operations](../OPERATIONS.md). R2–R4 to follow.
 2. The records request to RTD for route and stop boardings and stop amenities (WP11 and WP16). The text is ready in [the records request](rtd-records-request.md). **Deferred by the owner** on 2026-11-02.
 3. A monthly link to each new RTD operations PDF (WP10). **Not needed:** the board briefing documents page links every report.
-4. Approving the cutover on November 5, which unlocks publishing WP1–WP5. **Pending.** The review includes the frequent-route lateness check (route 15) added to §6 of the [stop-visit plan](realtime-stop-visits.md).
+4. Approving the cutover on November 5, which unlocks publishing WP1–WP5. **Done:** approved 2026-11-05 and deployed 2026-11-06 ([operations](../OPERATIONS.md)). The review includes the frequent-route lateness check (route 15) added to §6 of the [stop-visit plan](realtime-stop-visits.md).
 5. Rebuilding the route-day weather history before #71. **Done** at about 22:00 UTC.
 6. Decisions taken on 2026-11-02: publish Veo aggregates with credit; keep only crashes inside Denver's five-year window (#100).

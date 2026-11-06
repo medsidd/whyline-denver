@@ -21,7 +21,15 @@ from whyline.sync.state import (
 LOGGER = logging.getLogger(__name__)
 
 PARTITIONED_MARTS: frozenset[str] = frozenset(
-    {"mart_reliability_by_route_day", "mart_reliability_by_stop_hour"}
+    {
+        "mart_reliability_by_route_day",
+        "mart_reliability_by_stop_hour",
+        "mart_prediction_accuracy_by_route_day",
+        "mart_crowding_by_route_hour",
+        "mart_service_delivered_by_route_day",
+        "mart_wait_by_route_day",
+        "mart_trip_runtime_by_route_day",
+    }
 )
 
 

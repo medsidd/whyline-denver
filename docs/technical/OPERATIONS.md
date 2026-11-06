@@ -414,9 +414,54 @@ The owner approved the cutover after the review above, and chose physical storag
   - **On-time boundary:** seven newer marts counted exactly 60 s early as on time, unlike the reliability marts and RTD's "less than one minute early". All now use `-60 < delay <= 300`.
   - **Freshness:** `raw_gtfsrt_trip_updates` and `raw_gtfsrt_vehicle_positions` no longer have freshness checks, because they freeze when `realtime-ingest` pauses.
 
+### Cutover deployed, November 6, 2026 (UTC)
+
+The owner ran the three cutover steps between about 17:29 and 17:32 UTC.
+
+1. **Image:** both jobs moved to `whylinedenver-realtime@sha256:64d6be93347a32e573fa01a550135f6ba5f4e5eae08db3198aa42ab635bb7e25`, built with Cloud Build `f54e043a` from `bba4715` (tag `bba4715`). The last run on the old image (17:17) finished at 17:20, before the rebuild, so nothing rewrote the rebuilt days with the old method.
+2. **Rebuild:** `mart_reliability_by_route_day`, `mart_reliability_by_stop_hour`, `mart_weather_impacts` and `mart_priority_hotspots`, with 30-day windows, at 17:30–17:31. All four passed in 59 s, processing about 265 MiB.
+3. **Snapshot job paused:** the `realtime-ingest` scheduler is `PAUSED`; `realtime-load` stays enabled.
+
+**Verified:**
+- **Boundary:** October 26–28 are unchanged in both marts, with `data_version` NULL and built on November 4 (route-day) or October 30 to November 1 (stop-hour). October 28 still has 128 routes and 48,551 events on route-day, and 4,080 rows and 46,078 events on stop-hour. The 17:43 nightly rebuild left them unchanged too.
+- **Stop visits:** October 29 to November 6 are all `stream_v1` in both marts, and the two marts agree on events for every day. November 3 has 331,997 visits, matching the replay in the review. Fleet on-time on full days is 73.0–76.9%.
+- **First run on the new image:** `realtime-load-49lbh` (17:32) succeeded. It snapshotted 80 alerts and 8,205 Veo vehicles, built the six models of the stop-visit selection, and updated the freshness timestamp.
+- **Cost per realtime run** (`INFORMATION_SCHEMA.JOBS_BY_PROJECT`, billed): 509–548 MiB on the new image against 714–753 MiB on the old one that afternoon. That's about 19 GB a day less. The 10 MB minimum per query is most of the gap between billed and processed bytes.
+- **Re-export:** a hand-triggered Nightly BigQuery ([run 42263388383](https://github.com/medsidd/whyline-denver/actions/runs/42263388383)) built 85 models and passed 175 of 176 tests; the warning was the known `assert_stop_visit_arrivals_monotonic` (138 visits). It re-exported the 9 rebuilt partitions (October 29 to November 6) of each reliability mart. Nightly DuckDB ([run 42265450843](https://github.com/medsidd/whyline-denver/actions/runs/42265450843)) then refreshed both marts and succeeded.
+
+**Rollback:**
+
+```bash
+IMAGE=us-central1-docker.pkg.dev/whyline-denver/realtime-jobs/whylinedenver-realtime@sha256:c3fc67337b0ac6af6649ea2df4d2f6b74aa8d2184382ca667244a0854e57b459
+gcloud run jobs update realtime-load --project=whyline-denver --region=us-central1 --image="$IMAGE"
+gcloud run jobs update realtime-ingest --project=whyline-denver --region=us-central1 --image="$IMAGE"
+gcloud scheduler jobs resume realtime-ingest --project=whyline-denver --location=us-central1
+```
+
+The old image builds the legacy models, which main has disabled, so a rollback also needs a revert of #71. The rebuilt partitions can't be restored to the old method.
+
+### Release R1 API image, November 6, 2026 (UTC)
+
+[#115](https://github.com/medsidd/whyline-denver/pull/115) publishes eight stop-visit marts and three ready-made questions ([metrics plan](plans/metrics-implementation.md), R1). The API image was built from its head commit, before merging, because the frontend deploys on merge.
+
+- **Image:** `whylinedenver-api@sha256:2efd070f348ea4c4eaf2747686caf5264b473ed0affed9e9e859964f6505d4b1`, Cloud Build `32b2dc8b`, tag `13ee8f9`. It carries the regenerated `dbt/target` (20 app marts) and WP0's query logging.
+- **Running now:** `whylinedenver-api@sha256:1f5c73f6…88adee57` (revision `whylinedenver-api-00013-nr2`), from October 27. It's the rollback image.
+- **Owner command:**
+
+```bash
+gcloud run services update whylinedenver-api --project=whyline-denver --region=us-central1 \
+  --image=us-central1-docker.pkg.dev/whyline-denver/api-service/whylinedenver-api@sha256:2efd070f348ea4c4eaf2747686caf5264b473ed0affed9e9e859964f6505d4b1
+```
+
+- **Then:** merge #115, then dispatch Nightly BigQuery and Nightly DuckDB to export the eight marts.
+- **Check:**
+  - `/api/models` lists 20 marts.
+  - Each of the eight ready-made questions runs in the dashboard.
+  - A query writes a `jsonPayload.event="query"` log line.
+
 ### Query usage report
 
-Since WP0 of the [metrics plan](plans/metrics-implementation.md), every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:
+From release R1 of the [metrics plan](plans/metrics-implementation.md), the first API image with WP0's change, every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:
 
 ```bash
 gcloud logging read 'resource.type="cloud_run_revision" AND jsonPayload.event="query"' --project=whyline-denver \
