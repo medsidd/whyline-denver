@@ -520,7 +520,13 @@ gcloud run services update whylinedenver-api --project=whyline-denver --region=u
 
 **Owner steps after #116 merges:**
 
-1. Deploy the new API image (the equity question and the weather filter fallback), with the command in the PR.
+1. Deploy the new API image, which carries the equity question and the weather filter fallback: `whylinedenver-api@sha256:1f5db0b3b6c28cf851be88b5f738f7dc828ca42c5b57a3abced6c2ed688e6665`, Cloud Build `dbeceac8`, tag `2d90fa7`. The rollback is the R1 image above.
+
+```bash
+gcloud run services update whylinedenver-api --project=whyline-denver --region=us-central1 \
+  --image=us-central1-docker.pkg.dev/whyline-denver/api-service/whylinedenver-api@sha256:1f5db0b3b6c28cf851be88b5f738f7dc828ca42c5b57a3abced6c2ed688e6665
+```
+
 2. Clear the stale shards by re-exporting both reliability marts, then dispatch Nightly DuckDB:
 
 ```bash
