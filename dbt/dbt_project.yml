@@ -11,6 +11,7 @@ models:
     +persist_docs:
       relation: true
       columns: true
+    +post-hook: "{{ persist_table_description() }}"
     staging:
       +schema: "{{ env_var('BQ_DATASET_STG', 'stg_denver') }}"
     core:

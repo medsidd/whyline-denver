@@ -506,7 +506,7 @@ gcloud run services update whylinedenver-api --project=whyline-denver --region=u
 - **Skipped stop:** RTD marked Eldora Mountain Resort (18032) skipped on all 89 visits since October 29.
 
 **Polish:**
-- **Descriptions:** every column of every enabled model now has a description: 1,019 columns in 85 models, 678 of them new. `persist_docs` copies table and column descriptions to BigQuery on each build, from the next nightly run. The 15-minute realtime job runs its own image (`bba4715`), which doesn't carry the setting. Its two staging views (`stg_rt_stop_visits`, `stg_rt_trip_status`) are re-created every 15 minutes, so they lose their descriptions until the next realtime image. Its tables keep theirs.
+- **Descriptions:** every column of every enabled model now has a description: 1,019 columns in 85 models, 678 of them new. `persist_docs` copies them to BigQuery on each build. The 19:47 hand-triggered nightly showed that it sets a table's own description only when dbt creates the table, so the 18 incremental models, created once, had none. A post-hook (`persist_table_description`) now sets it on each incremental build ([#117](https://github.com/medsidd/whyline-denver/pull/117)). The 15-minute realtime job runs its own image (`bba4715`), which doesn't carry the setting. Its two staging views (`stg_rt_stop_visits`, `stg_rt_trip_status`) are re-created every 15 minutes, so they lose their descriptions until the next realtime image. Its tables keep theirs.
 - **Dashboard:**
   - shares show as percentages in tables, chart axes and tooltips;
   - chart titles are readable;
