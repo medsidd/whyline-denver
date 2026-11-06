@@ -518,6 +518,18 @@ gcloud run services update whylinedenver-api --project=whyline-denver --region=u
   - the SQL sample matches the worst-routes question;
   - an FAQ explains the October 29 drop and the gap with RTD.
 
+**After #116 and #117 merged** (hand-triggered nightly runs):
+- **19:47 BigQuery ([run 42281558765](https://github.com/medsidd/whyline-denver/actions/runs/42281558765)):**
+  - 85 models built, and 183 of 184 tests passed. The warning was the known monotonic-arrivals check (148 visits).
+  - All seven new tests passed, including closure order on the rebuilt table.
+  - The exporter removed 9 stale shards: route-day October 29 to November 5, and stop-hour November 5.
+  - Nightly DuckDB then refreshed. The served copy has no duplicate route-days from October 29; earlier dates still hold 228 surplus rows until owner step 2.
+- **20:04 BigQuery ([run 42284314298](https://github.com/medsidd/whyline-denver/actions/runs/42284314298)) failed on a transient BigQuery error, not on the change:**
+  - The insert-overwrite script for `mart_reliability_by_route_day` finished its MERGE and dropped its temp table, then returned `backendError` ("Retrying may solve the problem").
+  - dbt retried the whole script, which failed because the temp table was gone. The MERGE had committed, so the data was right, but the run stopped before tests and export.
+  - The 20:13 re-run ([run 42285835717](https://github.com/medsidd/whyline-denver/actions/runs/42285835717)) built 85 of 85 models and passed 183 of 184 tests.
+- **Descriptions in BigQuery:** 83 of the 85 tables and views have a table description and every column described. The two exceptions are `stg_rt_stop_visits` and `stg_rt_trip_status`, which the realtime image re-creates every 15 minutes. They pick it up when that image is next rebuilt.
+
 **Owner steps after #116 merges:**
 
 1. Deploy the new API image, which carries the equity question and the weather filter fallback: `whylinedenver-api@sha256:1f5db0b3b6c28cf851be88b5f738f7dc828ca42c5b57a3abced6c2ed688e6665`, Cloud Build `dbeceac8`, tag `2d90fa7`. The rollback is the R1 image above.
