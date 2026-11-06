@@ -440,6 +440,25 @@ gcloud scheduler jobs resume realtime-ingest --project=whyline-denver --location
 
 The old image builds the legacy models, which main has disabled, so a rollback also needs a revert of #71. The rebuilt partitions can't be restored to the old method.
 
+### Release R1 API image, November 6, 2026 (UTC)
+
+[#115](https://github.com/medsidd/whyline-denver/pull/115) publishes eight stop-visit marts and three ready-made questions ([metrics plan](plans/metrics-implementation.md), R1). The API image was built from its head commit, before merging, because the frontend deploys on merge.
+
+- **Image:** `whylinedenver-api@sha256:2efd070f348ea4c4eaf2747686caf5264b473ed0affed9e9e859964f6505d4b1`, Cloud Build `32b2dc8b`, tag `13ee8f9`. It carries the regenerated `dbt/target` (20 app marts) and WP0's query logging.
+- **Running now:** `whylinedenver-api@sha256:1f5c73f6…88adee57` (revision `whylinedenver-api-00013-nr2`), from October 27. It's the rollback image.
+- **Owner command:**
+
+```bash
+gcloud run services update whylinedenver-api --project=whyline-denver --region=us-central1 \
+  --image=us-central1-docker.pkg.dev/whyline-denver/api-service/whylinedenver-api@sha256:2efd070f348ea4c4eaf2747686caf5264b473ed0affed9e9e859964f6505d4b1
+```
+
+- **Then:** merge #115, then dispatch Nightly BigQuery and Nightly DuckDB to export the eight marts.
+- **Check:**
+  - `/api/models` lists 20 marts.
+  - Each of the eight ready-made questions runs in the dashboard.
+  - A query writes a `jsonPayload.event="query"` log line.
+
 ### Query usage report
 
 From release R1 of the [metrics plan](plans/metrics-implementation.md), the first API image with WP0's change, every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:

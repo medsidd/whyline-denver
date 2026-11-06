@@ -628,7 +628,7 @@ Between releases, merged marts build in BigQuery and are tested nightly, but the
 Status on 2026-11-06:
 
 1. Image updates for `realtime-load` after WP8 and WP14 merge. **Done** at about 17:45 UTC: both jobs now run `@sha256:c3fc6733…`.
-1a. One API redeploy per release (R1–R4): `gcloud run services update whylinedenver-api` with the digest I build. The permission check blocks me from running it. **Pending, per release.**
+1a. One API redeploy per release (R1–R4): `gcloud run services update whylinedenver-api` with the digest I build. The permission check blocks me from running it. **R1 pending:** image `whylinedenver-api@sha256:2efd070f…6505d4b1`, command in [operations](../OPERATIONS.md). R2–R4 to follow.
 2. The records request to RTD for route and stop boardings and stop amenities (WP11 and WP16). The text is ready in [the records request](rtd-records-request.md). **Deferred by the owner** on 2026-11-02.
 3. A monthly link to each new RTD operations PDF (WP10). **Not needed:** the board briefing documents page links every report.
 4. Approving the cutover on November 5, which unlocks publishing WP1–WP5. **Done:** approved 2026-11-05 and deployed 2026-11-06 ([operations](../OPERATIONS.md)). The review includes the frequent-route lateness check (route 15) added to §6 of the [stop-visit plan](realtime-stop-visits.md).
