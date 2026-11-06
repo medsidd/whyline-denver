@@ -143,3 +143,26 @@ def test_force_reexports_snapshot_and_bounds_partition_backfill():
         p.name: p.value for p in client.query.call_args.kwargs["job_config"].query_parameters
     }
     assert parameters["cutoff"] == date(2026, 9, 15)
+
+
+def test_export_removes_shards_left_by_an_earlier_larger_export():
+    started = datetime(2026, 11, 6, 18, 48, tzinfo=UTC)
+    export_job = FakeQueryJob()
+    export_job.started = started  # type: ignore[attr-defined]
+    client = MagicMock()
+    client.query.side_effect = [FakeQueryJob([(date(2026, 11, 4),)]), export_job]
+    fresh, stale = MagicMock(), MagicMock()
+    fresh.updated, fresh.name = started.replace(second=5), "0"
+    stale.updated, stale.name = datetime(2026, 11, 4, 17, 12, tzinfo=UTC), "1"
+    storage_client = MagicMock()
+    storage_client.list_blobs.return_value = [fresh, stale]
+    exporter = MartExporter(
+        Settings(), bq_client=client, storage_client=storage_client, state_store=FakeStateStore()
+    )
+
+    exporter.run(marts=["mart_reliability_by_route_day"], force=True)
+
+    prefix = storage_client.list_blobs.call_args.kwargs["prefix"]
+    assert prefix == "marts/mart_reliability_by_route_day/run_date=2026-11-04/"
+    stale.delete.assert_called_once()
+    fresh.delete.assert_not_called()

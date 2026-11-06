@@ -9,7 +9,7 @@ Build serving marts from gold core only (`ref('dim_*')`, `ref('fct_*')`, `ref('b
 | Place | Change |
 |---|---|
 | `dbt/models/marts/<domain>/mart_*.sql` | SQL, materialization, stable grain/key, `meta={'allow_in_app': true}` for app exposure |
-| Relevant schema YAML | Column descriptions, units, nullability expectations, quality tests |
+| Relevant schema YAML | A description for every column (units, nullability), and quality tests. `persist_docs` copies them to BigQuery, so an undescribed column shows blank there |
 | `src/whyline/sync/constants.py` | Add to `ALLOWLISTED_MARTS`; API schema exposure requires both this list and manifest config metadata |
 | `src/whyline/sync/export_bq_marts.py` | Add to `PARTITIONED_MARTS` only when supported service-date partition export is intended |
 | `src/whyline/sync/refresh_duckdb.py` | Add to `HOT_MARTS` for table materialization; `LATEST_RUN_DATE_ONLY_MARTS` for snapshot-only reads |

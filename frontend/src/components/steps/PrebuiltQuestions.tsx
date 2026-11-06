@@ -5,12 +5,17 @@ import { fetchPrebuilt } from "@/lib/api";
 import { useDashboardStore } from "@/store/dashboardStore";
 import { PREBUILT_QUERIES } from "@/types/api";
 
-// Same topic colors as the landing page chips, in PREBUILT_QUERIES order.
+// The landing page's topic colors: reliability and service teal, safety red, weather gold, equity navy.
+const TEAL = { tint: "bg-wl-teal-tint", dot: "bg-wl-teal" };
 const CHIP_COLORS = [
-  { tint: "bg-wl-teal-tint", dot: "bg-wl-teal" },
+  TEAL,
   { tint: "bg-wl-red-tint", dot: "bg-wl-red" },
   { tint: "bg-wl-gold-tint", dot: "bg-wl-gold" },
   { tint: "bg-wl-navy-tint", dot: "bg-wl-navy" },
+  TEAL, // frequency
+  TEAL, // predictions
+  TEAL, // missed trips
+  TEAL, // slow segments
 ];
 
 /**
@@ -38,7 +43,7 @@ export function PrebuiltQuestions() {
       <ul className="mt-2.5 flex flex-wrap gap-2">
         {PREBUILT_QUERIES.map((q, i) => {
           const pending = mutation.isPending && mutation.variables?.index === q.index;
-          const color = CHIP_COLORS[i % CHIP_COLORS.length];
+          const color = CHIP_COLORS[q.index] ?? TEAL;
           return (
             <li key={q.index}>
               <button

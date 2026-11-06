@@ -123,7 +123,7 @@ class MartExporter:
             LOGGER.info(
                 "Exporting %s partition %s to %s", mart_name, partition_date, destination_uri
             )
-            self._execute_export(sql)
+            self._execute_export(sql, destination_uri)
             last_exported = partition_date
             self._persist_state(mart_name, last_exported)
 
@@ -147,7 +147,7 @@ class MartExporter:
         destination_uri = f"gs://{self.bucket}/marts/{mart_name}/run_date={today.isoformat()}/*"
         sql = self._build_snapshot_export_sql(mart_name, destination_uri)
         LOGGER.info("Exporting snapshot mart %s to %s", mart_name, destination_uri)
-        self._execute_export(sql)
+        self._execute_export(sql, destination_uri)
         final_state = self._persist_state(mart_name, today, finalize=True)
         return ExportResult(
             mart_name=mart_name,
@@ -261,10 +261,22 @@ class MartExporter:
             SELECT * FROM {table_ref}
         """
 
-    def _execute_export(self, sql: str) -> None:
+    def _execute_export(self, sql: str, destination_uri: str) -> None:
         LOGGER.debug("Executing export SQL:\n%s", sql)
         job = self._bq_client.query(sql)
         job.result()
+        self._remove_stale_shards(destination_uri, getattr(job, "started", None))
+
+    def _remove_stale_shards(self, destination_uri: str, written_from: Optional[datetime]) -> None:
+        # overwrite=true replaces only the shards this export writes; a larger earlier export
+        # leaves its higher-numbered shards behind, and DuckDB would read them as duplicate rows.
+        if written_from is None:
+            return
+        prefix = destination_uri.removeprefix(f"gs://{self.bucket}/").rstrip("*")
+        for blob in self._storage_client.list_blobs(self.bucket, prefix=prefix):
+            if blob.updated is not None and blob.updated < written_from:
+                LOGGER.info("Removing stale shard gs://%s/%s", self.bucket, blob.name)
+                blob.delete()
 
     @staticmethod
     def _now() -> datetime:

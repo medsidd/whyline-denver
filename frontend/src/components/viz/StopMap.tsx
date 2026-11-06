@@ -6,6 +6,7 @@ import { ScatterplotLayer } from "@deck.gl/layers";
 import { Map } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { detectMapMetric } from "@/lib/chartLogic";
+import { columnLabel, formatValue } from "@/lib/format";
 
 // Denver center coordinates (same as Pydeck default in charts.py)
 const DENVER_VIEW = {
@@ -106,7 +107,7 @@ export function StopMap({ data }: Props) {
           const point = object as StopPoint;
           const label = point.stop_name ? `${point.stop_name} (${point.stop_id})` : String(point.stop_id ?? "");
           const metric = metricKey
-            ? `${metricKey}: ${Number(point[metricKey] ?? 0).toFixed(2)}`
+            ? `${columnLabel(metricKey)}: ${formatValue(metricKey, point[metricKey])}`
             : "";
           return {
             html: `<div style="font:700 13px/1.4 var(--font-nunito),system-ui,sans-serif;color:#4A5F73"><b style="color:#042F54;font-weight:900">${label}</b>${metric ? `<br/>${metric}` : ""}</div>`,

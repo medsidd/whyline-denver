@@ -10,14 +10,15 @@
 | `components/layout/` | Header (glass nav, data freshness) and Sidebar (filter rail, collapsible below `lg`) |
 | `components/steps/StepShell.tsx` | Numbered stop, connecting line and card for each step; status is done, current or upcoming |
 | `components/steps/Step1QuestionInput.tsx` | Natural-language question and generation request; renders the ready-made questions |
-| `components/steps/PrebuiltQuestions.tsx` | Eight ready-made question chips (BigQuery SQL from the API; the list is `PREBUILT_QUERIES` in `types/api.ts`) |
+| `components/steps/PrebuiltQuestions.tsx` | Eight ready-made question chips (BigQuery SQL from the API; the list is `PREBUILT_QUERIES` in `types/api.ts`), colored by the landing page topic each belongs to |
 | `components/steps/Step2SqlEditor.tsx` | CodeMirror SQL editing (navy theme), debounced validation, BigQuery estimate |
 | `components/steps/Step3Results.tsx` | Execution, Chart/Map/Table tabs, result CSV |
 | `components/ui/` | DataTable, DownloadPanel (whole-table downloads below the steps) |
 | `components/viz/` | TimeSeriesChart, RouteBarChart, WeatherSmallMultiples, StopMap |
 | `store/dashboardStore.ts` | Multi-step state and selected localStorage persistence |
 | `lib/api.ts`, `types/api.ts` | HTTP clients and TypeScript mirrors of API models |
-| `lib/chartLogic.ts`, `tokens.ts` | Column-based visualization selection and design tokens |
+| `lib/chartLogic.ts`, `tokens.ts` | Column-based visualization selection (the detector and the bar chart pick columns with the same `barColumns`) and design tokens |
+| `lib/format.ts` | Result display: share columns (`pct_*`, `*_pct_*`, `share_*`, `*_rate`, not `*pctl*`) as percentages in tables, axes and tooltips, coordinates to six decimals, readable chart titles. CSV downloads keep the raw values |
 
 ## State and workflow
 

@@ -6,7 +6,8 @@ import { track } from "@vercel/analytics";
 import dynamic from "next/dynamic";
 import { runQuery, triggerDownload } from "@/lib/api";
 import { useDashboardStore } from "@/store/dashboardStore";
-import { detectChartType, detectMapData } from "@/lib/chartLogic";
+import { barColumns, detectChartType, detectMapData } from "@/lib/chartLogic";
+import { columnLabel } from "@/lib/format";
 import { StepShell, type StepStatus } from "@/components/steps/StepShell";
 import { DataTable } from "@/components/ui/DataTable";
 import { RouteBarChart } from "@/components/viz/RouteBarChart";
@@ -196,15 +197,16 @@ function ChartRenderer({
     case "heatmap":
       return <StopHourHeatmap data={data} title="On-time share by stop and hour, first 15 stops" />;
     case "generic_bar": {
-      const cols = Object.keys(data[0] ?? {});
-      const catCol = cols.find((c) =>
-        ["id", "name", "route", "stop", "bin", "type"].some((kw) => c.toLowerCase().includes(kw))
-      ) ?? cols[0];
-      const numCol = cols.find((c) =>
-        ["avg", "count", "sum", "pct", "score", "ratio"].some((kw) => c.toLowerCase().includes(kw))
-      ) ?? cols[1];
-      if (!catCol || !numCol) return null;
-      return <RouteBarChart data={data} xKey={catCol} yKey={numCol} title={`${numCol} by ${catCol}`} />;
+      const cols = barColumns(Object.keys(data[0] ?? {}));
+      if (!cols) return null;
+      return (
+        <RouteBarChart
+          data={data}
+          xKey={cols.category}
+          yKey={cols.metric}
+          title={`${columnLabel(cols.metric)} by ${columnLabel(cols.category).toLowerCase()}`}
+        />
+      );
     }
     default:
       return null;

@@ -29,19 +29,18 @@ export function detectChartType(columns: string[]): ChartType {
   }
 
   // 4. Generic: any numeric × any categorical (route charts land here)
-  const hasNumeric = columns.some((c) => ["avg", "count", "sum", "pct", "score", "ratio"].some(
-    (kw) => c.toLowerCase().includes(kw)
-  ));
-  const hasCategorical = columns.some((c) =>
-    ["id", "name", "route", "stop", "bin", "type", "category"].some((kw) =>
-      c.toLowerCase().includes(kw)
-    )
-  );
-  if (hasNumeric && hasCategorical) {
-    return "generic_bar";
-  }
+  return barColumns(columns) ? "generic_bar" : "none";
+}
 
-  return "none";
+const METRIC_KEYWORDS = ["avg", "count", "cnt", "sum", "pct", "share", "score", "ratio"];
+const CATEGORY_KEYWORDS = ["id", "name", "route", "stop", "bin", "type", "category"];
+const has = (c: string, kws: string[]) => kws.some((kw) => c.toLowerCase().includes(kw));
+
+/** The first category-like and metric-like columns, or null when either is missing. */
+export function barColumns(columns: string[]): { category: string; metric: string } | null {
+  const category = columns.find((c) => has(c, CATEGORY_KEYWORDS));
+  const metric = columns.find((c) => has(c, METRIC_KEYWORDS) && c !== category);
+  return category && metric ? { category, metric } : null;
 }
 
 /** Detect whether data has lat/lon for map rendering */

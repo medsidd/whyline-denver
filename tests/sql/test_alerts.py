@@ -47,6 +47,10 @@ def _snapshots(con):
         periods.append(f"({ago(minutes)}, 'A', {ago(300)}, {end})")
     for minutes in (240, 180, 135):
         alerts.append(f"({ago(minutes)}, 'B', null, 'DETOUR', 'Detour', '15', null)")
+    # Alert C: a trip cancellation RTD stopped publishing before the trip's period began.
+    for minutes in (240, 180):
+        alerts.append(f"({ago(minutes)}, 'C', null, 'NO_SERVICE', 'Trip cancelled', '11', 'S1')")
+        periods.append(f"({ago(minutes)}, 'C', {ago(120)}, {ago(60)})")
     con.execute(
         "create table stg_rt_alerts as select feed_ts_utc, alert_id, cause, effect, header_text, "
         "null::varchar as description_text, null::varchar as url, null::varchar as agency_id, route_id, "
@@ -106,6 +110,13 @@ def test_alert_history_closures_and_hours():
     # Only the last snapshot's period counts: the extended end, not the first.
     assert a.until_ts > pd.Timestamp.now(tz="UTC") + pd.Timedelta(minutes=500)
     assert "B" not in closures.index  # names no stop
+    # C left the feed before its period, so it keeps RTD's period rather than ending before it began.
+    c = closures.loc["C"]
+    assert (c.from_ts, c.until_ts, c.is_active_now) == (
+        NOW - pd.Timedelta(minutes=120),
+        NOW - pd.Timedelta(minutes=60),
+        False,
+    )
 
     days = con.execute(
         render_model("marts/disruptions/mart_alerts_by_route_day.sql", replacements=DAYS)

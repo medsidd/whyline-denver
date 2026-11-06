@@ -57,7 +57,7 @@ def get_filters(engine_name: str) -> FilterOptionsResponse:
         error = str(exc)
 
     # Weather bins
-    weather_bins: list[str] = ["none", "rain", "snow"]
+    weather_bins: list[str] = ["none", "light", "mod", "heavy"]
     try:
         sql = (
             f"SELECT DISTINCT precip_bin FROM {table} "

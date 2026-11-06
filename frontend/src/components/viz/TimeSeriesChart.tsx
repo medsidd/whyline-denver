@@ -1,6 +1,7 @@
 "use client";
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { axisTick, formatValue } from "@/lib/format";
 import { chartColors, chartTheme } from "@/lib/tokens";
 
 interface Props {
@@ -12,11 +13,11 @@ interface Props {
   title?: string;
 }
 
-const axes = (xKey: string) => [
+const axes = (xKey: string, yKey: string) => [
   <CartesianGrid key="g" {...chartTheme.grid} />,
   <XAxis key="x" dataKey={xKey} tick={chartTheme.tick} angle={-25} textAnchor="end" axisLine={false} tickLine={false} minTickGap={12} />,
-  <YAxis key="y" tick={chartTheme.tick} axisLine={false} tickLine={false} width={56} />,
-  <Tooltip key="t" {...chartTheme.tooltip} cursor={{ stroke: "#C9D6E3", strokeWidth: 2 }} />,
+  <YAxis key="y" tick={chartTheme.tick} tickFormatter={axisTick(yKey)} axisLine={false} tickLine={false} width={56} />,
+  <Tooltip key="t" {...chartTheme.tooltip} formatter={(v) => formatValue(yKey, v)} cursor={{ stroke: "#C9D6E3", strokeWidth: 2 }} />,
 ];
 
 export function TimeSeriesChart({ data, xKey, yKey, groupKey, title }: Props) {
@@ -43,7 +44,7 @@ export function TimeSeriesChart({ data, xKey, yKey, groupKey, title }: Props) {
         {caption}
         <ResponsiveContainer width="100%" height={340}>
           <LineChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
-            {axes(xKey)}
+            {axes(xKey, yKey)}
             <Legend verticalAlign="top" align="left" iconType="circle" wrapperStyle={{ paddingBottom: 12, fontSize: 13, fontWeight: 800 }}
               formatter={(v) => <span style={{ color: "#042F54" }}>{v}</span>}
             />
@@ -62,7 +63,7 @@ export function TimeSeriesChart({ data, xKey, yKey, groupKey, title }: Props) {
       {caption}
       <ResponsiveContainer width="100%" height={340}>
         <LineChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 40 }}>
-          {axes(xKey)}
+          {axes(xKey, yKey)}
           <Line type="monotone" dataKey={yKey} stroke={chartColors[0]} dot={false} strokeWidth={2} />
         </LineChart>
       </ResponsiveContainer>

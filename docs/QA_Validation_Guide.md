@@ -119,7 +119,7 @@ PYTHON
 
 Open `/app`, load a prebuilt query, review/validate/run it, and inspect table/chart/map. Check a known stop name/coordinate, route enrichment, result CSV, mart CSV, warehouse download, and freshness labels. Verify `/api/models` lists the expected 20 marts; `/api/health` does not test those artifacts.
 
-For generated SQL, use stub locally or an authorized provider configuration. The snow ready-made question compares snow days with other days per route and method (`snow_day`, last 365 days, at least three snow days); check `n_snow_days` and `method` before reporting a route. The worst-routes and equity questions filter `data_version IS NOT NULL`, so they read stop-visit dates only.
+For generated SQL, use stub locally or an authorized provider configuration. The snow ready-made question compares snow days with other days per route and method (`snow_day`, last 365 days, at least three snow days); check `n_snow_days` and `method` before reporting a route. The worst-routes question filters `data_version IS NOT NULL`, so it reads stop-visit dates only; the equity question reads `mart_priority_hotspots`, whose unreliability score uses stop-visit dates and needs 30 measured visits. To check the served DuckDB copy, compare row counts per mart with BigQuery (partitioned marts over the DuckDB date range); a surplus means stale export shards.
 
 ## Legacy QA helper
 

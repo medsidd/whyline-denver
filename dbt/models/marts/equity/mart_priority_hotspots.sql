@@ -3,12 +3,14 @@
 with rel as (
     select
         stop_id,
-        100.0 * (1 - avg(pct_on_time)) as reliability_score_0_100
+        100.0 * (1 - sum(pct_on_time * n_reported_events) / sum(n_reported_events)) as reliability_score_0_100
     from {{ ref('mart_reliability_by_stop_hour') }}
     -- Stop-visit days only, so a window that spans the cutover doesn't average the two methods.
     where data_version is not null
       and service_date_mst >= date_sub(current_date("America/Denver"), interval 35 day)
     group by stop_id
+    -- A handful of visits can't rank a stop: six early arrivals once put a drop-off stop first.
+    having sum(n_reported_events) >= 30
 ),
 cr as (
     select

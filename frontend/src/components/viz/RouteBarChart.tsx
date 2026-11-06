@@ -1,6 +1,7 @@
 "use client";
 
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { axisTick, formatValue } from "@/lib/format";
 import { chartColors, chartTheme } from "@/lib/tokens";
 
 interface Props {
@@ -20,8 +21,8 @@ export function RouteBarChart({ data, xKey, yKey, title }: Props) {
         <BarChart data={display} margin={{ top: 8, right: 8, left: 0, bottom: 48 }} barCategoryGap={2}>
           <CartesianGrid {...chartTheme.grid} />
           <XAxis dataKey={xKey} tick={chartTheme.tick} angle={-35} textAnchor="end" interval={0} axisLine={false} tickLine={false} />
-          <YAxis tick={chartTheme.tick} axisLine={false} tickLine={false} width={56} />
-          <Tooltip {...chartTheme.tooltip} cursor={{ fill: "rgba(4,47,84,.05)" }} />
+          <YAxis tick={chartTheme.tick} tickFormatter={axisTick(yKey)} axisLine={false} tickLine={false} width={56} />
+          <Tooltip {...chartTheme.tooltip} formatter={(v) => formatValue(yKey, v)} cursor={{ fill: "rgba(4,47,84,.05)" }} />
           <Bar dataKey={yKey} fill={chartColors[0]} radius={[4, 4, 0, 0]} maxBarSize={44} />
         </BarChart>
       </ResponsiveContainer>

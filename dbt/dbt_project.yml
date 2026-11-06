@@ -7,6 +7,10 @@ clean-targets: ['target']
 models:
   whyline_denver_dbt:
     +materialized: view
+    # Table and column descriptions from the schema files also show in BigQuery.
+    +persist_docs:
+      relation: true
+      columns: true
     staging:
       +schema: "{{ env_var('BQ_DATASET_STG', 'stg_denver') }}"
     core:
