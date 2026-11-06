@@ -9,7 +9,26 @@ models:
     description: "Calendar from 2025-01-01 to 60 days ahead; role-plays as service, crash, and weather date."
     columns:
       - name: date_day
+        description: "The calendar date."
         data_tests: [not_null, unique]
+      - name: iso_week_start
+        description: "Monday of the ISO week."
+      - name: is_weekend
+        description: "Saturday or Sunday."
+      - name: day_name
+        description: "Day name."
+      - name: iso_day_of_week
+        description: "ISO day of week: 1 Monday to 7 Sunday."
+      - name: day_of_month
+        description: "Day of the month."
+      - name: month_name
+        description: "Month name."
+      - name: month
+        description: "Month number (1-12)."
+      - name: quarter
+        description: "Calendar quarter (1-4)."
+      - name: year
+        description: "Calendar year."
 
   - name: dim_stop
     description: "GTFS stops, Type 2 over extracts. is_current = present in the latest extract; is_latest_version = last version ever published."
@@ -18,12 +37,32 @@ models:
           column_names: ['stop_id', 'valid_from']
     columns:
       - name: stop_key
+        description: "Surrogate key (farm_fingerprint); -1 is the Unknown member."
         data_tests: [not_null, unique]
       - name: stop_id
+        description: "GTFS stop identifier; joins to mart_gtfs_stops.stop_id."
         data_tests:
           - unique:
               config:
                 where: "is_latest_version"
+      - name: is_latest_version
+        description: "This is the newest version ever published for the entity, current or not."
+      - name: is_current
+        description: "The entity is in the latest GTFS extract and this is its newest version."
+      - name: valid_to
+        description: "Last date this version applies: the day before the next version, 9999-12-31 while current, or the last extract that contained it."
+      - name: valid_from
+        description: "First date this version applies (1900-01-01 for an entity's first version)."
+      - name: wheelchair_boarding
+        description: "GTFS wheelchair_boarding for the stop: 1 accessible, 2 not accessible, 0 no information."
+      - name: geom
+        description: "Stop location (WGS84 point)."
+      - name: lon
+        description: "Stop longitude (WGS84)."
+      - name: lat
+        description: "Stop latitude (WGS84)."
+      - name: stop_name
+        description: "Stop name from the current GTFS version."
 
   - name: dim_route
     description: "GTFS routes, Type 2 over extracts; -1 is the Unassigned member."
@@ -32,12 +71,30 @@ models:
           column_names: ['route_id', 'valid_from']
     columns:
       - name: route_key
+        description: "Surrogate key (farm_fingerprint); -1 is the Unassigned member."
         data_tests: [not_null, unique]
       - name: route_id
+        description: "GTFS route identifier (for example '15', 'A'); joins to mart_gtfs_routes.route_id."
         data_tests:
           - unique:
               config:
                 where: "is_latest_version"
+      - name: is_latest_version
+        description: "This is the newest version ever published for the entity, current or not."
+      - name: is_current
+        description: "The entity is in the latest GTFS extract and this is its newest version."
+      - name: valid_to
+        description: "Last date this version applies: the day before the next version, 9999-12-31 while current, or the last extract that contained it."
+      - name: valid_from
+        description: "First date this version applies (1900-01-01 for an entity's first version)."
+      - name: route_desc
+        description: "GTFS route description, when RTD gives one."
+      - name: route_type
+        description: "GTFS route type: 0 light rail, 2 commuter rail, 3 bus."
+      - name: route_long_name
+        description: "Route long name from the latest GTFS version."
+      - name: route_name
+        description: "Route short name (long name when there is none)."
 
   - name: dim_trip
     description: "GTFS trips, Type 2 over extracts."
@@ -46,19 +103,68 @@ models:
           column_names: ['trip_id', 'valid_from']
     columns:
       - name: trip_key
+        description: "Surrogate key (farm_fingerprint); -1 is the Unknown member."
         data_tests: [not_null, unique]
+      - name: is_latest_version
+        description: "This is the newest version ever published for the entity, current or not."
+      - name: is_current
+        description: "The entity is in the latest GTFS extract and this is its newest version."
+      - name: valid_to
+        description: "Last date this version applies: the day before the next version, 9999-12-31 while current, or the last extract that contained it."
+      - name: valid_from
+        description: "First date this version applies (1900-01-01 for an entity's first version)."
+      - name: shape_id
+        description: "GTFS shape the trip follows."
+      - name: trip_headsign
+        description: "Destination sign shown for the trip."
+      - name: direction_id
+        description: "GTFS direction (0 or 1); its meaning differs by route."
+      - name: service_id
+        description: "GTFS service calendar identifier."
+      - name: route_id
+        description: "GTFS route identifier (for example '15', 'A'); joins to mart_gtfs_routes.route_id."
+      - name: trip_id
+        description: "GTFS trip identifier."
 
   - name: dim_tract
     description: "Census tract boundaries (Type 1, latest extract)."
     columns:
       - name: tract_key
+        description: "Surrogate key (farm_fingerprint of the GEOID)."
         data_tests: [not_null, unique]
+      - name: geom
+        description: "Tract boundary (WGS84 GEOGRAPHY)."
+      - name: awater_m2
+        description: "Water area in square meters."
+      - name: aland_m2
+        description: "Land area in square meters."
+      - name: name
+        description: "Census tract name (for example 'Census Tract 41.06')."
+      - name: geoid
+        description: "Census tract GEOID (2020, 11 digits)."
 
   - name: dim_sidewalk_segment
     description: "Sidewalk inventory segments (Type 1, latest extract)."
     columns:
       - name: sidewalk_key
+        description: "Surrogate key (farm_fingerprint of sidewalk_id)."
         data_tests: [not_null, unique]
+      - name: centroid
+        description: "Midpoint of the segment (WGS84 GEOGRAPHY)."
+      - name: geom
+        description: "Segment line (WGS84 GEOGRAPHY)."
+      - name: length_m
+        description: "Segment length in meters."
+      - name: year_built
+        description: "Year built (BUILTYEAR). Empty in Denver's published layer as of 2026-11-06."
+      - name: material
+        description: "Surface material (SURFACE). Empty in Denver's published layer as of 2026-11-06."
+      - name: status
+        description: "Sidewalk status (SIDEWALKSTATUS). Empty in Denver's published layer as of 2026-11-06."
+      - name: class
+        description: "Segment type from Denver's layer: sidewalk, crosswalk, other path or best-fit line."
+      - name: sidewalk_id
+        description: "Denver's sidewalk segment identifier (FACILITYID, else OBJECTID)."
 
   - name: fct_trip_observation
     description: "LEGACY (disabled at the stop-visit cutover): one sampled prediction per feed poll x trip, usually of the trip's terminal arrival, not an observed stop arrival. delay_sec defaulted unknown delays to 0. Replaced by fct_stop_visit."
@@ -92,9 +198,31 @@ models:
     description: "One scheduled stop per trip x stop_sequence x service date, from the GTFS extract current on that date."
     columns:
       - name: service_date_mst
+        description: "Service date (America/Denver) the schedule was expanded for."
         data_tests: [not_null]
       - name: gtfs_extract_date
+        description: "Extract of stop_times the date was expanded from (the one current on the date)."
         data_tests: [not_null]
+      - name: sched_departure_ts_mst
+        description: "Scheduled departure as a timestamp."
+      - name: sched_arrival_ts_mst
+        description: "Scheduled arrival as a timestamp (the instant; the name is historical)."
+      - name: stop_key
+        description: "Surrogate key of the stop version valid on the date (dim_stop); -1 when unknown."
+      - name: route_key
+        description: "Surrogate key of the route version valid on the date (dim_route); -1 when unknown."
+      - name: trip_key
+        description: "Surrogate key of the trip version valid on the date (dim_trip); -1 when unknown."
+      - name: direction_id
+        description: "GTFS direction (0 or 1); its meaning differs by route."
+      - name: route_id
+        description: "GTFS route identifier (for example '15', 'A'); joins to mart_gtfs_routes.route_id."
+      - name: stop_sequence
+        description: "Position of the stop within the trip (GTFS stop_sequence)."
+      - name: stop_id
+        description: "GTFS stop identifier; joins to mart_gtfs_stops.stop_id."
+      - name: trip_id
+        description: "GTFS trip identifier."
 
   - name: fct_stop_arrival
     description: "LEGACY (disabled at the stop-visit cutover): headways between sampled predicted terminal arrivals, not observed stop arrivals. Replaced by headways between consecutive fct_stop_visit rows in mart_reliability_by_stop_hour."
@@ -109,28 +237,110 @@ models:
     description: "One reported crash."
     columns:
       - name: crash_id
+        description: "Denver's crash record identifier."
         data_tests: [not_null, unique]
+      - name: geom
+        description: "Crash location (WGS84 point)."
+      - name: ped_involved
+        description: "Pedestrians involved."
+      - name: bike_involved
+        description: "Cyclists involved."
+      - name: off_route
+        description: "The cross street in the location, when there is one."
+      - name: on_route
+        description: "The first street in the location."
+      - name: roadway_name
+        description: "Location as Denver records it, such as 'E Colfax Ave / N Broadway'."
+      - name: severity_text
+        description: "property_damage, serious_injury or fatal."
+      - name: severity
+        description: "Most severe injury: 1 property damage only, 3 serious injury, 4 fatal."
+      - name: event_ts_utc
+        description: "When the crash happened (UTC)."
+      - name: crash_hour_mst
+        description: "Local hour of the crash (0-23)."
+      - name: crash_date_mst
+        description: "Local date of the crash (America/Denver)."
 
   - name: fct_weather_daily
     description: "One station x date of observed weather; precip_bin and snow_day are the slicing attributes used by the marts."
     data_tests:
       - unique_combination:
           column_names: ['weather_date', 'station']
+    columns:
+      - name: precip_bin
+        description: "Daily precipitation intensity: none, light (up to 5 mm), mod (up to 20 mm), heavy, or unknown."
+      - name: snow_day
+        description: "At least 1 mm of snow fell that day; NULL without a snow reading."
+      - name: tavg_c
+        description: "Average temperature that day, Celsius: NOAA's TAVG, else the mean of the low and high."
+      - name: tmax_c
+        description: "Highest temperature that day, Celsius."
+      - name: tmin_c
+        description: "Lowest temperature that day, Celsius."
+      - name: snow_mm
+        description: "Snowfall in millimetres."
+      - name: precip_mm
+        description: "Precipitation in millimetres."
+      - name: station
+        description: "Weather station: NOAA GHCND USW00003017, Denver International Airport."
+      - name: weather_date
+        description: "Observation date."
 
   - name: fct_tract_demographics
     description: "One tract x ACS vintage (periodic snapshot)."
     data_tests:
       - unique_combination:
           column_names: ['geoid', 'acs_year']
+    columns:
+      - name: pct_poverty
+        description: "Share of people below the poverty line (0-1)."
+      - name: pct_transit_commute
+        description: "Share of workers commuting by transit (0-1)."
+      - name: pct_hh_no_vehicle
+        description: "Share of households with no vehicle (0-1)."
+      - name: persons_poverty
+        description: "People below the poverty line (ACS B17001)."
+      - name: workers_transit
+        description: "Of those, workers who commute by public transit."
+      - name: workers_total
+        description: "Workers 16 and over (ACS B08301)."
+      - name: hh_no_vehicle
+        description: "Households with no vehicle available."
+      - name: hh_total
+        description: "Households (ACS B08201)."
+      - name: pop_total
+        description: "Total population (ACS B01003)."
+      - name: name
+        description: "Census tract name (for example 'Census Tract 41.06')."
+      - name: acs_year
+        description: "ACS five-year vintage (end year)."
+      - name: tract_key
+        description: "Surrogate key of the census tract (dim_tract)."
+      - name: geoid
+        description: "Census tract GEOID (2020, 11 digits)."
 
   - name: bridge_stop_tract
     description: "Current stops x tracts within 804.672 m; weighting_factor is each tract's population share and sums to 1 per stop."
     columns:
       - name: weighting_factor
+        description: "The tract's share of the population within half a mile of the stop; sums to 1 per stop."
         data_tests:
           - accepted_range:
               min_value: 0
               max_value: 1
+      - name: tract_pop_total
+        description: "Tract population, latest ACS vintage."
+      - name: acs_year
+        description: "ACS vintage of the population used."
+      - name: geoid
+        description: "Census tract GEOID (2020, 11 digits)."
+      - name: tract_key
+        description: "Surrogate key of the census tract (dim_tract)."
+      - name: stop_id
+        description: "GTFS stop identifier; joins to mart_gtfs_stops.stop_id."
+      - name: stop_key
+        description: "Surrogate key of the stop version valid on the date (dim_stop); -1 when unknown."
 
   - name: fct_stop_visit
     description: "One stop visit per service date x trip x stop_sequence from the continuous stream (stream_v1) or the backfill (backfill_v1); every row is final. arrival_* hold the departure for the trip's first stop. delay_sec is NULL when unknown. Grain, method rules and uncertainty: docs/technical/plans/realtime-stop-visits.md."
@@ -156,12 +366,14 @@ models:
             where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
     columns:
       - name: arrival_method
+        description: "How the arrival was found: shape_crossing, shape_crossing_gap, origin_departure, last_prediction or skipped (see the metrics glossary)."
         data_tests:
           - accepted_values:
               values: ['shape_crossing', 'shape_crossing_gap', 'origin_departure', 'last_prediction', 'skipped', 'backfill_shape_crossing', 'backfill_prediction']
               config:
                 where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
       - name: is_final
+        description: "The poller has finished with the visit; non-final visits can still change."
         data_tests:
           - accepted_values:
               values: [true]
@@ -169,11 +381,98 @@ models:
               config:
                 where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
       - name: data_version
+        description: "stream_v1 (timed from 30-second vehicle reports) or backfill_v1 (15-minute snapshots, published only after calibration)."
         data_tests:
           - accepted_values:
               values: ['stream_v1', 'backfill_v1']
               config:
                 where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - name: _ingested_at
+        description: "When the loader wrote the row to the raw table (UTC)."
+      - name: static_md5
+        description: "MD5 of the GTFS schedule zip the poller used for the trip."
+      - name: low_confidence
+        description: "The arrival rests on a gap of more than 20 minutes between reports (backfill only)."
+      - name: trip_switch_at_terminal
+        description: "The two reports bracketing the arrival carried different trip IDs: the vehicle changed trips at a terminal."
+      - name: prediction_error_sec
+        description: "RTD's final prediction minus the measured arrival, in seconds, for visits timed from vehicle positions: positive means the vehicle came earlier than predicted."
+      - name: last_prediction_published_ts
+        description: "When RTD first published that final prediction (UTC)."
+      - name: last_predicted_arrival_ts
+        description: "RTD's final predicted arrival at the stop before it dropped from the trip's predictions (UTC)."
+      - name: nearest_offset_m
+        description: "Lateral distance from the shape of the closest report used, in meters."
+      - name: stop_dist_m
+        description: "The stop's distance along the trip's shape, in meters: the crossing threshold."
+      - name: after_dist_along_m
+        description: "Distance along the shape of that report, in meters."
+      - name: after_report_ts
+        description: "Time of the first valid vehicle report after it reached the stop (UTC)."
+      - name: before_dist_along_m
+        description: "Distance along the shape of that report, in meters."
+      - name: before_report_ts
+        description: "Time of the last valid vehicle report before the vehicle reached the stop (UTC)."
+      - name: stopped_observed
+        description: "A STOPPED_AT report was seen at this stop."
+      - name: skipped
+        description: "RTD marked the stop SKIPPED; there is no arrival."
+      - name: delay_sec
+        description: "Arrival minus scheduled time in seconds (the departure at a trip's first stop); negative is early. NULL when either is unknown."
+      - name: scheduled_headway_sec
+        description: "Scheduled gap to the previous trip of the same route and direction at this stop, in seconds."
+      - name: scheduled_departure_ts
+        description: "Scheduled departure (UTC instant)."
+      - name: scheduled_arrival_ts
+        description: "Scheduled arrival (UTC instant) from fct_scheduled_stop_time."
+      - name: within_30s
+        description: "The arrival window is at most 30 seconds."
+      - name: arrival_window_sec
+        description: "arrival_latest_ts minus arrival_earliest_ts: how precisely the arrival is known, in seconds."
+      - name: dwell_max_sec
+        description: "Longest the vehicle could have stood at the stop, in seconds."
+      - name: dwell_min_sec
+        description: "Shortest the vehicle could have stood at the stop, in seconds, from its stopped reports."
+      - name: departure_latest_ts
+        description: "Latest the vehicle could have left: the next report after it was stopped there (UTC)."
+      - name: departure_earliest_ts
+        description: "Earliest the vehicle could have left the stop: its last report stopped there (UTC); NULL when it wasn't seen stopped."
+      - name: arrival_hour_mst
+        description: "Local hour of the arrival (0-23)."
+      - name: arrival_ts_mst
+        description: "arrival_ts_utc as local time (America/Denver DATETIME)."
+      - name: arrival_latest_ts
+        description: "Latest the arrival could have been (UTC)."
+      - name: arrival_earliest_ts
+        description: "Earliest the arrival could have been, from the bracketing vehicle reports or prediction (UTC)."
+      - name: arrival_ts_utc
+        description: "Best estimate of when the vehicle reached the stop (UTC); at a trip's first stop, when it left. NULL when skipped."
+      - name: stop_key
+        description: "Surrogate key of the stop version valid on the date (dim_stop); -1 when unknown."
+      - name: route_key
+        description: "Surrogate key of the route version valid on the date (dim_route); -1 when unknown."
+      - name: trip_key
+        description: "Surrogate key of the trip version valid on the date (dim_trip); -1 when unknown."
+      - name: vehicle_id
+        description: "RTD vehicle identifier from the vehicle feed; NULL when the visit wasn't tied to a reporting vehicle."
+      - name: trip_headsign
+        description: "Destination sign shown for the trip."
+      - name: direction_id
+        description: "GTFS direction (0 or 1); its meaning differs by route."
+      - name: route_id
+        description: "GTFS route identifier (for example '15', 'A'); joins to mart_gtfs_routes.route_id."
+      - name: stop_role
+        description: "first, middle or last stop of the trip."
+      - name: stop_id
+        description: "GTFS stop identifier; joins to mart_gtfs_stops.stop_id."
+      - name: stop_sequence
+        description: "Position of the stop within the trip (GTFS stop_sequence)."
+      - name: trip_id
+        description: "GTFS trip identifier."
+      - name: service_date
+        description: "GTFS service date: the day the trip began (America/Denver), so a trip running past midnight counts on the earlier day."
+      - name: stop_visit_key
+        description: "Surrogate key: farm_fingerprint of service date, trip and stop sequence."
 
   - name: fct_trip_status
     description: "One trip instance per service date x trip_id as the stream poller closed it: final relationship, outcome, first/last seen and visit counts by method."
@@ -184,11 +483,52 @@ models:
             where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
     columns:
       - name: outcome
+        description: "completed, partial, vanished (left the feed before finishing), canceled or never_started."
         data_tests:
           - accepted_values:
               values: ['completed', 'partial', 'vanished', 'canceled', 'no_static']
               config:
                 where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - name: _ingested_at
+        description: "When the loader wrote the row to the raw table (UTC)."
+      - name: static_md5
+        description: "MD5 of the GTFS schedule zip the poller used for the trip."
+      - name: data_version
+        description: "stream_v1 (timed from 30-second vehicle reports) or backfill_v1 (15-minute snapshots, published only after calibration)."
+      - name: n_skipped
+        description: "Stops RTD marked SKIPPED."
+      - name: n_last_prediction
+        description: "Of those, visits timed from RTD's last prediction."
+      - name: n_shape_crossing
+        description: "Of those, visits timed from a shape crossing."
+      - name: n_visits
+        description: "Stop visits the poller recorded for the trip."
+      - name: n_stops_static
+        description: "Stops the schedule lists for the trip."
+      - name: had_vehicle
+        description: "At least one vehicle report named the trip."
+      - name: last_vp_ts
+        description: "Last vehicle report on the trip (UTC)."
+      - name: first_vp_ts
+        description: "First vehicle report on the trip (UTC)."
+      - name: last_seen_ts
+        description: "Last realtime snapshot that contained it (UTC)."
+      - name: first_seen_ts
+        description: "First realtime snapshot that contained it (UTC)."
+      - name: final_schedule_relationship
+        description: "The trip's last GTFS-RT schedule relationship: SCHEDULED, CANCELED, ADDED or DUPLICATED."
+      - name: direction_id
+        description: "GTFS direction (0 or 1); its meaning differs by route."
+      - name: route_id
+        description: "GTFS route identifier (for example '15', 'A'); joins to mart_gtfs_routes.route_id."
+      - name: route_key
+        description: "Surrogate key of the route version valid on the date (dim_route); -1 when unknown."
+      - name: trip_key
+        description: "Surrogate key of the trip version valid on the date (dim_trip); -1 when unknown."
+      - name: trip_id
+        description: "GTFS trip identifier."
+      - name: service_date
+        description: "GTFS service date: the day the trip began (America/Denver)."
 
   - name: fct_prediction_accuracy
     description: "The arrival prediction riders saw 1, 3, 5, 10, 15, 20 and 30 minutes before each measured stop visit (shape crossing within 30 s), against the actual arrival. One row per service date x trip x stop_sequence x horizon. error_sec = actual - predicted; horizon_bucket is the countdown shown (countdown_sec) and within_band follows MBTA's published accuracy standard. Kept permanently; raw prediction history expires after 90 days."
@@ -204,6 +544,7 @@ models:
             where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
     columns:
       - name: horizon_min
+        description: "Minutes before the actual arrival the prediction is read at: 1, 3, 5, 10, 15, 20 or 30."
         data_tests:
           - accepted_values:
               values: [1, 3, 5, 10, 15, 20, 30]
@@ -211,11 +552,40 @@ models:
               config:
                 where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
       - name: horizon_bucket
+        description: "The countdown the prediction showed: 0-3, 3-6, 6-12 or 12-30 minutes (MBTA's buckets); a past-due prediction counts as 0-3, and with no prediction the bucket is the true time to arrival."
         data_tests:
           - accepted_values:
               values: ['0-3', '3-6', '6-12', '12-30']
               config:
                 where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - name: within_band
+        description: "Accurate under the MBTA band for its horizon bucket (see the metrics glossary)."
+      - name: error_sec
+        description: "Actual minus predicted arrival, in seconds: positive means later than predicted."
+      - name: countdown_sec
+        description: "What the countdown showed, in seconds: predicted arrival minus the moment read. Negative when the prediction was already past due."
+      - name: arrival_method
+        description: "shape_crossing: only precisely timed visits are scored."
+      - name: actual_arrival_ts
+        description: "When the vehicle reached the stop (UTC), from a shape crossing within 30 s."
+      - name: predicted_arrival_ts
+        description: "The arrival time it showed (UTC)."
+      - name: prediction_made_ts
+        description: "When the prediction on screen was published (UTC)."
+      - name: has_prediction
+        description: "A stop-level prediction with a time was on screen at that moment."
+      - name: direction_id
+        description: "GTFS direction (0 or 1); its meaning differs by route."
+      - name: route_id
+        description: "GTFS route identifier (for example '15', 'A'); joins to mart_gtfs_routes.route_id."
+      - name: stop_id
+        description: "GTFS stop identifier; joins to mart_gtfs_stops.stop_id."
+      - name: stop_sequence
+        description: "Position of the stop within the trip (GTFS stop_sequence)."
+      - name: trip_id
+        description: "GTFS trip identifier."
+      - name: service_date
+        description: "GTFS service date of the visit."
 
   - name: fct_trip_occupancy
     description: "The highest occupancy RTD reported on the way to, or at, each stop of each trip: one row per stop visit (n_reports = 0 where nothing was reported). Levels 1 many seats, 2 few seats, 3 standing room only, 4 crushed standing room only, 5 full; NO_DATA_AVAILABLE is no data. Kept permanently; raw reports expire after 90 days."
@@ -231,12 +601,37 @@ models:
             where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
     columns:
       - name: max_level
+        description: "Highest level reported on the way to or at the stop: 1 many seats, 2 few seats, 3 standing room only, 4 crushed, 5 full; NULL without data."
         data_tests:
           - accepted_values:
               values: [1, 2, 3, 4, 5]
               quote: false
               config:
                 where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - name: first_report_ts
+        description: "First report assigned to the stop (UTC)."
+      - name: max_level_label
+        description: "max_level as a label, such as standing_room_only."
+      - name: n_reports_with_data
+        description: "Of those, reports with an occupancy level."
+      - name: n_reports
+        description: "Vehicle reports assigned to this stop of the trip."
+      - name: event_ts_utc
+        description: "When the vehicle reached the stop (its departure at the first stop; the schedule when skipped), UTC."
+      - name: direction_id
+        description: "GTFS direction (0 or 1); its meaning differs by route."
+      - name: route_id
+        description: "GTFS route identifier (for example '15', 'A'); joins to mart_gtfs_routes.route_id."
+      - name: stop_role
+        description: "first, middle or last stop of the trip."
+      - name: stop_id
+        description: "GTFS stop identifier; joins to mart_gtfs_stops.stop_id."
+      - name: stop_sequence
+        description: "Position of the stop within the trip (GTFS stop_sequence)."
+      - name: trip_id
+        description: "GTFS trip identifier."
+      - name: service_date
+        description: "GTFS service date: the day the trip began (America/Denver), so a trip running past midnight counts on the earlier day."
 
   - name: fct_stream_health
     description: "Realtime coverage per 15-minute UTC window: distinct vehicle-feed updates the stream recorded (RTD publishes about every 30 seconds, so 30 is complete). is_healthy means at least 24; windows with no data have 0. Kept permanently."
@@ -247,7 +642,14 @@ models:
             where: "window_date_utc >= date_sub(current_date('America/Denver'), interval 3 day)"
     columns:
       - name: window_start_utc
+        description: "Start of the 15-minute window (UTC)."
         data_tests: [not_null]
+      - name: is_healthy
+        description: "At least 24 updates: the window counts as covered."
+      - name: n_feed_updates
+        description: "Distinct vehicle-feed updates the stream recorded in the window (RTD publishes about 30)."
+      - name: window_date_utc
+        description: "UTC date of the window."
 
   - name: fct_stop_headway
     description: "One row per stop visit a vehicle made (visits timed from the last prediction count only when the trip had a vehicle): observed headway since the previous vehicle of the same route and direction at the stop that service day, the arriving trip's scheduled headway, delay, day type and period. Rebuildable from fct_stop_visit."
@@ -261,6 +663,33 @@ models:
           expression: "observed_headway_sec is null or observed_headway_sec >= 0"
           config:
             where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: delay_sec
+        description: "Arrival minus scheduled time, in seconds; negative is early."
+      - name: scheduled_headway_sec
+        description: "Scheduled gap to the previous trip of the same route and direction at the stop, in seconds."
+      - name: observed_headway_sec
+        description: "Seconds since the previous vehicle of the same route and direction reached the stop that service day; NULL for the first."
+      - name: period
+        description: "When the vehicle reached the stop: early (4:00-6:59), am_peak (7:00-8:59), midday (9:00-14:59), pm_peak (15:00-17:59), evening (18:00-20:59), night (21:00-3:59)."
+      - name: day_type
+        description: "weekday, saturday or sunday."
+      - name: arrival_ts_utc
+        description: "When the vehicle reached the stop (UTC)."
+      - name: arrival_method
+        description: "How the arrival was found: shape_crossing, shape_crossing_gap, origin_departure, last_prediction or skipped (see the metrics glossary)."
+      - name: stop_sequence
+        description: "Position of the stop within the trip (GTFS stop_sequence)."
+      - name: trip_id
+        description: "GTFS trip identifier."
+      - name: direction_id
+        description: "GTFS direction (0 or 1); its meaning differs by route."
+      - name: route_id
+        description: "GTFS route identifier (for example '15', 'A'); joins to mart_gtfs_routes.route_id."
+      - name: stop_id
+        description: "GTFS stop identifier; joins to mart_gtfs_stops.stop_id."
+      - name: service_date
+        description: "GTFS service date: the day the trip began (America/Denver), so a trip running past midnight counts on the earlier day."
 
   - name: fct_segment_traversal
     description: "Running time between consecutive stops of a trip, both ends timed to within 30 s: from leaving stop n (middle of its departure window, or its arrival when it didn't stop) to reaching stop n+1, with distance along the shape, speed and scheduled time. Speeds over 130 km/h are dropped as timing error. Rebuildable from fct_stop_visit."
@@ -274,30 +703,135 @@ models:
           expression: "travel_sec > 0 and distance_m > 0 and speed_kmh <= 130"
           config:
             where: "service_date >= date_sub(current_date('America/Denver'), interval 3 day)"
+    columns:
+      - name: speed_kmh
+        description: "Average speed between the stops, km/h (at most 130)."
+      - name: distance_m
+        description: "Distance along the shape between the stops, in meters."
+      - name: scheduled_travel_sec
+        description: "Scheduled time between the stops, in seconds; 0 when the schedule gives both the same minute."
+      - name: travel_sec
+        description: "Running time between the stops, in seconds, dwell excluded."
+      - name: arrive_ts_utc
+        description: "When it reached the next stop (UTC)."
+      - name: depart_ts_utc
+        description: "When it left the first stop: the middle of its departure window, or its arrival when it didn't stop (UTC)."
+      - name: depart_hour_mst
+        description: "Local hour the vehicle left the first stop (0-23)."
+      - name: day_type
+        description: "weekday, saturday or sunday."
+      - name: to_stop_id
+        description: "Next stop on the trip."
+      - name: to_stop_sequence
+        description: "Next stop sequence."
+      - name: from_stop_id
+        description: "Stop the segment starts at."
+      - name: from_stop_sequence
+        description: "Stop sequence the segment starts at."
+      - name: direction_id
+        description: "GTFS direction (0 or 1); its meaning differs by route."
+      - name: route_id
+        description: "GTFS route identifier (for example '15', 'A'); joins to mart_gtfs_routes.route_id."
+      - name: trip_id
+        description: "GTFS trip identifier."
+      - name: service_date
+        description: "GTFS service date: the day the trip began (America/Denver), so a trip running past midnight counts on the earlier day."
 
   - name: fct_ntd_service_month
     description: "RTD service and ridership as reported to the National Transit Database: one row per month, mode and type of service (directly operated or purchased)."
     data_tests:
       - unique_combination:
           column_names: ['month', 'mode', 'tos']
+    columns:
+      - name: voms
+        description: "Vehicles operated in maximum service that month."
+      - name: vrh
+        description: "Vehicle revenue hours that month."
+      - name: vrm
+        description: "Vehicle revenue miles that month."
+      - name: upt
+        description: "Unlinked passenger trips (boardings) that month."
+      - name: mode_group
+        description: "Bus or Rail."
+      - name: tos
+        description: "NTD type of service: DO directly operated, PT purchased transportation."
+      - name: mode
+        description: "NTD mode code: MB bus, LR light rail, CR commuter rail, DR demand response, VP vanpool."
+      - name: month
+        description: "First day of the month."
 
   - name: fct_weather_hourly
     description: "Hourly weather per station and UTC hour, with the local date and hour (Open-Meteo, modelled at the station's coordinates)."
     data_tests:
       - unique_combination:
           column_names: ['station', 'ts_utc']
+    columns:
+      - name: source
+        description: "open_meteo_archive, or open_meteo_forecast for recent hours the archive doesn't have yet."
+      - name: wind_kmh
+        description: "Wind speed at 10 m, km/h."
+      - name: temp_c
+        description: "Air temperature at 2 m, Celsius."
+      - name: snowfall_mm
+        description: "Snowfall in the hour, millimetres."
+      - name: precip_mm
+        description: "Precipitation in the hour, millimetres."
+      - name: hour_mst
+        description: "Local hour (0-23)."
+      - name: date_mst
+        description: "Local date (America/Denver)."
+      - name: station
+        description: "Point the hourly weather is for: DIA's coordinates (USW00003017)."
+      - name: ts_utc
+        description: "Start of the hour (UTC)."
 
   - name: fct_alert
     description: "One RTD service alert, kept permanently: first and last time it was in the feed, and its latest cause, effect and text."
     columns:
       - name: alert_id
+        description: "RTD's identifier for the service alert."
         data_tests: [not_null, unique]
+      - name: url
+        description: "Link RTD gives for more information."
+      - name: description_text
+        description: "The alert's full text, in English."
+      - name: header_text
+        description: "The alert's headline, in English."
+      - name: effect
+        description: "GTFS-RT alert effect, such as NO_SERVICE, DETOUR or STOP_MOVED."
+      - name: cause
+        description: "GTFS-RT alert cause, such as CONSTRUCTION; NULL when RTD gives none."
+      - name: last_seen_ts
+        description: "Last snapshot that contained the alert (UTC); the alert ended within 15 minutes after, once newer snapshots lack it."
+      - name: first_seen_ts
+        description: "First snapshot that contained the alert (UTC)."
 
   - name: fct_alert_entity_period
     description: "One alert x informed entity x active period, kept permanently, with the snapshots it appeared in (first_seen_ts, last_seen_ts). Rows from an alert's last snapshot are its final definition."
     columns:
       - name: alert_entity_period_key
+        description: "Surrogate key: farm_fingerprint of the alert, entity and period."
         data_tests: [not_null, unique]
+      - name: last_seen_ts
+        description: "Last snapshot that contained it (UTC)."
+      - name: first_seen_ts
+        description: "First snapshot that contained this entity and period (UTC)."
+      - name: active_end_utc
+        description: "End of that active period (UTC); NULL when open-ended."
+      - name: active_start_utc
+        description: "Start of an active period RTD gave (UTC); NULL when the alert gave none."
+      - name: trip_id
+        description: "Trip the entity names; NULL unless the alert is about one trip."
+      - name: stop_id
+        description: "Stop the entity names; NULL when the alert names a route or trip only."
+      - name: direction_id
+        description: "Direction the entity names; NULL when the alert covers both."
+      - name: route_type
+        description: "GTFS route type the entity names, when given."
+      - name: route_id
+        description: "GTFS route identifier (for example '15', 'A'); joins to mart_gtfs_routes.route_id."
+      - name: alert_id
+        description: "RTD's identifier for the service alert."
 
   - name: fct_micromobility_near_stop
     description: "Veo scooters and bikes available within 200 m of each current stop inside Denver: per local date, stop, hour and form factor, the average over that hour's snapshots and the share of snapshots with none. Kept permanently; raw expires after 30 days."
@@ -308,64 +842,152 @@ models:
             where: "date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
     columns:
       - name: form_factor
+        description: "scooter or bicycle."
         data_tests:
           - accepted_values:
               values: ['scooter', 'bicycle']
               config:
                 where: "date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - name: pct_snapshots_none_within_200m
+        description: "Share of the hour's snapshots with none within 200 m (0-1)."
+      - name: avg_available_within_200m
+        description: "Average available vehicles (not reserved or disabled) within 200 m over the hour's snapshots."
+      - name: n_snapshots
+        description: "Feed snapshots in the hour (four when complete)."
+      - name: hour_mst
+        description: "Local hour of the snapshots (0-23)."
+      - name: stop_id
+        description: "GTFS stop identifier (stops in the City and County of Denver)."
+      - name: date_mst
+        description: "Local date (America/Denver)."
 
   - name: dim_block_group
     description: "Type 1: Denver census block groups (2020) with Colorado EnviroScreen 2.0 percentile and disproportionately impacted community type (CDPHE), and Denver's DOTI equity score (higher means more need) and group rank (1 highest need, 6 lowest). Unknown member at key -1."
     columns:
       - name: block_group_key
+        description: "Surrogate key (farm_fingerprint of the GEOID)."
         data_tests: [not_null, unique]
       - name: doti_equity_group_rank
+        description: "Denver DOTI equity group, 1 (highest need) to 6 (lowest)."
         data_tests:
           - accepted_values:
               values: [1, 2, 3, 4, 5, 6]
               quote: false
+      - name: geom
+        description: "Block group boundary (WGS84 GEOGRAPHY)."
+      - name: doti_equity_score
+        description: "Denver DOTI equity index score (16-68 in 2026; higher means more need)."
+      - name: is_disproportionately_impacted
+        description: "A disproportionately impacted community under Colorado law (CDPHE)."
+      - name: di_community_type
+        description: "Why it qualifies, as CDPHE states it; NULL when not impacted."
+      - name: enviroscreen_pctl
+        description: "Colorado EnviroScreen 2.0 percentile within Colorado; higher is more burdened."
+      - name: tract_geoid
+        description: "GEOID of the tract containing the block group (its first 11 digits)."
+      - name: geoid
+        description: "Census block group GEOID (2020, 12 digits)."
 
   - name: bridge_stop_block_group
     description: "Current stop x the Denver block group containing it; stops outside Denver have no row."
     columns:
       - name: stop_id
+        description: "GTFS stop identifier (current Denver stops)."
         data_tests: [not_null, unique]
+      - name: block_group_key
+        description: "Surrogate key of the census block group (dim_block_group)."
+      - name: geoid
+        description: "GEOID of the 2020 census block group containing the stop (12 digits)."
 
   - name: bridge_stop_street_safety
     description: "One row per current stop inside Denver with the street around it from Denver's open-data layers: High Injury Network within 30 m and its tier (1 has the highest crash rates), nearest traffic signal (NULL beyond 1 km), curb ramps within 50 m, existing bikeway within 100 m, transit lane within 20 m, transit signal priority or queue jump within 50 m."
     columns:
       - name: stop_id
+        description: "GTFS stop identifier (current Denver stops)."
         data_tests: [not_null, unique]
       - name: hin_tier
+        description: "1 for the highest-crash-rate HIN streets, 2 for the rest; NULL when not on the HIN."
         data_tests:
           - accepted_values:
               values: [1, 2]
               quote: false
+      - name: queue_jump_within_50m
+        description: "A transit queue-jump signal is within 50 m."
+      - name: transit_signal_priority_within_50m
+        description: "A transit signal with signal priority is within 50 m."
+      - name: on_transit_lane
+        description: "A transit-only lane is within 20 m."
+      - name: existing_bikeway_within_100m
+        description: "An existing bikeway (not a planned one) is within 100 m."
+      - name: n_curb_ramps_50m
+        description: "Curb ramps in Denver's inventory within 50 m."
+      - name: nearest_signal_m
+        description: "Meters to the nearest traffic signal; NULL when none is within 1 km."
+      - name: on_hin
+        description: "A High Injury Network street is within 30 m: Denver's streets with the most serious and fatal crashes."
 
   - name: fct_rtd_reported_performance
     description: "One month x RTD service category x metric (otp_month, otp_ytd, service_availability) as RTD printed it, 0-100."
     columns:
       - name: value_pct
+        description: "The figure RTD reported, as a share from 0 to 1."
         data_tests:
           - accepted_range:
               min_value: 0
               max_value: 100
+      - name: source_url
+        description: "The RTD report the figure was read from."
+      - name: metric
+        description: "otp_month (on-time that month), otp_ytd (year to date) or service_availability."
+      - name: service
+        description: "all_bus, local, regional, regional_brt, light_rail, commuter_rail_abg or commuter_rail_n."
+      - name: mode
+        description: "NTD mode code: MB bus, LR light rail, CR commuter rail, DR demand response, VP vanpool."
+      - name: report_month
+        description: "First day of the month the figure covers."
 
   - name: bridge_segment_transit_lane
     description: "Stop-to-stop segments that run along a Denver transit lane (at least half of the line between the stops within 15 m of the lane), with the lane's corridor, type and build year. One row per segment and lane."
     data_tests:
       - unique_combination:
           column_names: ['from_stop_id', 'to_stop_id', 'corridor', 'lane_type', 'year_built']
+    columns:
+      - name: share_on_lane
+        description: "Share of the straight line between the stops that lies within 15 m of the lane (at least 0.5 here)."
+      - name: year_built
+        description: "Year the lane was built."
+      - name: lane_type
+        description: "Lane type from Denver's layer, such as 'BAT 24-hour' (business access and transit), 'Transit only 24-hour' or 'Transit Way'."
+      - name: corridor
+        description: "Lane corridor name from Denver's layer (trimmed)."
+      - name: to_stop_id
+        description: "Next stop on the trip."
+      - name: from_stop_id
+        description: "Stop the segment starts at."
 
   - name: fct_job_access
     description: "One tract x departure window x threshold (30, 45, 60 minutes): jobs reachable by walking and transit, median travel time over a two-hour window on the published schedule, own tract included."
     columns:
       - name: departure_window
+        description: "weekday_am_peak, weekday_midday, weekday_evening or saturday_midday (two hours each)."
         data_tests:
           - accepted_values:
               values: ['weekday_am_peak', 'weekday_midday', 'weekday_evening', 'saturday_midday']
       - name: minutes_threshold
+        description: "Travel-time limit in minutes: 30, 45 or 60."
         data_tests:
           - accepted_values:
               values: [30, 45, 60]
               quote: false
+      - name: gtfs_md5
+        description: "MD5 of the GTFS zip the routing used."
+      - name: lodes_year
+        description: "LODES vintage of the job counts."
+      - name: total_jobs_region
+        description: "Jobs in all routed tracts (LODES)."
+      - name: jobs_reachable
+        description: "Jobs in tracts reachable within the limit (median travel time over the window), own tract included."
+      - name: departure_date
+        description: "The date routed: the next Tuesday or Saturday after the extract."
+      - name: geoid
+        description: "Census tract (GEOID) the trips start from."

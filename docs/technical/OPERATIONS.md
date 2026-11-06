@@ -445,7 +445,7 @@ The old image builds the legacy models, which main has disabled, so a rollback a
 [#115](https://github.com/medsidd/whyline-denver/pull/115) publishes eight stop-visit marts and three ready-made questions ([metrics plan](plans/metrics-implementation.md), R1). The API image was built from its head commit, before merging, because the frontend deploys on merge.
 
 - **Image:** `whylinedenver-api@sha256:2efd070f348ea4c4eaf2747686caf5264b473ed0affed9e9e859964f6505d4b1`, Cloud Build `32b2dc8b`, tag `13ee8f9`. It carries the regenerated `dbt/target` (20 app marts) and WP0's query logging.
-- **Running now:** `whylinedenver-api@sha256:1f5c73f6…88adee57` (revision `whylinedenver-api-00013-nr2`), from October 27. It's the rollback image.
+- **Deployed:** by the owner at about 18:35 UTC as revision `whylinedenver-api-00014-vnh`. The rollback image is `whylinedenver-api@sha256:1f5c73f6…88adee57` (revision `whylinedenver-api-00013-nr2`, from October 27).
 - **Owner command:**
 
 ```bash
@@ -458,6 +458,82 @@ gcloud run services update whylinedenver-api --project=whyline-denver --region=u
   - `/api/models` lists 20 marts.
   - Each of the eight ready-made questions runs in the dashboard.
   - A query writes a `jsonPayload.event="query"` log line.
+
+### Release R1 checked, tables validated and polished, November 6, 2026 (UTC)
+
+**R1 is live.** These checks ran after the API deploy above:
+- `/api/models` lists 20 marts, and all eight ready-made questions return rows through the API on BigQuery.
+- #115 merged at about 18:37 (`41cc5d3`); Vercel deployed the dashboard.
+- Nightly BigQuery ([run 42272533463](https://github.com/medsidd/whyline-denver/actions/runs/42272533463)) exported the eight new marts, and Nightly DuckDB ([run 42274730178](https://github.com/medsidd/whyline-denver/actions/runs/42274730178)) loaded them.
+- Queries log `jsonPayload.event="query"` lines. About 40 queries on the `duckdb` engine between 19:27 and 19:29 UTC were this validation, not visitors.
+
+**One failed request:** the first dashboard run after a cold start returned a Vercel 502 (`ROUTER_EXTERNAL_TARGET_CONNECTION_ERROR`). The request never reached Cloud Run, which had just started two instances, and the retry worked. Minimum instances is 0, so a cold start can drop a request; one warm instance would prevent it, at a cost. Not changed.
+
+**Validation (read-only).** A profile of every column of the 32 marts and 29 core tables checked nulls, ranges, blanks, NaN and future dates, with the frozen legacy facts left out. Then 47 cross-checks ran:
+- **Reliability:**
+  - route-day and stop-hour visit totals match on every stop-visit day;
+  - route-day events and on-time shares, recomputed from `fct_stop_visit`, match on all 1,094 route-days;
+  - temperature bands agree with the day's low and high.
+- **Identities:**
+  - prediction visits = predictions + none, and padding = max(0, −p05);
+  - trip outcomes add up to scheduled trips, and scheduled trips match `fct_scheduled_stop_time` for each day;
+  - excess wait = expected − scheduled;
+  - speed and run-time percentiles are ordered;
+  - jobs within 30 ≤ 45 ≤ 60 minutes;
+  - crash counts nest by distance and severity.
+- **Coverage:** occupancy data on 83–88% of tracked trips each day.
+- **Served copy:** row counts in the served DuckDB match BigQuery for 18 of the 20 app marts.
+- **Expected, not defects:**
+  - future dates in sample and routing dates and in alert periods;
+  - negative countdowns ("due" predictions);
+  - `difference_pct_on_time` all NULL until RTD publishes October;
+  - `weeks_since_opening` all NULL;
+  - dimension NULLs only on the Unknown members.
+
+**Fixed in [#116](https://github.com/medsidd/whyline-denver/pull/116):**
+- **Duplicate rows in the served DuckDB.** `EXPORT DATA` with `overwrite=true` replaces only the shards it writes. When an earlier export of the same partition wrote more shards, the extra ones stayed. The DuckDB refresh read both, so 78 route-day and 21 stop-hour export folders held stale copies, some from the legacy method. On November 6, 2026-11-04 had 255 route-day rows for 128 routes. The dashboard and downloads query BigQuery and weren't affected; the DuckDB warehouse and `engine: duckdb` API calls were. The exporter now deletes shards older than the export job after each export. Old folders keep their stale shards until re-exported (owner step 2 below).
+- **A closure that ended before it began.** RTD stopped listing alert 85450 (a route 11 trip cancellation) at 21:17 UTC on November 2, three hours before the trip's 00:23–02:12 period. The 15-minute cutoff then gave it an end before its start, on 44 stop rows. The trip was in fact canceled. A period that begins after its alert left the feed now keeps RTD's own end.
+- **Small stops ranked first.** The ready-made equity question ranked stop 35216 first (unreliability 100) on six RX arrivals, all 9–15 minutes early at a downtown drop-off stop.
+  - The priority mart now weights stop-hours by measured visits. On November 6, 7,440 stops had a score; the weighted score differs from the hour average by 1.1 points on average.
+  - It needs 30 measured visits in its 35-day window; 153 stops fall short.
+  - The ready-made question now reads the mart's score instead of recomputing it.
+- **Tests:** seven nightly invariant tests now guard these identities: prediction visits and padding, crowding shares, excess wait, segment percentiles, closure order, job-access thresholds, and route-day = stop-hour totals. The closure test fails on the current table until the next nightly rebuild; the rebuilt SQL gives 0 failing rows.
+
+**Found, not changed:**
+- **Sidewalk fields:** Denver's sidewalk layer has no values in `SIDEWALKSTATUS`, `SURFACE` or `BUILTYEAR` (0 of 190,234 segments), so `status`, `material` and `year_built` are always NULL.
+- **Out-of-region stops:** `mart_gtfs_stops` includes 21 out-of-region stops in RTD's feed, such as Glenwood Springs, Vail and Colorado Springs.
+- **Drop-off-only stops:** RTD may run early at stops where nobody boards. Counting early arrivals at drop-off-only stops (`pickup_type = 1`) as on time would raise November 3 bus on-time from 73.2% to 73.8%. That explains little of the 5–10 point gap with RTD's own bus figures.
+- **Skipped stop:** RTD marked Eldora Mountain Resort (18032) skipped on all 89 visits since October 29.
+
+**Polish:**
+- **Descriptions:** every column of every enabled model now has a description: 1,019 columns in 85 models, 678 of them new. `persist_docs` copies table and column descriptions to BigQuery on each build, from the next nightly run. The 15-minute realtime job runs its own image (`bba4715`), which doesn't carry the setting. Its two staging views (`stg_rt_stop_visits`, `stg_rt_trip_status`) are re-created every 15 minutes, so they lose their descriptions until the next realtime image. Its tables keep theirs.
+- **Dashboard:**
+  - shares show as percentages in tables, chart axes and tooltips;
+  - chart titles are readable;
+  - the missed-trips and crash questions now get a chart;
+  - ready-made chips use their topic's color;
+  - weather filters read Dry, Light, Moderate, Heavy and Unknown, replacing "light, mod, Dry".
+- **Landing page:**
+  - the reliability topic names waits, missed trips, crowding and prediction accuracy;
+  - the SQL sample matches the worst-routes question;
+  - an FAQ explains the October 29 drop and the gap with RTD.
+
+**Owner steps after #116 merges:**
+
+1. Deploy the new API image, which carries the equity question and the weather filter fallback: `whylinedenver-api@sha256:1f5db0b3b6c28cf851be88b5f738f7dc828ca42c5b57a3abced6c2ed688e6665`, Cloud Build `dbeceac8`, tag `2d90fa7`. The rollback is the R1 image above.
+
+```bash
+gcloud run services update whylinedenver-api --project=whyline-denver --region=us-central1 \
+  --image=us-central1-docker.pkg.dev/whyline-denver/api-service/whylinedenver-api@sha256:1f5db0b3b6c28cf851be88b5f738f7dc828ca42c5b57a3abced6c2ed688e6665
+```
+
+2. Clear the stale shards by re-exporting both reliability marts, then dispatch Nightly DuckDB:
+
+```bash
+cd ~/dev/whyline-denver && git pull && PYTHONPATH=$PWD/src GCP_PROJECT_ID=whyline-denver BQ_DATASET_MART=mart_denver GCS_BUCKET=whylinedenver-raw \
+  .venv/bin/python -m whyline.sync.export_bq_marts --force --since 2025-10-23 \
+  --mart mart_reliability_by_route_day --mart mart_reliability_by_stop_hour
+```
 
 ### Query usage report
 

@@ -61,17 +61,10 @@ PREBUILT: list[tuple[str, str]] = [
     ),
     (
         "Equity gaps (high vulnerability, low reliability)",
-        "SELECT p.stop_id, v.vuln_score_0_100, r.reliability_score_0_100, p.priority_score\n"
-        "FROM mart_priority_hotspots p\n"
-        "JOIN mart_vulnerability_by_stop v USING(stop_id)\n"
-        "JOIN (\n"
-        "  SELECT stop_id, 100 * (1 - AVG(pct_on_time)) AS reliability_score_0_100\n"
-        "  FROM mart_reliability_by_stop_hour\n"
-        "  WHERE service_date_mst >= DATE_SUB(CURRENT_DATE, INTERVAL 35 DAY)\n"
-        "    AND data_version IS NOT NULL\n"
-        "  GROUP BY stop_id\n"
-        ") r USING(stop_id)\n"
-        "ORDER BY p.priority_score DESC\n"
+        "SELECT stop_id, vuln_score_0_100, reliability_score_0_100, priority_score\n"
+        "FROM mart_priority_hotspots\n"
+        "WHERE reliability_score_0_100 IS NOT NULL\n"
+        "ORDER BY priority_score DESC\n"
         "LIMIT 20",
     ),
     (

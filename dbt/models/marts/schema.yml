@@ -64,6 +64,16 @@ models:
         data_tests:
           - accepted_values:
               values: ['below_-10', '-10_to_0', '0_to_30', '30_plus']
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
+      - name: p90_delay_sec
+        description: "90th percentile delay, in seconds (approximate)."
+      - name: median_delay_sec
+        description: "Median delay of visits with a known delay, in seconds (approximate); negative is early."
+      - name: mean_delay_sec
+        description: "Mean delay of visits with a known delay, in seconds; negative is early."
+      - name: snow_day
+        description: "At least 1 mm of snow fell at the weather station that day; NULL without a snow reading."
   - name: mart_reliability_by_stop_hour
     description: "Hourly reliability per stop (one row per stop_id, service date, arrival hour) from observed stop visits, with headways between consecutive visits by the same route and direction. Partitions before the cutover keep the legacy sampled method (data_version NULL)."
     columns:
@@ -106,6 +116,20 @@ models:
         description: "Share of visits whose arrival window is at most 30 seconds."
       - name: pct_shape_crossing
         description: "Share of visits timed from vehicle positions."
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
+      - name: obs_headway_sec_p90
+        description: "90th percentile observed headway, in seconds (approximate)."
+      - name: obs_headway_sec_p50
+        description: "Median observed headway between visits by the same route and direction, in seconds (approximate)."
+      - name: route_id_mode
+        description: "The route seen most often at the stop that hour; not a route breakdown."
+      - name: p90_delay_sec
+        description: "90th percentile delay, in seconds (approximate)."
+      - name: mean_delay_sec
+        description: "Mean delay of visits with a known delay, in seconds."
+      - name: n_events
+        description: "Stop visits with an arrival in the hour (skipped stops excluded)."
   - name: mart_crash_proximity_by_stop
     description: "Crash counts within 100 m and 250 m buffers for each stop (one row per stop)."
     columns:
@@ -139,6 +163,20 @@ models:
         description: "Of crash_250m_cnt, crashes involving a cyclist."
       - name: ped_bike_severe_250m_cnt
         description: "Crashes within 250 m involving a pedestrian or cyclist with serious injury or a death."
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
+      - name: fatal_250m_cnt
+        description: "Crashes within 250 m with a death."
+      - name: severe_250m_cnt
+        description: "Crashes within 250 m with a serious injury or a death."
+      - name: fatal_100m_cnt
+        description: "Crashes within 100 m with a death."
+      - name: severe_100m_cnt
+        description: "Crashes within 100 m with a serious injury or a death."
+      - name: window_days
+        description: "Length of the crash window in days."
+      - name: as_of_date
+        description: "Latest crash date in the data; the window ends here."
   - name: mart_access_score_by_stop
     description: "Sidewalk length and normalized access score using a 200 m buffer per stop (one row per stop)."
     columns:
@@ -175,6 +213,10 @@ models:
         description: "Stop latitude (WGS84) from the latest GTFS version of this stop."
       - name: lon
         description: "Stop longitude (WGS84) from the latest GTFS version of this stop."
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
+      - name: buffer_m
+        description: "Radius used for the sidewalk and crosswalk lengths, in meters (200)."
   - name: mart_vulnerability_by_stop
     description: "ACS indicators from tracts within 804.672 m of each stop, weighted by each matching whole tract population."
     columns:
@@ -229,6 +271,8 @@ models:
         description: "Denver DOTI equity index score of the stop's block group (16-68 in 2026; higher means more need)."
       - name: doti_equity_group_rank
         description: "Denver DOTI equity group, 1 (highest need) to 6 (lowest)."
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
   - name: mart_priority_hotspots
     description: "Composite priority ranking per stop that blends vulnerability, crash exposure, and reliability problems."
     columns:
@@ -251,6 +295,16 @@ models:
         description: "Stop latitude (WGS84) from the latest GTFS version of this stop."
       - name: lon
         description: "Stop longitude (WGS84) from the latest GTFS version of this stop."
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
+      - name: priority_rank
+        description: "Dense rank of priority_score, 1 highest; ties share a rank."
+      - name: reliability_score_0_100
+        description: "Unreliability: 100 × the share of measured visits not on time over the last 35 days, from stop-visit dates only; NULL with fewer than 30 measured visits. Higher is worse."
+      - name: crash_score_0_100
+        description: "Crashes within 250 m, min-max scaled across stops (0-100)."
+      - name: vuln_score_0_100
+        description: "Vulnerability score from mart_vulnerability_by_stop (0-100)."
   - name: mart_weather_impacts
     description: "Equal-weight average route-day on-time shares by observed precipitation bin over the configured lookback, stop-visit days only; dry baseline and delta can be null."
     columns:
@@ -281,6 +335,10 @@ models:
         description: "Route short name (long name when no short name) from the latest GTFS version."
       - name: route_long_name
         description: "Route long name from the latest GTFS version."
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
+      - name: delta_pct_on_time
+        description: "pct_on_time_avg minus the route's dry-day baseline (pct_on_time_normal); negative means worse in that weather."
   - name: mart_gtfs_routes
     description: "GTFS route lookup: join on route_id to filter or label routes by name."
     columns:
@@ -391,6 +449,18 @@ models:
         description: "Every 15 minutes or better on average in every three-hour block from 6:00 to 21:00 on this day type, in this direction."
       - name: is_frequent_route
         description: "is_frequent_day holds in every direction on all three day types."
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
+      - name: n_departures_busiest_stop
+        description: "Departures that day at the busiest stop, where frequency is measured."
+      - name: sample_date
+        description: "The service date sampled for this day type; holiday service shows if a holiday falls on it."
+      - name: direction_id
+        description: "GTFS direction (0 or 1); its meaning differs by route."
+      - name: route_long_name
+        description: "Route long name from the latest GTFS version."
+      - name: route_name
+        description: "Route short name (long name when there is no short name) from the latest GTFS version."
   - name: mart_service_intensity_by_tract
     description: "Scheduled weekday service near each census tract: departures at stops within 804.672 m, shared among tracts by population, per 1,000 residents."
     columns:
@@ -409,11 +479,23 @@ models:
         description: "The tract's population-weighted share of the weekday departures at nearby stops; summed over tracts it equals the network total."
       - name: weekday_departures_per_1000_residents
         description: "weekday_departures_share per 1,000 residents."
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
   - name: mart_prediction_accuracy_by_route_day
     description: "How far RTD's arrival predictions were off, per route, service date and how far ahead they were shown, from measured stop visits. error = actual - predicted: positive means the vehicle came later than predicted."
     data_tests:
       - unique_combination:
           column_names: ['route_id', 'service_date_mst', 'horizon_bucket']
+          config:
+            where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - expression_is_true:
+          name: mart_prediction_accuracy_visits_add_up
+          expression: "n_visits = n_predictions + n_no_prediction"
+          config:
+            where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - expression_is_true:
+          name: mart_prediction_accuracy_padding_from_p05
+          expression: "n_predictions = 0 or padding_sec = greatest(0, -p05_error_sec)"
           config:
             where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
     columns:
@@ -455,6 +537,11 @@ models:
     data_tests:
       - unique_combination:
           column_names: ['route_id', 'direction_id', 'service_date_mst', 'departure_hour_mst']
+          config:
+            where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - expression_is_true:
+          name: mart_crowding_route_hour_shares_consistent
+          expression: "n_trips_with_data <= n_trips and coalesce(pct_trips_standing_or_worse <= pct_trips_few_seats_or_worse, true)"
           config:
             where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
     columns:
@@ -514,6 +601,16 @@ models:
         description: "Latest service date in the group."
       - name: build_run_at
         description: "When the table was built."
+      - name: direction_id
+        description: "GTFS direction (0 or 1); its meaning differs by route."
+      - name: route_id
+        description: "GTFS route identifier; joins to mart_gtfs_routes.route_id."
+      - name: lon
+        description: "Stop longitude (WGS84)."
+      - name: lat
+        description: "Stop latitude (WGS84)."
+      - name: stop_name
+        description: "Stop name from the current GTFS version."
   - name: mart_service_delivered_by_route_day
     description: "Ghost buses: what happened to every scheduled trip, per route, direction, service date and the period it was scheduled to start. Shares count only trips the realtime feed fully covered, and are withheld for routes whose vehicles rarely report."
     data_tests:
@@ -609,11 +706,26 @@ models:
         description: "90th percentile delay in seconds (approximate)."
       - name: build_run_at
         description: "When the table was built."
+      - name: direction_id
+        description: "GTFS direction (0 or 1); its meaning differs by route."
+      - name: route_id
+        description: "GTFS route identifier (for example '15', 'A'); joins to mart_gtfs_routes.route_id."
+      - name: lon
+        description: "Stop longitude (WGS84)."
+      - name: lat
+        description: "Stop latitude (WGS84)."
+      - name: stop_name
+        description: "Stop name from the current GTFS version."
   - name: mart_wait_by_route_day
     description: "Wait time, bunching and gaps per route and service date over every stop. Excess wait uses headways scheduled every 15 minutes or better; on-time share and late running cover every visit."
     data_tests:
       - unique_combination:
           column_names: ['route_id', 'service_date_mst']
+          config:
+            where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
+      - expression_is_true:
+          name: mart_wait_route_day_excess_is_expected_minus_scheduled
+          expression: "excess_wait_sec is null or abs(excess_wait_sec - (expected_wait_sec - scheduled_wait_sec)) < 0.001"
           config:
             where: "service_date_mst >= date_sub(current_date('America/Denver'), interval 3 day)"
     columns:
@@ -648,6 +760,9 @@ models:
     data_tests:
       - unique_combination:
           column_names: ['from_stop_id', 'to_stop_id', 'route_id', 'direction_id', 'day_type', 'hour_mst']
+      - expression_is_true:
+          name: mart_segment_speed_percentiles_ordered
+          expression: "p10_speed_kmh <= p50_speed_kmh and p50_travel_sec <= p90_travel_sec"
     columns:
       - name: from_stop_id
         description: "Stop the segment starts at."
@@ -685,6 +800,14 @@ models:
         description: "p50_travel_sec / scheduled_travel_sec; NULL when the scheduled time is 0."
       - name: build_run_at
         description: "When the table was built."
+      - name: direction_id
+        description: "GTFS direction (0 or 1); its meaning differs by route."
+      - name: route_id
+        description: "GTFS route identifier (for example '15', 'A'); joins to mart_gtfs_routes.route_id."
+      - name: to_stop_name
+        description: "Name of the next stop."
+      - name: from_stop_name
+        description: "Name of the stop the segment starts at."
   - name: mart_trip_runtime_by_route_day
     description: "How long trips really take end to end, per route, direction, pattern (first and last stop) and service date, from trips timed to within 30 s at both ends."
     data_tests:
@@ -715,6 +838,12 @@ models:
         description: "(p90 - p50) / p50: the extra share of time to allow to arrive on time 9 times in 10. Includes the difference between peak and off-peak trips."
       - name: build_run_at
         description: "When the partition was built."
+      - name: last_stop_name
+        description: "Name of the trip pattern's last stop."
+      - name: first_stop_name
+        description: "Name of the trip pattern's first stop."
+      - name: direction_id
+        description: "GTFS direction (0 or 1); its meaning differs by route."
   - name: mart_ridership_by_mode_month
     description: "RTD boardings, revenue hours and miles, and peak vehicles by mode and month from the National Transit Database (about two months behind), with boardings per revenue hour and the change from a year earlier."
     data_tests:
@@ -742,6 +871,10 @@ models:
         description: "Boardings in the same month a year earlier; NULL when that month wasn't reported."
       - name: boardings_yoy_change
         description: "boardings / boardings_year_earlier - 1 (0.05 means 5% more)."
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
+      - name: mode_group
+        description: "Bus or Rail."
   - name: mart_weather_impacts_hourly
     description: "On-time share by the weather in the hour the vehicle reached the stop, per route, over the last 90 service dates: precipitation band, snow falling or not, and temperature band, with the difference from the route's baseline level. Weather is modelled at the airport; association is not causation."
     data_tests:
@@ -775,6 +908,9 @@ models:
     data_tests:
       - unique_combination:
           column_names: ['stop_id', 'alert_id']
+      - expression_is_true:
+          name: mart_stop_closures_end_after_start
+          expression: "until_ts is null or until_ts >= from_ts"
     columns:
       - name: stop_id
         description: "GTFS stop identifier."
@@ -791,6 +927,20 @@ models:
         description: "When it applied until; capped 15 minutes after the alert left the feed. NULL means open-ended and still in the feed."
       - name: is_active_now
         description: "In the feed and within its period when the table was built."
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
+      - name: header_text
+        description: "The alert's headline, in English."
+      - name: cause
+        description: "GTFS-RT alert cause, such as CONSTRUCTION; NULL when RTD gives none."
+      - name: alert_id
+        description: "RTD's identifier for the service alert."
+      - name: lon
+        description: "Stop longitude (WGS84)."
+      - name: lat
+        description: "Stop latitude (WGS84)."
+      - name: stop_name
+        description: "Stop name from the current GTFS version."
   - name: mart_alerts_by_route_day
     description: "Per route, local day and alert effect: alerts in effect, alert hours (each alert's overlap with the day, so simultaneous alerts add up) and stops named. From 2026-11-02."
     data_tests:
@@ -810,6 +960,8 @@ models:
         description: "Hours of the day each alert was in effect, summed over alerts."
       - name: n_stops_named
         description: "Distinct stops the route's alerts named that day."
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
   - name: mart_micromobility_access_by_stop
     description: "First and last mile: Veo scooters and bikes usually available within 200 m of each Denver stop, and how often there are none, by weekday or weekend and period, over the last 28 local dates including today so far."
     data_tests:
@@ -833,6 +985,14 @@ models:
         description: "Share of snapshots with no available scooter within 200 m."
       - name: pct_time_no_bike
         description: "Share of snapshots with no available bike within 200 m."
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
+      - name: lon
+        description: "Stop longitude (WGS84)."
+      - name: lat
+        description: "Stop latitude (WGS84)."
+      - name: stop_name
+        description: "Stop name from the current GTFS version."
   - name: mart_service_equity_by_group
     description: "Service at Denver stops grouped by their block group's disproportionately impacted status (CDPHE) and Denver DOTI equity group, over the last 28 service dates: scheduled departures per stop per day, on-time share, excess wait at frequent stops, and the share of visits arriving with standing room only or worse."
     data_tests:
@@ -853,6 +1013,8 @@ models:
         description: "Extra wait over scheduled at headways scheduled every 15 minutes or better."
       - name: pct_visits_standing_or_worse
         description: "Share of visits with occupancy data arriving with standing room only or worse."
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
   - name: mart_stop_walk_safety
     description: "The street around each stop inside Denver, with plain-language flags: on the High Injury Network with no traffic signal within 100 m, on a tier 1 High Injury Network street, no curb ramp recorded within 50 m."
     columns:
@@ -877,6 +1039,14 @@ models:
         description: "A transit queue-jump signal is within 50 m."
       - name: walk_safety_flags
         description: "The flags that apply, separated by '; '; empty when none."
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
+      - name: lon
+        description: "Stop longitude (WGS84)."
+      - name: lat
+        description: "Stop latitude (WGS84)."
+      - name: stop_name
+        description: "Stop name from the current GTFS version."
   - name: mart_stop_scorecard
     description: "How is my stop doing? One row per current stop: weekday service, on-time share, excess wait, bunching, prediction accuracy, crowding, crashes and walk safety, access, alerts in effect, equity context, and nearby scooters and bikes, over the last 28 service dates where time-based. Each measured part has its count; missing parts stay NULL."
     columns:
@@ -915,6 +1085,36 @@ models:
         description: "Average available Veo bikes within 200 m (Denver stops)."
       - name: jobs_within_45min_am_peak
         description: "Jobs reachable within 45 minutes by walking and transit at the weekday morning peak, weighted over the Denver tracts near the stop (schedule-based)."
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
+      - name: doti_equity_group_rank
+        description: "Denver DOTI equity group of the stop's block group, 1 (highest need) to 6."
+      - name: is_disproportionately_impacted
+        description: "The stop's block group is a disproportionately impacted community under Colorado law."
+      - name: enviroscreen_pctl
+        description: "Colorado EnviroScreen 2.0 percentile of the stop's block group (Denver stops)."
+      - name: vuln_score_0_100
+        description: "Vulnerability score (mart_vulnerability_by_stop)."
+      - name: wheelchair_boarding
+        description: "GTFS wheelchair_boarding for the stop: 1 accessible, 2 not accessible, 0 no information."
+      - name: access_score_0_100
+        description: "Sidewalk access score (mart_access_score_by_stop)."
+      - name: walk_safety_flags
+        description: "Plain-language safety flags from mart_stop_walk_safety, separated by '; '; empty when none apply, NULL outside Denver."
+      - name: on_hin
+        description: "A High Injury Network street is within 30 m (Denver stops only)."
+      - name: ped_bike_severe_250m_cnt
+        description: "Crashes within 250 m involving a pedestrian or cyclist with a serious injury or a death."
+      - name: ped_crash_250m_cnt
+        description: "Of those, crashes involving a pedestrian."
+      - name: crash_250m_cnt
+        description: "Reported crashes within 250 m (mart_crash_proximity_by_stop)."
+      - name: lon
+        description: "Stop longitude (WGS84)."
+      - name: lat
+        description: "Stop latitude (WGS84)."
+      - name: stop_name
+        description: "Stop name from the current GTFS version."
   - name: mart_route_scorecard
     description: "Report card per route, both directions: frequency and weekday span, on-time share, excess wait, delivered and likely-missed trips, prediction accuracy, crowding, run-time reliability and alert hours, over the last 28 service dates. Each measured part has its count; missing parts stay NULL."
     columns:
@@ -949,6 +1149,18 @@ models:
         description: "Trip-weighted (p90 - p50) / p50 run time across patterns and days."
       - name: alert_hours
         description: "Service-alert hours on the route in the window."
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
+      - name: n_trips_observable
+        description: "Of those, trips the feed fully covered, behind pct_delivered and pct_missed_likely."
+      - name: n_trips_scheduled
+        description: "Scheduled trips in the window."
+      - name: n_visits_measured
+        description: "Stop visits with a known delay behind pct_on_time."
+      - name: route_long_name
+        description: "Route long name from the latest GTFS version."
+      - name: route_name
+        description: "Route short name (long name when there is no short name) from the latest GTFS version."
   - name: mart_reported_vs_measured_by_month
     description: "RTD's reported monthly on-time performance beside WhyLine's measured share for the same month: all bus, light rail, A/B/G commuter lines and the N Line. RTD measures at timepoints with its own rules; WhyLine at every stop it times, 1 minute early to 5 minutes late."
     data_tests:
@@ -971,6 +1183,8 @@ models:
         description: "Stop visits with a known delay behind WhyLine's share."
       - name: n_days_measured
         description: "Service dates measured in the month."
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
   - name: mart_transit_lane_speed_by_week
     description: "Weekly running speed on each Denver transit-lane corridor beside the same routes' segments without a lane, by period. Every lane in the city's layer predates WhyLine's data, so this is cross-sectional until a lane opens with a date set in var('lane_openings')."
     data_tests:
@@ -1000,11 +1214,16 @@ models:
         description: "Latest build year among the corridor's lanes."
       - name: weeks_since_opening
         description: "Weeks from the opening date set in var('lane_openings'); NULL when no date is set."
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
   - name: mart_job_access_by_tract
     description: "Jobs reachable by walking and transit within 30, 45 and 60 minutes, per tract in the RTD counties and departure window (next Tuesday 7:00, 12:00, 19:00; Saturday 10:00; two-hour windows, median travel time), from the published schedule. Denver tracts carry their EnviroScreen percentile."
     data_tests:
       - unique_combination:
           column_names: ['geoid', 'departure_window']
+      - expression_is_true:
+          name: mart_job_access_thresholds_ordered
+          expression: "jobs_within_30min <= jobs_within_45min and jobs_within_45min <= jobs_within_60min and jobs_within_60min <= total_jobs_region"
     columns:
       - name: geoid
         description: "Census tract GEOID (2020)."
@@ -1029,3 +1248,5 @@ models:
         description: "LODES vintage."
       - name: enviroscreen_pctl
         description: "Colorado EnviroScreen percentile of the tract (Denver tracts)."
+      - name: build_run_at
+        description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."

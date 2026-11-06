@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatValue } from "@/lib/format";
 
 interface Props {
   columns: string[];
@@ -21,12 +22,6 @@ export function DataTable({ columns, data, totalRows, maxDisplayRows = 10_000 }:
   const pageCount = Math.ceil(data.length / PAGE_SIZE);
   const pageData = data.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const numeric = new Set(columns.filter((c) => typeof data.find((r) => r[c] != null)?.[c] === "number"));
-
-  const formatCell = (val: unknown): string => {
-    if (val === null || val === undefined) return "";
-    if (typeof val === "number") return Number.isInteger(val) ? String(val) : val.toFixed(4);
-    return String(val);
-  };
 
   return (
     <div className="w-full">
@@ -61,7 +56,7 @@ export function DataTable({ columns, data, totalRows, maxDisplayRows = 10_000 }:
                       numeric.has(col) ? "text-right tabular-nums" : ""
                     }`}
                   >
-                    {formatCell(row[col])}
+                    {formatValue(col, row[col])}
                   </td>
                 ))}
               </tr>

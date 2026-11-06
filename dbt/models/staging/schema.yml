@@ -2,45 +2,104 @@ version: 2
 
 models:
   - name: stg_gtfs_routes
+    description: "GTFS routes.txt from every extract, one row per route within each; dim_route derives versions."
     data_tests:
       - unique_combination:
           column_names: ['_extract_date', 'route_id']
     columns:
       - name: route_id
+        description: "GTFS route identifier (for example '15', 'A'); joins to mart_gtfs_routes.route_id."
         data_tests:
           - not_null
+      - name: is_valid
+        description: "The row passed the staging format check described on the model; invalid rows are excluded downstream."
+      - name: route_desc
+        description: "GTFS route description, when RTD gives one."
+      - name: route_type
+        description: "GTFS route type: 0 light rail, 2 commuter rail, 3 bus."
+      - name: route_long_name
+        description: "Route long name."
+      - name: route_name
+        description: "Route short name, or the long name when there is none."
+      - name: _extract_date
+        description: "Date of the source extract the row came from."
 
   - name: stg_gtfs_stops
+    description: "GTFS stops.txt from every extract, one row per stop within each; dim_stop derives versions."
     data_tests:
       - unique_combination:
           column_names: ['_extract_date', 'stop_id']
     columns:
       - name: stop_id
+        description: "GTFS stop identifier; joins to mart_gtfs_stops.stop_id."
         data_tests:
           - not_null
       - name: geom
+        description: "Stop location (WGS84 point)."
         data_tests:
           - not_null
+      - name: is_valid
+        description: "The row passed the staging format check described on the model; invalid rows are excluded downstream."
+      - name: wheelchair_boarding
+        description: "GTFS wheelchair_boarding for the stop: 1 accessible, 2 not accessible, 0 no information."
+      - name: stop_lon
+        description: "Stop longitude (WGS84)."
+      - name: stop_lat
+        description: "Stop latitude (WGS84)."
+      - name: stop_name
+        description: "Stop name."
+      - name: _extract_date
+        description: "Date of the source extract the row came from."
 
   - name: stg_gtfs_trips
+    description: "GTFS trips.txt from every extract, one row per trip within each; dim_trip derives versions."
     columns:
       - name: trip_id
+        description: "GTFS trip identifier."
         data_tests:
           - not_null
       - name: route_id
+        description: "GTFS route identifier (for example '15', 'A'); joins to mart_gtfs_routes.route_id."
         data_tests:
           - relationships:
               to: ref('stg_gtfs_routes')
               field: route_id
+      - name: is_valid
+        description: "The row passed the staging format check described on the model; invalid rows are excluded downstream."
+      - name: trip_headsign
+        description: "Destination sign shown for the trip."
+      - name: shape_id
+        description: "GTFS shape the trip follows."
+      - name: direction_id
+        description: "GTFS direction (0 or 1); its meaning differs by route."
+      - name: service_id
+        description: "GTFS service calendar identifier."
+      - name: _extract_date
+        description: "Date of the source extract the row came from."
 
   - name: stg_gtfs_stop_times
+    description: "GTFS stop_times.txt from every extract: scheduled times for each stop of each trip."
     columns:
       - name: trip_id
+        description: "GTFS trip identifier."
         data_tests:
           - not_null
       - name: stop_id
+        description: "GTFS stop identifier; joins to mart_gtfs_stops.stop_id."
         data_tests:
           - not_null
+      - name: is_valid
+        description: "The row passed the staging format check described on the model; invalid rows are excluded downstream."
+      - name: shape_dist_traveled
+        description: "Distance along the shape RTD gives for the stop, when present."
+      - name: departure_time
+        description: "Scheduled departure as GTFS text."
+      - name: arrival_time
+        description: "Scheduled arrival as GTFS text (H:MM:SS, may exceed 24:00:00 after midnight)."
+      - name: stop_sequence
+        description: "Position of the stop within the trip (GTFS stop_sequence)."
+      - name: _extract_date
+        description: "Date of the source extract the row came from."
 
   - name: stg_rt_events
     description: "LEGACY (disabled at the stop-visit cutover): one sampled trip-update and vehicle-position row per feed poll x trip. Replaced by the stream views and core.fct_stop_visit."
@@ -62,104 +121,398 @@ models:
           - not_null
 
   - name: stg_denver_crashes
+    description: "Denver crash records from the latest extract, one row per crash, with severity and a point geometry."
     columns:
       - name: crash_id
+        description: "Denver's crash record identifier."
         data_tests:
           - not_null
           - unique
       - name: event_ts_utc
+        description: "When the crash happened (UTC)."
         data_tests:
           - not_null
       - name: geom
+        description: "Crash location (WGS84 point)."
         data_tests:
           - not_null
+      - name: event_hour_mst
+        description: "Local hour of the crash (0-23)."
+      - name: event_date_mst
+        description: "Local date of the crash (America/Denver)."
+      - name: ped_involved
+        description: "Pedestrians involved."
+      - name: bike_involved
+        description: "Cyclists involved."
+      - name: off_route
+        description: "The cross street in the location, when there is one."
+      - name: on_route
+        description: "The first street in the location."
+      - name: roadway_name
+        description: "Location as Denver records it, such as 'E Colfax Ave / N Broadway'."
+      - name: severity_text
+        description: "property_damage, serious_injury or fatal."
+      - name: severity
+        description: "Most severe injury: 1 property damage only, 3 serious injury, 4 fatal."
 
   - name: stg_sidewalks
+    description: "Denver sidewalk inventory segments from the latest extract, one row per segment, with line and midpoint geometry."
     columns:
       - name: sidewalk_id
+        description: "Denver's sidewalk segment identifier (FACILITYID, else OBJECTID)."
         data_tests:
           - not_null
       - name: geom
+        description: "Segment line (WGS84 GEOGRAPHY)."
         data_tests:
           - not_null
       - name: length_m
+        description: "Segment length in meters."
         data_tests:
           - accepted_range:
               min_value: 0
               exclusive_min: true
+      - name: centroid
+        description: "Midpoint of the segment (WGS84 GEOGRAPHY)."
+      - name: year_built
+        description: "Year built (BUILTYEAR). Empty in Denver's published layer as of 2026-11-06."
+      - name: material
+        description: "Surface material (SURFACE). Empty in Denver's published layer as of 2026-11-06."
+      - name: status
+        description: "Sidewalk status (SIDEWALKSTATUS). Empty in Denver's published layer as of 2026-11-06."
+      - name: class
+        description: "Segment type from Denver's layer: sidewalk, crosswalk, other path or best-fit line."
 
   - name: stg_weather
+    description: "NOAA daily observations at Denver International Airport, latest observation per date."
     data_tests:
       - unique_combination:
           column_names: ['date', 'station']
     columns:
       - name: date
+        description: "Observation date."
         data_tests:
           - not_null
       - name: station
+        description: "Weather station: NOAA GHCND USW00003017, Denver International Airport."
         data_tests:
           - not_null
+      - name: precip_bin
+        description: "Daily precipitation intensity: none, light (up to 5 mm), mod (up to 20 mm), heavy, or unknown."
+      - name: snow_day
+        description: "1 when at least 1 mm of snow fell that day, else 0; NULL without a snow reading."
+      - name: tavg_c
+        description: "Average temperature that day, Celsius: NOAA's TAVG, else the mean of the low and high."
+      - name: tmax_c
+        description: "Highest temperature that day, Celsius."
+      - name: tmin_c
+        description: "Lowest temperature that day, Celsius."
+      - name: precip_mm
+        description: "Precipitation in millimetres."
+      - name: snow_mm
+        description: "Snowfall in millimetres."
 
   - name: stg_acs_geo
+    description: "ACS five-year estimates per Denver census tract, one row per tract and vintage, with derived shares."
     data_tests:
       - unique_combination:
           column_names: ['geoid', 'year']
     columns:
       - name: geoid
+        description: "Census tract GEOID (2020, 11 digits)."
         data_tests:
           - not_null
       - name: pct_hh_no_vehicle
+        description: "Share of households with no vehicle (0-1)."
         data_tests:
           - accepted_range:
               min_value: 0
               max_value: 1
       - name: pct_transit_commute
+        description: "Share of workers commuting by transit (0-1)."
         data_tests:
           - accepted_range:
               min_value: 0
               max_value: 1
       - name: pct_poverty
+        description: "Share of people below the poverty line (0-1)."
         data_tests:
           - accepted_range:
               min_value: 0
               max_value: 1
+      - name: pop_total
+        description: "Total population (ACS B01003)."
+      - name: persons_poverty
+        description: "People below the poverty line (ACS B17001)."
+      - name: workers_total
+        description: "Workers 16 and over (ACS B08301)."
+      - name: workers_transit
+        description: "Of those, workers who commute by public transit."
+      - name: hh_total
+        description: "Households (ACS B08201)."
+      - name: hh_no_vehicle
+        description: "Households with no vehicle available."
+      - name: year
+        description: "ACS five-year vintage (end year)."
+      - name: name
+        description: "Census tract name (for example 'Census Tract 41.06')."
 
   - name: stg_denver_tracts
+    description: "Denver County census tract boundaries (2020) from the latest extract."
     columns:
       - name: geoid
+        description: "Census tract GEOID (2020, 11 digits)."
         data_tests:
           - not_null
           - unique
       - name: name
+        description: "Census tract name (for example 'Census Tract 41.06')."
         data_tests:
           - not_null
       - name: aland_m2
+        description: "Land area in square meters."
         data_tests:
           - not_null
       - name: geom
+        description: "Tract boundary (WGS84 GEOGRAPHY)."
         data_tests:
           - not_null
+      - name: awater_m2
+        description: "Water area in square meters."
 
   - name: stg_rt_stop_visits
     description: "Stop visits from the stream poller or the backfill, typed; view over raw (partitioned by load hour, 90-day expiry)."
     columns:
       - name: arrival_method
+        description: "How the arrival was found: shape_crossing, shape_crossing_gap, origin_departure, last_prediction or skipped (see the metrics glossary)."
         data_tests:
           - not_null:
               config:
                 where: "_ingested_at >= timestamp_sub(current_timestamp(), interval 1 day)"
+      - name: _ingested_at
+        description: "When the loader wrote the row to the raw table (UTC)."
+      - name: emitted_at
+        description: "When the poller wrote the visit (UTC)."
+      - name: static_md5
+        description: "MD5 of the GTFS schedule zip the poller used for the trip."
+      - name: data_version
+        description: "stream_v1 (timed from 30-second vehicle reports) or backfill_v1 (15-minute snapshots, published only after calibration)."
+      - name: is_final
+        description: "The poller has finished with the visit; non-final visits can still change."
+      - name: low_confidence
+        description: "The arrival rests on a gap of more than 20 minutes between reports (backfill only)."
+      - name: trip_switch_at_terminal
+        description: "The two reports bracketing the arrival carried different trip IDs: the vehicle changed trips at a terminal."
+      - name: last_prediction_published_ts
+        description: "When RTD first published that final prediction (UTC)."
+      - name: last_predicted_arrival_ts
+        description: "RTD's final predicted arrival at the stop before it dropped from the trip's predictions (UTC)."
+      - name: nearest_offset_m
+        description: "Lateral distance from the shape of the closest report used, in meters."
+      - name: stop_dist_m
+        description: "The stop's distance along the trip's shape, in meters: the crossing threshold."
+      - name: after_dist_along_m
+        description: "Distance along the shape of that report, in meters."
+      - name: after_report_ts
+        description: "Time of the first valid vehicle report after it reached the stop (UTC)."
+      - name: before_dist_along_m
+        description: "Distance along the shape of that report, in meters."
+      - name: before_report_ts
+        description: "Time of the last valid vehicle report before the vehicle reached the stop (UTC)."
+      - name: stopped_observed
+        description: "A STOPPED_AT report was seen at this stop."
+      - name: skipped
+        description: "RTD marked the stop SKIPPED; there is no arrival."
+      - name: dwell_max_sec
+        description: "Longest the vehicle could have stood at the stop, in seconds."
+      - name: dwell_min_sec
+        description: "Shortest the vehicle could have stood at the stop, in seconds, from its stopped reports."
+      - name: departure_latest_ts
+        description: "Latest the vehicle could have left: the next report after it was stopped there (UTC)."
+      - name: departure_earliest_ts
+        description: "Earliest the vehicle could have left the stop: its last report stopped there (UTC); NULL when it wasn't seen stopped."
+      - name: arrival_latest_ts
+        description: "Latest the arrival could have been (UTC)."
+      - name: arrival_earliest_ts
+        description: "Earliest the arrival could have been, from the bracketing vehicle reports or prediction (UTC)."
+      - name: arrival_ts_utc
+        description: "Best estimate of when the vehicle reached the stop (UTC); at a trip's first stop, when it left. NULL when skipped."
+      - name: vehicle_id
+        description: "RTD vehicle identifier from the vehicle feed; NULL when the visit wasn't tied to a reporting vehicle."
+      - name: trip_headsign
+        description: "Destination sign shown for the trip."
+      - name: direction_id
+        description: "GTFS direction (0 or 1); its meaning differs by route."
+      - name: route_id
+        description: "GTFS route identifier (for example '15', 'A'); joins to mart_gtfs_routes.route_id."
+      - name: stop_role
+        description: "first, middle or last stop of the trip."
+      - name: stop_id
+        description: "GTFS stop identifier; joins to mart_gtfs_stops.stop_id."
+      - name: stop_sequence
+        description: "Position of the stop within the trip (GTFS stop_sequence)."
+      - name: start_date
+        description: "Trip start date as RTD's realtime feed sends it (YYYYMMDD text)."
+      - name: trip_id
+        description: "GTFS trip identifier."
+      - name: service_date
+        description: "GTFS service date: the day the trip began (America/Denver), so a trip running past midnight counts on the earlier day."
 
   - name: stg_rt_trip_status
     description: "Trip instances closed by the stream poller, typed; view over raw (partitioned by load hour, 90-day expiry)."
+    columns:
+      - name: _ingested_at
+        description: "When the loader wrote the row to the raw table (UTC)."
+      - name: closed_at
+        description: "When the poller closed the trip, 10 minutes after it left both feeds (UTC)."
+      - name: static_md5
+        description: "MD5 of the GTFS schedule zip the poller used for the trip."
+      - name: data_version
+        description: "stream_v1 (timed from 30-second vehicle reports) or backfill_v1 (15-minute snapshots, published only after calibration)."
+      - name: n_skipped
+        description: "Stops RTD marked SKIPPED."
+      - name: n_last_prediction
+        description: "Of those, visits timed from RTD's last prediction."
+      - name: n_shape_crossing
+        description: "Of those, visits timed from a shape crossing."
+      - name: n_visits
+        description: "Stop visits the poller recorded for the trip."
+      - name: n_stops_static
+        description: "Stops the schedule lists for the trip."
+      - name: had_vehicle
+        description: "At least one vehicle report named the trip."
+      - name: last_vp_ts
+        description: "Last vehicle report on the trip (UTC)."
+      - name: first_vp_ts
+        description: "First vehicle report on the trip (UTC)."
+      - name: last_seen_ts
+        description: "Last realtime snapshot that contained it (UTC)."
+      - name: first_seen_ts
+        description: "First realtime snapshot that contained it (UTC)."
+      - name: outcome
+        description: "completed, partial, vanished (left the feed before finishing), canceled or never_started."
+      - name: final_schedule_relationship
+        description: "The trip's last GTFS-RT schedule relationship: SCHEDULED, CANCELED, ADDED or DUPLICATED."
+      - name: direction_id
+        description: "GTFS direction (0 or 1); its meaning differs by route."
+      - name: route_id
+        description: "GTFS route identifier (for example '15', 'A'); joins to mart_gtfs_routes.route_id."
+      - name: start_date
+        description: "Trip start date as RTD's realtime feed sends it (YYYYMMDD text)."
+      - name: trip_id
+        description: "GTFS trip identifier."
+      - name: service_date
+        description: "GTFS service date: the day the trip began (America/Denver), so a trip running past midnight counts on the earlier day."
 
   - name: stg_rt_vehicle_positions
     description: "Distinct vehicle reports from the stream (no repeats, at most 120 s old, inside the Denver box) with the poller's along-route projection; view over raw. Filter feed_ts_utc with a constant."
+    columns:
+      - name: _ingested_at
+        description: "When the loader wrote the row to the raw table (UTC)."
+      - name: valid_for_timing
+        description: "The report passed the poller's checks (fresh, inside the RTD box, within 100 m of the shape and inside the trip's stops), so it can time arrivals."
+      - name: lateral_offset_m
+        description: "Distance from the position to the shape, in meters."
+      - name: dist_along_m
+        description: "The poller's projection of the position onto the trip's shape, in meters along it."
+      - name: report_age_sec
+        description: "How old the position was when the feed was published, in seconds (at most 120 here)."
+      - name: occupancy_status
+        description: "GTFS-RT occupancy level, such as MANY_SEATS_AVAILABLE; NO_DATA_AVAILABLE or NULL when not reported."
+      - name: speed_mps
+        description: "Speed in m/s, as reported; filled in for only about 3% of reports."
+      - name: bearing
+        description: "Heading in degrees, as reported."
+      - name: geom
+        description: "Vehicle location (WGS84 point)."
+      - name: lon
+        description: "Vehicle longitude (WGS84)."
+      - name: lat
+        description: "Vehicle latitude (WGS84)."
+      - name: current_status
+        description: "IN_TRANSIT_TO or STOPPED_AT; NULL when the vehicle sent none."
+      - name: stop_id
+        description: "Stop the vehicle reported it was heading to or stopped at."
+      - name: direction_id
+        description: "GTFS direction (0 or 1); its meaning differs by route."
+      - name: route_id
+        description: "GTFS route identifier (for example '15', 'A'); joins to mart_gtfs_routes.route_id."
+      - name: service_date
+        description: "GTFS service date: the day the trip began (America/Denver), so a trip running past midnight counts on the earlier day."
+      - name: start_date
+        description: "Trip start date as RTD's realtime feed sends it (YYYYMMDD text)."
+      - name: trip_id
+        description: "GTFS trip identifier."
+      - name: vehicle_label
+        description: "Label RTD shows for the vehicle."
+      - name: vehicle_id
+        description: "RTD vehicle identifier from the vehicle feed; NULL when the visit wasn't tied to a reporting vehicle."
+      - name: report_ts_utc
+        description: "When the vehicle took the position (UTC)."
+      - name: feed_ts_utc
+        description: "Header timestamp of the realtime feed message the row came from (UTC)."
 
   - name: stg_rt_prediction_changes
     description: "Trip-update history as changes only (new, changed, dropped, trip-level rows); view over raw. Filter feed_ts_utc with a constant."
+    columns:
+      - name: _ingested_at
+        description: "When the loader wrote the row to the raw table (UTC)."
+      - name: is_trip_level
+        description: "The row describes the whole trip (no stop), for example a cancellation."
+      - name: stop_schedule_relationship
+        description: "GTFS-RT schedule relationship of the stop: SCHEDULED, SKIPPED or NO_DATA."
+      - name: departure_delay_sec
+        description: "Departure delay RTD sent, in seconds, when given."
+      - name: arrival_delay_sec
+        description: "Arrival delay RTD sent, in seconds, when given."
+      - name: predicted_ts_utc
+        description: "The arrival prediction, else the departure prediction (UTC)."
+      - name: departure_ts_utc
+        description: "Predicted departure from the stop (UTC)."
+      - name: arrival_ts_utc
+        description: "Predicted arrival at the stop (UTC)."
+      - name: stop_id
+        description: "GTFS stop identifier; joins to mart_gtfs_stops.stop_id."
+      - name: stop_sequence
+        description: "Position of the stop within the trip (GTFS stop_sequence)."
+      - name: tu_vehicle_id
+        description: "Vehicle the trip update names, when given."
+      - name: tu_timestamp_utc
+        description: "Timestamp RTD put on the trip update (UTC)."
+      - name: trip_schedule_relationship
+        description: "GTFS-RT schedule relationship of the trip: SCHEDULED, CANCELED, ADDED or DUPLICATED."
+      - name: direction_id
+        description: "GTFS direction (0 or 1); its meaning differs by route."
+      - name: route_id
+        description: "GTFS route identifier, as the trip update sends it."
+      - name: service_date
+        description: "GTFS service date: the day the trip began (America/Denver), so a trip running past midnight counts on the earlier day."
+      - name: start_date
+        description: "Trip start date as RTD's realtime feed sends it (YYYYMMDD text)."
+      - name: trip_id
+        description: "GTFS trip identifier."
+      - name: change_type
+        description: "new (first prediction for the stop), changed (the time moved) or dropped (the stop left the trip's predictions; times are the last ones published)."
+      - name: feed_ts_utc
+        description: "Header timestamp of the realtime feed message the row came from (UTC)."
 
   - name: stg_gtfs_shapes
     description: "One GEOGRAPHY line per GTFS extract x shape_id, with geodesic length and the last shape_dist_traveled. Filter _extract_date with a constant."
+    columns:
+      - name: is_valid
+        description: "The row passed the staging format check described on the model; invalid rows are excluded downstream."
+      - name: n_points
+        description: "Points in the shape."
+      - name: max_dist_m
+        description: "Largest shape_dist_traveled RTD gives, in meters; NULL when the feed has none."
+      - name: length_m
+        description: "Length of the line in meters."
+      - name: geom
+        description: "The shape as a line (WGS84 GEOGRAPHY)."
+      - name: shape_id
+        description: "GTFS shape the trip follows."
+      - name: _extract_date
+        description: "Date of the source extract the row came from."
 
   - name: stg_ntd_monthly
     description: "RTD's NTD monthly module rows (boardings, revenue miles and hours, peak vehicles) by month, mode and type of service, from the latest extract."
@@ -168,7 +521,22 @@ models:
           column_names: ['month', 'mode', 'tos']
     columns:
       - name: month
+        description: "First day of the month."
         data_tests: [not_null]
+      - name: voms
+        description: "Vehicles operated in maximum service that month."
+      - name: vrh
+        description: "Vehicle revenue hours that month."
+      - name: vrm
+        description: "Vehicle revenue miles that month."
+      - name: upt
+        description: "Unlinked passenger trips (boardings) that month."
+      - name: mode_group
+        description: "Bus or Rail."
+      - name: tos
+        description: "NTD type of service: DO directly operated, PT purchased transportation."
+      - name: mode
+        description: "NTD mode code: MB bus, LR light rail, CR commuter rail, DR demand response, VP vanpool."
 
   - name: stg_weather_hourly
     description: "Hourly weather per station and UTC hour from the latest extract that covers it (archive values replace forecast ones)."
@@ -177,36 +545,185 @@ models:
           column_names: ['station', 'ts_utc']
     columns:
       - name: source
+        description: "open_meteo_archive, or open_meteo_forecast for recent hours the archive doesn't have yet."
         data_tests:
           - accepted_values:
               values: ['open_meteo_archive', 'open_meteo_forecast']
+      - name: wind_kmh
+        description: "Wind speed at 10 m, km/h."
+      - name: temp_c
+        description: "Air temperature at 2 m, Celsius."
+      - name: snowfall_mm
+        description: "Snowfall in the hour, millimetres."
+      - name: precip_mm
+        description: "Precipitation in the hour, millimetres."
+      - name: station
+        description: "Point the hourly weather is for: DIA's coordinates (USW00003017)."
+      - name: ts_utc
+        description: "Start of the hour (UTC)."
 
   - name: stg_rt_alerts
     description: "RTD service alerts per 15-minute snapshot, one row per alert and informed entity. Filter feed_ts_utc with a constant."
     columns:
       - name: alert_id
+        description: "RTD's identifier for the service alert."
         data_tests: [not_null]
+      - name: trip_id
+        description: "GTFS trip identifier."
+      - name: stop_id
+        description: "GTFS stop identifier; joins to mart_gtfs_stops.stop_id."
+      - name: direction_id
+        description: "GTFS direction (0 or 1); its meaning differs by route."
+      - name: route_type
+        description: "GTFS route type named in the informed entity, when given."
+      - name: route_id
+        description: "GTFS route identifier (for example '15', 'A'); joins to mart_gtfs_routes.route_id."
+      - name: agency_id
+        description: "Agency named in the informed entity, when given."
+      - name: url
+        description: "Link RTD gives for more information."
+      - name: description_text
+        description: "The alert's full text, in English."
+      - name: header_text
+        description: "The alert's headline, in English."
+      - name: effect
+        description: "GTFS-RT alert effect, such as NO_SERVICE, DETOUR or STOP_MOVED."
+      - name: cause
+        description: "GTFS-RT alert cause, such as CONSTRUCTION; NULL when RTD gives none."
+      - name: feed_ts_utc
+        description: "Header timestamp of the realtime feed message the row came from (UTC)."
 
   - name: stg_rt_alert_periods
     description: "Active periods per alert per snapshot; NULL start or end is open."
+    columns:
+      - name: active_end_utc
+        description: "End of that active period (UTC); NULL when open-ended."
+      - name: active_start_utc
+        description: "Start of an active period RTD gave (UTC); NULL when the alert gave none."
+      - name: alert_id
+        description: "RTD's identifier for the service alert."
+      - name: feed_ts_utc
+        description: "Header timestamp of the realtime feed message the row came from (UTC)."
 
   - name: stg_gbfs_veo_vehicles
     description: "Veo vehicles per 15-minute snapshot, with point geometry and availability (neither reserved nor disabled). Filter snapshot_ts_utc with a constant."
+    columns:
+      - name: current_range_m
+        description: "Range left on the battery, in meters, as Veo reports it."
+      - name: is_available
+        description: "Neither reserved nor disabled."
+      - name: geom
+        description: "Vehicle location (WGS84 point)."
+      - name: lon
+        description: "Vehicle longitude (WGS84)."
+      - name: lat
+        description: "Vehicle latitude (WGS84)."
+      - name: propulsion
+        description: "GBFS propulsion type, such as electric."
+      - name: form_factor
+        description: "bicycle or scooter (GBFS form factor)."
+      - name: vehicle_type_id
+        description: "Veo's vehicle type."
+      - name: snapshot_ts_utc
+        description: "When the Veo feed snapshot was taken (UTC), every 15 minutes."
 
   - name: stg_arcgis_reference
     description: "Street-safety and equity reference layers from each layer's latest weekly extract: attributes as JSON (source field names) and parsed geometry. Core models pick their layer and fields."
     data_tests:
       - unique_combination:
           column_names: ['layer', 'object_id']
+    columns:
+      - name: _extract_date
+        description: "Date of the source extract the row came from."
+      - name: geom
+        description: "Feature geometry (WGS84 GEOGRAPHY)."
+      - name: properties_json
+        description: "All of the feature's attributes as JSON; downstream models pick fields with json_value."
+      - name: object_id
+        description: "The feature's ID in its layer."
+      - name: layer
+        description: "Which layer the feature came from (for example denver_hin, enviroscreen_tract)."
 
   - name: stg_rtd_reported_performance
     description: "RTD's own monthly on-time performance and service availability from its Bus and Rail Operations reports, latest extract."
     data_tests:
       - unique_combination:
           column_names: ['report_month', 'mode', 'service', 'metric']
+    columns:
+      - name: source_url
+        description: "The RTD report the figure was read from."
+      - name: value_pct
+        description: "The figure RTD reported, as a share from 0 to 1."
+      - name: metric
+        description: "otp_month (on-time that month), otp_ytd (year to date) or service_availability."
+      - name: service
+        description: "all_bus, local, regional, regional_brt, light_rail, commuter_rail_abg or commuter_rail_n."
+      - name: mode
+        description: "NTD mode code: MB bus, LR light rail, CR commuter rail, DR demand response, VP vanpool."
+      - name: report_month
+        description: "First day of the month the figure covers."
 
   - name: stg_job_access
     description: "Jobs reachable by transit per tract, departure window and threshold, from the latest weekly routing. The raw column `window` is renamed departure_window (WINDOW is reserved)."
     data_tests:
       - unique_combination:
           column_names: ['origin_geoid', 'departure_window', 'minutes_threshold']
+    columns:
+      - name: gtfs_md5
+        description: "MD5 of the GTFS zip the routing used."
+      - name: lodes_year
+        description: "LODES vintage of the job counts."
+      - name: total_jobs_region
+        description: "Jobs in all routed tracts (LODES)."
+      - name: jobs_reachable
+        description: "Jobs in tracts reachable within the limit (median travel time over the window), own tract included."
+      - name: minutes_threshold
+        description: "Travel-time limit in minutes: 30, 45 or 60."
+      - name: departure_date
+        description: "The date routed: the next Tuesday or Saturday after the extract."
+      - name: departure_window
+        description: "weekday_am_peak, weekday_midday, weekday_evening or saturday_midday (two hours each)."
+      - name: origin_geoid
+        description: "Census tract (GEOID) the trips start from."
+
+  - name: stg_gtfs_calendar_dates
+    description: "GTFS calendar_dates.txt from every extract: dates added to or removed from a service pattern."
+    columns:
+      - name: is_valid
+        description: "The row passed the staging format check described on the model; invalid rows are excluded downstream."
+      - name: exception_type
+        description: "1 adds service on the date, 2 removes it."
+      - name: exception_date
+        description: "The date the exception applies to."
+      - name: service_id
+        description: "GTFS service calendar identifier."
+      - name: _extract_date
+        description: "Date of the source extract the row came from."
+
+  - name: stg_gtfs_calendar
+    description: "GTFS calendar.txt from every extract: weekly service patterns and their date ranges."
+    columns:
+      - name: is_valid
+        description: "The row passed the staging format check described on the model; invalid rows are excluded downstream."
+      - name: sunday
+        description: "Service runs on Sundays."
+      - name: saturday
+        description: "Service runs on Saturdays."
+      - name: friday
+        description: "Service runs on Fridays."
+      - name: thursday
+        description: "Service runs on Thursdays."
+      - name: wednesday
+        description: "Service runs on Wednesdays."
+      - name: tuesday
+        description: "Service runs on Tuesdays."
+      - name: monday
+        description: "Service runs on Mondays."
+      - name: end_date
+        description: "Last date the service pattern applies."
+      - name: start_date
+        description: "First date the service pattern applies."
+      - name: service_id
+        description: "GTFS service calendar identifier."
+      - name: _extract_date
+        description: "Date of the source extract the row came from."

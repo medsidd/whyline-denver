@@ -132,7 +132,7 @@ This is not a connected walking route, crossing-safety score, wheelchair-accessi
 
 ## Priority ranking
 
-Despite its name, `reliability_score_0_100` measures **unreliability**: `100 * (1 - AVG(pct_on_time))` across stop-hour rows in the last 35 days. Larger is worse. Hours are averaged equally, not weighted by their event counts; hours without a known delay are skipped.
+Despite its name, `reliability_score_0_100` measures **unreliability**: 100 × the share of measured stop visits (those with a known delay) that weren't on time over the last 35 days, from stop-visit dates only. Larger is worse. Each visit counts once, so busy hours weigh more than quiet ones. A stop needs at least 30 measured visits in the window for a score; below that it's NULL, because a few visits can't rank a stop. Six early arrivals at a downtown drop-off stop once ranked it first. The ready-made equity question lists only stops with a score.
 
 `priority_score = 0.5 * vulnerability + 0.3 * crash exposure + 0.2 * unreliability`.
 
@@ -268,7 +268,7 @@ From RTD's service alerts feed, snapshotted every 15 minutes since 2026-11-02. A
 
 | Field | Meaning |
 |---|---|
-| `from_ts`, `until_ts` (stop closures) | When the alert applies: its stated period, starting when it was first seen if none is given. Once the alert leaves the feed, it ends no later than 15 minutes after it was last seen. An empty `until_ts` means it's open-ended and still listed. |
+| `from_ts`, `until_ts` (stop closures) | When the alert applies: its stated period, starting when it was first seen if none is given. Once the alert leaves the feed, it ends no later than 15 minutes after it was last seen, unless its period hadn't begun yet: RTD can stop listing a trip cancellation hours before the trip, so such a period keeps RTD's own end. An empty `until_ts` means it's open-ended and still listed. |
 | `is_closure` | The alert's effect is `NO_SERVICE` or `STOP_MOVED`. Detours often close stops too, but RTD says so only in the alert text. |
 | `is_active_now` | In the feed and within its period when the table was built (nightly). |
 | `n_alerts`, `alert_hours`, `n_stops_named` (route × day × effect) | Alerts in effect on the route that day, the hours each was in effect summed over alerts (so two at once count twice), and stops named. |

@@ -30,8 +30,8 @@ const TOPICS = [
     name: "Reliability",
     line: "bg-wl-teal",
     tint: "bg-wl-teal-tint",
-    body: "On-time share and bus spacing by route, stop and hour of day.",
-    example: "Which hours have the most late arrivals on route 15?",
+    body: "On-time share, waits and bunching, missed trips, crowding, and how far to trust the arrival countdown, by route, stop and hour.",
+    example: "Which routes missed the most scheduled trips last week?",
     source: "From RTD GTFS schedules and GTFS-Realtime",
   },
   {
@@ -101,6 +101,10 @@ const FAQ = [
   {
     q: "Can I plan a trip or see live arrivals?",
     a: "No. WhyLine is for looking at how service has performed. It has no trip planner, live arrivals, passenger counts, fares or service alerts. Crowding comes from the occupancy level some vehicles report, not from passenger counts.",
+  },
+  {
+    q: "Why are on-time figures lower from October 29, 2026?",
+    a: "That’s when WhyLine started timing every stop from vehicle positions reported every 30 seconds, and started using RTD’s on-time rule, which doesn’t count a bus more than a minute early. On-time shares fell about 14 points at the switch, so don’t compare the two periods. Bus figures also run 5–10 points below RTD’s own, which RTD measures at timepoints with its own rules.",
   },
   {
     q: "What happens to my question?",
@@ -385,6 +389,7 @@ export default async function LandingPage() {
                   <K>SELECT</K> route_id, <K>AVG</K>(pct_on_time) <K>AS</K> avg_pct_on_time{"\n"}
                   <K>FROM</K> <span className="text-[#7FD0E6]">mart_reliability_by_route_day</span>{"\n"}
                   <K>WHERE</K> service_date_mst &gt;= <K>DATE_SUB</K>(<K>CURRENT_DATE</K>, <K>INTERVAL</K> <N>30</N> <K>DAY</K>){"\n"}
+                  {"  "}<K>AND</K> data_version <K>IS NOT NULL</K>{"\n"}
                   <K>GROUP BY</K> route_id{"\n"}
                   <K>ORDER BY</K> avg_pct_on_time <K>ASC</K>{"\n"}
                   <K>LIMIT</K> <N>10</N>

@@ -6,7 +6,10 @@ import { fetchFilters } from "@/lib/api";
 import { defaultFilters, useDashboardStore } from "@/store/dashboardStore";
 import { useFreshness } from "@/components/layout/Header";
 
-const WEATHER_LABELS: Record<string, string> = { none: "Dry", rain: "Rain", snow: "Snow" };
+// Daily precipitation bins (precip_bin), driest first.
+const WEATHER_LABELS: Record<string, string> = { none: "Dry", light: "Light", mod: "Moderate", heavy: "Heavy", unknown: "Unknown" };
+const WEATHER_ORDER = Object.keys(WEATHER_LABELS);
+const byWeather = (a: string, b: string) => WEATHER_ORDER.indexOf(a) - WEATHER_ORDER.indexOf(b);
 
 const label = "block text-sm font-extrabold text-wl-navy mb-1.5";
 const hint = "mt-1.5 text-[13px] font-semibold text-wl-ink2";
@@ -180,7 +183,7 @@ export function Sidebar() {
         <fieldset>
           <legend className={label}>Weather</legend>
           <div className="flex flex-wrap gap-1.5">
-            {(filterData?.weather_bins ?? ["none", "rain", "snow"]).map((bin) => {
+            {[...(filterData?.weather_bins ?? WEATHER_ORDER)].sort(byWeather).map((bin) => {
               const on = filters.weather.includes(bin);
               return (
                 <button
