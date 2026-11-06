@@ -37,6 +37,14 @@ MART_OPTIONS: list[tuple[str, str]] = [
     ("mart_service_frequency_by_stop", "Scheduled departures by stop & hour"),
     ("mart_frequent_network_by_route", "Route frequency & span"),
     ("mart_service_intensity_by_tract", "Scheduled service by census tract"),
+    ("mart_prediction_accuracy_by_route_day", "Arrival-prediction accuracy by route & day"),
+    ("mart_crowding_by_route_hour", "Crowding by route & hour"),
+    ("mart_crowding_by_stop", "Crowding by stop & hour"),
+    ("mart_service_delivered_by_route_day", "Missed trips by route & day"),
+    ("mart_wait_by_stop_period", "Wait time by stop & time of day"),
+    ("mart_wait_by_route_day", "Wait time by route & day"),
+    ("mart_segment_speed_by_hour", "Speed between stops by hour"),
+    ("mart_trip_runtime_by_route_day", "Trip run time by route & day"),
 ]
 ALLOWED_MARTS = {name for name, _ in MART_OPTIONS}
 

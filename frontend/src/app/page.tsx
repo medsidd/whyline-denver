@@ -86,7 +86,7 @@ const LIMITS = [
 
 const SOURCES = [
   { name: "RTD GTFS schedules", body: "Routes, stops, trips and timetables.", tint: "bg-wl-teal-tint", dot: "bg-wl-teal" },
-  { name: "RTD GTFS-Realtime", body: "Trip updates and vehicle positions, read every 15 seconds.", tint: "bg-wl-teal-tint", dot: "bg-wl-teal" },
+  { name: "RTD GTFS-Realtime", body: "Trip updates, predictions and vehicle positions with occupancy, read every 15 seconds.", tint: "bg-wl-teal-tint", dot: "bg-wl-teal" },
   { name: "Denver Open Data", body: "Reported traffic crashes and the city’s sidewalk inventory.", tint: "bg-wl-red-tint", dot: "bg-wl-red" },
   { name: "NOAA daily weather", body: "Precipitation, snow and temperature at Denver International Airport.", tint: "bg-wl-gold-tint", dot: "bg-wl-gold" },
   { name: "U.S. Census ACS", body: "2023 five-year estimates for Denver County census tracts.", tint: "bg-wl-navy-tint", dot: "bg-wl-navy" },
@@ -100,7 +100,7 @@ const FAQ = [
   },
   {
     q: "Can I plan a trip or see live arrivals?",
-    a: "No. WhyLine is for looking at how service has performed. It has no trip planner, live arrivals, passenger counts, fares, crowding or service alerts.",
+    a: "No. WhyLine is for looking at how service has performed. It has no trip planner, live arrivals, passenger counts, fares or service alerts. Crowding comes from the occupancy level some vehicles report, not from passenger counts.",
   },
   {
     q: "What happens to my question?",

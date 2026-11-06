@@ -127,4 +127,8 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
   { label: "Stops with highest crash exposure", index: 1 },
   { label: "Where snow hurts reliability most", index: 2 },
   { label: "Equity gaps (high vulnerability, low reliability)", index: 3 },
+  { label: "How often do routes run, and which run every 15 minutes all day?", index: 4 },
+  { label: "Which routes have the least reliable arrival predictions?", index: 5 },
+  { label: "Which routes missed the most scheduled trips last week?", index: 6 },
+  { label: "Where are the slowest bus segments at rush hour?", index: 7 },
 ];

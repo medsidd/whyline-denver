@@ -55,7 +55,7 @@ Guardrails accept one SELECT/WITH statement, reject denylisted write keywords, a
 
 ## Prebuilt SQL
 
-Indices follow the order of `PREBUILT` in `api/routers/sql.py`: worst routes, crash exposure, snow days against other days per route, and equity gaps. Prefer the engine-specific endpoint used by the frontend.
+Indices follow the order of `PREBUILT` in `api/routers/sql.py`: 0 worst routes, 1 crash exposure, 2 snow days against other days per route and method, 3 equity gaps, 4 scheduled frequency, 5 arrival-prediction accuracy, 6 missed trips, 7 slowest bus segments at rush hour. `frontend/src/types/api.ts` mirrors the labels. Prefer the engine-specific endpoint used by the frontend.
 
 ## Execute
 

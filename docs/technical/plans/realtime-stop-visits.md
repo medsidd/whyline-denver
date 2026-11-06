@@ -323,6 +323,8 @@ Run both pipelines for at least 7 days, including a weekend.
 
 **Reviewed 2026-11-05:** checks 1–5 are recorded in [operations](../OPERATIONS.md). They pass, except that the comparison with RTD's October figures in 2a has to wait for RTD's report; the latest is August. Cutover awaits the owner's approval.
 
+**Cut over 2026-11-06:** the owner approved on November 5 and ran steps 6.1–6.3 on November 6 at about 17:30 UTC; [operations](../OPERATIONS.md) records the verification. The export picked up the rebuilt partitions by their `build_run_at`, so `--force` wasn't needed. Step 6.4 ships as release R1 of the [metrics plan](metrics-implementation.md).
+
 ## 7. Runbook (owner commands, in order)
 
 Project `whyline-denver`, region `us-central1`, zone `us-central1-a`. Each step lists its rollback.
