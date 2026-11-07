@@ -577,9 +577,12 @@ cd ~/dev/whyline-denver && git pull && PYTHONPATH=$PWD/src GCP_PROJECT_ID=whylin
 - **Checks before merge:**
   - BigQuery ran the new SQL on the real features near five stops. Lengths matched an independent planar calculation within 2%; BigQuery's buffer polygon is slightly smaller than a true circle.
   - Across the 2,707 Denver stops, 2,664 have inventoried frontage within 100 m.
-  - The median stop has none of it missing. 311 stops have a quarter or more missing, and 99 have half or more; the worst are along 6th Avenue Parkway and Monaco Parkway.
+  - The median stop has none of it missing. 311 stops have a quarter or more missing, and 98 have half or more; the worst are along 6th Avenue Parkway and Monaco Parkway.
   - 520 stops have at least half their sidewalk under 5 ft.
-- **When it fills:** the layer has no extract yet, so the bridge shows zero frontage until the next nightly ingest fetches it. `mart_stop_walk_safety` is unpublished (release R2).
+- **Loaded after merge ([#119](https://github.com/medsidd/whyline-denver/pull/119)):**
+  - A hand-triggered Nightly Ingest ([run 42388055861](https://github.com/medsidd/whyline-denver/actions/runs/42388055861)) fetched the layer at 15:48 UTC and loaded 180,646 rows into `raw_arcgis_reference`.
+  - The merged bridge SQL, run read-only against it, gives the same counts as the pre-merge check above (2,664, 311, 98, 520), and 633 stops with some fair or poor sidewalk.
+  - The tables pick it up in the next Nightly BigQuery. `mart_stop_walk_safety` stays unpublished until release R2.
 
 **RTD's bus gap, investigated.**
 - **Season:** RTD's own all-bus figure stayed between 81.1% and 84.6% in all 20 months it reported, January 2025 to August 2026, including 82.0% and 82.9% in October and November 2025. Waiting for its October 2026 report won't close a 9-point gap.
