@@ -63,6 +63,6 @@ Confirm production branch/project/domain settings in Vercel when deploying; the 
 
 ## Verification and rollback
 
-Read back API revision/image, both job images, scheduler state, workflow results, actual mart dates/quality, exports, DuckDB content, and public results. Check freshness and health separately. Existing DuckDB connections, schema artifacts, caches, and lookups can require a fresh service process to see changed files/schema; decide from query evidence before restarting.
+Read back API revision/image, both job images, scheduler state, workflow results, actual mart dates/quality, exports, DuckDB content, and public results. Check freshness and health separately. With `DUCKDB_COPY_LOCAL=1`, DuckDB connections reopen within a few minutes of a warehouse replacement (one-minute check plus the 180-second query cache). Schema artifacts, caches, and lookups can require a fresh service process to see changed files/schema; decide from query evidence before restarting.
 
 Retain the previous immutable image digest and revision before deployment. Roll back to that reviewed image/revision if needed; a code rollback does not revert already-written data. Never delete retained raw data as a routine rollback. Use [QA validation](../QA_Validation_Guide.md).

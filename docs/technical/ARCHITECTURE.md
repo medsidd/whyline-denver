@@ -48,7 +48,7 @@ The guardrails are regex-based checks, not a database permission system. Keep cl
 - Prompt and query caches are process-local and expire according to `src/whyline/logs.py`; restarting clears them. They are not durable shared caches.
 - dbt schema loading is lazy and cached with `lru_cache`, not validated by `/api/health`.
 - Stop/route enrichment lookups are cached after successful reads from DuckDB (stops also have a local GTFS fallback).
-- DuckDB connections are thread-local and read-only by default. With `DUCKDB_COPY_LOCAL=1`, the source is copied to a temporary local path when opening a connection. Existing connections can keep the old warehouse; verify actual results after a refresh.
+- DuckDB connections are thread-local and read-only by default. With `DUCKDB_COPY_LOCAL=1`, each source version is copied to `warehouse-<mtime_ns>-<size>.duckdb` beside `DUCKDB_LOCAL_PATH`. One shared check reads the source at most once a minute, and each thread reopens on a newer copy. Results can trail a refresh by that minute, the mount's metadata cache and the 180-second query cache. With `DUCKDB_COPY_LOCAL=0`, connections keep the warehouse they opened. Verify actual results after a refresh.
 - The browser persists selected dashboard fields in localStorage, but not result data or validation state. This survives closing a tab; it does not implement synchronized cross-tab state.
 - Query logs contain hashes and execution metadata. Engine logs can include SQL snippets. The frontend mounts Vercel Analytics and Speed Insights. See [FAQ](../public/FAQ.md) before making privacy claims.
 
