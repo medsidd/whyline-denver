@@ -79,6 +79,10 @@ class GenerateSqlResponse(BaseModel):
     explanation: str
     cache_hit: bool = False
     error: str | None = None
+    # Ready-made questions: filters ("dates", "routes", "stop", "weather") applied to the SQL,
+    # and those set but not taken by the question or invalid.
+    applied_filters: list[str] = Field(default_factory=list)
+    skipped_filters: list[str] = Field(default_factory=list)
 
 
 class ValidateSqlResponse(BaseModel):

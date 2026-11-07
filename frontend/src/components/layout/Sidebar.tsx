@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchFilters } from "@/lib/api";
 import { defaultFilters, useDashboardStore } from "@/store/dashboardStore";
@@ -20,8 +20,9 @@ export function Sidebar() {
   const freshness = useFreshness();
   const [open, setOpen] = useState(false);
   const [routeDraft, setRouteDraft] = useState("");
+  const [routeMiss, setRouteMiss] = useState<string | null>(null);
 
-  const { data: filterData } = useQuery({
+  const { data: filterData, isLoading: routesLoading, isError: routesFailed } = useQuery({
     queryKey: ["filters"],
     queryFn: fetchFilters,
     staleTime: 5 * 60 * 1000,
@@ -39,8 +40,18 @@ export function Sidebar() {
     if (!route) return false;
     if (!filters.routes.includes(route)) setFilters({ routes: [...filters.routes, route] });
     setRouteDraft("");
+    setRouteMiss(null);
     return true;
   };
+
+  // A route entered while the list was loading is added once it arrives.
+  const [heldRoute, setHeldRoute] = useState<string | null>(null);
+  useEffect(() => {
+    if (heldRoute === null || (!filterData && !routesFailed)) return;
+    if (!addRoute(heldRoute)) setRouteMiss(heldRoute.trim());
+    setHeldRoute(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterData, routesFailed, heldRoute]);
 
   const pickLatestWeek = () => {
     if (!max) return;
@@ -123,20 +134,33 @@ export function Sidebar() {
             id="wl-route"
             list="wl-route-options"
             value={routeDraft}
-            placeholder="Type a route, like 15"
+            placeholder={routesLoading ? "Loading routes…" : "Type a route, like 15"}
             autoComplete="off"
+            aria-describedby={routeMiss ? "wl-route-miss" : undefined}
             onChange={(e) => {
+              setRouteMiss(null);
               // Picking from the list fires a change with the exact value
               if (!addRoute(e.target.value)) setRouteDraft(e.target.value);
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
-                addRoute(routeDraft);
+                if (!routeDraft.trim()) return;
+                if (routesLoading) setHeldRoute(routeDraft);
+                else if (!addRoute(routeDraft)) setRouteMiss(routeDraft.trim());
               }
             }}
             className="wl-field"
           />
+          <p id="wl-route-miss" role="status" className={routeMiss || heldRoute ? "mt-1.5 text-[13px] font-bold text-wl-navy" : "sr-only"}>
+            {routeMiss
+              ? routesFailed
+                ? "The route list didn’t load, so routes can’t be added. Reload the page to try again."
+                : `No route called “${routeMiss}”. Pick one from the list.`
+              : heldRoute
+                ? `Adding route ${heldRoute.trim()} once the route list loads…`
+                : ""}
+          </p>
           <datalist id="wl-route-options">
             {(filterData?.routes ?? []).map((r) => (
               <option key={r} value={r} />

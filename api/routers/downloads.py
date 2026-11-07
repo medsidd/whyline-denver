@@ -6,7 +6,7 @@ import io
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
@@ -47,6 +47,18 @@ MART_OPTIONS: list[tuple[str, str]] = [
     ("mart_trip_runtime_by_route_day", "Trip run time by route & day"),
 ]
 ALLOWED_MARTS = {name for name, _ in MART_OPTIONS}
+# Marts that may be date-filtered, always on service_date_mst; the others have no service date.
+DATED_MARTS = frozenset(
+    (
+        "mart_reliability_by_route_day",
+        "mart_reliability_by_stop_hour",
+        "mart_prediction_accuracy_by_route_day",
+        "mart_crowding_by_route_hour",
+        "mart_service_delivered_by_route_day",
+        "mart_wait_by_route_day",
+        "mart_trip_runtime_by_route_day",
+    )
+)
 
 _warehouse_env = os.getenv("DUCKDB_PATH", "data/warehouse.duckdb")
 WAREHOUSE_PATH = Path(_warehouse_env).expanduser()
@@ -78,12 +90,19 @@ def download_mart(req: MartDownloadRequest) -> StreamingResponse:
     conditions: list[str] = []
     date_filter: tuple | None = None
     if req.date_column and req.date_start and req.date_end:
-        if req.date_start > req.date_end:
+        if req.mart not in DATED_MARTS or req.date_column != "service_date_mst":
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{req.date_column}' is not a date column of {req.mart}",
+            )
+        try:
+            start, end = date.fromisoformat(req.date_start), date.fromisoformat(req.date_end)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Dates must be YYYY-MM-DD")
+        if start > end:
             raise HTTPException(status_code=400, detail="date_start must be on or before date_end")
-        conditions.append(
-            f"{req.date_column} BETWEEN DATE '{req.date_start}' AND DATE '{req.date_end}'"
-        )
-        date_filter = (req.date_column, req.date_start, req.date_end)
+        conditions.append(f"{req.date_column} BETWEEN DATE '{start}' AND DATE '{end}'")
+        date_filter = (req.date_column, start, end)
     if conditions:
         sql += " WHERE " + " AND ".join(conditions)
     sql += f" LIMIT {int(req.limit_rows)}"

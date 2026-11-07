@@ -33,15 +33,51 @@ const WORDS: Record<string, string> = {
   p90: "90th percentile",
   pct: "%",
   sec: "(s)",
+  vuln: "vulnerability",
+  "250m": "within 250 m",
+  "100m": "within 100 m",
 };
 
-/** "avg_pct_on_time" -> "Average % on time", "route_id" -> "Route". */
+/** "avg_pct_on_time" -> "Average % on time", "route_id" -> "Route", "vuln_score_0_100" -> "Vulnerability score (0–100)". */
 export function columnLabel(col: string): string {
-  const s = col
-    .toLowerCase()
-    .split("_")
-    .map((w) => WORDS[w] ?? w)
-    .filter(Boolean)
-    .join(" ");
+  let lower = col.toLowerCase();
+  const scale = lower.endsWith("_0_100");
+  if (scale) lower = lower.slice(0, -"_0_100".length);
+  // "crash_250m_cnt" -> "Number of crashes within 250 m"
+  if (lower.endsWith("_cnt")) lower = `n_${lower.slice(0, -"_cnt".length).replace(/(^|_)crash(_|$)/, "$1crashes$2")}`;
+  const s =
+    lower
+      .split("_")
+      .map((w) => WORDS[w] ?? w)
+      .filter(Boolean)
+      .join(" ") + (scale ? " (0–100)" : "");
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Human-readable bytes in 1000-based units, as BigQuery bills them: 2,000,000,000 is "2 GB". */
+export function humanBytes(value: number | null): string {
+  if (value === null) return "unknown";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let size = value;
+  for (const unit of units) {
+    if (size < 1000 || unit === "TB") return `${Number(size.toFixed(2))} ${unit}`;
+    size /= 1000;
+  }
+  return `${Number(size.toFixed(2))} TB`;
+}
+
+const joinWords = (w: string[]) => (w.length < 2 ? w.join("") : `${w.slice(0, -1).join(", ")} and ${w[w.length - 1]}`);
+
+/**
+ * "Uses your dates and routes. Your stop and weather filters aren't used by this question."
+ * A filter in both lists had some invalid values left out.
+ */
+export function filterUseNote(use: { applied: string[]; skipped: string[] }): string {
+  const parts: string[] = [];
+  const partial = use.skipped.filter((f) => use.applied.includes(f));
+  const unused = use.skipped.filter((f) => !use.applied.includes(f));
+  if (use.applied.length) parts.push(`Uses your ${joinWords(use.applied)}.`);
+  if (partial.length) parts.push(`Some of your ${joinWords(partial)} weren’t valid and were left out.`);
+  if (unused.length) parts.push(`Your ${joinWords(unused)} ${unused.length === 1 ? "filter isn’t" : "filters aren’t"} used by this question.`);
+  return parts.join(" ");
 }

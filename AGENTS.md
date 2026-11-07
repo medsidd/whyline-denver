@@ -26,7 +26,7 @@ Run from the repository root with `.venv` activated. `make install` installs roo
 | `make api-dev` / `make frontend-dev` | Local API on 8000 / Next.js on 3000 |
 | `make frontend-build` | Compile and type-check frontend |
 | `make api-test` | Currently targets absent `api/tests/`; do not report API test coverage from it |
-| `make frontend-test` | Invokes Playwright; no checked-in specs/configuration currently exist |
+| `make frontend-test` | Playwright unit-style specs in `frontend/tests/` (pure functions; no browser or server) |
 | `make ingest-all` | Seven ingestors writing locally by default; still calls external source APIs |
 | `make bq-load` | GCS raw loading via realtime date window; not restricted to realtime table types |
 | `make dbt-run-staging`, `make dbt-run-core`, `make dbt-run-marts` | Cloud transformations; `dbt-marts` has no recipe |
@@ -43,6 +43,7 @@ Set `ENGINE=duckdb` and `LLM_PROVIDER=stub` explicitly for local work. `.env.exa
 - `api/models.py`: request/response contract; `frontend/src/types/api.ts` mirrors it. Five routers under `/api`. Query execution always re-sanitizes SQL server-side.
 - `src/whyline/sql_guardrails.py`: read-only SQL, allowlisted namespaces/tables, default `LIMIT 5000` if absent. Existing limits are preserved, not capped.
 - `src/whyline/llm.py`: Gemini or stub generation and SQL dialect adaptation. Other named providers are not implemented.
+- `src/whyline/prebuilt.py`: the 8 ready-made questions as SQL templates, and `clean_filters`, which validates filter-rail values before any SQL uses them. Keep labels in sync with `frontend/src/types/api.ts`.
 - `src/whyline/engines/`: BigQuery and DuckDB. Use `DUCKDB_COPY_LOCAL=1` on Cloud Run; with it, connections reopen within a few minutes of a warehouse replacement, but lookups are cached for the life of the process, so verify served results.
 - `frontend/`: Next.js 14, Zustand persistence, TanStack Query, Recharts, Deck.gl. Dynamically import `StopMap` with `ssr: false`.
 - `infra/cloud-run/`: one image dispatches `JOB_TYPE=ingest|load`. Update both jobs to the tested immutable image digest when shared source changes; `:latest` is not automatically refreshed in existing jobs.

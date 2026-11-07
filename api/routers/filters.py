@@ -17,6 +17,11 @@ from api.models import FilterOptionsResponse, ModelColumnInfo, ModelInfo, Models
 from whyline.config import settings
 from whyline.engines import bigquery_engine, duckdb_engine
 from whyline.llm import adapt_sql_for_engine
+from whyline.logs import QueryCache
+
+# Routes, weather bins and the date range change at most nightly; three BigQuery queries per
+# page load took about 6 s.
+_filters_cache = QueryCache(ttl_seconds=600)
 
 router = APIRouter()
 
@@ -37,6 +42,16 @@ def get_filters(engine_name: str) -> FilterOptionsResponse:
     if engine_name not in ("duckdb", "bigquery"):
         raise HTTPException(status_code=400, detail="engine must be 'duckdb' or 'bigquery'")
 
+    cached = _filters_cache.get(engine_name, "filters")
+    if cached:
+        return cached
+    response = _load_filters(engine_name)
+    if response.error is None:
+        _filters_cache.set(engine_name, "filters", response)
+    return response
+
+
+def _load_filters(engine_name: str) -> FilterOptionsResponse:
     models = get_models()
     engine = _engine_module(engine_name)
     table = _qualify_table(engine_name, "mart_reliability_by_route_day")

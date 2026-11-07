@@ -35,6 +35,7 @@ Start with the [project README](../README.md). Current implementation guides liv
 | [Realtime stop visits plan](technical/plans/realtime-stop-visits.md) | Approved design, discovery evidence, costs, and owner runbook for continuous capture and `fct_stop_visit` |
 | [Metrics implementation plan](technical/plans/metrics-implementation.md) | Approved work packages for the new rider-facing metrics and sources: crowding, prediction accuracy, missed trips, wait time, speeds, alerts, equity, access and more |
 | [Metrics spikes](technical/plans/metrics-spikes.md) | WP16 findings: event schedules, traffic speeds, air quality, peer agencies, stop amenities |
+| [Dashboard QA fixes](technical/plans/dashboard-qa-fixes.md) | Active three-PR plan from the November 7, 2026 end-to-end QA: correctness and security, dashboard experience, SEO, accessibility and rate limits |
 | [RTD records request](technical/plans/rtd-records-request.md) | Ready-to-send CORA request for route and stop boardings and stop amenities (owner action) |
 | [Weather strategy](guides/NOAA_Data_Collection_Strategy.md) | Rolling collection, unknown weather, and late corrections |
 

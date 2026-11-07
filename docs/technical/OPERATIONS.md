@@ -615,6 +615,17 @@ cd ~/dev/whyline-denver && git pull && PYTHONPATH=$PWD/src GCP_PROJECT_ID=whylin
 - **Still the same:** the stop and route lookups in `api/deps.py` are cached for the life of the process.
 - **To deploy:** build a new API image, then the owner runs `gcloud run services update`. Check it by running a new `engine: duckdb` query (not one run in the last three minutes) on a warm instance a few minutes after Nightly DuckDB.
 
+### Dashboard QA and PR 1 checks, November 7, 2026 (UTC)
+
+**End-to-end QA of production.** Run in Playwright against whylinedenver.com, it used about 15 BigQuery queries (each well under 50 MB), 1 Gemini call and 2 downloads. Findings and the owner's decisions are in the [dashboard QA plan](plans/dashboard-qa-fixes.md).
+
+**PR 1 checks before merge** (local API on BigQuery with the stub LLM, local frontend):
+- BigQuery dry runs of all 8 ready-made questions, with no filters and with dates, routes, stop and weather set: all valid, the largest 42.7 MB (slow segments).
+- 16 runs of the questions (rail dates, then route 15 added) returned rows, plus a handful of dashboard runs and two 1,000-row downloads, all under 50 MB each.
+- A route value with a quote, a non-date `date_start` and an unlisted `date_column` were rejected.
+
+**Owner step after merge:** the new ready-made SQL, explanations, filter validation, download allowlist and filters cache are in the API. Build a new API image and run `gcloud run services update whylinedenver-api` (rollback: the current `@sha256:1f5db0b3…`). This image also carries the DuckDB reopen from [#123](https://github.com/medsidd/whyline-denver/pull/123).
+
 ### Query usage report
 
 From release R1 of the [metrics plan](plans/metrics-implementation.md), the first API image with WP0's change, every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:

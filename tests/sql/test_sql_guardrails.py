@@ -136,3 +136,35 @@ def test_query_log_records_marts_status_and_ready_made_question(tmp_path):
     assert record["model_names"] == ["mart_weather_impacts"]
     assert record["prebuilt_index"] == 2 and record["status"] == "error"
     assert "Where snow" not in path.read_text()
+
+
+def test_typo_in_first_word_names_it():
+    config = GuardrailConfig(allowed_models={"mart_access_score_by_stop"}, engine="duckdb")
+    with pytest.raises(SqlValidationError, match=r"must start with SELECT or WITH.*'SELEC'"):
+        sanitize_sql("SELEC stop_id FROM mart_access_score_by_stop", config)
+    with pytest.raises(SqlValidationError, match="Only SELECT statements are allowed"):
+        sanitize_sql("DELETE FROM mart_access_score_by_stop", config)
+
+
+def test_generated_sql_filters_cannot_break_out_of_quotes():
+    pytest.importorskip("fastapi")  # CI installs the root requirements only
+    from api.models import FilterState
+    from api.routers.sql import _add_filter_clauses
+
+    sql = "SELECT route_id, stop_id, precip_bin FROM mart_reliability_by_route_day LIMIT 5"
+    filters = FilterState(
+        routes=["15", "15') OR TRUE --"],
+        weather=["none' OR '1'='1"],
+        stop_id="1' OR '1'='1",
+        start_date="2026-11-01'",
+        end_date="2026-11-07",
+    )
+    out = _add_filter_clauses(sql, filters)
+    assert "route_id IN ('15')" in out
+    assert "OR" not in out.upper().replace("ORDER", "")
+
+
+def test_lone_semicolon_is_a_validation_error():
+    config = GuardrailConfig(allowed_models={"mart_access_score_by_stop"}, engine="duckdb")
+    with pytest.raises(SqlValidationError, match="No SQL provided"):
+        sanitize_sql(" ; ", config)

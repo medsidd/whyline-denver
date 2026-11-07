@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { track } from "@vercel/analytics";
-import { downloadMartCsv, triggerDownload } from "@/lib/api";
+import { DownloadError, downloadMartCsv, triggerDownload } from "@/lib/api";
 
 const MART_OPTIONS = [
   { value: "mart_reliability_by_route_day", label: "Reliability by route and day" },
@@ -35,14 +35,28 @@ const DownloadIcon = () => (
   </svg>
 );
 
+const MIN_ROWS = 1_000;
+const MAX_ROWS = 2_000_000;
+
+/** A plain sentence for a failed download, instead of the API's raw response. */
+function downloadErrorMessage(err: unknown): string {
+  const status = err instanceof DownloadError ? err.status : 0;
+  if (status === 400 || status === 422) return "The server didn’t accept that request. Check the table and row limit.";
+  if (status === 429) return "Too many downloads. Wait a minute and try again.";
+  if (status >= 500) return "The server couldn’t build that file. Try again, or pick a smaller row limit.";
+  return "The download didn’t start. Check your connection and try again.";
+}
+
 /** Whole-table CSV download that doesn't need a question. */
 export function DownloadPanel() {
   const [mart, setMart] = useState(MART_OPTIONS[0].value);
   const [limitRows, setLimitRows] = useState(200_000);
+  const limitOk = Number.isInteger(limitRows) && limitRows >= MIN_ROWS && limitRows <= MAX_ROWS;
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
 
   const handleMartDownload = async () => {
+    if (!limitOk) return;
     setStatus("loading");
     setError(null);
     try {
@@ -57,7 +71,7 @@ export function DownloadPanel() {
       track("download", { mart });
       setStatus("done");
     } catch (err) {
-      setError(String(err));
+      setError(downloadErrorMessage(err));
       setStatus("error");
     }
   };
@@ -88,22 +102,29 @@ export function DownloadPanel() {
             <input
               type="number"
               value={limitRows}
-              min={1000}
-              max={2_000_000}
+              min={MIN_ROWS}
+              max={MAX_ROWS}
               step={1000}
+              aria-invalid={!limitOk}
+              aria-describedby={limitOk ? undefined : "wl-limit-hint"}
               onChange={(e) => setLimitRows(Number(e.target.value))}
               className="wl-field tabular-nums"
             />
+            {!limitOk && (
+              <span id="wl-limit-hint" className="block mt-1.5 text-[13px] font-bold text-[#A80F12]">
+                Use a whole number from 1,000 to 2,000,000.
+              </span>
+            )}
           </label>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button type="button" onClick={handleMartDownload} disabled={status === "loading"} className={outlineBtn}>
+          <button type="button" onClick={handleMartDownload} disabled={status === "loading" || !limitOk} className={`${outlineBtn} disabled:opacity-50 disabled:cursor-not-allowed`}>
             <DownloadIcon />
             {status === "loading" ? "Preparing…" : "Download CSV"}
           </button>
           <span role="status" className="text-[13px] font-bold">
             {status === "done" && <span className="text-wl-teal">Download started</span>}
-            {error && <span className="text-[#A80F12]">The download failed: {error}</span>}
+            {error && <span className="text-[#A80F12]">{error}</span>}
           </span>
         </div>
       </div>

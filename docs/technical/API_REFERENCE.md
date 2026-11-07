@@ -37,9 +37,9 @@ FastAPI registers five routers under `/api` in `api/main.py`. `api/models.py` is
 }
 ```
 
-`question` is required. `filters` is optional and defaults to empty/null fields. Its shape is `FilterState`: nullable `start_date`/`end_date` strings, route/weather string lists, and a stop string. The implementation injects supported conditions when relevant column names appear in generated SQL; filters are not a universal relational query builder and do not automatically rewrite arbitrary edited SQL or raw prebuilt queries. Review the actual SQL.
+`question` is required. `filters` is optional and defaults to empty/null fields. Its shape is `FilterState`: nullable `start_date`/`end_date` strings, route/weather string lists, and a stop string. The implementation injects supported conditions when relevant column names appear in generated SQL; filters are not a universal relational query builder and do not rewrite edited SQL. Filter values are validated first (`clean_filters` in `src/whyline/prebuilt.py`): routes and weather bins must match `[A-Za-z0-9_-]{1,16}`, the stop `[A-Za-z0-9]{1,16}`, and dates must be ISO dates with the start on or before the end. Invalid values are dropped, never quoted into SQL. Review the actual SQL.
 
-Response: `sql`, `explanation`, `cache_hit`, `error`. Provider/guardrail failures can return HTTP 200 with a non-null `error`. Prompt cache keys include provider, engine, question, and filters; default TTL is 900 seconds per process. Gemini sends the question, filters, and schema brief to the provider. Stub avoids provider calls; other named providers are unimplemented.
+Response: `sql`, `explanation`, `cache_hit`, `error`, and `applied_filters`/`skipped_filters` (empty here; set by the ready-made endpoints). Provider/guardrail failures can return HTTP 200 with a non-null `error`. Prompt cache keys include provider, engine, question, and filters; default TTL is 900 seconds per process. Gemini sends the question, filters, and schema brief to the provider. Stub avoids provider calls; other named providers are unimplemented.
 
 ## Validate SQL
 
@@ -51,11 +51,24 @@ Request to `/api/sql/validate`:
 
 Response fields: `valid`, nullable `sanitized_sql`, nullable `bq_est_bytes`, nullable `error`. BigQuery estimation errors are nonfatal, so `valid: true` with no estimate does not prove the query will execute.
 
-Guardrails accept one SELECT/WITH statement, reject denylisted write keywords, and check referenced table/project/dataset allowlists. They add `LIMIT 5000` only when a numeric limit is absent; existing limits are not reduced. BigQuery's partition-filter suggestion checks for a configured date column without a WHERE clause; it does not guarantee effective partition pruning. These are regex checks and must be backed by least-privilege database credentials.
+Guardrails accept one SELECT/WITH statement, reject denylisted write keywords (a query that starts with another word gets "SQL must start with SELECT or WITH. Check the first word ('SELEC')."), and check referenced table/project/dataset allowlists. They add `LIMIT 5000` only when a numeric limit is absent; existing limits are not reduced. BigQuery's partition-filter suggestion checks for a configured date column without a WHERE clause; it does not guarantee effective partition pruning. These are regex checks and must be backed by least-privilege database credentials.
 
 ## Prebuilt SQL
 
-Indices follow the order of `PREBUILT` in `api/routers/sql.py`: 0 worst routes, 1 crash exposure, 2 snow days against other days per route and method, 3 equity gaps, 4 scheduled frequency, 5 arrival-prediction accuracy, 6 missed trips, 7 slowest bus segments at rush hour. `frontend/src/types/api.ts` mirrors the labels. Prefer the engine-specific endpoint used by the frontend.
+Indices follow the order of `PREBUILT` in `src/whyline/prebuilt.py`: 0 worst routes by on-time share, 1 crash exposure, 2 snow days against other days per route and method, 3 equity gaps, 4 scheduled frequency, 5 arrival-prediction accuracy, 6 missed trips, 7 slowest bus segments at rush hour. `frontend/src/types/api.ts` mirrors the labels. Prefer the engine-specific endpoint used by the frontend.
+
+Both endpoints take an optional `FilterState` body (an empty or missing body uses each question's default window). `build_prebuilt_sql` puts the user's dates in place of the default window and adds the route, stop and weather predicates the question supports, with the right table alias. The response adds `applied_filters` and `skipped_filters`, lists of `dates`, `routes`, `stop` and `weather`: skipped are filters the user set that the question doesn't take, or with invalid values (a filter with some valid and some invalid values is in both lists). `explanation` is a plain sentence written for each question.
+
+| # | Question | Dates (default window) | Routes | Stop | Weather |
+|---|---|---|---|---|---|
+| 0 | Worst 10 routes by on-time share | ✓ (30 days) | ✓ | – | ✓ |
+| 1 | Crash exposure | – | – | ✓ | – |
+| 2 | Snow vs other days | – (keeps 365 days; needs 3 snow days) | ✓ | – | – |
+| 3 | Equity gaps | – | – | ✓ | – |
+| 4 | Frequency | – | ✓ | – | – |
+| 5 | Prediction accuracy | ✓ (30 days) | ✓ | – | – |
+| 6 | Missed trips | ✓ (7 complete days) | ✓ | – | – |
+| 7 | Slow segments | – (28-day mart) | ✓ (`s.route_id`) | – | – |
 
 ## Execute
 
@@ -76,7 +89,7 @@ curl -sS http://localhost:8000/api/query/run   -H 'Content-Type: application/jso
 
 Execution always re-sanitizes server-side. Results display at most 10,000 records; SQL/engine limits still determine work performed before display. Stop IDs can add missing stop names/coordinates and route IDs can add missing route names via cached lookup tables. Lookup availability is separate from query success.
 
-Identical engine/SQL results can be served from the process cache (180-second default TTL). This is not shared across instances and can briefly serve data from before a warehouse refresh.
+Identical engine/SQL results can be served from the process cache (180-second default TTL). `/api/filters/{engine}` caches its whole response for 10 minutes per process, unless it reported an error. This is not shared across instances and can briefly serve data from before a warehouse refresh.
 
 ## Downloads
 
@@ -93,9 +106,9 @@ Mart request:
 }
 ```
 
-`limit_rows` defaults to 200,000 and accepts 1,000–2,000,000. Date filtering is applied only when all three date fields are present. Reversed date ranges return 400. The query still goes through guardrails. The response is `text/csv` with a download filename; it is not a Parquet endpoint, and CSV content is built in memory before the streaming response.
+`limit_rows` defaults to 200,000 and accepts 1,000–2,000,000. Date filtering is applied only when all three date fields are present. `date_column` must be `service_date_mst` on a mart in `DATED_MARTS` ( the route-day, stop-hour, prediction, crowding-by-route, missed-trip, wait-by-route and run-time marts; other marts take none); anything else, a non-ISO date or a reversed range returns 400. The query still goes through guardrails. The response is `text/csv` with a download filename; it is not a Parquet endpoint, and CSV content is built in memory before the streaming response.
 
-Allowed download marts: route-day reliability, stop-hour reliability, crash proximity, sidewalk access, vulnerability, priority hotspots, and weather impacts. The two GTFS reference marts are queryable/exported into DuckDB but absent from this CSV endpoint's separate allowlist.
+Allowed download marts are `MART_OPTIONS` in `api/routers/downloads.py`: the 18 app marts other than the two GTFS reference marts. The two GTFS reference marts are queryable/exported into DuckDB but absent from this CSV endpoint's separate allowlist.
 
 Warehouse download resolves `DUCKDB_PATH` at module load. Set an absolute path in environments where path resolution matters and verify the endpoint separately from query execution. The implementation reads the binary file into memory before returning it.
 
