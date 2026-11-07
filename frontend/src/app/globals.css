@@ -43,20 +43,17 @@ html:has(.wl) { scroll-behavior: smooth; scroll-padding-top: 150px; }
 .wl-btn-gold:hover { box-shadow: 0 6px 0 #B88500; }
 .wl-btn-gold:active { box-shadow: 0 1px 0 #B88500; }
 
-.wl-chip { transition: transform .15s cubic-bezier(.34, 1.56, .64, 1); }
-.wl-chip:hover { transform: translateY(-3px) rotate(-1deg); }
+.wl-chip { transition: box-shadow .15s ease; }
+.wl-chip:hover { box-shadow: inset 0 0 0 2px rgba(4, 47, 84, .18); }
 .wl-ask { transition: box-shadow .2s ease; }
 .wl-ask:focus-within { box-shadow: 0 0 0 4px rgba(13, 101, 127, .22), 0 18px 40px -16px rgba(4, 47, 84, .35); }
 .wl-ask :is(input, textarea):focus-visible { outline: none; }
-.wl-card { transition: transform .25s cubic-bezier(.34, 1.56, .64, 1), box-shadow .25s ease; }
-.wl-card:hover { transform: translateY(-6px); box-shadow: 0 2px 0 rgba(4, 47, 84, .04), 0 28px 48px -20px rgba(4, 47, 84, .32); }
 .wl-shadow { box-shadow: 0 2px 0 rgba(4, 47, 84, .04), 0 20px 40px -24px rgba(4, 47, 84, .28); }
 
 .wl-faq summary { list-style: none; cursor: pointer; }
 .wl-faq summary::-webkit-details-marker { display: none; }
 .wl-plus { transition: transform .3s cubic-bezier(.34, 1.56, .64, 1), background-color .2s; }
 .wl-faq[open] .wl-plus { transform: rotate(45deg); background: #F0B616; }
-.wl-faq[open] { box-shadow: 0 2px 0 rgba(4, 47, 84, .04), 0 22px 40px -22px rgba(4, 47, 84, .3); }
 
 /* Hero map: lines draw, stops pop, sun rises — once, on load */
 .wl-case { fill: none; stroke: #FFFFFF; stroke-width: 20; stroke-linecap: round; stroke-linejoin: round; }
@@ -84,18 +81,13 @@ html:has(.wl) { scroll-behavior: smooth; scroll-padding-top: 150px; }
 .wl-bus.is-moving { animation: wl-bob .28s ease-in-out infinite alternate; }
 @keyframes wl-bob { from { transform: translateY(0); } to { transform: translateY(-2px); } }
 
-@supports (animation-timeline: view()) {
-  .wl-reveal { animation: wl-rise linear both; animation-timeline: view(); animation-range: entry 0% entry 45%; }
-  @keyframes wl-rise { from { opacity: 0; transform: translateY(28px) scale(.97); } to { opacity: 1; transform: none; } }
-}
-
 @media (prefers-reduced-motion: reduce) {
   html:has(.wl) { scroll-behavior: auto; }
   .wl-draw { animation: none; stroke-dashoffset: 0; }
   .wl-pop { animation: none; transform: none; }
-  .wl-sun, .wl-reveal, .wl-bus.is-moving { animation: none; }
-  .wl-busflip, .wl-btn, .wl-chip, .wl-card, .wl-plus, .wl-dot { transition: none; }
-  .wl-btn:hover, .wl-chip:hover, .wl-card:hover { transform: none; }
+  .wl-sun, .wl-bus.is-moving { animation: none; }
+  .wl-busflip, .wl-btn, .wl-chip, .wl-plus, .wl-dot { transition: none; }
+  .wl-btn:hover { transform: none; }
 }
 
 /* Legal pages: readable prose inside the landing shell */
@@ -125,3 +117,5 @@ textarea.wl-field { padding: 14px 16px; line-height: 1.5; resize: vertical; }
   .wl-stopnum.is-done, .wl-enter { animation: none; }
   .wl-field { transition: none; }
 }
+/* The filter rail is a card on phones (it collapses) and an open column beside the steps on desktop */
+@media (min-width: 1024px) { .wl-rail { background: transparent; box-shadow: none; border-radius: 0; } .wl-rail .wl-field { background: #FFFFFF; } }

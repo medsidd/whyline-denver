@@ -51,7 +51,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside aria-label="Filters" className="lg:sticky lg:top-[88px] lg:max-h-[calc(100vh-104px)] lg:overflow-y-auto rounded-[28px] bg-white wl-shadow">
+    <aside aria-label="Filters" className="lg:sticky lg:top-[88px] lg:max-h-[calc(100vh-104px)] lg:overflow-y-auto wl-rail rounded-[28px] bg-white wl-shadow">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -68,7 +68,7 @@ export function Sidebar() {
         </span>
       </button>
 
-      <div id="wl-filters" className={`${open ? "flex" : "hidden"} lg:flex flex-col gap-6 p-5 pt-1 lg:pt-6`}>
+      <div id="wl-filters" className={`${open ? "flex" : "hidden"} lg:flex flex-col gap-6 p-5 pt-1 lg:px-0 lg:pt-2`}>
         <p className="m-0 text-[13px] font-semibold text-wl-ink2">
           These filters are added to the SQL WhyLine writes for your question.
           {/* The header shows this from md up */}
@@ -194,7 +194,7 @@ export function Sidebar() {
                     setFilters({ weather: on ? filters.weather.filter((w) => w !== bin) : [...filters.weather, bin] })
                   }
                   className={`h-9 px-4 rounded-full text-sm font-extrabold transition-colors ${
-                    on ? "bg-wl-gold text-wl-navy shadow-[0_3px_0_#B88500]" : "bg-wl-canvas text-wl-navy hover:bg-wl-gold-tint"
+                    on ? "bg-wl-gold text-wl-navy shadow-[0_3px_0_#B88500]" : "bg-wl-navy-tint text-wl-navy hover:bg-wl-gold-tint"
                   }`}
                 >
                   {WEATHER_LABELS[bin] ?? bin}

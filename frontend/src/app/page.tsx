@@ -70,26 +70,27 @@ const LIMITS = [
   {
     title: "Observed, not complete",
     body: "Reliability counts stop visits seen in vehicle positions, but some trips go unseen and older dates come from 15-minute samples. Treat on-time shares as estimates.",
-    icon: <g fill="#F0B616" stroke="none"><circle cx="6" cy="16" r="2.5" /><circle cx="12" cy="9" r="2.5" /><circle cx="18" cy="13" r="2.5" /></g>,
   },
   {
     title: "A day behind",
     body: "Realtime data is collected through the day, but the dashboard reads a nightly snapshot. It’s not a live arrivals board.",
-    icon: <><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2" /></>,
   },
   {
     title: "Context, not cause",
     body: "Crashes near a stop don’t mean transit caused them. Census figures describe areas, not individual riders.",
-    icon: <><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" /><path d="M12 8v3M12 13.5h.01" /></>,
+  },
+  {
+    title: "Independent",
+    body: "WhyLine Denver is not an official RTD or City of Denver service.",
   },
 ];
 
 const SOURCES = [
-  { name: "RTD GTFS schedules", body: "Routes, stops, trips and timetables.", tint: "bg-wl-teal-tint", dot: "bg-wl-teal" },
-  { name: "RTD GTFS-Realtime", body: "Trip updates, predictions and vehicle positions with occupancy, read every 15 seconds.", tint: "bg-wl-teal-tint", dot: "bg-wl-teal" },
-  { name: "Denver Open Data", body: "Reported traffic crashes and the city’s sidewalk inventory.", tint: "bg-wl-red-tint", dot: "bg-wl-red" },
-  { name: "NOAA daily weather", body: "Precipitation, snow and temperature at Denver International Airport.", tint: "bg-wl-gold-tint", dot: "bg-wl-gold" },
-  { name: "U.S. Census ACS", body: "2023 five-year estimates for Denver County census tracts.", tint: "bg-wl-navy-tint", dot: "bg-wl-navy" },
+  { name: "RTD GTFS schedules", body: "Routes, stops, trips and timetables." },
+  { name: "RTD GTFS-Realtime", body: "Trip updates, predictions and vehicle positions with occupancy, read every 15 seconds." },
+  { name: "Denver Open Data", body: "Reported traffic crashes and the city’s sidewalk inventory." },
+  { name: "NOAA daily weather", body: "Precipitation, snow and temperature at Denver International Airport." },
+  { name: "U.S. Census ACS", body: "2023 five-year estimates for Denver County census tracts." },
 ];
 
 const FAQ = [
@@ -177,6 +178,35 @@ async function getSnapshot(): Promise<string | null> {
 const h2 = "m-0 font-black text-[clamp(32px,3.6vw,48px)] leading-[1.1] tracking-[-0.03em] text-wl-navy";
 const lede = "mt-3 text-[19px] text-wl-ink2 max-w-[60ch]";
 
+function AskForm({ id }: { id: string }) {
+  return (
+    <form action="/app" method="get" className="wl-ask flex items-center gap-2 max-w-[600px] bg-white rounded-full py-2 pr-2 pl-6 wl-shadow">
+      <label htmlFor={id} className="sr-only">
+        Your question about Denver transit
+      </label>
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0D657F" strokeWidth="2.5" strokeLinecap="round" className="flex-none">
+        <circle cx="11" cy="11" r="7" />
+        <path d="M20 20l-3.5-3.5" />
+      </svg>
+      <input
+        id={id}
+        name="q"
+        type="text"
+        required
+        autoComplete="off"
+        placeholder="Which routes were least on time last month?"
+        className="flex-1 min-w-0 h-[52px] border-0 bg-transparent text-[17px] font-semibold text-wl-navy placeholder:text-[#6B7E90]"
+      />
+      <button
+        type="submit"
+        className="wl-btn wl-btn-red flex-none h-[52px] px-[30px] rounded-full bg-wl-red text-white font-black text-[17px] cursor-pointer"
+      >
+        Ask
+      </button>
+    </form>
+  );
+}
+
 function PlusIcon() {
   return (
     <span aria-hidden="true" className="wl-plus flex-none w-9 h-9 rounded-full bg-wl-navy-tint flex items-center justify-center">
@@ -237,37 +267,12 @@ export default async function LandingPage() {
               a table, chart or map to download. Free and open source.
             </p>
 
-            <form
-              action="/app"
-              method="get"
-              className="wl-ask mt-8 flex items-center gap-2 max-w-[600px] bg-white rounded-full py-2 pr-2 pl-6 wl-shadow"
-            >
-              <label htmlFor="wl-q" className="sr-only">
-                Your question about Denver transit
-              </label>
-              <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0D657F" strokeWidth="2.5" strokeLinecap="round" className="flex-none">
-                <circle cx="11" cy="11" r="7" />
-                <path d="M20 20l-3.5-3.5" />
-              </svg>
-              <input
-                id="wl-q"
-                name="q"
-                type="text"
-                required
-                autoComplete="off"
-                placeholder="Which routes were least on time last month?"
-                className="flex-1 min-w-0 h-[52px] border-0 bg-transparent text-[17px] font-semibold text-wl-navy placeholder:text-[#6B7E90]"
-              />
-              <button
-                type="submit"
-                className="wl-btn wl-btn-red flex-none h-[52px] px-[30px] rounded-full bg-wl-red text-white font-black text-[17px] cursor-pointer"
-              >
-                Ask
-              </button>
-            </form>
+            <div className="mt-8">
+              <AskForm id="wl-q" />
+            </div>
 
-            <div className="mt-[22px] flex flex-wrap items-center gap-2.5">
-              <span className="text-sm font-bold text-wl-ink2 mr-0.5">Or start with</span>
+            <p className="mt-6 mb-0 text-sm font-bold text-wl-ink2">Or start with one of these</p>
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
               {CHIPS.map(({ q, tint, dot }) => (
                 <Link
                   key={q}
@@ -326,22 +331,31 @@ export default async function LandingPage() {
         <section id="topics" aria-labelledby="topics-title" className="pt-24">
           <h2 id="topics-title" className={h2}>What you can ask about</h2>
           <p className={lede}>Each topic is a line on the map. Ask within one, or ask a question that rides across several.</p>
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <ul className="mt-10 m-0 p-0 list-none border-t-2 border-wl-navy/10">
             {TOPICS.map((t) => (
-              <article key={t.name} className="wl-card wl-reveal wl-shadow bg-white rounded-[32px] p-7">
-                <div aria-hidden="true" className="relative h-6 w-[120px]">
-                  <div className={`absolute inset-x-0 top-1.5 h-3 rounded-md ${t.line}`} />
-                  <div className="absolute left-12 top-0 w-6 h-6 rounded-full bg-white border-4 border-wl-navy" />
+              <li key={t.name} className="grid gap-x-10 gap-y-3 md:grid-cols-[220px_minmax(0,1fr)_minmax(0,1fr)] py-7 border-b-2 border-wl-navy/10">
+                <div className="flex items-center gap-3">
+                  <span aria-hidden="true" className="relative flex-none h-6 w-14">
+                    <span className={`absolute inset-x-0 top-1.5 h-3 rounded-md ${t.line}`} />
+                    <span className="absolute left-4 top-0 w-6 h-6 rounded-full bg-white border-4 border-wl-navy" />
+                  </span>
+                  <h3 className="m-0 font-black text-2xl leading-[1.15] tracking-[-0.02em]">{t.name}</h3>
                 </div>
-                <h3 className="mt-5 mb-0 font-black text-[28px] leading-[1.15] tracking-[-0.02em] text-wl-navy">{t.name}</h3>
-                <p className="mt-2">{t.body}</p>
-                <p className={`mt-[18px] inline-block py-3 px-[18px] rounded-[22px] rounded-bl-md ${t.tint} font-bold text-[15px]`}>
-                  “{t.example}”
-                </p>
-                <p className="mt-[18px] text-sm font-semibold text-wl-ink2">{t.source}</p>
-              </article>
+                <div>
+                  <p className="m-0">{t.body}</p>
+                  <p className="mt-2 mb-0 text-sm font-semibold text-wl-ink2">{t.source}</p>
+                </div>
+                <div>
+                  <Link
+                    href={askHref(t.example)}
+                    className={`inline-block py-3 px-[18px] rounded-[22px] rounded-bl-md ${t.tint} font-bold text-[15px] text-wl-navy hover:underline`}
+                  >
+                    “{t.example}”
+                  </Link>
+                </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </section>
 
         {/* How it works */}
@@ -353,7 +367,7 @@ export default async function LandingPage() {
               {STEPS.map(({ title, body }, i) => {
                 const isLast = i === STEPS.length - 1;
                 return (
-                  <li key={title} className="wl-reveal flex gap-5">
+                  <li key={title} className="flex gap-5">
                     <div aria-hidden="true" className="flex-none w-12 flex flex-col items-center">
                       <div
                         className={`w-12 h-12 rounded-full flex items-center justify-center font-black text-xl ${
@@ -373,7 +387,7 @@ export default async function LandingPage() {
               })}
             </ol>
 
-            <figure className="wl-reveal flex-[1_1_480px] min-w-0 m-0 bg-wl-navy rounded-[32px] overflow-hidden shadow-[0_30px_60px_-30px_rgba(4,47,84,0.6)]">
+            <figure className="flex-[1_1_480px] min-w-0 m-0 bg-wl-navy rounded-[32px] overflow-hidden shadow-[0_30px_60px_-30px_rgba(4,47,84,0.6)]">
               <figcaption className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2.5 py-[18px] px-[22px]">
                 <span className="font-black text-base text-white">Worst 10 routes, last 30 days</span>
                 <span className="inline-flex items-center gap-1.5 h-8 pl-2.5 pr-3.5 rounded-full bg-white/10 text-[13px] font-extrabold text-white">
@@ -401,31 +415,22 @@ export default async function LandingPage() {
 
         {/* Limits */}
         <section id="limits" aria-labelledby="limits-title" className="pt-28">
-          <div className="wl-reveal bg-wl-gold-tint rounded-[40px] p-[clamp(28px,4vw,56px)]">
+          <div className="bg-wl-gold-tint rounded-[40px] p-[clamp(28px,4vw,56px)]">
             <h2 id="limits-title" className={h2}>What the numbers mean</h2>
             <p className={lede}>Read these before you quote a result.</p>
-            <div className="mt-9 grid grid-cols-[repeat(auto-fit,minmax(230px,1fr))] gap-x-9 gap-y-7">
-              {LIMITS.map(({ title, body, icon }) => (
-                <div key={title}>
-                  <LimitIcon>{icon}</LimitIcon>
-                  <h3 className="mt-3.5 mb-0 font-black text-[21px] leading-[1.25] text-wl-navy">{title}</h3>
-                  <p className="mt-1.5 text-base text-wl-ink2">{body}</p>
+            <dl className="mt-9 mb-0 grid md:grid-cols-2 gap-x-12">
+              {LIMITS.map(({ title, body }) => (
+                <div key={title} className="py-5 border-t-2 border-wl-navy/10">
+                  <dt className="font-black text-[21px] leading-[1.25]">{title}</dt>
+                  <dd className="m-0 mt-1.5 text-base text-wl-ink2 max-w-[52ch]">{body}</dd>
                 </div>
               ))}
-              <div>
-                <LimitIcon>
-                  <circle cx="12" cy="12" r="8" />
-                  <path d="M12 11v5M12 8h.01" />
-                </LimitIcon>
-                <h3 className="mt-3.5 mb-0 font-black text-[21px] leading-[1.25] text-wl-navy">Independent</h3>
-                <p className="mt-1.5 text-base text-wl-ink2">
-                  WhyLine Denver is not an official RTD or City of Denver service.{" "}
-                  <a href={GLOSSARY} className="text-wl-navy font-extrabold underline">
-                    Read the metric definitions
-                  </a>
-                </p>
-              </div>
-            </div>
+            </dl>
+            <p className="mt-4 mb-0 text-base">
+              <a href={GLOSSARY} className="font-extrabold underline">
+                Read the metric definitions
+              </a>
+            </p>
           </div>
         </section>
 
@@ -433,27 +438,22 @@ export default async function LandingPage() {
         <section id="data" aria-labelledby="data-title" className="pt-28">
           <h2 id="data-title" className={h2}>Where the data comes from</h2>
           <p className={lede}>Public sources, collected on a schedule and joined in one warehouse.</p>
-          <ul className="wl-reveal wl-shadow mt-9 p-2 list-none bg-white rounded-[32px]">
-            {SOURCES.map(({ name, body, tint, dot }, i) => (
-              <li key={name} className={`flex items-center gap-4 py-4 px-[18px] ${i ? "border-t border-wl-rule" : ""}`}>
-                <span aria-hidden="true" className={`flex-none w-11 h-11 rounded-full ${tint} flex items-center justify-center`}>
-                  <span className={`w-3.5 h-3.5 rounded-full ${dot}`} />
-                </span>
-                <span className="flex-1 min-w-0">
-                  <strong className="font-black">{name}</strong>
-                  <span className="block text-wl-ink2 text-[15px]">{body}</span>
-                </span>
-              </li>
+          <dl className="mt-9 mb-0 border-t-2 border-wl-navy/10">
+            {SOURCES.map(({ name, body }) => (
+              <div key={name} className="grid gap-x-10 gap-y-1 sm:grid-cols-[220px_minmax(0,1fr)] py-4 border-b-2 border-wl-navy/10">
+                <dt className="font-black">{name}</dt>
+                <dd className="m-0 text-wl-ink2">{body}</dd>
+              </div>
             ))}
-          </ul>
+          </dl>
         </section>
 
         {/* FAQ */}
         <section id="faq" aria-labelledby="faq-title" className="pt-28">
           <h2 id="faq-title" className={h2}>Questions</h2>
-          <div className="mt-8 max-w-[820px] flex flex-col gap-3">
+          <div className="mt-8 max-w-[820px] border-t-2 border-wl-navy/10">
             {FAQ.map(({ q, a }) => (
-              <details key={q} className="wl-faq bg-white rounded-[28px] px-6 shadow-[0_2px_0_rgba(4,47,84,0.04)]">
+              <details key={q} className="wl-faq border-b-2 border-wl-navy/10">
                 <summary className="flex justify-between items-center gap-4 min-h-[68px] font-extrabold text-lg text-wl-navy">
                   {q}
                   <PlusIcon />
@@ -466,29 +466,10 @@ export default async function LandingPage() {
 
         {/* Closing CTA */}
         <section id="cta" aria-labelledby="cta-title" className="pt-28 pb-24">
-          <div className="wl-reveal relative overflow-hidden bg-wl-navy rounded-[44px] p-[clamp(36px,6vw,80px)]">
-            <div aria-hidden="true" className="absolute -right-20 -bottom-40 w-[420px] h-[420px] rounded-full bg-wl-gold" />
-            <div aria-hidden="true" className="absolute -right-10 -bottom-[120px] w-[340px] h-[340px] rounded-full bg-[#F5C63E]" />
-            <div className="relative max-w-[640px]">
-              <h2 id="cta-title" className="m-0 font-black text-[clamp(36px,5vw,64px)] leading-[1.04] tracking-[-0.035em] text-white">
-                Start with a question.
-              </h2>
-              <p className="mt-4 text-[19px] font-semibold text-[#C9D6E3]">No account needed.</p>
-              <div className="mt-8 flex flex-wrap gap-3.5">
-                <Link
-                  href="/app"
-                  className="wl-btn wl-btn-gold inline-flex items-center h-14 px-[30px] rounded-full bg-wl-gold text-wl-navy font-black text-[17px]"
-                >
-                  Open dashboard
-                </Link>
-                <a
-                  href={GITHUB}
-                  className="wl-btn inline-flex items-center h-14 px-7 rounded-full border-2 border-white/50 text-white font-extrabold text-[17px] hover:bg-white/10"
-                >
-                  View the code
-                </a>
-              </div>
-            </div>
+          <h2 id="cta-title" className={h2}>Ask your own question</h2>
+          <p className={lede}>No account needed. You’ll see the SQL before anything runs.</p>
+          <div className="mt-8">
+            <AskForm id="wl-q-end" />
           </div>
         </section>
       </main>
@@ -497,16 +478,6 @@ export default async function LandingPage() {
 
       {/* JSON-LD structured data */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-    </div>
-  );
-}
-
-function LimitIcon({ children }: { children: React.ReactNode }) {
-  return (
-    <div aria-hidden="true" className="w-[52px] h-[52px] rounded-full bg-wl-navy flex items-center justify-center">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F0B616" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
-        {children}
-      </svg>
     </div>
   );
 }
