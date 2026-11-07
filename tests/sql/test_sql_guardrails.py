@@ -162,3 +162,9 @@ def test_generated_sql_filters_cannot_break_out_of_quotes():
     out = _add_filter_clauses(sql, filters)
     assert "route_id IN ('15')" in out
     assert "OR" not in out.upper().replace("ORDER", "")
+
+
+def test_lone_semicolon_is_a_validation_error():
+    config = GuardrailConfig(allowed_models={"mart_access_score_by_stop"}, engine="duckdb")
+    with pytest.raises(SqlValidationError, match="No SQL provided"):
+        sanitize_sql(" ; ", config)

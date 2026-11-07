@@ -11,8 +11,8 @@ export type ChartType =
   | "generic_bar"
   | "none";
 
-/** `sql` and a sample `row` sharpen the bar-chart choice; see barColumns. */
-export function detectChartType(columns: string[], sql?: string, row?: Record<string, unknown>): ChartType {
+/** `sql` and the result `rows` sharpen the bar-chart choice; see barColumns. */
+export function detectChartType(columns: string[], sql?: string, rows?: Record<string, unknown>[]): ChartType {
   const cols = new Set(columns.map((c) => c.toLowerCase()));
 
   // 1. Heatmap: stop×hour reliability
@@ -31,16 +31,18 @@ export function detectChartType(columns: string[], sql?: string, row?: Record<st
   }
 
   // 4. A metric by hour of day, with nothing else to group by
-  if (hourColumns(columns, sql, row)) return "hour_bar";
+  if (hourColumns(columns, sql, rows)) return "hour_bar";
 
   // 5. Generic: any numeric × any categorical (route charts land here)
-  return barColumns(columns, sql, row) ? "generic_bar" : "none";
+  return barColumns(columns, sql, rows) ? "generic_bar" : "none";
 }
 
 const METRIC_KEYWORDS = ["avg", "count", "cnt", "sum", "pct", "share", "score", "ratio", "speed", "total", "delta", "n"];
 const CATEGORY_KEYWORDS = ["id", "name", "route", "stop", "bin", "type", "category"];
 const NOT_METRIC = new Set(["lat", "lon", "direction_id"]);
-const HOUR = /(^|_)hour/;
+/** An hour-of-day column such as hour, hour_mst or event_hour_mst; not avg_hours_late or trips_per_hour. */
+const HOUR = /(^|_)hour(_mst)?$/;
+const isHour = (c: string) => HOUR.test(c.toLowerCase()) && !c.toLowerCase().includes("per_hour");
 /** Whether any of the column's underscore-separated words is a keyword. */
 const has = (c: string, kws: string[]) => c.toLowerCase().split("_").some((w) => kws.includes(w));
 
@@ -50,11 +52,11 @@ export function orderByColumn(sql?: string): string | null {
   return m ? m[1].toLowerCase() : null;
 }
 
-function pickMetric(columns: string[], exclude: string, sql?: string, row?: Record<string, unknown>): string | undefined {
+function pickMetric(columns: string[], exclude: string, sql?: string, rows?: Record<string, unknown>[]): string | undefined {
   const ok = (c: string) =>
-    c !== exclude && !NOT_METRIC.has(c.toLowerCase()) && !HOUR.test(c.toLowerCase()) && (!row || typeof row[c] === "number");
+    c !== exclude && !NOT_METRIC.has(c.toLowerCase()) && !isHour(c) && (!rows || rows.some((r) => typeof r[c] === "number"));
   const ordered = orderByColumn(sql);
-  const fromOrder = columns.find((c) => c.toLowerCase() === ordered && ok(c) && (!!row || has(c, METRIC_KEYWORDS)));
+  const fromOrder = columns.find((c) => c.toLowerCase() === ordered && ok(c) && (!!rows || has(c, METRIC_KEYWORDS)));
   return fromOrder ?? columns.find((c) => has(c, METRIC_KEYWORDS) && ok(c));
 }
 
@@ -65,13 +67,13 @@ function pickMetric(columns: string[], exclude: string, sql?: string, row?: Reco
 export function barColumns(
   columns: string[],
   sql?: string,
-  row?: Record<string, unknown>
+  rows?: Record<string, unknown>[]
 ): { category: string; metric: string } | null {
   const lower = columns.map((c) => c.toLowerCase());
   const pref = ["from_stop_name", "stop_name", "route_id", "route_name"].find((c) => lower.includes(c));
-  const category = pref ? columns[lower.indexOf(pref)] : columns.find((c) => has(c, CATEGORY_KEYWORDS) && !HOUR.test(c.toLowerCase()));
+  const category = pref ? columns[lower.indexOf(pref)] : columns.find((c) => has(c, CATEGORY_KEYWORDS) && !isHour(c));
   if (!category) return null;
-  const metric = pickMetric(columns, category, sql, row);
+  const metric = pickMetric(columns, category, sql, rows);
   return metric ? { category, metric } : null;
 }
 
@@ -79,11 +81,11 @@ export function barColumns(
 export function hourColumns(
   columns: string[],
   sql?: string,
-  row?: Record<string, unknown>
+  rows?: Record<string, unknown>[]
 ): { hour: string; metric: string } | null {
-  const hour = columns.find((c) => HOUR.test(c.toLowerCase()));
+  const hour = columns.find(isHour);
   if (!hour || columns.some((c) => c !== hour && has(c, CATEGORY_KEYWORDS))) return null;
-  const metric = pickMetric(columns, hour, sql, row);
+  const metric = pickMetric(columns, hour, sql, rows);
   return metric ? { hour, metric } : null;
 }
 
@@ -92,7 +94,7 @@ export function labelOf(columns: string[], category: string): (row: Record<strin
   const lower = new Set(columns.map((c) => c.toLowerCase()));
   if (category === "from_stop_name" && lower.has("to_stop_name")) {
     // The same segment can rank at several hours; lead with the hour so truncation keeps it.
-    const hour = columns.find((c) => HOUR.test(c.toLowerCase()));
+    const hour = columns.find(isHour);
     return (r) => `${hour ? `${r[hour]}:00 ` : ""}${r.from_stop_name} → ${r.to_stop_name}`;
   }
   if (category === "route_id") {

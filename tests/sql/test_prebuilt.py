@@ -96,3 +96,9 @@ def test_unsafe_values_are_rejected(filters, rejected: str) -> None:
 def test_valid_values_survive_next_to_invalid_ones() -> None:
     clean = clean_filters({"routes": ["15", "bad'"], "stop_id": " 12084 "})
     assert clean.routes == ("15",) and clean.stop_id == "12084" and clean.rejected == ("routes",)
+
+
+def test_partly_invalid_filter_is_applied_and_skipped() -> None:
+    built = build_prebuilt_sql(0, {"routes": ["15", "bad route"]})
+    assert built.applied == ["routes"] and built.skipped == ["routes"]
+    assert "route_id IN ('15')" in built.sql

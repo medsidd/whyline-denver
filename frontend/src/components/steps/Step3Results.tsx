@@ -57,7 +57,7 @@ export function Step3Results({ status }: { status: StepStatus }) {
   const canRun = !!generatedSql && !sqlError;
 
   const chartType = useMemo(
-    () => (queryResult ? detectChartType(queryResult.columns, resultSql, queryResult.data[0]) : "none"),
+    () => (queryResult ? detectChartType(queryResult.columns, resultSql, queryResult.data.slice(0, 50)) : "none"),
     [queryResult, resultSql]
   );
   const hasMap = useMemo(() => (queryResult ? detectMapData(queryResult.columns) : false), [queryResult]);
@@ -209,7 +209,7 @@ function ChartRenderer({
     case "heatmap":
       return <StopHourHeatmap data={data} title="On-time share by stop and hour, first 15 stops" />;
     case "hour_bar": {
-      const cols = hourColumns(Object.keys(data[0] ?? {}), sql, data[0]);
+      const cols = hourColumns(Object.keys(data[0] ?? {}), sql, data.slice(0, 50));
       if (!cols) return null;
       const byHour = [...data].sort((a, b) => Number(a[cols.hour]) - Number(b[cols.hour]));
       return (
@@ -223,7 +223,7 @@ function ChartRenderer({
     }
     case "generic_bar": {
       const columns = Object.keys(data[0] ?? {});
-      const cols = barColumns(columns, sql, data[0]);
+      const cols = barColumns(columns, sql, data.slice(0, 50));
       if (!cols) return null;
       const segments = cols.category === "from_stop_name";
       const by = segments ? "segment" : columnLabel(cols.category).toLowerCase().replace(/ name$/, "");

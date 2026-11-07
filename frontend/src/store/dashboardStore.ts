@@ -122,7 +122,12 @@ export const useDashboardStore = create<DashboardState>()(
     })),
 
   setEditedSql: (sql) =>
-    set((s) => ({ editedSql: sql, prebuiltIndex: sql === s.generatedSql ? s.prebuiltIndex : null })),
+    // Clearing sanitizedSql makes Run use the visible text until its check returns (the API re-checks anyway).
+    set((s) => ({
+      editedSql: sql,
+      sanitizedSql: sql === s.editedSql ? s.sanitizedSql : null,
+      prebuiltIndex: sql === s.generatedSql ? s.prebuiltIndex : null,
+    })),
 
   setValidation: (sanitizedSql, bqEstBytes, error) =>
     set({

@@ -72,11 +72,14 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
 
   const validateMutation = useMutation({
     mutationFn: (s: string) => validateSql(s),
+    // A check for text that has since changed is stale; drop it.
     onSuccess: (data, s) => {
+      if (s !== useDashboardStore.getState().editedSql) return;
       setValidation(data.sanitized_sql, data.bq_est_bytes, data.error);
       setCheckedSql(s);
     },
     onError: (err, s) => {
+      if (s !== useDashboardStore.getState().editedSql) return;
       setValidation(null, null, String(err));
       setCheckedSql(s);
     },
@@ -96,6 +99,7 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
 
   // Validate new SQL (generated, ready-made, or restored from the last visit), so the scan estimate shows
   useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     if (editedSql) {
       validateMutation.mutate(editedSql);
     }
@@ -112,7 +116,7 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
     );
   }
 
-  const checking = validateMutation.isPending || checkedSql !== editedSql;
+  const checking = checkedSql !== editedSql;
   const edited = editedSql !== generatedSql;
   const checkPill = checking ? (
     <span className={`${pill} bg-wl-navy-tint text-wl-ink2`}>Checking…</span>

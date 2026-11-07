@@ -57,7 +57,7 @@ Guardrails accept one SELECT/WITH statement, reject denylisted write keywords (a
 
 Indices follow the order of `PREBUILT` in `src/whyline/prebuilt.py`: 0 worst routes by on-time share, 1 crash exposure, 2 snow days against other days per route and method, 3 equity gaps, 4 scheduled frequency, 5 arrival-prediction accuracy, 6 missed trips, 7 slowest bus segments at rush hour. `frontend/src/types/api.ts` mirrors the labels. Prefer the engine-specific endpoint used by the frontend.
 
-Both endpoints take an optional `FilterState` body (an empty or missing body uses each question's default window). `build_prebuilt_sql` puts the user's dates in place of the default window and adds the route, stop and weather predicates the question supports, with the right table alias. The response adds `applied_filters` and `skipped_filters`, lists of `dates`, `routes`, `stop` and `weather`: skipped are filters the user set that the question doesn't take, or whose values were invalid. `explanation` is a plain sentence written for each question.
+Both endpoints take an optional `FilterState` body (an empty or missing body uses each question's default window). `build_prebuilt_sql` puts the user's dates in place of the default window and adds the route, stop and weather predicates the question supports, with the right table alias. The response adds `applied_filters` and `skipped_filters`, lists of `dates`, `routes`, `stop` and `weather`: skipped are filters the user set that the question doesn't take, or with invalid values (a filter with some valid and some invalid values is in both lists). `explanation` is a plain sentence written for each question.
 
 | # | Question | Dates (default window) | Routes | Stop | Weather |
 |---|---|---|---|---|---|
@@ -106,7 +106,7 @@ Mart request:
 }
 ```
 
-`limit_rows` defaults to 200,000 and accepts 1,000–2,000,000. Date filtering is applied only when all three date fields are present. `date_column` must be the mart's entry in `DATE_COLUMNS` (`service_date_mst` for the route-day, stop-hour, prediction, crowding-by-route, missed-trip, wait-by-route and run-time marts; other marts take none); anything else, a non-ISO date or a reversed range returns 400. The query still goes through guardrails. The response is `text/csv` with a download filename; it is not a Parquet endpoint, and CSV content is built in memory before the streaming response.
+`limit_rows` defaults to 200,000 and accepts 1,000–2,000,000. Date filtering is applied only when all three date fields are present. `date_column` must be `service_date_mst` on a mart in `DATED_MARTS` ( the route-day, stop-hour, prediction, crowding-by-route, missed-trip, wait-by-route and run-time marts; other marts take none); anything else, a non-ISO date or a reversed range returns 400. The query still goes through guardrails. The response is `text/csv` with a download filename; it is not a Parquet endpoint, and CSV content is built in memory before the streaming response.
 
 Allowed download marts are `MART_OPTIONS` in `api/routers/downloads.py`: the 18 app marts other than the two GTFS reference marts. The two GTFS reference marts are queryable/exported into DuckDB but absent from this CSV endpoint's separate allowlist.
 

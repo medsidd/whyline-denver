@@ -308,7 +308,8 @@ def build_prebuilt_sql(index: int, filters: Mapping[str, Any] | None = None) -> 
         "weather": lambda: weather_predicate(f, f"{a}precip_bin"),
     }
     applied = [n for n in FILTER_NAMES if n in q.supports and f.is_set(n)]
-    skipped = [n for n in FILTER_NAMES if (f.is_set(n) or n in f.rejected) and n not in applied]
+    # A filter with some invalid values is both applied (the valid ones) and skipped.
+    skipped = [n for n in FILTER_NAMES if (f.is_set(n) and n not in applied) or n in f.rejected]
 
     dates = q.default_window
     if "dates" in applied:

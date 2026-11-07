@@ -87,6 +87,8 @@ def _normalize(sql: str) -> str:
     trimmed = sql.strip()
     if trimmed.endswith(";"):
         trimmed = trimmed[:-1].strip()
+    if not trimmed:
+        raise SqlValidationError("No SQL provided.")
     return trimmed
 
 

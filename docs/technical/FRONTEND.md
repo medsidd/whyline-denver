@@ -10,7 +10,7 @@
 | `components/layout/` | Header (glass nav, data freshness) and Sidebar (filter rail, collapsible below `lg`) |
 | `components/steps/StepShell.tsx` | Numbered stop, connecting line and card for each step; status is done, current or upcoming |
 | `components/steps/Step1QuestionInput.tsx` | Natural-language question and generation request; renders the ready-made questions |
-| `components/steps/PrebuiltQuestions.tsx` | Eight ready-made question chips (BigQuery SQL from the API, narrowed by the filter rail; the list is `PREBUILT_QUERIES` in `types/api.ts`), colored by the landing page topic each belongs to. While one is loaded unedited, a filter change reloads it after 400 ms |
+| `components/steps/PrebuiltQuestions.tsx` | Eight ready-made question chips (BigQuery SQL from the API, narrowed by the filter rail; the list is `PREBUILT_QUERIES` in `types/api.ts`), colored by the landing page topic each belongs to. While one is loaded unedited, a filter change reloads it after 400 ms; results stay when the SQL comes back the same, and only the newest response is used |
 | `components/steps/Step2SqlEditor.tsx` | CodeMirror SQL editing (navy theme), validation on load and debounced while typing, BigQuery estimate, which filters a ready-made question used, and a note when edited SQL may not match the description |
 | `components/steps/Step3Results.tsx` | Execution, Chart/Map/Table tabs, result CSV |
 | `components/ui/` | DataTable, DownloadPanel (whole-table downloads below the steps) |
@@ -22,7 +22,7 @@
 
 ## State and workflow
 
-The dashboard queries BigQuery only: `lib/api.ts` sends `engine: "bigquery"` on every request, and the UI has no engine switch or DuckDB download. The API still accepts `duckdb`. Generation sends question, engine, and filters to `/api/sql/generate`. On success, SQL/explanation populate the editor and prior results clear. Prebuilt cards bypass the LLM and call `/api/sql/prebuilt/{index}/for/bigquery` with the rail's filters; Step 2 then says which filters the question used ("Uses your dates and routes. Your stop filter isn't used by this question."). New SQL is validated as soon as it loads, so the scan estimate shows before any edit, and the pill reads "Checking…" until the check for the current text returns. Editing validates after a 500 ms debounce. Execution sends SQL to `/api/query/run`, which validates again server-side.
+The dashboard queries BigQuery only: `lib/api.ts` sends `engine: "bigquery"` on every request, and the UI has no engine switch or DuckDB download. The API still accepts `duckdb`. Generation sends question, engine, and filters to `/api/sql/generate`. On success, SQL/explanation populate the editor and prior results clear. Prebuilt cards bypass the LLM and call `/api/sql/prebuilt/{index}/for/bigquery` with the rail's filters; Step 2 then says which filters the question used ("Uses your dates and routes. Your stop filter isn't used by this question."). New SQL is validated as soon as it loads, so the scan estimate shows before any edit, and the pill reads "Checking…" until the check for the current text returns; checks for older text are dropped. Editing validates after a 500 ms debounce and clears the stored sanitized SQL, so Run sends the visible text (the API re-checks it). Execution sends SQL to `/api/query/run`, which validates again server-side.
 
 The Zustand store starts with a seven-day date range. Filter updates merge into state. They reload an unedited ready-made question but do not rewrite generated or edited SQL. Inspect the query after changing filters.
 

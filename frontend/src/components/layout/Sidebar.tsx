@@ -22,7 +22,7 @@ export function Sidebar() {
   const [routeDraft, setRouteDraft] = useState("");
   const [routeMiss, setRouteMiss] = useState<string | null>(null);
 
-  const { data: filterData, isLoading: routesLoading } = useQuery({
+  const { data: filterData, isLoading: routesLoading, isError: routesFailed } = useQuery({
     queryKey: ["filters"],
     queryFn: fetchFilters,
     staleTime: 5 * 60 * 1000,
@@ -47,11 +47,11 @@ export function Sidebar() {
   // A route entered while the list was loading is added once it arrives.
   const [heldRoute, setHeldRoute] = useState<string | null>(null);
   useEffect(() => {
-    if (!filterData || heldRoute === null) return;
+    if (heldRoute === null || (!filterData && !routesFailed)) return;
     if (!addRoute(heldRoute)) setRouteMiss(heldRoute.trim());
     setHeldRoute(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterData, heldRoute]);
+  }, [filterData, routesFailed, heldRoute]);
 
   const pickLatestWeek = () => {
     if (!max) return;
@@ -146,7 +146,7 @@ export function Sidebar() {
               if (e.key === "Enter") {
                 e.preventDefault();
                 if (!routeDraft.trim()) return;
-                if (!filterData) setHeldRoute(routeDraft);
+                if (routesLoading) setHeldRoute(routeDraft);
                 else if (!addRoute(routeDraft)) setRouteMiss(routeDraft.trim());
               }
             }}
@@ -154,7 +154,9 @@ export function Sidebar() {
           />
           <p id="wl-route-miss" role="status" className={routeMiss || heldRoute ? "mt-1.5 text-[13px] font-bold text-wl-navy" : "sr-only"}>
             {routeMiss
-              ? `No route called “${routeMiss}”. Pick one from the list.`
+              ? routesFailed
+                ? "The route list didn’t load, so routes can’t be added. Reload the page to try again."
+                : `No route called “${routeMiss}”. Pick one from the list.`
               : heldRoute
                 ? `Adding route ${heldRoute.trim()} once the route list loads…`
                 : ""}

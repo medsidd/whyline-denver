@@ -47,10 +47,9 @@ MART_OPTIONS: list[tuple[str, str]] = [
     ("mart_trip_runtime_by_route_day", "Trip run time by route & day"),
 ]
 ALLOWED_MARTS = {name for name, _ in MART_OPTIONS}
-# The one column each mart may be date-filtered on; marts not listed have no service date.
-DATE_COLUMNS: dict[str, str] = {
-    name: "service_date_mst"
-    for name in (
+# Marts that may be date-filtered, always on service_date_mst; the others have no service date.
+DATED_MARTS = frozenset(
+    (
         "mart_reliability_by_route_day",
         "mart_reliability_by_stop_hour",
         "mart_prediction_accuracy_by_route_day",
@@ -59,7 +58,7 @@ DATE_COLUMNS: dict[str, str] = {
         "mart_wait_by_route_day",
         "mart_trip_runtime_by_route_day",
     )
-}
+)
 
 _warehouse_env = os.getenv("DUCKDB_PATH", "data/warehouse.duckdb")
 WAREHOUSE_PATH = Path(_warehouse_env).expanduser()
@@ -91,7 +90,7 @@ def download_mart(req: MartDownloadRequest) -> StreamingResponse:
     conditions: list[str] = []
     date_filter: tuple | None = None
     if req.date_column and req.date_start and req.date_end:
-        if DATE_COLUMNS.get(req.mart) != req.date_column:
+        if req.mart not in DATED_MARTS or req.date_column != "service_date_mst":
             raise HTTPException(
                 status_code=400,
                 detail=f"'{req.date_column}' is not a date column of {req.mart}",

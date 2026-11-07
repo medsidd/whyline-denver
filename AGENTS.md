@@ -26,7 +26,7 @@ Run from the repository root with `.venv` activated. `make install` installs roo
 | `make api-dev` / `make frontend-dev` | Local API on 8000 / Next.js on 3000 |
 | `make frontend-build` | Compile and type-check frontend |
 | `make api-test` | Currently targets absent `api/tests/`; do not report API test coverage from it |
-| `make frontend-test` | Invokes Playwright; no checked-in specs/configuration currently exist |
+| `make frontend-test` | Playwright unit-style specs in `frontend/tests/` (pure functions; no browser or server) |
 | `make ingest-all` | Seven ingestors writing locally by default; still calls external source APIs |
 | `make bq-load` | GCS raw loading via realtime date window; not restricted to realtime table types |
 | `make dbt-run-staging`, `make dbt-run-core`, `make dbt-run-marts` | Cloud transformations; `dbt-marts` has no recipe |
