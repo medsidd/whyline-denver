@@ -43,7 +43,7 @@ Set `ENGINE=duckdb` and `LLM_PROVIDER=stub` explicitly for local work. `.env.exa
 - `api/models.py`: request/response contract; `frontend/src/types/api.ts` mirrors it. Five routers under `/api`. Query execution always re-sanitizes SQL server-side.
 - `src/whyline/sql_guardrails.py`: read-only SQL, allowlisted namespaces/tables, default `LIMIT 5000` if absent. Existing limits are preserved, not capped.
 - `src/whyline/llm.py`: Gemini or stub generation and SQL dialect adaptation. Other named providers are not implemented.
-- `src/whyline/engines/`: BigQuery and DuckDB. Use `DUCKDB_COPY_LOCAL=1` on Cloud Run; connections and lookups are cached, so verify served results after warehouse replacement.
+- `src/whyline/engines/`: BigQuery and DuckDB. Use `DUCKDB_COPY_LOCAL=1` on Cloud Run; connections reopen within about a minute of a warehouse replacement, but lookups are cached for the life of the process, so verify served results.
 - `frontend/`: Next.js 14, Zustand persistence, TanStack Query, Recharts, Deck.gl. Dynamically import `StopMap` with `ssr: false`.
 - `infra/cloud-run/`: one image dispatches `JOB_TYPE=ingest|load`. Update both jobs to the tested immutable image digest when shared source changes; `:latest` is not automatically refreshed in existing jobs.
 

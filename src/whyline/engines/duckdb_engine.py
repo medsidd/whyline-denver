@@ -6,12 +6,16 @@ import os
 import shutil
 import tempfile
 import threading
+import time
 from pathlib import Path
 
 import duckdb
 import pandas as pd
 
 _thread_local = threading.local()
+_copy_lock = threading.Lock()
+# How often each thread checks the source for a newer warehouse.
+_RECHECK_SECONDS = 60
 _logger = logging.getLogger(__name__)
 
 
@@ -35,36 +39,41 @@ def _resolve_duckdb_source() -> Path:
 
 
 def _ensure_local_copy(src: Path) -> Path:
-    """Ensure a local, fast copy of the DuckDB file exists and return its path.
+    """Ensure a local, fast copy of the current DuckDB file exists and return its path.
 
-    If DUCKDB_COPY_LOCAL is not explicitly set to "0", copy the DB file to
-    DUCKDB_LOCAL_PATH (default /tmp/warehouse.duckdb) on first access or when
-    the source has a newer mtime. Falls back to src if copy fails.
+    If DUCKDB_COPY_LOCAL is not explicitly set to "0", copy the DB file next to
+    DUCKDB_LOCAL_PATH (default /tmp/warehouse.duckdb) under a name that carries the
+    source mtime, e.g. warehouse-<mtime_ns>.duckdb. A refreshed source gets a new
+    file, so connections open on the old copy keep working until they reopen, and
+    DuckDB's per-path instance cache cannot hand back the old database. If the copy
+    fails, falls back to the newest local copy, then to src.
     """
     if os.getenv("DUCKDB_COPY_LOCAL", "1") == "0":
         _logger.debug("DUCKDB_COPY_LOCAL=0, using source path directly: %s", src)
         return src
 
     default_local = Path(tempfile.gettempdir()) / "warehouse.duckdb"
-    dst = Path(os.getenv("DUCKDB_LOCAL_PATH", str(default_local)))
+    base = Path(os.getenv("DUCKDB_LOCAL_PATH", str(default_local)))
     try:
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        needs_copy = True
-        if dst.exists() and src.exists():
-            # Copy if source is newer or sizes differ
-            needs_copy = (src.stat().st_mtime > dst.stat().st_mtime) or (
-                src.stat().st_size != dst.stat().st_size
-            )
-        if needs_copy and src.exists():
-            _logger.info("Copying DuckDB from %s to %s", src, dst)
-            shutil.copy2(src, dst)
-        elif dst.exists():
-            _logger.debug("Using existing local DuckDB copy: %s", dst)
-        return dst if dst.exists() else src
+        dst = base.with_name(f"{base.stem}-{src.stat().st_mtime_ns}{base.suffix}")
+        with _copy_lock:
+            if not dst.exists():
+                _logger.info("Copying DuckDB from %s to %s", src, dst)
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                tmp = dst.with_name(f"{dst.name}.{os.getpid()}.tmp")
+                shutil.copy2(src, tmp)
+                os.replace(tmp, dst)
+                # Open connections keep their unlinked file; /tmp on Cloud Run is memory.
+                for old in base.parent.glob(f"{base.stem}-*"):
+                    if old != dst:
+                        old.unlink(missing_ok=True)
+        return dst
     except Exception as exc:
-        # If anything goes wrong, use the source path
-        _logger.warning("Failed to copy DuckDB to local path, using source: %s", exc)
-        return src
+        # Keep serving the newest local copy if the source is briefly unreadable
+        copies = sorted(base.parent.glob(f"{base.stem}-*{base.suffix}"))
+        fallback = copies[-1] if copies else src
+        _logger.warning("Failed to copy DuckDB to local path, using %s: %s", fallback, exc)
+        return fallback
 
 
 def _create_connection_internal(db_path: Path) -> duckdb.DuckDBPyConnection:
@@ -103,16 +112,23 @@ def _get_connection() -> duckdb.DuckDBPyConnection:
 
     Uses thread-local storage to avoid thread-safety issues. Opens database
     in read-only mode by default and applies conservative resource limits
-    for Cloud Run.
+    for Cloud Run. Every _RECHECK_SECONDS it checks the source and reopens
+    on a newer copy, so warm instances pick up the nightly refresh.
     """
     con = getattr(_thread_local, "con", None)
-    if con is not None:
+    if con is not None and time.monotonic() - _thread_local.checked_at < _RECHECK_SECONDS:
         return con
 
-    src = _resolve_duckdb_source()
-    db_path = _ensure_local_copy(src)
+    db_path = _ensure_local_copy(_resolve_duckdb_source())
+    _thread_local.checked_at = time.monotonic()
+    if con is not None and _thread_local.path == db_path:
+        return con
+
+    if con is not None:
+        con.close()
     con = _create_connection_internal(db_path)
     _thread_local.con = con
+    _thread_local.path = db_path
     return con
 
 

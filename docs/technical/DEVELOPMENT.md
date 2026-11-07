@@ -68,7 +68,7 @@ Defaults below come from code; `.env.example`, Makefile variables, and deploymen
 | `GOOGLE_APPLICATION_CREDENTIALS` | Credential file path; code also accepts inline JSON. Prefer managed credentials/ADC; never commit values. |
 | `DBT_PROFILES_DIR`, `DBT_TARGET` | Wrapper/Makefile use `dbt/profiles`, `prod`; example env selects `demo`. Inspect `dbt/profiles/profiles.yml`. |
 | `DUCKDB_PATH` | Query engine defaults to `data/warehouse.duckdb`; set explicitly for other locations |
-| `DUCKDB_COPY_LOCAL`, `DUCKDB_LOCAL_PATH` | Copy enabled unless `0`; temporary `warehouse.duckdb` by default. Use `1` with Cloud Run's GCS mount. |
+| `DUCKDB_COPY_LOCAL`, `DUCKDB_LOCAL_PATH` | Copy enabled unless `0`. Each version is copied to `warehouse-<mtime_ns>.duckdb` beside the local path (the temp directory by default). Use `1` with Cloud Run's GCS mount. |
 | `DUCKDB_GCS_BLOB`, `DUCKDB_PARQUET_ROOT` | `marts/duckdb/warehouse.duckdb`, `data/marts` for synchronization |
 | `DUCKDB_MAX_AGE_DAYS` | 90 for partitioned history during refresh |
 | `SYNC_STATE_GCS_BUCKET`, `SYNC_STATE_GCS_BLOB` | Remote state enabled only when bucket is set; blob defaults to `state/sync_state.json` |

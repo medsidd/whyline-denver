@@ -561,7 +561,7 @@ cd ~/dev/whyline-denver && git pull && PYTHONPATH=$PWD/src GCP_PROJECT_ID=whylin
 - An instance that started at 15:18, before the upload, still returned the old duplicates through `engine: duckdb` at 15:25.
 - Each worker thread opens one DuckDB connection and keeps it for the instance's life, so a refreshed warehouse reaches the API only on new instances. Minimum instances is 0, so idle instances are replaced, usually within the hour.
 - A related risk: `_ensure_local_copy` copies a newer warehouse over `/tmp/warehouse.duckdb` in place, which other threads on the same instance may have open.
-- Not changed. The fix would be to copy to a temporary name, rename it into place, and reopen when the source is newer. It needs an API image.
+- Not changed that day. Fixed in code on November 7 (entry below); it reaches the API with the next image.
 
 **Sidewalk condition (the empty fields found on November 6).**
 - **Source:** Denver's sidewalk layer (`ODC_TRANS_SIDEWALKS_L/143`) has its status, surface and year-built fields, and eight others, empty on all 190,234 segments.
@@ -602,6 +602,16 @@ cd ~/dev/whyline-denver && git pull && PYTHONPATH=$PWD/src GCP_PROJECT_ID=whylin
 - **Timepoints:** at timepoints, 15.3% of arrivals are more than 5 minutes late and 12.7% more than a minute early. A bus can't leave before it arrives, so departure timing can shrink only the early share.
 - **Conclusion:** the gap comes from counting rules, not missing or mismatched visits. With departures at timepoints, whole-minute lateness and no early penalty at the last stop, WhyLine reaches 81.2%, inside RTD's 20-month range. WhyLine keeps its stricter every-stop rule; the glossary, the landing FAQ and the dashboard note now say this.
 - **To settle it:** RTD was asked how it treats departures, whole minutes, the last timepoint and missing AVL data. The question went in records request RTD-2026-1065, submitted on November 7 with the WP11 boardings and stop-amenity request ([request text](plans/rtd-records-request.md)). Under CORA, RTD should respond within three working days, or ten if it claims an extension; research beyond the first hour costs $30 an hour, and the request asks for an estimate first.
+
+### DuckDB reopens a refreshed warehouse, November 7, 2026 (UTC)
+
+**Code change, not yet deployed.** `src/whyline/engines/duckdb_engine.py` fixes the warm-instance issue found earlier today.
+- **Copies:** each warehouse version is copied to its own file named after the source's modification time, `/tmp/warehouse-<mtime_ns>.duckdb`. The copy is written under a `.tmp` name and renamed into place, and older copies are deleted. A thread still reading an old copy keeps its open file.
+- **Reopening:** each worker thread checks the source at most once a minute and opens the new copy when there is one.
+- **Why a new name:** DuckDB returns the database it already has open for a path, so reopening `/tmp/warehouse.duckdb` would have kept the old data.
+- **Test:** `tests/engines/test_duckdb_engine.py` replaces the source and checks that the next query reads it and that one local copy remains.
+- **Still the same:** the stop and route lookups in `api/deps.py` are cached for the life of the process.
+- **To deploy:** build a new API image, then the owner runs `gcloud run services update`. Check it by running an `engine: duckdb` query on a warm instance about a minute after Nightly DuckDB.
 
 ### Query usage report
 
