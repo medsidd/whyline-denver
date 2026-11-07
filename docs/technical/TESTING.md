@@ -11,7 +11,7 @@ make test-ingest
 make lint
 ```
 
-`pyproject.toml` selects `tests/`. Current areas include ingestion contracts/manifests and NOAA behavior, SQL guardrails and route/weather regression tests, LLM handling, dbt artifact parsing, export/refresh logic, the DuckDB engine's reopening on a refreshed warehouse, a package smoke test, and documentation exporter success/failure checks. Read the actual test files before claiming coverage of an entire subsystem.
+`pyproject.toml` selects `tests/`. Current areas include ingestion contracts/manifests and NOAA behavior, SQL guardrails and route/weather regression tests, LLM handling, dbt artifact parsing, export/refresh logic, the DuckDB engine's local copy (reopen on refresh, failed reopen, failed copy, unreadable source), a package smoke test, and documentation exporter success/failure checks. Read the actual test files before claiming coverage of an entire subsystem.
 
 Artifact tests parse the current dbt project into temporary output using explicit dummy project/dataset settings and a small catalog fixture. They do not query BigQuery or depend on the checked-in manifest. `make test` is simply `pytest`; it no longer runs `dbt-artifacts`. Credentials are unnecessary for this suite.
 

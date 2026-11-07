@@ -606,12 +606,14 @@ cd ~/dev/whyline-denver && git pull && PYTHONPATH=$PWD/src GCP_PROJECT_ID=whylin
 ### DuckDB reopens a refreshed warehouse, November 7, 2026 (UTC)
 
 **Code change, not yet deployed.** `src/whyline/engines/duckdb_engine.py` fixes the warm-instance issue found earlier today.
-- **Copies:** each warehouse version is copied to its own file named after the source's modification time, `/tmp/warehouse-<mtime_ns>.duckdb`. The copy is written under a `.tmp` name and renamed into place, and older copies are deleted. A thread still reading an old copy keeps its open file.
-- **Reopening:** each worker thread checks the source at most once a minute and opens the new copy when there is one.
+- **Copies:** each warehouse version is copied to its own file named after the source's modification time and size, `/tmp/warehouse-<mtime_ns>-<size>.duckdb`. The copy is written under a `.tmp` name and renamed into place, and older copies are deleted. A thread still reading an old copy keeps its open file. A failed copy leaves no `.tmp` behind, and the current copy keeps serving.
+- **Reopening:** one shared check reads the source at most once a minute; other threads keep the current copy while it copies. Each thread opens the new copy on its next query, and keeps its old connection if the new one fails to open.
+- **Lag:** results can trail a refresh by the one-minute check, the GCS mount's metadata cache, and the API's 180-second query cache for repeated SQL.
+- **Local:** with `DUCKDB_COPY_LOCAL=0` (the local default) connections still keep the warehouse they opened; restart the API after `make sync-duckdb`.
 - **Why a new name:** DuckDB returns the database it already has open for a path, so reopening `/tmp/warehouse.duckdb` would have kept the old data.
-- **Test:** `tests/engines/test_duckdb_engine.py` replaces the source and checks that the next query reads it and that one local copy remains.
+- **Tests:** `tests/engines/test_duckdb_engine.py` covers the reopen, a failed reopen, a failed copy and an unreadable source. A stress run with 16 threads querying while the source was replaced six times saw every version, no errors and one copy left.
 - **Still the same:** the stop and route lookups in `api/deps.py` are cached for the life of the process.
-- **To deploy:** build a new API image, then the owner runs `gcloud run services update`. Check it by running an `engine: duckdb` query on a warm instance about a minute after Nightly DuckDB.
+- **To deploy:** build a new API image, then the owner runs `gcloud run services update`. Check it by running a new `engine: duckdb` query (not one run in the last three minutes) on a warm instance a few minutes after Nightly DuckDB.
 
 ### Query usage report
 
