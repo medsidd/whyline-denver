@@ -500,9 +500,9 @@ gcloud run services update whylinedenver-api --project=whyline-denver --region=u
 - **Tests:** seven nightly invariant tests now guard these identities: prediction visits and padding, crowding shares, excess wait, segment percentiles, closure order, job-access thresholds, and route-day = stop-hour totals. The closure test fails on the current table until the next nightly rebuild; the rebuilt SQL gives 0 failing rows.
 
 **Found, not changed:**
-- **Sidewalk fields:** Denver's sidewalk layer has no values in `SIDEWALKSTATUS`, `SURFACE` or `BUILTYEAR` (0 of 190,234 segments), so `status`, `material` and `year_built` are always NULL.
+- **Sidewalk fields:** Denver's sidewalk layer has no values in `SIDEWALKSTATUS`, `SURFACE` or `BUILTYEAR` (0 of 190,234 segments), so `status`, `material` and `year_built` are always NULL. Since November 7, the city's asset inventory supplies condition, width and missing sidewalk instead (below).
 - **Out-of-region stops:** `mart_gtfs_stops` includes 21 out-of-region stops in RTD's feed, such as Glenwood Springs, Vail and Colorado Springs.
-- **Drop-off-only stops:** RTD may run early at stops where nobody boards. Counting early arrivals at drop-off-only stops (`pickup_type = 1`) as on time would raise November 3 bus on-time from 73.2% to 73.8%. That explains little of the 5–10 point gap with RTD's own bus figures.
+- **Drop-off-only stops:** RTD may run early at stops where nobody boards. Counting early arrivals at drop-off-only stops (`pickup_type = 1`) as on time would raise November 3 bus on-time from 73.2% to 73.8%. That explains little of the 5–10 point gap with RTD's own bus figures. The rest is explained on November 7 (below).
 - **Skipped stop:** RTD marked Eldora Mountain Resort (18032) skipped on all 89 visits since October 29.
 
 **Polish:**
@@ -546,6 +546,59 @@ cd ~/dev/whyline-denver && git pull && PYTHONPATH=$PWD/src GCP_PROJECT_ID=whylin
   .venv/bin/python -m whyline.sync.export_bq_marts --force --since 2025-10-23 \
   --mart mart_reliability_by_route_day --mart mart_reliability_by_stop_hour
 ```
+
+### Owner steps checked, sidewalk condition added, RTD bus gap explained, November 7, 2026 (UTC)
+
+**Owner steps after #116, both done:**
+- **API deploy:** revision `whylinedenver-api-00015-cpk` serves `@sha256:1f5db0b3…`. The equity question now reads the mart's score; it returns 20 rows, led by 16th Street & Stout St (`22368`, priority 68.3).
+- **Re-export:** the forced export between 14:05 and 14:26 UTC rewrote all 320 route-day folders, one shard each. Nightly DuckDB ([run 42385872329](https://github.com/medsidd/whyline-denver/actions/runs/42385872329)) then rebuilt the warehouse at 15:24.
+- **Served copy, read from the uploaded warehouse:**
+  - Route-day has 3,332 rows, one per route and date. Stop-hour has 1,209,174, one per stop, date and hour.
+  - Through November 6, both match BigQuery exactly: 3,243 and 1,194,296 rows. November 7 differs only because BigQuery's current-day partition keeps growing.
+  - The 228 surplus rows are gone.
+
+**Found: a warm API instance keeps the warehouse it opened.**
+- An instance that started at 15:18, before the upload, still returned the old duplicates through `engine: duckdb` at 15:25.
+- Each worker thread opens one DuckDB connection and keeps it for the instance's life, so a refreshed warehouse reaches the API only on new instances. Minimum instances is 0, so idle instances are replaced, usually within the hour.
+- A related risk: `_ensure_local_copy` copies a newer warehouse over `/tmp/warehouse.duckdb` in place, which other threads on the same instance may have open.
+- Not changed. The fix would be to copy to a temporary name, rename it into place, and reopen when the source is newer. It needs an API image.
+
+**Sidewalk condition (the empty fields found on November 6).**
+- **Source:** Denver's sidewalk layer (`ODC_TRANS_SIDEWALKS_L/143`) has its status, surface and year-built fields, and eight others, empty on all 190,234 segments.
+  - Its item description promises widths; the published fields carry none.
+  - The city's **sidewalk asset inventory** (`ODC_ASSET_SIDEWALKS_L/416`, "Sidewalks Asset", public, updated August 2026) has them on 180,646 frontage segments, split by parcel: 171,311 with sidewalk and 9,335 marked "Missing Sidewalk" (344 miles).
+  - It has width in whole feet on all but one segment: 71,854 are 4 ft and 92,040 are 5 ft. It also has the 2022 baseline condition (good 166,697, fair 3,934, poor 680) and surface on 95%.
+  - No Denver layer publishes when a sidewalk was built.
+- **Change:**
+  - `arcgis_reference` fetches the asset layer weekly, with five fields only: 15.7 MB gzipped, in about 90 seconds.
+  - `bridge_stop_street_safety` and `mart_stop_walk_safety` gain `frontage_m_100m` and three shares inside a 100 m circle: no sidewalk, under 5 ft (the width Denver's sidewalk plan treats as deficient), and fair or poor.
+  - A new walk-safety flag marks stops with no sidewalk on a quarter or more of the frontage.
+  - The empty `status`, `material` and `year_built` columns are dropped from `stg_sidewalks` and `dim_sidewalk_segment`; `raw_sidewalks` keeps its contract.
+- **Checks before merge:**
+  - BigQuery ran the new SQL on the real features near five stops. Lengths matched an independent planar calculation within 2%; BigQuery's buffer polygon is slightly smaller than a true circle.
+  - Across the 2,707 Denver stops, 2,664 have inventoried frontage within 100 m.
+  - The median stop has none of it missing. 311 stops have a quarter or more missing, and 99 have half or more; the worst are along 6th Avenue Parkway and Monaco Parkway.
+  - 520 stops have at least half their sidewalk under 5 ft.
+- **When it fills:** the layer has no extract yet, so the bridge shows zero frontage until the next nightly ingest fetches it. `mart_stop_walk_safety` is unpublished (release R2).
+
+**RTD's bus gap, investigated.**
+- **Season:** RTD's own all-bus figure stayed between 81.1% and 84.6% in all 20 months it reported, January 2025 to August 2026, including 82.0% and 82.9% in October and November 2025. Waiting for its October 2026 report won't close a 9-point gap.
+- **Method:** the investigation counted bus visits on service dates October 30 to November 5, 2,021,091 visits with a known delay. RTD's published definition is only "less than one minute early or five minutes late". Each row below adds one rule, pooled over visits:
+
+| Rule | Bus on time |
+|---|---:|
+| WhyLine as published: every stop, arrival (departure at the first stop), −60 < delay ≤ 300 s | 73.9% |
+| Only GTFS timepoints (19% of visits) | 71.9% |
+| Departure at timepoints: middle of the observed dwell where the vehicle was seen standing | 74.7% |
+| "5 minutes late" read as under 6 minutes, as whole-minute schedules often count | 78.5% |
+| Early arrival at a trip's last stop not counted against it | 81.2% |
+| Latest departure the reports allow: the bus held at the timepoint until it left | 84.1% |
+| RTD, August 2026 | 83.3% |
+
+- **Other rules, each alone:** drop-off-only stops add 0.6 points, and leaving out the 16th Street FreeRide adds 0.6. Averaging routes equally instead of pooling visits adds 1.3–2.1 points at each step.
+- **Timepoints:** at timepoints, 15.3% of arrivals are more than 5 minutes late and 12.7% more than a minute early. A bus can't leave before it arrives, so departure timing can shrink only the early share.
+- **Conclusion:** the gap comes from counting rules, not missing or mismatched visits. With departures at timepoints, whole-minute lateness and no early penalty at the last stop, WhyLine reaches 81.2%, inside RTD's 20-month range. WhyLine keeps its stricter every-stop rule; the glossary, the landing FAQ and the dashboard note now say this.
+- **To settle it:** ask RTD how it treats departures, whole minutes, the last timepoint and missing AVL data. The question can go into the WP11 records request.
 
 ### Query usage report
 

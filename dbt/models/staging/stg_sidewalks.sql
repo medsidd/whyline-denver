@@ -1,12 +1,10 @@
 {{ config(materialized='view') }}
 
-{# Latest extract only, one row per segment #}
+{# Latest extract only, one row per segment. The layer's status, surface and year-built fields are
+empty, so they aren't carried; condition and width come from the asset layer (stg_arcgis_reference). #}
 select
     sidewalk_id,
     class,
-    status,
-    material,
-    year_built,
     length_m,
     st_makeline(
         st_geogpoint(cast(lon_start as float64), cast(lat_start as float64)),

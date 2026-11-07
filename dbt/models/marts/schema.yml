@@ -1016,7 +1016,7 @@ models:
       - name: build_run_at
         description: "When dbt last rebuilt this row (UTC); not the time of the underlying observations."
   - name: mart_stop_walk_safety
-    description: "The street around each stop inside Denver, with plain-language flags: on the High Injury Network with no traffic signal within 100 m, on a tier 1 High Injury Network street, no curb ramp recorded within 50 m."
+    description: "The street around each stop inside Denver, with plain-language flags: on the High Injury Network with no traffic signal within 100 m, on a tier 1 High Injury Network street, no curb ramp recorded within 50 m, no sidewalk on a quarter or more of the street frontage within 100 m."
     columns:
       - name: stop_id
         description: "GTFS stop identifier (Denver stops only)."
@@ -1037,6 +1037,26 @@ models:
         description: "A transit signal with signal priority is within 50 m."
       - name: queue_jump_within_50m
         description: "A transit queue-jump signal is within 50 m."
+      - name: frontage_m_100m
+        description: "Street frontage in Denver's sidewalk asset inventory within 100 m, with or without sidewalk, in meters (all sides of every street, so a corner stop has more); the base for the sidewalk shares."
+      - name: pct_frontage_no_sidewalk_100m
+        description: "Share of that frontage with no sidewalk (Denver's 'Missing Sidewalk'), 0-1; NULL when no frontage is inventoried within 100 m."
+        data_tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1
+      - name: pct_sidewalk_under_5ft_100m
+        description: "Share of the existing sidewalk within 100 m narrower than 5 feet, the width Denver's sidewalk plan treats as deficient, 0-1; NULL when there's none."
+        data_tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1
+      - name: pct_sidewalk_fair_or_poor_100m
+        description: "Share of the existing sidewalk within 100 m in fair or poor condition at Denver's 2022 baseline survey, 0-1; NULL when there's none."
+        data_tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1
       - name: walk_safety_flags
         description: "The flags that apply, separated by '; '; empty when none."
       - name: build_run_at

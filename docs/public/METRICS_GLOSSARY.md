@@ -54,7 +54,7 @@ Every visit keeps `arrival_earliest_ts` and `arrival_latest_ts`, so its own unce
 
 Appended columns: route-day `data_version`, `n_skipped`, `n_canceled_trips`, `n_scheduled`, `pct_observed`, `pct_shape_crossing`, `pct_last_prediction`, `pct_within_30s`, `median_window_sec`; stop-hour `data_version`, `n_reported_events`, `pct_within_30s`, `pct_shape_crossing`. `mart_weather_impacts` and the priority ranking's unreliability score read `pct_on_time`, so they change too; both read stop-visit days only, so their 30- and 35-day windows fill up over the month after the cutover. Service dates before 2026-10-29 keep the legacy method: the stream began late on October 28's service day, with only 107 visits.
 
-**What it does to the numbers.** Fleet on-time falls from 88–92% before the cutover to 74–77% after, and 119 of 120 routes go down. About 12 of the 14 points come from counting arrivals more than a minute early as not on time; the rest from timing every stop instead of sampled terminal arrivals, and from no longer counting unknown delays as on time. Don't compare `pct_on_time` across `data_version`, or average a window that spans both: filter `data_version IS NOT NULL` for the stop-visit method. Bus also runs 5–10 points below RTD's own figure (73.5–75.2% from October 29 to November 4, against 83.3% RTD reported for August). Timing only RTD's timepoints, with departures where known, closes about 2 of those points; the rest is unexplained until RTD's October report can be compared. Rail is close to RTD's figures. Routes that run ahead of schedule score lowest: the AL reaches its last stop a median 10 minutes early, and the 16th Street FreeRide (`FREE`) leaves stops early with buses minutes apart, so its riders rarely wait long. [Wait time](#wait-time-bunching-and-gaps) describes the FreeRide better. Details are in the [dual-run review](../technical/OPERATIONS.md#dual-run-review-november-5-2026-utc).
+**What it does to the numbers.** Fleet on-time falls from 88–92% before the cutover to 74–77% after, and 119 of 120 routes go down. About 12 of the 14 points come from counting arrivals more than a minute early as not on time; the rest from timing every stop instead of sampled terminal arrivals, and from no longer counting unknown delays as on time. Don't compare `pct_on_time` across `data_version`, or average a window that spans both: filter `data_version IS NOT NULL` for the stop-visit method. Bus also runs below RTD's own figure: 73.9% from October 30 to November 5, against 81–85% in every month RTD reported from January 2025 to August 2026 (83.3% in August). The gap comes from how each counts, not from missing visits. RTD doesn't publish its full rules, but three common agency conventions, applied to the same visits, reach 81.2%: timing only RTD's timepoints, by departure where the vehicle was seen standing (74.7%); counting up to 5 minutes 59 seconds late as on time (78.5%); and not counting early arrivals at a trip's last stop (81.2%). WhyLine keeps its stricter rule, because it describes every stop a rider uses. See [RTD's reported on-time performance](#rtds-reported-on-time-performance). Rail is close to RTD's figures. Routes that run ahead of schedule score lowest: the AL reaches its last stop a median 10 minutes early, and the 16th Street FreeRide (`FREE`) leaves stops early with buses minutes apart, so its riders rarely wait long. [Wait time](#wait-time-bunching-and-gaps) describes the FreeRide better. Details are in the [dual-run review](../technical/OPERATIONS.md#dual-run-review-november-5-2026-utc).
 
 ### Legacy partitions before the cutover
 
@@ -100,9 +100,13 @@ The backfill (`backfill_v1`) recomputes the earlier dates as stop visits from th
 | `nearest_signal_m` | Meters to the nearest traffic signal, a proxy for a controlled crossing; NULL beyond 1 km. |
 | `n_curb_ramps_50m` | Curb ramps in the city's inventory within 50 m. |
 | `existing_bikeway_within_100m`, `on_transit_lane`, `transit_signal_priority_within_50m`, `queue_jump_within_50m` | Bike and bus infrastructure next to the stop. |
-| `walk_safety_flags` | Plain-language flags: on the High Injury Network with no signal within 100 m; on a tier 1 street; no curb ramp recorded within 50 m. |
+| `frontage_m_100m` | Street frontage in Denver's sidewalk asset inventory within 100 m, with or without sidewalk: every side of every street, so a corner stop has more. The base for the three shares below. |
+| `pct_frontage_no_sidewalk_100m` | Share of that frontage with no sidewalk (the inventory's "Missing Sidewalk"). |
+| `pct_sidewalk_under_5ft_100m` | Share of the existing sidewalk narrower than 5 feet, the width Denver's sidewalk plan treats as deficient. |
+| `pct_sidewalk_fair_or_poor_100m` | Share of the existing sidewalk rated fair or poor in the city's 2022 baseline survey. |
+| `walk_safety_flags` | Plain-language flags: on the High Injury Network with no signal within 100 m; on a tier 1 street; no curb ramp recorded within 50 m; no sidewalk on a quarter or more of the street frontage within 100 m. |
 
-Limits: the layers cover the City and County of Denver only, so other stops are left out rather than shown as safe. Inventories can lag construction, and a signal isn't always a marked crosswalk at the stop.
+Limits: the layers cover the City and County of Denver only, so other stops are left out rather than shown as safe. Inventories can lag construction, and a signal isn't always a marked crosswalk at the stop. Sidewalk lengths are measured inside a 100 m circle, not along a walking route; width is recorded in whole feet, and condition dates from 2022 unless the city has since updated a segment. Shares are NULL when nothing is inventoried within 100 m.
 
 ## Vulnerability
 
@@ -294,7 +298,7 @@ The two are measured differently:
 - RTD measures at timepoints, using its own rules and adjustments.
 - WhyLine measures at every stop it can time, counting from 1 minute early to 5 minutes late.
 
-A gap between them is expected; a gap that changes over time is the more telling signal. Months overlap only once WhyLine has measured them (from 2026-10-28) and RTD has published them, about two months later. RTD's Local, Regional and Regional BRT figures need RTD's route classification and aren't compared yet.
+For bus, the measured gap is 8–10 points, and those rule differences account for most of it ([cutover notes](#changed-definitions-at-the-cutover)). A gap between them is expected; a gap that changes over time is the more telling signal. Months overlap only once WhyLine has measured them (from 2026-10-28) and RTD has published them, about two months later. RTD's Local, Regional and Regional BRT figures need RTD's route classification and aren't compared yet.
 
 ## Ridership
 

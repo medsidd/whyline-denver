@@ -104,7 +104,7 @@ const FAQ = [
   },
   {
     q: "Why are on-time figures lower from October 29, 2026?",
-    a: "That’s when WhyLine started timing every stop from vehicle positions reported every 30 seconds, and started using RTD’s on-time rule, which doesn’t count a bus more than a minute early. On-time shares fell about 14 points at the switch, so don’t compare the two periods. Bus figures also run 5–10 points below RTD’s own, which RTD measures at timepoints with its own rules.",
+    a: "That’s when WhyLine started timing every stop from vehicle positions reported every 30 seconds, and started using RTD’s on-time rule, which doesn’t count a bus more than a minute early. On-time shares fell about 14 points at the switch, so don’t compare the two periods. Bus figures also run 8–10 points below RTD’s own. RTD times only its timepoints, with rules it doesn’t fully publish; under common agency conventions, WhyLine’s bus figure comes within about 2 points of RTD’s.",
   },
   {
     q: "What happens to my question?",
