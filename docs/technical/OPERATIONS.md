@@ -624,7 +624,16 @@ cd ~/dev/whyline-denver && git pull && PYTHONPATH=$PWD/src GCP_PROJECT_ID=whylin
 - 16 runs of the questions (rail dates, then route 15 added) returned rows, plus a handful of dashboard runs and two 1,000-row downloads, all under 50 MB each.
 - A route value with a quote, a non-date `date_start` and an unlisted `date_column` were rejected.
 
-**Owner step after merge:** the new ready-made SQL, explanations, filter validation, download allowlist and filters cache are in the API. Build a new API image and run `gcloud run services update whylinedenver-api` (rollback: the current `@sha256:1f5db0b3…`). This image also carries the DuckDB reopen from [#123](https://github.com/medsidd/whyline-denver/pull/123).
+**After merge ([#124](https://github.com/medsidd/whyline-denver/pull/124)):**
+- **Production frontend** (deployment of `8ef4464`), checked in headless Chrome at 1280 and 390 px against the old API: the equity question charts priority score by stop name, the scan estimate shows on load, "zzz" gets the no-route message, a row limit of −5 is blocked, no console errors and no sideways scroll. The new explanations, filter notes and guardrail message need the new API.
+- **API image built, not deployed:** Cloud Build `962bb4f7` at 23:17 UTC, tag `8ef4464`, `whylinedenver-api@sha256:a35af41f53285e15d86512f0eeeb982cd24a8d6fcd420bf176447e9c4bf53e10`. It carries PR 1 and the DuckDB reopen from [#123](https://github.com/medsidd/whyline-denver/pull/123).
+
+**Owner step:** deploy it. The rollback is the current `@sha256:1f5db0b3…` (#116).
+
+```bash
+gcloud run services update whylinedenver-api --project=whyline-denver --region=us-central1 \
+  --image=us-central1-docker.pkg.dev/whyline-denver/api-service/whylinedenver-api@sha256:a35af41f53285e15d86512f0eeeb982cd24a8d6fcd420bf176447e9c4bf53e10
+```
 
 ### Query usage report
 
