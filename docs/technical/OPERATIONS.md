@@ -601,7 +601,7 @@ cd ~/dev/whyline-denver && git pull && PYTHONPATH=$PWD/src GCP_PROJECT_ID=whylin
 - **Other rules, each alone:** drop-off-only stops add 0.6 points, and leaving out the 16th Street FreeRide adds 0.6. Averaging routes equally instead of pooling visits adds 1.3–2.1 points at each step.
 - **Timepoints:** at timepoints, 15.3% of arrivals are more than 5 minutes late and 12.7% more than a minute early. A bus can't leave before it arrives, so departure timing can shrink only the early share.
 - **Conclusion:** the gap comes from counting rules, not missing or mismatched visits. With departures at timepoints, whole-minute lateness and no early penalty at the last stop, WhyLine reaches 81.2%, inside RTD's 20-month range. WhyLine keeps its stricter every-stop rule; the glossary, the landing FAQ and the dashboard note now say this.
-- **To settle it:** ask RTD how it treats departures, whole minutes, the last timepoint and missing AVL data. The question can go into the WP11 records request.
+- **To settle it:** RTD was asked how it treats departures, whole minutes, the last timepoint and missing AVL data. The question went in records request RTD-2026-1065, submitted on November 7 with the WP11 boardings and stop-amenity request ([request text](plans/rtd-records-request.md)). Under CORA, RTD should respond within three working days, or ten if it claims an extension; research beyond the first hour costs $30 an hour, and the request asks for an estimate first.
 
 ### Query usage report
 
