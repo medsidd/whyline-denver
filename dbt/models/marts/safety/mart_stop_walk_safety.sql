@@ -3,7 +3,8 @@
 {#
 Is it safe and accessible to walk to this stop? For each stop inside Denver, the street around
 it (bridge_stop_street_safety) and plain-language flags: on the High Injury Network with no
-traffic signal within 100 m, no curb ramp within 50 m. Pedestrian crash counts are in
+traffic signal within 100 m, no curb ramp within 50 m, no sidewalk on a quarter or more of the
+street frontage within 100 m. Pedestrian crash counts are in
 mart_crash_proximity_by_stop. Published with release R2.
 #}
 select
@@ -19,12 +20,17 @@ select
     b.on_transit_lane,
     b.transit_signal_priority_within_50m,
     b.queue_jump_within_50m,
+    b.frontage_m_100m,
+    b.pct_frontage_no_sidewalk_100m,
+    b.pct_sidewalk_under_5ft_100m,
+    b.pct_sidewalk_fair_or_poor_100m,
     array_to_string(
         array(
             select flag from unnest([
                 if(b.on_hin and coalesce(b.nearest_signal_m, 1000) > 100, 'on the High Injury Network, no signal within 100 m', null),
                 if(b.on_hin and b.hin_tier = 1, 'on a tier 1 High Injury Network street', null),
-                if(b.n_curb_ramps_50m = 0, 'no curb ramp recorded within 50 m', null)
+                if(b.n_curb_ramps_50m = 0, 'no curb ramp recorded within 50 m', null),
+                if(b.pct_frontage_no_sidewalk_100m >= 0.25, 'no sidewalk on a quarter or more of the street frontage within 100 m', null)
             ]) as flag
             where flag is not null
         ),

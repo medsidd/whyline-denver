@@ -174,12 +174,6 @@ models:
               exclusive_min: true
       - name: centroid
         description: "Midpoint of the segment (WGS84 GEOGRAPHY)."
-      - name: year_built
-        description: "Year built (BUILTYEAR). Empty in Denver's published layer as of 2026-11-06."
-      - name: material
-        description: "Surface material (SURFACE). Empty in Denver's published layer as of 2026-11-06."
-      - name: status
-        description: "Sidewalk status (SIDEWALKSTATUS). Empty in Denver's published layer as of 2026-11-06."
       - name: class
         description: "Segment type from Denver's layer: sidewalk, crosswalk, other path or best-fit line."
 

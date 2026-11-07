@@ -304,7 +304,7 @@ All rebuild nightly from the current schedule; the service date is the next repr
 **Existing fields:**
 - add `ped_crashes_250m`, `bike_crashes_250m` and `ped_severe_250m` to `mart_crash_proximity_by_stop`;
 - add `wheelchair_boarding` (from `dim_stop`) to `mart_access_score_by_stop`;
-- add the share of sidewalk within 200 m by class and status (`dim_sidewalk_segment`);
+- add the share of sidewalk within 200 m by class and status (`dim_sidewalk_segment`). Status turned out empty at the source; since 2026-11-07, the shares of frontage within 100 m with no sidewalk, under 5 ft or in fair or poor condition come from Denver's sidewalk asset layer (`ODC_ASSET_SIDEWALKS_L/416`) instead;
 - add `pct_stops_wheelchair_boarding` by route and by tract.
 
 **New source `denver_streets_reference`:** one ingestor in the ArcGIS pattern, weekly via the 7-day skip. It pulls these layers with `outSR=4326`, and writes each as GeoJSON-in-CSV, the same way tracts are stored:

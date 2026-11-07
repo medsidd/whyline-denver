@@ -1,6 +1,6 @@
 """CLI to snapshot reference layers from Denver's and CDPHE's ArcGIS services.
 
-Street-safety layers (metrics WP7) and equity layers (WP9) change rarely, so each layer is fetched
+Street-safety layers (metrics WP7), the sidewalk asset inventory and equity layers (WP9) change rarely, so each layer is fetched
 at most once a week: a layer is skipped when an extract from the last 7 days exists. Every layer
 lands in one raw table with its attributes as JSON and its geometry as GeoJSON (WGS84); staging
 picks the fields it needs, so a renamed source field doesn't break the load.
@@ -30,6 +30,7 @@ class Layer:
     url: str
     where: str = "1=1"
     min_features: int = 1
+    fields: str = "*"
 
 
 # Counts on 2026-11-02 guard against an empty or truncated response.
@@ -49,6 +50,12 @@ LAYERS = {
     ),
     "denver_bike_facilities": Layer(
         DENVER + "Denver_Bicycle_Facilities_ODC/FeatureServer/450", min_features=1500
+    ),
+    # Condition, width and missing frontage: the sidewalk layer (denver_sidewalks) leaves them empty.
+    "denver_sidewalk_assets": Layer(
+        DENVER + "ODC_ASSET_SIDEWALKS_L/FeatureServer/416",
+        min_features=170000,
+        fields="OBJECTID,SIDEWALK_TYPE,BASELINE_CONDITION,SIDEWALK_WIDTH,SurfaceType,DETACHED",
     ),
     "denver_doti_equity": Layer(
         DENVER + "ODC_ADMN_DOTI_EQUITY_INDEX/FeatureServer/151", min_features=500
@@ -84,7 +91,7 @@ def fetch_layer(layer: Layer, timeout: int) -> list[dict[str, Any]]:
             f"{layer.url}/query",
             params={
                 "where": layer.where,
-                "outFields": "*",
+                "outFields": layer.fields,
                 "outSR": 4326,
                 "f": "geojson",
                 "orderByFields": "OBJECTID",

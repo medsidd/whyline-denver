@@ -372,7 +372,7 @@ Patterns: `rtd_gtfsrt_calibration/snapshot_at=*/stop_visits.csv.gz`. Same column
 
 ## `raw_arcgis_reference`
 
-Written by `whyline.ingest.arcgis_reference` (nightly ingest, non-fatal). Each layer is fetched at most once a week: it's skipped when an extract from the last 7 days exists. Pattern: `arcgis_reference/extract_date=*/*.csv.gz`, one file per layer. Partitioned by `_extract_date`, clustered on `layer`. Attributes keep their source field names in `properties_json`, and staging picks what it needs, so a field the source adds or renames doesn't break the load. Geometry is GeoJSON in WGS84 (`outSR=4326`). A layer that returns fewer features than its floor (set from the 2026-11-02 counts) isn't written, and `ARCGIS_LAYER_FAILED` is logged.
+Written by `whyline.ingest.arcgis_reference` (nightly ingest, non-fatal). Each layer is fetched at most once a week: it's skipped when an extract from the last 7 days exists. Pattern: `arcgis_reference/extract_date=*/*.csv.gz`, one file per layer. Partitioned by `_extract_date`, clustered on `layer`. Attributes keep their source field names in `properties_json` (all fields unless a layer lists its own), and staging picks what it needs, so a field the source adds or renames doesn't break the load. Geometry is GeoJSON in WGS84 (`outSR=4326`). A layer that returns fewer features than its floor (set from the 2026-11-02 counts) isn't written, and `ARCGIS_LAYER_FAILED` is logged.
 
 | `layer` | Source | Features on 2026-11-02 |
 |---|---|---|
@@ -382,6 +382,7 @@ Written by `whyline.ingest.arcgis_reference` (nightly ingest, non-fatal). Each l
 | `denver_curb_ramps` | Denver curb ramps (`ODC_TRANS_CURBRAMPS_P/228`) | 72,770 points |
 | `denver_traffic_signals` | Denver traffic signals (`ODC_TRANS_TRAFFICSIGNAL_P/147`) | 1,288 points |
 | `denver_bike_facilities` | Denver bicycle facilities (`Denver_Bicycle_Facilities_ODC/450`) | 2,025 lines |
+| `denver_sidewalk_assets` | Denver sidewalk asset inventory (`ODC_ASSET_SIDEWALKS_L/416`), fields `SIDEWALK_TYPE`, `BASELINE_CONDITION`, `SIDEWALK_WIDTH` (feet), `SurfaceType` and `DETACHED` only; first fetched 2026-11-07, floor 170,000 | 180,646 lines (2026-11-07) |
 | `denver_doti_equity` | Denver DOTI equity index (`ODC_ADMN_DOTI_EQUITY_INDEX/151`) | 572 block groups |
 | `enviroscreen_tract` | CDPHE Colorado EnviroScreen 2.0, Denver County tracts | 178 polygons |
 | `enviroscreen_block_group` | CDPHE Colorado EnviroScreen 2.0, Denver County block groups | 571 polygons |

@@ -155,12 +155,6 @@ models:
         description: "Segment line (WGS84 GEOGRAPHY)."
       - name: length_m
         description: "Segment length in meters."
-      - name: year_built
-        description: "Year built (BUILTYEAR). Empty in Denver's published layer as of 2026-11-06."
-      - name: material
-        description: "Surface material (SURFACE). Empty in Denver's published layer as of 2026-11-06."
-      - name: status
-        description: "Sidewalk status (SIDEWALKSTATUS). Empty in Denver's published layer as of 2026-11-06."
       - name: class
         description: "Segment type from Denver's layer: sidewalk, crosswalk, other path or best-fit line."
       - name: sidewalk_id
@@ -900,7 +894,7 @@ models:
         description: "GEOID of the 2020 census block group containing the stop (12 digits)."
 
   - name: bridge_stop_street_safety
-    description: "One row per current stop inside Denver with the street around it from Denver's open-data layers: High Injury Network within 30 m and its tier (1 has the highest crash rates), nearest traffic signal (NULL beyond 1 km), curb ramps within 50 m, existing bikeway within 100 m, transit lane within 20 m, transit signal priority or queue jump within 50 m."
+    description: "One row per current stop inside Denver with the street around it from Denver's open-data layers: High Injury Network within 30 m and its tier (1 has the highest crash rates), nearest traffic signal (NULL beyond 1 km), curb ramps within 50 m, existing bikeway within 100 m, transit lane within 20 m, transit signal priority or queue jump within 50 m, and the sidewalk along the street frontage within 100 m (missing, narrower than 5 ft, fair or poor)."
     columns:
       - name: stop_id
         description: "GTFS stop identifier (current Denver stops)."
@@ -925,6 +919,26 @@ models:
         description: "Meters to the nearest traffic signal; NULL when none is within 1 km."
       - name: on_hin
         description: "A High Injury Network street is within 30 m: Denver's streets with the most serious and fatal crashes."
+      - name: frontage_m_100m
+        description: "Street frontage in Denver's sidewalk asset inventory within 100 m, with or without sidewalk, in meters (all sides of every street, so a corner stop has more); the base for the sidewalk shares."
+      - name: pct_frontage_no_sidewalk_100m
+        description: "Share of that frontage with no sidewalk (Denver's 'Missing Sidewalk'), 0-1; NULL when no frontage is inventoried within 100 m."
+        data_tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1
+      - name: pct_sidewalk_under_5ft_100m
+        description: "Share of the existing sidewalk within 100 m narrower than 5 feet, the width Denver's sidewalk plan treats as deficient, 0-1; NULL when there's none."
+        data_tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1
+      - name: pct_sidewalk_fair_or_poor_100m
+        description: "Share of the existing sidewalk within 100 m in fair or poor condition at Denver's 2022 baseline survey, 0-1; NULL when there's none."
+        data_tests:
+          - accepted_range:
+              min_value: 0
+              max_value: 1
 
   - name: fct_rtd_reported_performance
     description: "One month x RTD service category x metric (otp_month, otp_ytd, service_availability) as RTD printed it, 0-100."

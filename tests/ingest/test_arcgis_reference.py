@@ -89,3 +89,22 @@ def test_a_failing_layer_does_not_stop_the_others(monkeypatch, tmp_path):
     assert ref.main(["--local", "--extract-date", "2026-11-02"]) == 1
     out = tmp_path / "data/raw/arcgis_reference/extract_date=2026-11-02"
     assert sorted(p.name for p in out.iterdir()) == ["denver_transit_lanes.csv.gz", "manifest.json"]
+
+
+def test_a_layer_requests_only_its_fields(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    spec = ref.LAYERS["denver_sidewalk_assets"]
+    monkeypatch.setattr(
+        ref, "LAYERS", {"denver_sidewalk_assets": ref.Layer(spec.url, fields=spec.fields)}
+    )
+    requested = []
+
+    def get(url, params=None, **kwargs):
+        if params.get("returnCountOnly"):
+            return Mock(json=lambda: {"count": 1})
+        requested.append(params["outFields"])
+        return Mock(json=lambda: {"features": _features(1)})
+
+    monkeypatch.setattr(ref.io, "http_get_with_retry", get)
+    assert ref.main(["--local", "--extract-date", "2026-11-07"]) == 0
+    assert requested == [spec.fields] and "SIDEWALK_WIDTH" in spec.fields

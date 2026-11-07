@@ -41,8 +41,8 @@ export default function DashboardPage() {
               Arrival times before {STOP_VISITS_SINCE} are estimated from 15-minute samples (accuracy ±minutes); from{" "}
               {STOP_VISITS_SINCE}, from 30-second vehicle reports (usually within 30 s for buses; each visit records its
               own uncertainty). On-time shares fall about 14 points at the switch, mostly because arrivals more than a
-              minute early no longer count as on time, so don&apos;t compare the two periods. Bus figures also run 5–10
-              points below RTD&apos;s own.{" "}
+              minute early no longer count as on time, so don&apos;t compare the two periods. Bus figures also run 8–10
+              points below RTD&apos;s own, mostly from how RTD counts at its timepoints.{" "}
               <a href={`${GLOSSARY}#changed-definitions-at-the-cutover`} className="text-wl-navy font-extrabold underline">
                 How arrivals are timed
               </a>
