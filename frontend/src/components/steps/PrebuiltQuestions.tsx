@@ -6,12 +6,12 @@ import { useDashboardStore } from "@/store/dashboardStore";
 import { PREBUILT_QUERIES } from "@/types/api";
 
 // The landing page's topic colors: reliability and service teal, safety red, weather gold, equity navy.
-const TEAL = { tint: "bg-wl-teal-tint", dot: "bg-wl-teal" };
+const TEAL = { dot: "bg-wl-teal" };
 const CHIP_COLORS = [
   TEAL,
-  { tint: "bg-wl-red-tint", dot: "bg-wl-red" },
-  { tint: "bg-wl-gold-tint", dot: "bg-wl-gold" },
-  { tint: "bg-wl-navy-tint", dot: "bg-wl-navy" },
+  { dot: "bg-wl-red" },
+  { dot: "bg-wl-gold" },
+  { dot: "bg-wl-navy" },
   TEAL, // frequency
   TEAL, // predictions
   TEAL, // missed trips
@@ -40,7 +40,7 @@ export function PrebuiltQuestions() {
   return (
     <div className="mt-5">
       <p className="m-0 text-sm font-extrabold text-wl-ink2">Or start from a ready-made question</p>
-      <ul className="mt-2.5 flex flex-wrap gap-2">
+      <ul className="mt-2 mb-0 p-0 list-none grid sm:grid-cols-2 gap-x-6">
         {PREBUILT_QUERIES.map((q, i) => {
           const pending = mutation.isPending && mutation.variables?.index === q.index;
           const color = CHIP_COLORS[q.index] ?? TEAL;
@@ -50,9 +50,9 @@ export function PrebuiltQuestions() {
                 type="button"
                 onClick={() => mutation.mutate({ index: q.index, label: q.label })}
                 disabled={mutation.isPending}
-                className={`wl-chip inline-flex items-center gap-2 min-h-[40px] px-4 py-1.5 rounded-full text-left text-[15px] font-extrabold text-wl-navy disabled:cursor-wait ${color.tint}`}
+                className="w-full flex items-start gap-3 min-h-[44px] py-2.5 px-2 -mx-2 rounded-xl text-left text-[15px] font-extrabold text-wl-navy border-b-2 border-wl-navy/[0.06] hover:bg-white disabled:cursor-wait"
               >
-                <span aria-hidden="true" className={`flex-none w-2.5 h-2.5 rounded-full ${color.dot}`} />
+                <span aria-hidden="true" className={`flex-none mt-[7px] w-2.5 h-2.5 rounded-full ${color.dot}`} />
                 {pending ? "Loading…" : q.label}
               </button>
             </li>

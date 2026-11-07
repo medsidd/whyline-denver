@@ -9,7 +9,7 @@ const ROUTE_STOPS = [
   { id: "limits", label: "What the numbers mean" },
   { id: "data", label: "Where the data comes from" },
   { id: "faq", label: "Questions" },
-  { id: "cta", label: "Open the dashboard" },
+  { id: "cta", label: "Ask your own question" },
 ];
 
 // One logo color per stop; the road after a stop and the next-stop sign share it.

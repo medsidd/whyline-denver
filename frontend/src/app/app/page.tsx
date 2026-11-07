@@ -37,7 +37,12 @@ export default function DashboardPage() {
             chart or map.
           </p>
           {STOP_VISITS_SINCE && (
-            <p role="note" className="-mt-5 mb-8 text-[15px] text-wl-ink2 max-w-[60ch]">
+            <details className="wl-faq -mt-4 mb-8 max-w-[64ch] rounded-2xl bg-wl-gold-tint px-4">
+              <summary className="flex items-center justify-between gap-3 min-h-[48px] text-[15px] font-extrabold">
+                On-time shares drop on {STOP_VISITS_SINCE}. Don’t compare across that date.
+                <span aria-hidden="true" className="wl-plus flex-none w-7 h-7 rounded-full bg-white flex items-center justify-center text-lg leading-none">+</span>
+              </summary>
+              <p className="mt-0 pb-4 text-[15px] text-wl-ink2">
               Arrival times before {STOP_VISITS_SINCE} are estimated from 15-minute samples (accuracy ±minutes); from{" "}
               {STOP_VISITS_SINCE}, from 30-second vehicle reports (usually within 30 s for buses; each visit records its
               own uncertainty). On-time shares fall about 14 points at the switch, mostly because arrivals more than a
@@ -46,7 +51,8 @@ export default function DashboardPage() {
               <a href={`${GLOSSARY}#changed-definitions-at-the-cutover`} className="text-wl-navy font-extrabold underline">
                 How arrivals are timed
               </a>
-            </p>
+              </p>
+            </details>
           )}
           <ol className="list-none m-0 p-0">
             <Step1QuestionInput status={status(0)} />
