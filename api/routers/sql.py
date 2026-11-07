@@ -14,6 +14,7 @@ if str(ROOT / "src") not in sys.path:
 
 from api.deps import get_guardrail_config, get_models, get_schema_brief
 from api.models import (
+    FilterState,
     GenerateSqlRequest,
     GenerateSqlResponse,
     ValidateSqlRequest,
@@ -22,108 +23,20 @@ from api.models import (
 from whyline.engines import bigquery_engine
 from whyline.llm import adapt_sql_for_engine, build_prompt, call_provider
 from whyline.logs import prompt_cache
+from whyline.prebuilt import (
+    PREBUILT,
+    build_prebuilt_sql,
+    clean_filters,
+    date_predicate,
+    route_predicate,
+    stop_predicate,
+    weather_predicate,
+)
 from whyline.sql_guardrails import SqlValidationError, sanitize_sql
-
-# Prebuilt queries — identical to app/components/prebuilt_questions.py::PREBUILT
-PREBUILT: list[tuple[str, str]] = [
-    (
-        "Worst 10 routes (last 30 days)",
-        "SELECT route_id, AVG(pct_on_time) AS avg_pct_on_time\n"
-        "FROM mart_reliability_by_route_day\n"
-        "WHERE service_date_mst >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)\n"
-        "  AND data_version IS NOT NULL\n"
-        "GROUP BY route_id\n"
-        "ORDER BY avg_pct_on_time ASC\n"
-        "LIMIT 10",
-    ),
-    (
-        "Stops with highest crash exposure",
-        "SELECT stop_id, crash_250m_cnt\n"
-        "FROM mart_crash_proximity_by_stop\n"
-        "ORDER BY crash_250m_cnt DESC\n"
-        "LIMIT 20",
-    ),
-    (
-        "Where snow hurts reliability most",
-        "SELECT route_id,\n"
-        "  COALESCE(data_version, 'sampled') AS method,\n"
-        "  AVG(CASE WHEN snow_day THEN pct_on_time END)\n"
-        "    - AVG(CASE WHEN NOT snow_day THEN pct_on_time END) AS delta_pct_on_time,\n"
-        "  AVG(CASE WHEN snow_day THEN pct_on_time END) AS pct_on_time_snow_days,\n"
-        "  AVG(CASE WHEN NOT snow_day THEN pct_on_time END) AS pct_on_time_other_days,\n"
-        "  SUM(CASE WHEN snow_day THEN 1 ELSE 0 END) AS n_snow_days\n"
-        "FROM mart_reliability_by_route_day\n"
-        "WHERE service_date_mst >= DATE_SUB(CURRENT_DATE, INTERVAL 365 DAY)\n"
-        "GROUP BY route_id, method\n"
-        "HAVING SUM(CASE WHEN snow_day THEN 1 ELSE 0 END) >= 3\n"
-        "ORDER BY delta_pct_on_time ASC\n"
-        "LIMIT 10",
-    ),
-    (
-        "Equity gaps (high vulnerability, low reliability)",
-        "SELECT stop_id, vuln_score_0_100, reliability_score_0_100, priority_score\n"
-        "FROM mart_priority_hotspots\n"
-        "WHERE reliability_score_0_100 IS NOT NULL\n"
-        "ORDER BY priority_score DESC\n"
-        "LIMIT 20",
-    ),
-    (
-        "How often do routes run, and which run every 15 minutes all day?",
-        "SELECT route_id, route_name, direction_id, day_type, headway_midday_min,\n"
-        "  headway_evening_min, first_departure, last_departure, is_frequent_day, is_frequent_route\n"
-        "FROM mart_frequent_network_by_route\n"
-        "WHERE direction_id = 0\n"
-        "ORDER BY is_frequent_route DESC, day_type, headway_midday_min\n"
-        "LIMIT 60",
-    ),
-    (
-        "Which routes have the least reliable arrival predictions?",
-        "SELECT route_id,\n"
-        "  SUM(n_predictions) AS n_predictions_30d,\n"
-        "  SUM(pct_within_band * n_predictions) / SUM(n_predictions) AS pct_accurate,\n"
-        "  AVG(median_error_sec) AS avg_median_error_sec,\n"
-        "  AVG(padding_sec) AS avg_padding_sec\n"
-        "FROM mart_prediction_accuracy_by_route_day\n"
-        "WHERE horizon_bucket = '6-12'\n"
-        "  AND service_date_mst >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)\n"
-        "GROUP BY route_id\n"
-        "HAVING SUM(n_predictions) >= 200\n"
-        "ORDER BY pct_accurate ASC\n"
-        "LIMIT 10",
-    ),
-    (
-        "Which routes missed the most scheduled trips last week?",
-        "SELECT route_id,\n"
-        "  SUM(n_observable) AS n_trips_observable,\n"
-        "  ROUND(SUM(pct_missed_likely * n_observable)) AS n_missed_likely,\n"
-        "  SUM(pct_missed_likely * n_observable) / SUM(n_observable) AS share_missed_likely\n"
-        "FROM mart_service_delivered_by_route_day\n"
-        "WHERE service_date_mst >= DATE_SUB(CURRENT_DATE, INTERVAL 7 DAY)\n"
-        "  AND service_date_mst < CURRENT_DATE\n"
-        "  AND pct_missed_likely IS NOT NULL\n"
-        "GROUP BY route_id\n"
-        "HAVING SUM(n_observable) >= 50\n"
-        "ORDER BY share_missed_likely DESC\n"
-        "LIMIT 10",
-    ),
-    (
-        "Where are the slowest bus segments at rush hour?",
-        "SELECT s.route_id, s.direction_id, s.from_stop_name, s.to_stop_name, s.hour_mst,\n"
-        "  s.p50_speed_kmh, s.delay_ratio, s.n_traversals, s.lat, s.lon\n"
-        "FROM mart_segment_speed_by_hour s\n"
-        "JOIN mart_gtfs_routes r USING(route_id)\n"
-        "WHERE r.route_type = '3'\n"
-        "  AND s.day_type = 'weekday'\n"
-        "  AND s.hour_mst IN (7, 8, 16, 17)\n"
-        "  AND s.n_traversals >= 20\n"
-        "ORDER BY s.p50_speed_kmh ASC\n"
-        "LIMIT 20",
-    ),
-]
 
 
 def _add_filter_clauses(sql: str, filters) -> str:
-    """Inject WHERE clauses — mirrors app/utils/sql_filters.py::add_filter_clauses."""
+    """Inject filter-rail WHERE clauses into generated SQL; values are validated first."""
     import re
 
     def inject(s: str, column: str, condition: str) -> str:
@@ -145,27 +58,15 @@ def _add_filter_clauses(sql: str, filters) -> str:
         return f"{s[:pos]}\nWHERE {condition}\n{s[pos:]}"
 
     lower = sql.lower()
-    start = filters.start_date
-    end = filters.end_date
-    if start and end and "service_date_mst" in lower:
-        sql = inject(
-            sql, "service_date_mst", f"service_date_mst BETWEEN DATE '{start}' AND DATE '{end}'"
-        )
-
-    routes = filters.routes or []
-    if routes and "route_id" in lower:
-        formatted = ", ".join(f"'{r}'" for r in routes)
-        sql = inject(sql, "route_id", f"route_id IN ({formatted})")
-
-    stop_id = (filters.stop_id or "").strip()
-    if stop_id and "stop_id" in lower:
-        safe = stop_id.replace("'", "''").upper()
-        sql = inject(sql, "stop_id", f"stop_id = '{safe}'")
-
-    weather = filters.weather or []
-    if weather and "precip_bin" in lower:
-        formatted = ", ".join(f"'{b}'" for b in weather)
-        sql = inject(sql, "precip_bin", f"precip_bin IN ({formatted})")
+    f = clean_filters(filters.model_dump())
+    if f.start_date and "service_date_mst" in lower:
+        sql = inject(sql, "service_date_mst", date_predicate(f))
+    if f.routes and "route_id" in lower:
+        sql = inject(sql, "route_id", route_predicate(f))
+    if f.stop_id and "stop_id" in lower:
+        sql = inject(sql, "stop_id", stop_predicate(f))
+    if f.weather and "precip_bin" in lower:
+        sql = inject(sql, "precip_bin", weather_predicate(f))
 
     return sql
 
@@ -257,43 +158,48 @@ def validate_sql(req: ValidateSqlRequest) -> ValidateSqlResponse:
 
 
 @router.post("/sql/prebuilt/{index}", response_model=GenerateSqlResponse)
-def prebuilt_sql(index: int) -> GenerateSqlResponse:
+def prebuilt_sql(index: int, filters: FilterState | None = None) -> GenerateSqlResponse:
     """
-    Return a pre-validated prebuilt query by its position in PREBUILT.
-    Accepts engine via query parameter.
+    Return a ready-made question's SQL with the filters it supports, unvalidated and unadapted.
     """
     if index < 0 or index >= len(PREBUILT):
         raise HTTPException(
             status_code=404, detail=f"Prebuilt index {index} not found (0–{len(PREBUILT) - 1})"
         )
-    label, sql = PREBUILT[index]
+    built = build_prebuilt_sql(index, filters.model_dump() if filters else None)
     return GenerateSqlResponse(
-        sql=sql,
-        explanation=f"Prebuilt query: {label}",
+        sql=built.sql,
+        explanation=PREBUILT[index].explanation,
+        applied_filters=built.applied,
+        skipped_filters=built.skipped,
     )
 
 
 @router.post("/sql/prebuilt/{index}/for/{engine_name}", response_model=GenerateSqlResponse)
-def prebuilt_sql_for_engine(index: int, engine_name: str) -> GenerateSqlResponse:
+def prebuilt_sql_for_engine(
+    index: int, engine_name: str, filters: FilterState | None = None
+) -> GenerateSqlResponse:
     """
-    Return a prebuilt query validated and adapted for the given engine.
+    Return a ready-made question with the filters it supports, validated and adapted for the engine.
     """
     if engine_name not in ("duckdb", "bigquery"):
         raise HTTPException(status_code=400, detail="engine must be 'duckdb' or 'bigquery'")
     if index < 0 or index >= len(PREBUILT):
         raise HTTPException(status_code=404, detail=f"Prebuilt index {index} not found")
 
-    label, sql = PREBUILT[index]
+    built = build_prebuilt_sql(index, filters.model_dump() if filters else None)
     models = get_models()
     guardrail_config = get_guardrail_config(engine_name)
 
     try:
-        sanitized = sanitize_sql(sql, guardrail_config)
+        sanitized = sanitize_sql(built.sql, guardrail_config)
         sanitized = adapt_sql_for_engine(sanitized, engine_name, models)
     except SqlValidationError as exc:
         return GenerateSqlResponse(sql="", explanation="", error=str(exc))
 
     return GenerateSqlResponse(
         sql=sanitized,
-        explanation=f"Prebuilt query: {label}",
+        explanation=PREBUILT[index].explanation,
+        applied_filters=built.applied,
+        skipped_filters=built.skipped,
     )

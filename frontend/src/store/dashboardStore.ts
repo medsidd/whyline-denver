@@ -5,7 +5,10 @@
 
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { FilterState, RunQueryResponse } from "@/types/api";
+import type { FilterName, FilterState, RunQueryResponse } from "@/types/api";
+
+/** How a ready-made question used the filter rail; null for other SQL or an older API. */
+export type PrebuiltFilterUse = { applied: FilterName[]; skipped: FilterName[] } | null;
 
 interface DashboardState {
   // ─── Sidebar ───────────────────────────────────────────────────────────
@@ -24,6 +27,9 @@ interface DashboardState {
   bqEstBytes: number | null;
   /** Ready-made question whose SQL is loaded unedited; null otherwise. */
   prebuiltIndex: number | null;
+  prebuiltFilters: PrebuiltFilterUse;
+  /** Counts loads of new SQL, so the editor re-checks even when the text is unchanged. */
+  generation: number;
 
   // ─── Step 3: Results ──────────────────────────────────────────────────
   queryResult: RunQueryResponse | null;
@@ -39,7 +45,8 @@ interface DashboardState {
     sql: string,
     explanation: string,
     cacheHit: boolean,
-    prebuiltIndex?: number | null
+    prebuiltIndex?: number | null,
+    prebuiltFilters?: PrebuiltFilterUse
   ) => void;
 
   /** Called as user types in the SQL editor */
@@ -86,6 +93,8 @@ export const useDashboardStore = create<DashboardState>()(
   sqlCacheHit: false,
   bqEstBytes: null,
   prebuiltIndex: null,
+  prebuiltFilters: null,
+  generation: 0,
   queryResult: null,
   runError: null,
 
@@ -95,10 +104,12 @@ export const useDashboardStore = create<DashboardState>()(
 
   setQuestion: (question) => set({ question }),
 
-  setSqlFromGeneration: (sql, explanation, cacheHit, prebuiltIndex = null) =>
-    set({
+  setSqlFromGeneration: (sql, explanation, cacheHit, prebuiltIndex = null, prebuiltFilters = null) =>
+    set((s) => ({
+      generation: s.generation + 1,
       generatedSql: sql,
       prebuiltIndex,
+      prebuiltFilters,
       editedSql: sql,
       sanitizedSql: sql,
       explanation,
@@ -108,7 +119,7 @@ export const useDashboardStore = create<DashboardState>()(
       // Clear previous results when new SQL is generated
       queryResult: null,
       runError: null,
-    }),
+    })),
 
   setEditedSql: (sql) =>
     set((s) => ({ editedSql: sql, prebuiltIndex: sql === s.generatedSql ? s.prebuiltIndex : null })),
@@ -132,6 +143,7 @@ export const useDashboardStore = create<DashboardState>()(
       sqlCacheHit: false,
       bqEstBytes: null,
       prebuiltIndex: null,
+      prebuiltFilters: null,
       queryResult: null,
       runError: null,
     }),

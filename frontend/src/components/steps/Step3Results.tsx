@@ -6,7 +6,7 @@ import { track } from "@vercel/analytics";
 import dynamic from "next/dynamic";
 import { runQuery, triggerDownload } from "@/lib/api";
 import { useDashboardStore } from "@/store/dashboardStore";
-import { barColumns, detectChartType, detectMapData } from "@/lib/chartLogic";
+import { barColumns, detectChartType, detectMapData, hourColumns, labelOf } from "@/lib/chartLogic";
 import { columnLabel } from "@/lib/format";
 import { StepShell, type StepStatus } from "@/components/steps/StepShell";
 import { DataTable } from "@/components/ui/DataTable";
@@ -36,8 +36,15 @@ export function Step3Results({ status }: { status: StepStatus }) {
   // A new result opens on its best view (chart, then map, then table).
   useEffect(() => setPicked(null), [queryResult]);
 
+  // The SQL that produced the current result: the chart prefers its ORDER BY column.
+  const [resultSql, setResultSql] = useState("");
+
   const mutation = useMutation({
-    mutationFn: () => runQuery(sanitizedSql ?? editedSql, question, prebuiltIndex),
+    mutationFn: () => {
+      const sql = sanitizedSql ?? editedSql;
+      setResultSql(sql);
+      return runQuery(sql, question, prebuiltIndex);
+    },
     onSuccess: (data) => {
       setQueryResult(data.error ? null : data, data.error ?? null);
       track("question_run", { source: prebuiltIndex === null ? "own" : "ready_made", prebuilt: prebuiltIndex, ok: !data.error });
@@ -49,7 +56,10 @@ export function Step3Results({ status }: { status: StepStatus }) {
 
   const canRun = !!generatedSql && !sqlError;
 
-  const chartType = useMemo(() => (queryResult ? detectChartType(queryResult.columns) : "none"), [queryResult]);
+  const chartType = useMemo(
+    () => (queryResult ? detectChartType(queryResult.columns, resultSql, queryResult.data[0]) : "none"),
+    [queryResult, resultSql]
+  );
   const hasMap = useMemo(() => (queryResult ? detectMapData(queryResult.columns) : false), [queryResult]);
 
   const views: View[] = [
@@ -151,7 +161,7 @@ export function Step3Results({ status }: { status: StepStatus }) {
           </div>
 
           <div id="wl-result-panel" role={views.length > 1 ? "tabpanel" : undefined} aria-labelledby={views.length > 1 ? `wl-tab-${view}` : undefined} className="p-2 sm:p-3">
-            {view === "chart" && <ChartRenderer chartType={chartType} data={result.data} />}
+            {view === "chart" && <ChartRenderer chartType={chartType} data={result.data} sql={resultSql} />}
             {view === "map" && (
               <>
                 {result.total_rows > 1000 && (
@@ -174,9 +184,11 @@ export function Step3Results({ status }: { status: StepStatus }) {
 function ChartRenderer({
   chartType,
   data,
+  sql,
 }: {
   chartType: string;
   data: Record<string, unknown>[];
+  sql: string;
 }) {
   switch (chartType) {
     case "time_series": {
@@ -196,15 +208,33 @@ function ChartRenderer({
       return <WeatherSmallMultiples data={data} title="On-time share by weather" />;
     case "heatmap":
       return <StopHourHeatmap data={data} title="On-time share by stop and hour, first 15 stops" />;
-    case "generic_bar": {
-      const cols = barColumns(Object.keys(data[0] ?? {}));
+    case "hour_bar": {
+      const cols = hourColumns(Object.keys(data[0] ?? {}), sql, data[0]);
       if (!cols) return null;
+      const byHour = [...data].sort((a, b) => Number(a[cols.hour]) - Number(b[cols.hour]));
+      return (
+        <RouteBarChart
+          data={byHour}
+          xKey={cols.hour}
+          yKey={cols.metric}
+          title={`${columnLabel(cols.metric)} by hour of day`}
+        />
+      );
+    }
+    case "generic_bar": {
+      const columns = Object.keys(data[0] ?? {});
+      const cols = barColumns(columns, sql, data[0]);
+      if (!cols) return null;
+      const segments = cols.category === "from_stop_name";
+      const by = segments ? "segment" : columnLabel(cols.category).toLowerCase().replace(/ name$/, "");
       return (
         <RouteBarChart
           data={data}
           xKey={cols.category}
           yKey={cols.metric}
-          title={`${columnLabel(cols.metric)} by ${columnLabel(cols.category).toLowerCase()}`}
+          orientation="horizontal"
+          labelOf={labelOf(columns, cols.category)}
+          title={`${columnLabel(cols.metric)} by ${by}`}
         />
       );
     }

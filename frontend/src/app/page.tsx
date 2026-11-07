@@ -397,7 +397,7 @@ export default async function LandingPage() {
                   Read-only check passed
                 </span>
               </figcaption>
-              {/* Same SQL as the first prebuilt query in api/routers/sql.py */}
+              {/* The first ready-made question in src/whyline/prebuilt.py, with no dates set */}
               <pre className="mx-2.5 mb-2.5 mt-0 p-5 rounded-3xl bg-wl-navy-deep overflow-x-auto text-sm leading-[1.75] text-[#E6EEF5]" style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" }}>
                 <code>
                   <K>SELECT</K> route_id, <K>AVG</K>(pct_on_time) <K>AS</K> avg_pct_on_time{"\n"}

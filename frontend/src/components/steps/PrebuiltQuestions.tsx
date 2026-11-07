@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { fetchPrebuilt } from "@/lib/api";
 import { useDashboardStore } from "@/store/dashboardStore";
@@ -19,23 +20,41 @@ const CHIP_COLORS = [
 ];
 
 /**
- * Ready-made questions. Clicking one fetches validated SQL and loads it into
- * the editor directly, without calling the language model.
+ * Ready-made questions. Clicking one fetches validated SQL, narrowed by the
+ * filter rail, and loads it into the editor directly, without calling the
+ * language model. While it is loaded unedited, changing a filter reloads it.
  */
 export function PrebuiltQuestions() {
-  const { setQuestion, setSqlFromGeneration } = useDashboardStore();
+  const { filters, prebuiltIndex, generatedSql, editedSql, setQuestion, setSqlFromGeneration } = useDashboardStore();
 
   const mutation = useMutation({
     mutationFn: async ({ index }: { index: number; label: string }) => {
-      const data = await fetchPrebuilt(index);
+      const data = await fetchPrebuilt(index, useDashboardStore.getState().filters);
       if (data.error) throw new Error(data.error);
       return data;
     },
     onSuccess: (data, { index, label }) => {
       setQuestion(label);
-      setSqlFromGeneration(data.sql, data.explanation, false, index);
+      const use = data.applied_filters && data.skipped_filters ? { applied: data.applied_filters, skipped: data.skipped_filters } : null;
+      setSqlFromGeneration(data.sql, data.explanation, false, index, use);
     },
   });
+
+  // Reloading is free: building the SQL makes no BigQuery call.
+  const filtersKey = JSON.stringify(filters);
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    if (prebuiltIndex === null || editedSql !== generatedSql) return;
+    const q = PREBUILT_QUERIES.find((p) => p.index === prebuiltIndex);
+    if (!q) return;
+    const t = setTimeout(() => mutation.mutate({ index: q.index, label: q.label }), 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersKey]);
 
   return (
     <div className="mt-5">

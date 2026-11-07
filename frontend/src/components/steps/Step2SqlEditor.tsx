@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import CodeMirror from "@uiw/react-codemirror";
 import { sql as sqlLang } from "@codemirror/lang-sql";
@@ -8,20 +8,9 @@ import { EditorView } from "@codemirror/view";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 import { validateSql } from "@/lib/api";
+import { filterUseNote, humanBytes } from "@/lib/format";
 import { useDashboardStore } from "@/store/dashboardStore";
 import { StepShell, type StepStatus } from "@/components/steps/StepShell";
-
-/** Human-readable bytes — mirrors display.py::human_readable_bytes */
-function humanBytes(value: number | null): string {
-  if (value === null) return "unknown";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let size = value;
-  for (const unit of units) {
-    if (size < 1024 || unit === "TB") return `${size.toFixed(2)} ${unit}`;
-    size /= 1024;
-  }
-  return `${size.toFixed(2)} TB`;
-}
 
 const MAX_BYTES_BILLED = 2_000_000_000; // 2 GB default
 
@@ -71,19 +60,25 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
     explanation,
     sqlError,
     bqEstBytes,
+    prebuiltFilters,
+    generation,
     setEditedSql,
     setValidation,
   } = useDashboardStore();
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The SQL the last finished check was for; anything else is still unchecked.
+  const [checkedSql, setCheckedSql] = useState<string | null>(null);
 
   const validateMutation = useMutation({
     mutationFn: (s: string) => validateSql(s),
-    onSuccess: (data) => {
+    onSuccess: (data, s) => {
       setValidation(data.sanitized_sql, data.bq_est_bytes, data.error);
+      setCheckedSql(s);
     },
-    onError: (err) => {
+    onError: (err, s) => {
       setValidation(null, null, String(err));
+      setCheckedSql(s);
     },
   });
 
@@ -99,13 +94,13 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
     []
   );
 
-  // Validate SQL restored from the last visit, so the scan estimate shows
+  // Validate new SQL (generated, ready-made, or restored from the last visit), so the scan estimate shows
   useEffect(() => {
     if (editedSql) {
       validateMutation.mutate(editedSql);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [generation]);
 
   if (!generatedSql) {
     return (
@@ -117,7 +112,9 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
     );
   }
 
-  const checkPill = validateMutation.isPending ? (
+  const checking = validateMutation.isPending || checkedSql !== editedSql;
+  const edited = editedSql !== generatedSql;
+  const checkPill = checking ? (
     <span className={`${pill} bg-wl-navy-tint text-wl-ink2`}>Checking…</span>
   ) : sqlError ? (
     <span className={`${pill} bg-wl-red-tint text-[#A80F12]`}>Can’t run yet</span>
@@ -134,10 +131,22 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
     <StepShell n={2} title="Check the SQL" status={status} aside={<span aria-live="polite">{checkPill}</span>}>
       <div className="wl-enter bg-white rounded-[28px] p-2 wl-shadow">
         {explanation && (
-          <p className="m-0 px-4 pt-3 pb-4 text-[16px] font-semibold text-wl-ink2 max-w-[72ch]">
-            <strong className="font-black text-wl-navy">What it does: </strong>
-            {explanation}
-          </p>
+          <div className="px-4 pt-3 pb-4 max-w-[72ch]">
+            <p className="m-0 text-[16px] font-semibold text-wl-ink2">
+              <strong className="font-black text-wl-navy">What it does: </strong>
+              {explanation}
+            </p>
+            {edited ? (
+              <p className="mt-1.5 mb-0 text-[14px] font-bold text-wl-navy">
+                You’ve edited the SQL, so this description may not match it.
+              </p>
+            ) : (
+              prebuiltFilters &&
+              filterUseNote(prebuiltFilters) && (
+                <p className="mt-1.5 mb-0 text-[14px] font-bold text-wl-teal">{filterUseNote(prebuiltFilters)}</p>
+              )
+            )}
+          </div>
         )}
         <CodeMirror
           value={editedSql}
@@ -163,7 +172,7 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
         </div>
       </div>
 
-      {sqlError && !validateMutation.isPending && (
+      {sqlError && !checking && (
         <p role="alert" className="mt-3 px-4 py-3 rounded-2xl bg-wl-red-tint text-[15px] font-bold text-wl-navy">
           {sqlError}
         </p>

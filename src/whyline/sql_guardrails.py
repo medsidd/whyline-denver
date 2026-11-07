@@ -104,7 +104,12 @@ def _ensure_read_only(sql: str) -> None:
         if "SELECT" not in upper_sql:
             raise SqlValidationError("CTE detected without a SELECT statement.")
     elif not upper_sql.startswith("SELECT"):
-        raise SqlValidationError("Only SELECT statements are allowed.")
+        first = stripped.split(None, 1)[0][:20]
+        if first.upper() in DENYLIST_KEYWORDS:
+            raise SqlValidationError("Only SELECT statements are allowed.")
+        raise SqlValidationError(
+            f"SQL must start with SELECT or WITH. Check the first word ('{first}')."
+        )
     for keyword in DENYLIST_KEYWORDS:
         pattern = rf"\b{keyword}\b"
         if re.search(pattern, upper_sql):

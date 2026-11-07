@@ -69,8 +69,9 @@ export function validateSql(sql: string): Promise<ValidateSqlResponse> {
   return post("/api/sql/validate", { sql, engine: ENGINE });
 }
 
-export function fetchPrebuilt(index: number): Promise<GenerateSqlResponse> {
-  return post(`/api/sql/prebuilt/${index}/for/${ENGINE}`, {});
+/** A ready-made question's SQL, narrowed by the filters it supports. */
+export function fetchPrebuilt(index: number, filters: FilterState): Promise<GenerateSqlResponse> {
+  return post(`/api/sql/prebuilt/${index}/for/${ENGINE}`, filters);
 }
 
 // ─── Query ────────────────────────────────────────────────────────────────
@@ -82,16 +83,19 @@ export function runQuery(sql: string, question: string, prebuiltIndex: number | 
 
 // ─── Downloads ────────────────────────────────────────────────────────────
 
+export class DownloadError extends Error {
+  constructor(public status: number) {
+    super(`Download failed (${status})`);
+  }
+}
+
 export async function downloadMartCsv(req: Omit<MartDownloadRequest, "engine">): Promise<Blob> {
   const res = await fetch("/api/downloads/mart", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...req, engine: ENGINE }),
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Mart download failed (${res.status}): ${text}`);
-  }
+  if (!res.ok) throw new DownloadError(res.status);
   return res.blob();
 }
 

@@ -22,7 +22,7 @@ Missing weather stays unknown and is excluded from weather comparisons. Late obs
 
 Enter a question or load a ready-made query. With Gemini configured, your question, filters, and schema information are sent to the provider to generate SQL. The SQL is shown before execution and checked on the server. You can edit it; check that the intended date, route, and weather conditions appear in the query.
 
-Ready-made questions avoid AI generation. They cover route reliability, crash exposure, snow days, equity gaps, scheduled frequency, arrival-prediction accuracy, missed trips and slow bus segments. Reliability questions read only stop-visit dates (from October 29, 2026), because on-time was counted differently before; the snow question compares within each method instead.
+Ready-made questions avoid AI generation. They cover route reliability, crash exposure, snow days, equity gaps, scheduled frequency, arrival-prediction accuracy, missed trips and slow bus segments. Each one uses the filters that fit it (for example your dates and routes for the worst-routes question, the stop ID for crash exposure) and says which ones it didn't use. Reliability questions read only stop-visit dates (from October 29, 2026), because on-time was counted differently before; the snow question compares within each method instead.
 
 ## 5. Interpret and export
 

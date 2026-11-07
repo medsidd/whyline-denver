@@ -11,7 +11,7 @@ make test-ingest
 make lint
 ```
 
-`pyproject.toml` selects `tests/`. Current areas include ingestion contracts/manifests and NOAA behavior, SQL guardrails and route/weather regression tests, LLM handling, dbt artifact parsing, export/refresh logic, the DuckDB engine's local copy (reopen on refresh, failed reopen, failed copy, unreadable source), a package smoke test, and documentation exporter success/failure checks. Read the actual test files before claiming coverage of an entire subsystem.
+`pyproject.toml` selects `tests/`. Current areas include ingestion contracts/manifests and NOAA behavior, SQL guardrails and route/weather regression tests, ready-made question templates and filter validation (`tests/sql/test_prebuilt.py`), LLM handling, dbt artifact parsing, export/refresh logic, the DuckDB engine's local copy (reopen on refresh, failed reopen, failed copy, unreadable source), a package smoke test, and documentation exporter success/failure checks. Read the actual test files before claiming coverage of an entire subsystem.
 
 Artifact tests parse the current dbt project into temporary output using explicit dummy project/dataset settings and a small catalog fixture. They do not query BigQuery or depend on the checked-in manifest. `make test` is simply `pytest`; it no longer runs `dbt-artifacts`. Credentials are unnecessary for this suite.
 
@@ -21,14 +21,15 @@ The suite must never reach Google Cloud, even when `.env` and application-defaul
 
 ## Coverage gaps and frontend checks
 
-There is no `api/tests/` or `tests/api/` suite in this checkout. `make api-test` currently points at the absent former directory. Do not describe it as a passing API test suite.
+There is no `api/tests/` or `tests/api/` suite in this checkout. `make api-test` currently points at the absent former directory. Do not describe it as a passing API test suite. One guardrail test imports `api.routers.sql` to check generated-SQL filter escaping; it skips when FastAPI isn't installed, as in CI, which installs the root requirements only. Install `api/requirements.txt` locally to run it.
 
-The frontend declares Playwright and maps `npm test` / `make frontend-test` to it, but no specs or Playwright configuration are checked in. Jest/React Testing Library are not configured. Available frontend checks include:
+`npm test` / `make frontend-test` run Playwright with `frontend/playwright.config.ts`. The only spec, `tests/chartLogic.spec.ts`, tests pure functions (`barColumns`, `hourColumns`, `labelOf`, `columnLabel`, `humanBytes`, `filterUseNote`) and needs no browser or server. Jest/React Testing Library are not configured. Available frontend checks include:
 
 ```bash
 make frontend-build
 cd frontend
 npm run lint
+npm test
 ```
 
 A build type-checks and compiles; it does not prove the full browser workflow. For manual verification, exercise generation/prebuilt SQL, editing/validation, engine switching, results, map rendering, and both export controls. Use a local DuckDB warehouse and stub LLM to avoid cloud query/provider charges when appropriate.

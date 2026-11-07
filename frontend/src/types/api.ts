@@ -51,11 +51,16 @@ export interface GenerateSqlRequest {
   filters: FilterState;
 }
 
+export type FilterName = "dates" | "routes" | "stop" | "weather";
+
 export interface GenerateSqlResponse {
   sql: string;
   explanation: string;
   cache_hit: boolean;
   error: string | null;
+  /** Ready-made questions: filters applied to the SQL, and those set but not taken or invalid. Optional so an older API still parses. */
+  applied_filters?: FilterName[];
+  skipped_filters?: FilterName[];
 }
 
 // ─── SQL Validation ───────────────────────────────────────────────────────
@@ -115,7 +120,7 @@ export interface HealthResponse {
   engine_default: string;
 }
 
-// ─── Prebuilt queries (front-end only) ────────────────────────────────────
+// ─── Prebuilt queries: labels mirror PREBUILT in src/whyline/prebuilt.py ──
 
 export interface PrebuiltQuery {
   label: string;
@@ -123,12 +128,12 @@ export interface PrebuiltQuery {
 }
 
 export const PREBUILT_QUERIES: PrebuiltQuery[] = [
-  { label: "Worst 10 routes (last 30 days)", index: 0 },
+  { label: "Worst 10 routes by on-time share", index: 0 },
   { label: "Stops with highest crash exposure", index: 1 },
   { label: "Where snow hurts reliability most", index: 2 },
   { label: "Equity gaps (high vulnerability, low reliability)", index: 3 },
   { label: "How often do routes run, and which run every 15 minutes all day?", index: 4 },
   { label: "Which routes have the least reliable arrival predictions?", index: 5 },
-  { label: "Which routes missed the most scheduled trips last week?", index: 6 },
+  { label: "Which routes missed the most scheduled trips?", index: 6 },
   { label: "Where are the slowest bus segments at rush hour?", index: 7 },
 ];
