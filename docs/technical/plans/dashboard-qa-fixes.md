@@ -1,6 +1,6 @@
 # Dashboard QA fixes
 
-**Status:** active. PR 1 ([#124](https://github.com/medsidd/whyline-denver/pull/124)) and PR 2 ([#126](https://github.com/medsidd/whyline-denver/pull/126)) merged and verified on production; PR 2's API image awaits the owner's deploy. PR 3 in review; its firewall rule and apex redirect are owner steps.
+**Status:** code complete. PRs 1–3 ([#124](https://github.com/medsidd/whyline-denver/pull/124), [#126](https://github.com/medsidd/whyline-denver/pull/126), [#127](https://github.com/medsidd/whyline-denver/pull/127)) are merged and verified on production. Owner steps remain: deploy PR 2's API image, stage and publish the Vercel rate-limit rules, set the apex redirect to 308 ([operations](../OPERATIONS.md)).
 
 ## Why
 
