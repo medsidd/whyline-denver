@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useEffect, useRef, useCallback, useMemo, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import CodeMirror from "@uiw/react-codemirror";
 import { sql as sqlLang } from "@codemirror/lang-sql";
 import { EditorView } from "@codemirror/view";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
-import { validateSql } from "@/lib/api";
+import { fetchModels, validateSql } from "@/lib/api";
 import { filterUseNote, humanBytes } from "@/lib/format";
 import { useDashboardStore } from "@/store/dashboardStore";
 import { StepShell, type StepStatus } from "@/components/steps/StepShell";
@@ -34,6 +34,9 @@ const navyTheme = EditorView.theme(
     "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": { backgroundColor: "rgba(127,208,230,0.25)" },
     ".cm-tooltip": { backgroundColor: "#042F54", border: "none", borderRadius: "12px", overflow: "hidden" },
     ".cm-tooltip-autocomplete ul li[aria-selected]": { backgroundColor: "#0D657F", color: "#FFFFFF" },
+    ".cm-tooltip-autocomplete ul li": { padding: "2px 10px" },
+    ".cm-completionIcon": { display: "none" },
+    ".cm-completionDetail": { color: "#8FA6BC", fontStyle: "normal", marginLeft: "8px" },
   },
   { dark: true }
 );
@@ -67,6 +70,13 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
   } = useDashboardStore();
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Autocomplete the approved tables and their columns, not just SQL keywords.
+  const { data: modelData } = useQuery({ queryKey: ["models"], queryFn: fetchModels, staleTime: 60 * 60 * 1000 });
+  const extensions = useMemo(() => {
+    const schema = Object.fromEntries((modelData?.models ?? []).map((m) => [m.name, Object.keys(m.columns)]));
+    return [sqlLang({ schema, upperCaseKeywords: true }), navyHighlight, EditorView.lineWrapping];
+  }, [modelData]);
   // The SQL the last finished check was for; anything else is still unchecked.
   const [checkedSql, setCheckedSql] = useState<string | null>(null);
 
@@ -155,7 +165,7 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
         <CodeMirror
           value={editedSql}
           aria-label="SQL query"
-          extensions={[sqlLang(), navyHighlight, EditorView.lineWrapping]}
+          extensions={extensions}
           theme={navyTheme}
           onChange={handleChange}
           basicSetup={{

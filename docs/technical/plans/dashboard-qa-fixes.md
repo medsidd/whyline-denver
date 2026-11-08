@@ -1,6 +1,6 @@
 # Dashboard QA fixes
 
-**Status:** active. PR 1 in review; PRs 2 and 3 not started.
+**Status:** active. PR 1 merged ([#124](https://github.com/medsidd/whyline-denver/pull/124)), its API deployed by the owner on November 7, 2026 and verified on production. PR 2 in review; PR 3 not started.
 
 ## Why
 
@@ -35,6 +35,21 @@ Code review found two SQL-injection paths: route and weather filter values were 
 - **Ready-made questions:** each has a label, an explanation, a template, a default date window and the filters it supports (table in [API reference](../API_REFERENCE.md#prebuilt-sql)). The endpoints take an optional `FilterState` body and return `applied_filters` and `skipped_filters`. Two labels lost their fixed window ("Worst 10 routes by on-time share", "Which routes missed the most scheduled trips?"). The prediction question's count column is `total_predictions`, not `n_predictions`: BigQuery resolved `HAVING SUM(n_predictions)` to the alias and rejected it as an aggregate of an aggregate. The crash and equity questions now also return `stop_name`, `lat` and `lon`, and equity returns `crash_score_0_100`.
 - **Charts:** the bar metric is the first `ORDER BY` column when numeric. Ranked results are horizontal bars (25 rows, 28 px each, a 180 px label axis that truncates with a hover title). Segment labels read "17:00 A → B", because a segment can rank at several hours. A metric by hour gets vertical bars sorted by hour.
 - **Compatibility:** the frontend deploys on merge but the API needs a new image. Until then the dashboard sends filters the old API ignores, shows no filter note (the fields are optional), and shows the old explanations.
+
+## PR 2 as built
+
+- **Waiting:** a live line under the question form ("Writing SQL… usually 10–20 seconds.", then seconds after 5); a skeleton in place of the result while a query runs.
+- **Landing chips** link to `/app?prebuilt=N` and load that ready-made question without an AI call. The first chip is relabelled "Worst 10 routes by on-time share" to match.
+- **Map:** mounts once measured and fits its points (40 px padding, zoom ≤ 14); a dot-size key under it; full screen locks page scroll and the button reads "Exit full screen". Full screen had never covered the page: the results card's entry animation kept an identity transform (`animation-fill-mode: both`), which traps `position: fixed`. It is now `backwards`.
+- **Table:** readable headers ("Stop ID", "Vulnerability score (0–100)") with the raw name on hover; sorting with `aria-sort`; name columns moved next to their IDs.
+- **Trends:** today's Denver date is left out of line charts and weather small multiples, with a note.
+- **CSV names:** `whylinedenver_<question>_<date>.csv`; whole-table downloads add the date range.
+- **Whole-table downloads:** "Use the dates from Filters", on by default, for the seven marts with a service date; the API returns them newest first.
+- **Autocomplete:** approved tables and columns from `/api/models`, upper-case keywords, no emoji icons.
+- **Dates:** "Nov 7, 5:05 PM MST" in the header and landing page, "Oct 23, 2025 to Nov 7, 2026" in the rail. The rail's default dates now follow Denver's calendar; they used the UTC date, a day ahead every evening.
+- **Copy:** the rail's "Weather" is "Precipitation", and filter notes say "precipitation".
+- **LLM prompt:** with dates set, the model is told the server adds the date range.
+- **Dependency:** `@deck.gl/core` (already installed through `deck.gl`, same 9.2.9) is now declared, for `WebMercatorViewport`.
 
 ## Verification
 

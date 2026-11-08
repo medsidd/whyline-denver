@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { track } from "@vercel/analytics";
 import { DownloadError, downloadMartCsv, triggerDownload } from "@/lib/api";
+import { denverDate, readableDate } from "@/lib/format";
+import { useDashboardStore } from "@/store/dashboardStore";
 
 const MART_OPTIONS = [
   { value: "mart_reliability_by_route_day", label: "Reliability by route and day" },
@@ -24,6 +26,17 @@ const MART_OPTIONS = [
   { value: "mart_segment_speed_by_hour", label: "Speed between stops by hour" },
   { value: "mart_trip_runtime_by_route_day", label: "Trip run time by route and day" },
 ];
+
+// Marts with a service date (DATED_MARTS in api/routers/downloads.py): filterable by date, newest rows first.
+const DATED_MARTS = new Set([
+  "mart_reliability_by_route_day",
+  "mart_reliability_by_stop_hour",
+  "mart_prediction_accuracy_by_route_day",
+  "mart_crowding_by_route_hour",
+  "mart_service_delivered_by_route_day",
+  "mart_wait_by_route_day",
+  "mart_trip_runtime_by_route_day",
+]);
 
 const label = "block text-sm font-extrabold text-wl-navy mb-1.5";
 const outlineBtn =
@@ -51,6 +64,10 @@ function downloadErrorMessage(err: unknown): string {
 export function DownloadPanel() {
   const [mart, setMart] = useState(MART_OPTIONS[0].value);
   const [limitRows, setLimitRows] = useState(200_000);
+  const [useDates, setUseDates] = useState(true);
+  const { start_date, end_date } = useDashboardStore((s) => s.filters);
+  const dated = DATED_MARTS.has(mart);
+  const datesOn = dated && useDates && !!start_date && !!end_date;
   const limitOk = Number.isInteger(limitRows) && limitRows >= MIN_ROWS && limitRows <= MAX_ROWS;
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -63,11 +80,12 @@ export function DownloadPanel() {
       const blob = await downloadMartCsv({
         mart,
         limit_rows: limitRows,
-        date_column: null,
-        date_start: null,
-        date_end: null,
+        date_column: datesOn ? "service_date_mst" : null,
+        date_start: datesOn ? start_date : null,
+        date_end: datesOn ? end_date : null,
       });
-      triggerDownload(blob, `${mart}_${new Date().toISOString().slice(0, 10)}.csv`);
+      const range = datesOn ? `_${start_date}_to_${end_date}` : "";
+      triggerDownload(blob, `${mart}${range}_${denverDate()}.csv`);
       track("download", { mart });
       setStatus("done");
     } catch (err) {
@@ -117,6 +135,23 @@ export function DownloadPanel() {
             )}
           </label>
         </div>
+        {dated ? (
+          <label className="mt-3 flex items-start gap-2.5 text-[14px] font-bold text-wl-navy">
+            <input
+              type="checkbox"
+              checked={useDates}
+              onChange={(e) => setUseDates(e.target.checked)}
+              className="mt-1 w-4 h-4 accent-[#0D657F]"
+            />
+            <span>
+              Use the dates from Filters
+              {start_date && end_date ? ` (${readableDate(start_date)} to ${readableDate(end_date)})` : ""}
+              <span className="block text-[13px] font-semibold text-wl-ink2">Newest rows first, up to the row limit.</span>
+            </span>
+          </label>
+        ) : (
+          <p className="mt-3 mb-0 text-[13px] font-semibold text-wl-ink2">This table has no dates, so the whole table downloads, up to the row limit.</p>
+        )}
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <button type="button" onClick={handleMartDownload} disabled={status === "loading" || !limitOk} className={`${outlineBtn} disabled:opacity-50 disabled:cursor-not-allowed`}>
             <DownloadIcon />

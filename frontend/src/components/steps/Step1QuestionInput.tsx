@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { generateSql } from "@/lib/api";
 import { useDashboardStore } from "@/store/dashboardStore";
@@ -47,6 +47,16 @@ export function Step1QuestionInput({ status }: { status: StepStatus }) {
       useDashboardStore.setState({ sqlError: String(err) });
     },
   });
+
+  // Seconds spent writing SQL, shown after 5 s so a long wait doesn't look stuck.
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!mutation.isPending) return;
+    const start = Date.now();
+    setElapsed(0);
+    const t = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(t);
+  }, [mutation.isPending]);
 
   const handleGenerate = () => {
     if (!question.trim()) {
@@ -106,6 +116,10 @@ export function Step1QuestionInput({ status }: { status: StepStatus }) {
           </button>
         </div>
       </form>
+
+      <p aria-live="polite" className="mt-2 mb-0 min-h-[20px] px-4 text-[13px] font-bold text-wl-ink2">
+        {mutation.isPending && `Writing SQL… usually 10–20 seconds.${elapsed >= 5 ? ` ${elapsed} s so far.` : ""}`}
+      </p>
 
       {sqlError && !generatedSql && (
         <p role="alert" className="mt-3 px-4 py-3 rounded-2xl bg-wl-red-tint text-[15px] font-bold text-wl-navy">

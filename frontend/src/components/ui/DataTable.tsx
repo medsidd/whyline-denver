@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { formatValue } from "@/lib/format";
+import { useEffect, useMemo, useState } from "react";
+import { columnLabel, formatValue, orderColumns } from "@/lib/format";
 
 interface Props {
   columns: string[];
@@ -16,12 +16,48 @@ const PAGE_SIZE = 50;
 const pageBtn =
   "h-10 px-4 rounded-full bg-wl-canvas text-sm font-extrabold text-wl-navy hover:bg-wl-navy-tint disabled:opacity-40 disabled:hover:bg-wl-canvas";
 
-/** Paginated result table; numeric columns are right-aligned. */
-export function DataTable({ columns, data, totalRows, maxDisplayRows = 10_000 }: Props) {
+type Sort = { col: string; dir: "ascending" | "descending" } | null;
+
+/** Order of values for sorting: numbers numerically, everything else as text with numeric runs ("2" < "10"). */
+function compare(a: unknown, b: unknown): number {
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  return String(a).localeCompare(String(b), "en", { numeric: true });
+}
+
+/**
+ * Paginated result table; numeric columns are right-aligned. Headers read as words (the raw
+ * name is in the tooltip) and sort ascending, descending, then back to the query's order.
+ * Name columns sit next to their IDs.
+ */
+export function DataTable({ columns: rawColumns, data, totalRows, maxDisplayRows = 10_000 }: Props) {
+  const columns = useMemo(() => orderColumns(rawColumns), [rawColumns]);
   const [page, setPage] = useState(0);
+  const [sort, setSort] = useState<Sort>(null);
+  useEffect(() => {
+    setSort(null);
+    setPage(0);
+  }, [data]);
+  const sorted = useMemo(() => {
+    if (!sort) return data;
+    const sign = sort.dir === "ascending" ? 1 : -1;
+    // Empty values stay last whichever way the column sorts.
+    return [...data].sort((a, b) => {
+      const ea = a[sort.col] == null || a[sort.col] === "";
+      const eb = b[sort.col] == null || b[sort.col] === "";
+      if (ea || eb) return Number(ea) - Number(eb);
+      return sign * compare(a[sort.col], b[sort.col]);
+    });
+  }, [data, sort]);
   const pageCount = Math.ceil(data.length / PAGE_SIZE);
-  const pageData = data.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const pageData = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const numeric = new Set(columns.filter((c) => typeof data.find((r) => r[c] != null)?.[c] === "number"));
+
+  const cycleSort = (col: string) => {
+    setPage(0);
+    setSort((s) =>
+      s?.col !== col ? { col, dir: "ascending" } : s.dir === "ascending" ? { col, dir: "descending" } : null
+    );
+  };
 
   return (
     <div className="w-full">
@@ -39,9 +75,20 @@ export function DataTable({ columns, data, totalRows, maxDisplayRows = 10_000 }:
                 <th
                   key={col}
                   scope="col"
-                  className={`px-4 py-3 font-black text-wl-navy whitespace-nowrap border-b-2 border-wl-rule ${numeric.has(col) ? "text-right" : "text-left"}`}
+                  aria-sort={sort?.col === col ? sort.dir : undefined}
+                  className={`p-0 font-black text-wl-navy whitespace-nowrap border-b-2 border-wl-rule ${numeric.has(col) ? "text-right" : "text-left"}`}
                 >
-                  {col}
+                  <button
+                    type="button"
+                    title={col}
+                    onClick={() => cycleSort(col)}
+                    className={`w-full px-4 py-3 inline-flex items-center gap-1.5 font-black hover:bg-wl-navy-tint ${numeric.has(col) ? "justify-end" : ""}`}
+                  >
+                    {col.toLowerCase().endsWith("_id") ? `${columnLabel(col)} ID` : columnLabel(col) || col}
+                    <span aria-hidden="true" className={`text-[11px] ${sort?.col === col ? "text-wl-navy" : "text-wl-ink2/40"}`}>
+                      {sort?.col === col ? (sort.dir === "ascending" ? "▲" : "▼") : "↕"}
+                    </span>
+                  </button>
                 </th>
               ))}
             </tr>

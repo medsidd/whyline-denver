@@ -39,3 +39,14 @@ def test_adapt_sql_bigquery_leaves_already_qualified_tables_alone() -> None:
     }
     result = adapt_sql_for_engine(sql, "bigquery", models)
     assert result == sql
+
+
+def test_prompt_leaves_dates_to_the_server_when_given() -> None:
+    from whyline.llm import build_prompt
+
+    with_dates = build_prompt("q", {"start_date": "2026-11-01", "end_date": "2026-11-07"}, "")
+    assert "Do not write any date range on service_date_mst" in with_dates
+    assert "30-90 days" not in with_dates
+
+    without = build_prompt("q", {"start_date": None, "end_date": None}, "")
+    assert "30-90 days" in without and "Do not write any date range" not in without

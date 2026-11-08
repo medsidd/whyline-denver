@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import { runQuery, triggerDownload } from "@/lib/api";
 import { useDashboardStore } from "@/store/dashboardStore";
 import { barColumns, detectChartType, detectMapData, hourColumns, labelOf } from "@/lib/chartLogic";
-import { columnLabel } from "@/lib/format";
+import { columnLabel, denverDate, resultFilename } from "@/lib/format";
 import { StepShell, type StepStatus } from "@/components/steps/StepShell";
 import { DataTable } from "@/components/ui/DataTable";
 import { RouteBarChart } from "@/components/viz/RouteBarChart";
@@ -81,10 +81,11 @@ export function Step3Results({ status }: { status: StepStatus }) {
     );
     const csv = [header, ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
-    triggerDownload(blob, "whylinedenver_results.csv");
+    triggerDownload(blob, resultFilename(question, denverDate()));
   };
 
-  const result = queryResult && !queryResult.error ? queryResult : null;
+  // While a query runs, the skeleton replaces the previous result.
+  const result = queryResult && !queryResult.error && !mutation.isPending ? queryResult : null;
   const isEmpty = result?.total_rows === 0;
 
   return (
@@ -117,6 +118,21 @@ export function Step3Results({ status }: { status: StepStatus }) {
         <p role="alert" className="mt-4 px-4 py-3 rounded-2xl bg-wl-red-tint text-[15px] font-bold text-wl-navy">
           The query didn’t run: {runError}
         </p>
+      )}
+
+      {mutation.isPending && (
+        <div role="status" aria-busy="true" className="mt-4 bg-white rounded-[28px] p-4 wl-shadow">
+          <span className="sr-only">Running the query…</span>
+          <div aria-hidden="true" className="animate-pulse motion-reduce:animate-none">
+            <div className="h-10 w-56 rounded-full bg-wl-canvas" />
+            <div className="mt-5 h-5 w-64 rounded-full bg-wl-canvas" />
+            <div className="mt-4 grid gap-2.5">
+              {[92, 80, 74, 66, 58, 50].map((w) => (
+                <div key={w} className="h-6 rounded-r-full bg-wl-navy-tint" style={{ width: `${w}%` }} />
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       {result && isEmpty && (

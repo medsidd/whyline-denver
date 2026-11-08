@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchFilters } from "@/lib/api";
 import { defaultFilters, useDashboardStore } from "@/store/dashboardStore";
 import { useFreshness } from "@/components/layout/Header";
+import { readableDate } from "@/lib/format";
 
 // Daily precipitation bins (precip_bin), driest first.
 const WEATHER_LABELS: Record<string, string> = { none: "Dry", light: "Light", mod: "Moderate", heavy: "Heavy", unknown: "Unknown" };
@@ -83,7 +84,7 @@ export function Sidebar() {
         <p className="m-0 text-[13px] font-semibold text-wl-ink2">
           These filters are added to the SQL WhyLine writes for your question.
           {/* The header shows this from md up */}
-          {/^\d{4}-/.test(freshness) && <span className="md:hidden"> Data updated {freshness}.</span>}
+          {/\d:\d\d/.test(freshness) && <span className="md:hidden"> Data updated {freshness}.</span>}
         </p>
 
         {/* Dates */}
@@ -115,13 +116,13 @@ export function Sidebar() {
           </div>
           {outOfRange ? (
             <p role="status" className="mt-2 px-3 py-2.5 rounded-2xl bg-wl-gold-tint text-[13px] font-bold text-wl-navy">
-              These dates have no data. Data runs from {min} to {max}.{" "}
+              These dates have no data. Data runs from {readableDate(min)} to {readableDate(max)}.{" "}
               <button type="button" onClick={pickLatestWeek} className="underline font-extrabold">
                 Use the latest week
               </button>
             </p>
           ) : (
-            min && max && <p className={hint}>Data runs from {min} to {max}.</p>
+            min && max && <p className={hint}>Data runs from {readableDate(min)} to {readableDate(max)}.</p>
           )}
         </fieldset>
 
@@ -205,7 +206,7 @@ export function Sidebar() {
 
         {/* Weather */}
         <fieldset>
-          <legend className={label}>Weather</legend>
+          <legend className={label}>Precipitation</legend>
           <div className="flex flex-wrap gap-1.5">
             {[...(filterData?.weather_bins ?? WEATHER_ORDER)].sort(byWeather).map((bin) => {
               const on = filters.weather.includes(bin);
@@ -226,7 +227,7 @@ export function Sidebar() {
               );
             })}
           </div>
-          {filters.weather.length === 0 && <p className={hint}>Any weather</p>}
+          {filters.weather.length === 0 && <p className={hint}>Any amount</p>}
         </fieldset>
 
         <button

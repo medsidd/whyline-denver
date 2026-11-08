@@ -52,6 +52,18 @@ export function PrebuiltQuestions() {
   });
   const load = (index: number, label: string, reload = false) => mutation.mutate({ index, label, reload, seq: ++latest.current });
 
+  // Landing page chips open /app?prebuilt=N: load that question (no AI call, nothing runs), then drop the parameter.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const raw = url.searchParams.get("prebuilt");
+    if (raw === null) return;
+    url.searchParams.delete("prebuilt");
+    window.history.replaceState(null, "", url);
+    const q = PREBUILT_QUERIES.find((p) => String(p.index) === raw);
+    if (q) load(q.index, q.label);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Reloading is free: building the SQL makes no BigQuery call.
   const filtersKey = JSON.stringify(filters);
   const firstRender = useRef(true);

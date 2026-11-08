@@ -6,6 +6,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { FilterName, FilterState, RunQueryResponse } from "@/types/api";
+import { denverDate } from "@/lib/format";
 
 /** How a ready-made question used the filter rail; null for other SQL or an older API. */
 export type PrebuiltFilterUse = { applied: FilterName[]; skipped: FilterName[] } | null;
@@ -66,13 +67,14 @@ interface DashboardState {
   resetForNewQuestion: () => void;
 }
 
+/** The last seven days and today, by Denver's calendar (UTC was a day ahead every evening). */
 export function defaultFilters(): FilterState {
-  const today = new Date();
-  const sevenDaysAgo = new Date(today);
-  sevenDaysAgo.setDate(today.getDate() - 7);
+  const today = denverDate();
+  const start = new Date(`${today}T00:00:00Z`);
+  start.setUTCDate(start.getUTCDate() - 7);
   return {
-    start_date: sevenDaysAgo.toISOString().split("T")[0],
-    end_date: today.toISOString().split("T")[0],
+    start_date: start.toISOString().slice(0, 10),
+    end_date: today,
     routes: [],
     stop_id: "",
     weather: [],
