@@ -20,25 +20,30 @@ const BASE = "";  // relative to current origin, rewrites handle the proxy
 /** The dashboard queries BigQuery only; the API still accepts an engine per request. */
 const ENGINE: Engine = "bigquery";
 
+export const TOO_MANY = "Too many requests. Wait a minute and try again.";
+
+/** The rate limit (a Vercel firewall rule) answers 429; anything else keeps the API's status and text. */
+async function failure(path: string, res: Response): Promise<Error> {
+  if (res.status === 429) return new Error(TOO_MANY);
+  return new Error(`API ${path} failed (${res.status}): ${await res.text()}`);
+}
+
+/** An error as a sentence, without the "Error: " prefix String() adds. */
+export const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`API ${path} failed (${res.status}): ${text}`);
-  }
+  if (!res.ok) throw await failure(path, res);
   return res.json() as Promise<T>;
 }
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { cache: "no-store" });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`API ${path} failed (${res.status}): ${text}`);
-  }
+  if (!res.ok) throw await failure(path, res);
   return res.json() as Promise<T>;
 }
 

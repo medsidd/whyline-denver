@@ -650,6 +650,39 @@ gcloud run services update whylinedenver-api --project=whyline-denver --region=u
 - The whole-table download of route-day reliability with the rail's dates returned 935 rows, newest first.
 - About 12 BigQuery queries, each under 50 MB.
 
+### PR 2 on production, PR 3 checks and owner steps, November 8, 2026 (UTC)
+
+**PR 2 after merge ([#126](https://github.com/medsidd/whyline-denver/pull/126)).** Headless Chrome on whylinedenver.com, with the PR 1 API still serving: the equity chip loaded its question without generation or run calls; header "Nov 7, 5:36 PM MST"; skeleton, CSV name, map fit and key, full screen at 390 px with scroll locked, table sort, today note, autocomplete and the dated whole-table download (935 rows) all worked, with no console errors. One Gemini call (the waiting-line check) and about 12 BigQuery queries, each under 50 MB.
+
+**API image for PR 2, built, not deployed:** Cloud Build `7912c4a4`, tag `8e88f87`, `whylinedenver-api@sha256:04c8dd11af6ecada36f93ac8fb2428b2d60c4f10cae90f197d2edf53b846eb14`. It adds newest-first whole-table downloads and the prompt's exact date predicate. Rollback: `@sha256:a35af41f…` (PR 1).
+
+```bash
+gcloud run services update whylinedenver-api --project=whyline-denver --region=us-central1 \
+  --image=us-central1-docker.pkg.dev/whyline-denver/api-service/whylinedenver-api@sha256:04c8dd11af6ecada36f93ac8fb2428b2d60c4f10cae90f197d2edf53b846eb14
+```
+
+**PR 3 before merge** (production build, local API): `robots.txt`, `sitemap.xml` and the canonical and `og:url` tags of all five pages were correct; an unknown path returned the branded 404 with status 404; axe found 0 violations on every page at 1280 and 390 px; the skip link moved focus to `main`; a mocked 429 showed the friendly message on run and download.
+
+**Owner step: rate limits (owner decision of November 7, 2026).** Install and link the Vercel CLI (`npm i -g vercel`, then `cd frontend && vercel link`). Stage both rules in log mode, review, then publish:
+
+```bash
+vercel firewall rules add "Rate limit SQL and queries" \
+  --condition '{"type":"path","op":"inc","value":["/api/sql/generate","/api/query/run"]}' \
+  --condition '{"type":"method","op":"eq","value":"POST"}' \
+  --action rate_limit --rate-limit-window 60 --rate-limit-requests 20 --rate-limit-keys ip \
+  --rate-limit-action log --yes
+vercel firewall rules add "Rate limit downloads" \
+  --condition '{"type":"path","op":"pre","value":"/api/downloads/"}' \
+  --action rate_limit --rate-limit-window 60 --rate-limit-requests 5 --rate-limit-keys ip \
+  --rate-limit-action log --yes
+vercel firewall diff
+vercel firewall publish --yes
+```
+
+After a few days of the firewall traffic view showing only heavy clients, remove each rule and add it again with `--rate-limit-action rate_limit` (a 429), then publish. Check by sending 21 quick `POST /api/query/run` requests: the 21st should get 429. Counters are per Vercel region, so a client spread across regions can exceed the limit. The rule only covers traffic through whylinedenver.com: the Cloud Run origin stays reachable directly, and restricting its ingress is a separate decision.
+
+**Owner step: apex redirect.** `https://whylinedenver.com/` answers 307 to `www`. In Vercel → Project → Settings → Domains, set the apex redirect to permanent (308).
+
 ### Query usage report
 
 From release R1 of the [metrics plan](plans/metrics-implementation.md), the first API image with WP0's change, every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:

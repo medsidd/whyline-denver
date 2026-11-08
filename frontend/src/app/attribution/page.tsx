@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage } from "@/components/landing/LegalPage";
+import { pageMetadata } from "@/lib/seo";
 import { CENSUS_NOTICE, GITHUB } from "@/lib/links";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Data Attribution | WhyLine Denver",
   description: "Sources, licenses and required notices for the data used by WhyLine Denver.",
-};
+  path: "/attribution",
+});
 
 export default function AttributionPage() {
   return (

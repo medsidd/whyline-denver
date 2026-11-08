@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { generateSql } from "@/lib/api";
+import { errorText, generateSql } from "@/lib/api";
 import { useDashboardStore } from "@/store/dashboardStore";
 import { PrebuiltQuestions } from "@/components/steps/PrebuiltQuestions";
 import { StepShell, type StepStatus } from "@/components/steps/StepShell";
@@ -44,7 +44,7 @@ export function Step1QuestionInput({ status }: { status: StepStatus }) {
       setSqlFromGeneration(data.sql, data.explanation, data.cache_hit);
     },
     onError: (err) => {
-      useDashboardStore.setState({ sqlError: String(err) });
+      useDashboardStore.setState({ sqlError: errorText(err) });
     },
   });
 

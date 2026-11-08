@@ -6,7 +6,9 @@
 
 | Path under `frontend/src/` | Purpose |
 |---|---|
-| `app/layout.tsx`, `providers.tsx` | Fonts, metadata, TanStack Query provider, Vercel Analytics and Speed Insights |
+| `app/layout.tsx`, `providers.tsx` | Fonts, `metadataBase` and site-wide metadata, TanStack Query provider, Vercel Analytics and Speed Insights |
+| `lib/seo.ts`, `app/robots.ts`, `app/sitemap.ts`, `app/app/layout.tsx` | `pageMetadata` gives each page its title, description, canonical URL and full link preview (Next.js replaces a parent's `openGraph` rather than merging it); robots allows everything but `/api/`; the sitemap lists the five public pages; the dashboard's metadata lives in its layout because the page is a client component |
+| `app/not-found.tsx`, `components/landing/SkipLink.tsx` | Branded 404 ("This page isn't on the map") in the legal-page shell; a "Skip to content" link, visible on focus, first on the landing, dashboard, legal and 404 pages, targeting `main#main` |
 | `components/layout/` | Header (glass nav, data freshness as "Nov 7, 5:05 PM MST") and Sidebar (filter rail, collapsible below `lg`; the weather filter is labelled "Precipitation") |
 | `components/steps/StepShell.tsx` | Numbered stop, connecting line and card for each step; status is done, current or upcoming |
 | `components/steps/Step1QuestionInput.tsx` | Natural-language question and generation request; renders the ready-made questions |
@@ -28,7 +30,9 @@ The Zustand store starts with the last seven days and today by Denver's calendar
 
 The route box reads "Loading routes…" until `/api/filters/bigquery` returns. A route entered before then is added once the list arrives; a route that isn't in the list gets an inline "No route called …" message. The whole-table download checks the row limit (1,000–2,000,000) before calling the API and shows API failures as plain sentences.
 
-The SQL editor autocompletes approved table and column names from `/api/models`, with SQL keywords in upper case.
+The SQL editor autocompletes approved table and column names from `/api/models`, with SQL keywords in upper case; its editable element carries `aria-label="SQL query"`.
+
+A 429 from any API call (the Vercel rate-limit rule) shows "Too many requests. Wait a minute and try again." Errors show their message without the `Error:` prefix.
 
 LocalStorage key `whyline-dashboard` (persist version 1; older saved state is discarded because it can hold DuckDB SQL) persists filters, question, generated SQL, edited SQL, explanation, and generation cache-hit state. Results, run errors, validation results, and byte estimates are not persisted. Closing a tab does not erase the persisted question/SQL. Persistence is per browser origin; no live cross-tab synchronization is implemented.
 

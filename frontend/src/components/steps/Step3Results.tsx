@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { track } from "@vercel/analytics";
 import dynamic from "next/dynamic";
-import { runQuery, triggerDownload } from "@/lib/api";
+import { errorText, runQuery, triggerDownload } from "@/lib/api";
 import { useDashboardStore } from "@/store/dashboardStore";
 import { barColumns, detectChartType, detectMapData, hourColumns, labelOf } from "@/lib/chartLogic";
 import { columnLabel, denverDate, orderColumns, resultFilename } from "@/lib/format";
@@ -50,7 +50,7 @@ export function Step3Results({ status }: { status: StepStatus }) {
       track("question_run", { source: prebuiltIndex === null ? "own" : "ready_made", prebuilt: prebuiltIndex, ok: !data.error });
     },
     onError: (err) => {
-      setQueryResult(null, String(err));
+      setQueryResult(null, errorText(err));
     },
   });
 

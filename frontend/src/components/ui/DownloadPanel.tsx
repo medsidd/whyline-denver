@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { track } from "@vercel/analytics";
-import { DownloadError, downloadMartCsv, triggerDownload } from "@/lib/api";
+import { DownloadError, TOO_MANY, downloadMartCsv, triggerDownload } from "@/lib/api";
 import { denverDate, readableDate } from "@/lib/format";
 import { useDashboardStore } from "@/store/dashboardStore";
 
@@ -55,7 +55,7 @@ const MAX_ROWS = 2_000_000;
 function downloadErrorMessage(err: unknown): string {
   const status = err instanceof DownloadError ? err.status : 0;
   if (status === 400 || status === 422) return "The server didn’t accept that request. Check the table and row limit.";
-  if (status === 429) return "Too many downloads. Wait a minute and try again.";
+  if (status === 429) return TOO_MANY;
   if (status >= 500) return "The server couldn’t build that file. Try again, or pick a smaller row limit.";
   return "The download didn’t start. Check your connection and try again.";
 }
