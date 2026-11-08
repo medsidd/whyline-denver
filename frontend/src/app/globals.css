@@ -18,6 +18,8 @@ html, body {
 html:has(.wl) { scroll-behavior: smooth; scroll-padding-top: 150px; }
 .wl :is(h1, h2, h3) { font-family: inherit; }
 .wl :focus-visible { outline: 3px solid #0D657F; outline-offset: 3px; }
+/* The skip link focuses main (tabIndex -1); outlining the whole page helps no one */
+.wl main:focus { outline: none; }
 
 .wl-nav {
   background: rgba(244, 248, 251, 0.82);

@@ -5,7 +5,7 @@ import { ScrollRoute } from "@/components/landing/ScrollRoute";
 import { SiteFooter } from "@/components/landing/SiteFooter";
 import { DOCS, GITHUB, GLOSSARY } from "@/lib/links";
 import { readableTimestamp } from "@/lib/format";
-import { pageMetadata } from "@/lib/seo";
+import { SITE, pageMetadata } from "@/lib/seo";
 import { SkipLink } from "@/components/landing/SkipLink";
 import type { FreshnessResponse } from "@/types/api";
 
@@ -139,8 +139,8 @@ const jsonLd = [
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "WhyLine Denver",
-    url: "https://www.whylinedenver.com",
-    logo: "https://www.whylinedenver.com/assets/logo-512.png",
+    url: SITE,
+    logo: `${SITE}/assets/logo-512.png`,
     description:
       "WhyLine Denver turns plain-English questions into Denver transit insights across reliability, delays, safety, weather, and equity.",
     sameAs: [GITHUB, DOCS],
@@ -158,7 +158,7 @@ const jsonLd = [
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "WhyLine Denver",
-    url: "https://www.whylinedenver.com/",
+    url: `${SITE}/`,
     inLanguage: "en-US",
   },
 ];
@@ -404,7 +404,7 @@ export default async function LandingPage() {
                 </span>
               </figcaption>
               {/* The first ready-made question in src/whyline/prebuilt.py, with no dates set */}
-              <pre tabIndex={0} aria-label="Example SQL: the worst 10 routes over the last 30 days" className="mx-2.5 mb-2.5 mt-0 p-5 rounded-3xl bg-wl-navy-deep overflow-x-auto text-sm leading-[1.75] text-[#E6EEF5]" style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" }}>
+              <pre tabIndex={0} role="region" aria-label="Example SQL: the worst 10 routes over the last 30 days" className="mx-2.5 mb-2.5 mt-0 p-5 rounded-3xl bg-wl-navy-deep overflow-x-auto text-sm leading-[1.75] text-[#E6EEF5]" style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" }}>
                 <code>
                   <K>SELECT</K> route_id, <K>AVG</K>(pct_on_time) <K>AS</K> avg_pct_on_time{"\n"}
                   <K>FROM</K> <span className="text-[#7FD0E6]">mart_reliability_by_route_day</span>{"\n"}

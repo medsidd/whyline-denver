@@ -32,7 +32,7 @@ The route box reads "Loading routes…" until `/api/filters/bigquery` returns. A
 
 The SQL editor autocompletes approved table and column names from `/api/models`, with SQL keywords in upper case; its editable element carries `aria-label="SQL query"`.
 
-A 429 from any API call (the Vercel rate-limit rule) shows "Too many requests. Wait a minute and try again." Errors show their message without the `Error:` prefix.
+A 429 (the Vercel rate-limit rule, or Cloud Run at its instance limit) shows "Too many requests. Wait a minute and try again." when writing SQL, checking it, running it or downloading a table. The ready-made questions and the route list keep their own fixed failure messages. Errors show their message without the `Error:` prefix.
 
 LocalStorage key `whyline-dashboard` (persist version 1; older saved state is discarded because it can hold DuckDB SQL) persists filters, question, generated SQL, edited SQL, explanation, and generation cache-hit state. Results, run errors, validation results, and byte estimates are not persisted. Closing a tab does not erase the persisted question/SQL. Persistence is per browser origin; no live cross-tab synchronization is implemented.
 

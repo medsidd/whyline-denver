@@ -170,7 +170,6 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
         )}
         <CodeMirror
           value={editedSql}
-          aria-label="SQL query"
           extensions={extensions}
           theme={navyTheme}
           onChange={handleChange}
