@@ -31,6 +31,16 @@ def build_schema_brief(models: Mapping[str, ModelInfo], *, max_columns: int | No
 def build_prompt(question: str, filters: Mapping[str, Any] | None, schema_brief: str) -> str:
     filters = filters or {}
     filters_serialized = json.dumps(filters, indent=2, sort_keys=True) if filters else "{}"
+    # A model-written window (e.g. the last 30 days) contradicted the user's dates, which the API
+    # also injects. Asking for exactly the injected predicate lets _add_filter_clauses skip its copy.
+    start, end = filters.get("start_date"), filters.get("end_date")
+    if start and end:
+        dates_rule = (
+            "- The user picked dates. On tables with service_date_mst, filter with exactly "
+            f"service_date_mst BETWEEN DATE '{start}' AND DATE '{end}' and no other date window.\n"
+        )
+    else:
+        dates_rule = "- Honor recency cues by filtering service_date_mst within 30-90 days when appropriate.\n"
     return (
         "You are a SQL generation assistant for the WhyLine Denver transit analytics platform.\n"
         "You may query ONLY these models:\n"
@@ -41,7 +51,8 @@ def build_prompt(question: str, filters: Mapping[str, Any] | None, schema_brief:
         "- 'explanation' must be 2-3 succinct sentences for non-technical transit stakeholders,\n"
         "  describing what insights the query surfaces and why it matters.\n"
         "- All FROM/JOIN sources must come from the allow-listed models; derive comparisons using CTEs or subqueries built on those tables.\n"
-        "- Keep results under 5,000 rows and honor recency cues by filtering service_date_mst within 30-90 days when appropriate.\n"
+        "- Keep results under 5,000 rows.\n"
+        f"{dates_rule}"
         "- Treat the user filters below as scalar values only—never reference them as tables or views.\n"
         "- Do not invent placeholder tables (e.g., filters, zero, baseline); name any CTEs you create based on the metrics being calculated.\n"
         "- When analyzing crash trends described as 'this month', 'recent', or 'last few days', default to window_days = 30 on mart_crash_proximity_by_stop and anchor comparisons on the latest as_of_date values.\n"

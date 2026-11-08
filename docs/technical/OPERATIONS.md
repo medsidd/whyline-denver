@@ -635,6 +635,21 @@ gcloud run services update whylinedenver-api --project=whyline-denver --region=u
   --image=us-central1-docker.pkg.dev/whyline-denver/api-service/whylinedenver-api@sha256:a35af41f53285e15d86512f0eeeb982cd24a8d6fcd420bf176447e9c4bf53e10
 ```
 
+### PR 1 verified on production, PR 2 checks, November 8, 2026 (UTC)
+
+**PR 1 after the owner's API deploy.** Revision `whylinedenver-api-00016-m4b` serves `@sha256:a35af41f…`.
+- `curl`: question 0 with route 15 and stop 12084 applied dates and routes and skipped the stop; a route value with a quote was dropped and reported; "SELEC" got the new message; an unlisted `date_column` returned 400; the second `/api/filters/bigquery` call took 0.15 s (9.1 s cold).
+- Headless Chrome on whylinedenver.com, route 15 and stop 12084 set: all 8 questions loaded with the expected filter note and an estimate before any edit, ran in 2.8–4.7 s, and charted (frequency has no chart by design). No console errors. About 10 BigQuery queries, each under 50 MB; no Gemini calls.
+- The DuckDB reopen from #123 is in this image; it is checked after the next Nightly DuckDB.
+
+**PR 2 before merge** (local API on BigQuery with the stub LLM, production build of the frontend):
+- The equity chip opened `/app?prebuilt=3`, loaded the question and called neither generation nor run.
+- The map fit its 20 points; full screen covered the page at 390 px and locked scroll; Escape restored it.
+- Table headers sorted ascending, descending and back; "Stop name" sat next to "Stop ID".
+- A trend ending today showed the note; autocomplete offered `mart_gtfs_routes` with no icons.
+- The whole-table download of route-day reliability with the rail's dates returned 935 rows, newest first.
+- About 12 BigQuery queries, each under 50 MB.
+
 ### Query usage report
 
 From release R1 of the [metrics plan](plans/metrics-implementation.md), the first API image with WP0's change, every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:

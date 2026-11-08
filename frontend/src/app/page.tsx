@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ScrollRoute } from "@/components/landing/ScrollRoute";
 import { SiteFooter } from "@/components/landing/SiteFooter";
 import { DOCS, GITHUB, GLOSSARY } from "@/lib/links";
+import { readableTimestamp } from "@/lib/format";
 import type { FreshnessResponse } from "@/types/api";
 
 export const metadata: Metadata = {
@@ -18,11 +19,12 @@ export const revalidate = 3600;
 
 const askHref = (q: string) => `/app?q=${encodeURIComponent(q)}`;
 
+// Ready-made questions (indices in PREBUILT_QUERIES): they load saved SQL, with no AI call.
 const CHIPS = [
-  { q: "Worst 10 routes, last 30 days", tint: "bg-wl-teal-tint", dot: "bg-wl-teal" },
-  { q: "Stops with the most crashes nearby", tint: "bg-wl-red-tint", dot: "bg-wl-red" },
-  { q: "Where snow hurts reliability most", tint: "bg-wl-gold-tint", dot: "bg-wl-gold" },
-  { q: "Equity gaps", tint: "bg-wl-navy-tint", dot: "bg-wl-navy" },
+  { q: "Worst 10 routes by on-time share", prebuilt: 0, tint: "bg-wl-teal-tint", dot: "bg-wl-teal" },
+  { q: "Stops with the most crashes nearby", prebuilt: 1, tint: "bg-wl-red-tint", dot: "bg-wl-red" },
+  { q: "Where snow hurts reliability most", prebuilt: 2, tint: "bg-wl-gold-tint", dot: "bg-wl-gold" },
+  { q: "Equity gaps", prebuilt: 3, tint: "bg-wl-navy-tint", dot: "bg-wl-navy" },
 ];
 
 const TOPICS = [
@@ -169,7 +171,7 @@ async function getSnapshot(): Promise<string | null> {
     });
     if (!res.ok) return null;
     const { bigquery_freshness } = (await res.json()) as FreshnessResponse;
-    return bigquery_freshness && bigquery_freshness !== "Unavailable" ? bigquery_freshness : null;
+    return bigquery_freshness && bigquery_freshness !== "Unavailable" ? readableTimestamp(bigquery_freshness) : null;
   } catch {
     return null;
   }
@@ -273,10 +275,10 @@ export default async function LandingPage() {
 
             <p className="mt-6 mb-0 text-sm font-bold text-wl-ink2">Or start with one of these</p>
             <div className="mt-2.5 flex flex-wrap items-center gap-2">
-              {CHIPS.map(({ q, tint, dot }) => (
+              {CHIPS.map(({ q, prebuilt, tint, dot }) => (
                 <Link
                   key={q}
-                  href={askHref(q)}
+                  href={`/app?prebuilt=${prebuilt}`}
                   className={`wl-chip inline-flex items-center gap-2 min-h-[44px] px-4 rounded-full ${tint} text-wl-navy text-sm font-extrabold`}
                 >
                   <span aria-hidden="true" className={`w-2.5 h-2.5 rounded-full ${dot}`} />

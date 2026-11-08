@@ -59,7 +59,7 @@ test("scan sizes use 1000-based units and filter notes read as sentences", () =>
   expect(humanBytes(2_000_000_000)).toBe("2 GB");
   expect(humanBytes(42_651_597)).toBe("42.65 MB");
   expect(filterUseNote({ applied: ["dates", "routes"], skipped: ["stop", "weather"] })).toBe(
-    "Uses your dates and routes. Your stop and weather filters aren’t used by this question."
+    "Uses your dates and routes. Your stop and precipitation filters aren’t used by this question."
   );
   expect(filterUseNote({ applied: [], skipped: ["dates"] })).toBe("Your dates filter isn’t used by this question.");
   expect(filterUseNote({ applied: ["routes"], skipped: ["routes"] })).toBe("Uses your routes. Some of your routes weren’t valid and were left out.");

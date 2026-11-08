@@ -109,7 +109,8 @@ textarea.wl-field { padding: 14px 16px; line-height: 1.5; resize: vertical; }
 /* A step's stop pops when it's reached; results slide in once */
 .wl-stopnum.is-done { animation: wl-pop-in .45s cubic-bezier(.34, 1.56, .64, 1); }
 @keyframes wl-pop-in { from { transform: scale(.6); } to { transform: scale(1); } }
-.wl-enter { animation: wl-rise-in .4s cubic-bezier(.22, 1, .36, 1) both; }
+/* backwards, not both: a kept end transform would trap the full-screen map (position: fixed) inside the card */
+.wl-enter { animation: wl-rise-in .4s cubic-bezier(.22, 1, .36, 1) backwards; }
 @keyframes wl-rise-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 .wl ::-webkit-scrollbar { width: 10px; height: 10px; }
 .wl ::-webkit-scrollbar-thumb { background: #C9D6E3; border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }

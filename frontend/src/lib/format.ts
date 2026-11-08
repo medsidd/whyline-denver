@@ -73,6 +73,9 @@ const joinWords = (w: string[]) => (w.length < 2 ? w.join("") : `${w.slice(0, -1
  * A filter in both lists had some invalid values left out.
  */
 export function filterUseNote(use: { applied: string[]; skipped: string[] }): string {
+  // The rail labels the weather filter "Precipitation".
+  const word = (f: string) => (f === "weather" ? "precipitation" : f);
+  use = { applied: use.applied.map(word), skipped: use.skipped.map(word) };
   const parts: string[] = [];
   const partial = use.skipped.filter((f) => use.applied.includes(f));
   const unused = use.skipped.filter((f) => !use.applied.includes(f));
@@ -80,4 +83,82 @@ export function filterUseNote(use: { applied: string[]; skipped: string[] }): st
   if (partial.length) parts.push(`Some of your ${joinWords(partial)} weren’t valid and were left out.`);
   if (unused.length) parts.push(`Your ${joinWords(unused)} ${unused.length === 1 ? "filter isn’t" : "filters aren’t"} used by this question.`);
   return parts.join(" ");
+}
+
+/** Today's date in Denver as YYYY-MM-DD. */
+const DENVER_DAY = new Intl.DateTimeFormat("en-US", { timeZone: "America/Denver", year: "numeric", month: "2-digit", day: "2-digit" });
+
+export function denverDate(d: Date = new Date()): string {
+  // formatToParts, not an en-CA string: locale data has changed that format before.
+  const p = Object.fromEntries(DENVER_DAY.formatToParts(d).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
+/** "whylinedenver_worst-10-routes-by-on-time-share_2026-11-07.csv"; the slug is cut to 40 characters. */
+export function resultFilename(question: string, date: string): string {
+  const slug = question
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .slice(0, 40)
+    .replace(/^-+|-+$/g, "");
+  return `whylinedenver_${slug || "results"}_${date}.csv`;
+}
+
+const DATE_FMT = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+
+/** "2026-11-07" -> "Nov 7, 2026" (a calendar date, so no time-zone shift). */
+export function readableDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  return isNaN(d.getTime()) ? iso : DATE_FMT.format(d);
+}
+
+const MT_PARTS = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Denver",
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  timeZoneName: "short",
+});
+
+/**
+ * API freshness strings to "Nov 7, 5:05 PM MST". Accepts "2026-11-07 17:05 MST" (already
+ * Denver time) and "2026-11-07 20:05 UTC"; anything else ("Loading…", "Unavailable") passes through.
+ */
+export function readableTimestamp(raw: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})\s*(MST|MDT|UTC)$/.exec(raw?.trim() ?? "");
+  if (!m) return raw;
+  const [, y, mo, d, h, mi, zone] = m;
+  if (zone === "UTC") {
+    const p = Object.fromEntries(MT_PARTS.formatToParts(new Date(`${y}-${mo}-${d}T${h}:${mi}Z`)).map((x) => [x.type, x.value]));
+    return `${p.month} ${p.day}, ${p.hour}:${p.minute} ${p.dayPeriod} ${p.timeZoneName}`;
+  }
+  const hour = Number(h);
+  const month = DATE_FMT.format(new Date(`${y}-${mo}-${d}T00:00:00Z`)).replace(/, \d{4}$/, "");
+  return `${month}, ${hour % 12 || 12}:${mi} ${hour < 12 ? "AM" : "PM"} ${zone}`;
+}
+
+const NAME_AFTER: Record<string, string[]> = {
+  stop_id: ["stop_name"],
+  route_id: ["route_name", "route_long_name"],
+  from_stop_id: ["from_stop_name"],
+  to_stop_id: ["to_stop_name"],
+};
+
+/** Moves name columns (which the API often appends at the end) next to their ID column. */
+export function orderColumns(columns: string[]): string[] {
+  const moved = new Set(
+    Object.entries(NAME_AFTER).flatMap(([id, names]) => (columns.includes(id) ? names.filter((n) => columns.includes(n)) : []))
+  );
+  return columns.flatMap((c) => {
+    if (moved.has(c)) return [];
+    return [c, ...(NAME_AFTER[c] ?? []).filter((n) => moved.has(n))];
+  });
+}
+
+/** Rows without today's Denver date in `dateKey`: today is still being collected, so a trend line would dip. */
+export function withoutToday<T extends Record<string, unknown>>(rows: T[], dateKey: string, today = denverDate()) {
+  const kept = rows.filter((r) => String(r[dateKey] ?? "").slice(0, 10) !== today);
+  // A result of only today keeps it: an empty chart would say less.
+  return kept.length && kept.length < rows.length ? { rows: kept, dropped: true } : { rows, dropped: false };
 }

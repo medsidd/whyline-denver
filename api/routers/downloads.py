@@ -75,19 +75,9 @@ def _build_filename(mart: str, engine: str, date_filter: tuple | None) -> str:
     return f"{mart}_{engine}{suffix}_{ts}.csv"
 
 
-@router.post("/downloads/mart")
-def download_mart(req: MartDownloadRequest) -> StreamingResponse:
-    """Build a guarded SELECT * FROM {mart} and return as a streaming CSV."""
-    if req.mart not in ALLOWED_MARTS:
-        raise HTTPException(status_code=400, detail=f"Mart '{req.mart}' is not in the allow list")
-
-    models = get_models()
-    guardrail_config = get_guardrail_config(req.engine)
-    engine_module = duckdb_engine if req.engine == "duckdb" else bigquery_engine
-
-    # Build SQL — mirrors _prepare_mart_download in results_viewer.py
+def _build_download_sql(req: MartDownloadRequest) -> tuple[str, tuple | None]:
+    """SELECT * for the mart, within validated dates and newest first when it has a service date."""
     sql = f"SELECT * FROM {req.mart}"
-    conditions: list[str] = []
     date_filter: tuple | None = None
     if req.date_column and req.date_start and req.date_end:
         if req.mart not in DATED_MARTS or req.date_column != "service_date_mst":
@@ -101,11 +91,28 @@ def download_mart(req: MartDownloadRequest) -> StreamingResponse:
             raise HTTPException(status_code=400, detail="Dates must be YYYY-MM-DD")
         if start > end:
             raise HTTPException(status_code=400, detail="date_start must be on or before date_end")
-        conditions.append(f"{req.date_column} BETWEEN DATE '{start}' AND DATE '{end}'")
+        sql += f" WHERE {req.date_column} BETWEEN DATE '{start}' AND DATE '{end}'"
         date_filter = (req.date_column, start, end)
-    if conditions:
-        sql += " WHERE " + " AND ".join(conditions)
-    sql += f" LIMIT {int(req.limit_rows)}"
+    if req.mart in DATED_MARTS:
+        # The BigQuery guardrail wants a WHERE wherever service_date_mst appears.
+        if date_filter is None:
+            sql += " WHERE service_date_mst IS NOT NULL"
+        # Without an order the limit kept arbitrary rows; keep the newest.
+        sql += " ORDER BY service_date_mst DESC"
+    return f"{sql} LIMIT {int(req.limit_rows)}", date_filter
+
+
+@router.post("/downloads/mart")
+def download_mart(req: MartDownloadRequest) -> StreamingResponse:
+    """Build a guarded SELECT * FROM {mart} and return as a streaming CSV."""
+    if req.mart not in ALLOWED_MARTS:
+        raise HTTPException(status_code=400, detail=f"Mart '{req.mart}' is not in the allow list")
+
+    models = get_models()
+    guardrail_config = get_guardrail_config(req.engine)
+    engine_module = duckdb_engine if req.engine == "duckdb" else bigquery_engine
+
+    sql, date_filter = _build_download_sql(req)
 
     try:
         sanitized = sanitize_sql(sql, guardrail_config)

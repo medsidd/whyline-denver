@@ -7,14 +7,14 @@
 | Path under `frontend/src/` | Purpose |
 |---|---|
 | `app/layout.tsx`, `providers.tsx` | Fonts, metadata, TanStack Query provider, Vercel Analytics and Speed Insights |
-| `components/layout/` | Header (glass nav, data freshness) and Sidebar (filter rail, collapsible below `lg`) |
+| `components/layout/` | Header (glass nav, data freshness as "Nov 7, 5:05 PM MST") and Sidebar (filter rail, collapsible below `lg`; the weather filter is labelled "Precipitation") |
 | `components/steps/StepShell.tsx` | Numbered stop, connecting line and card for each step; status is done, current or upcoming |
 | `components/steps/Step1QuestionInput.tsx` | Natural-language question and generation request; renders the ready-made questions |
 | `components/steps/PrebuiltQuestions.tsx` | Eight ready-made question chips (BigQuery SQL from the API, narrowed by the filter rail; the list is `PREBUILT_QUERIES` in `types/api.ts`), colored by the landing page topic each belongs to. While one is loaded unedited, a filter change reloads it after 400 ms; results stay when the SQL comes back the same, and only the newest response is used |
 | `components/steps/Step2SqlEditor.tsx` | CodeMirror SQL editing (navy theme), validation on load and debounced while typing, BigQuery estimate, which filters a ready-made question used, and a note when edited SQL may not match the description |
 | `components/steps/Step3Results.tsx` | Execution, Chart/Map/Table tabs, result CSV |
-| `components/ui/` | DataTable, DownloadPanel (whole-table downloads below the steps) |
-| `components/viz/` | TimeSeriesChart, RouteBarChart, WeatherSmallMultiples, StopMap |
+| `components/ui/` | DataTable (readable headers with the raw name on hover, click to sort ascending → descending → query order with `aria-sort`, name columns moved next to their IDs) and DownloadPanel (whole-table downloads below the steps) |
+| `components/viz/` | TimeSeriesChart and WeatherSmallMultiples (both leave out today's Denver date, which is still being collected, and say so), RouteBarChart, StopMap (fits its points, dot-size key, full screen locks page scroll) |
 | `store/dashboardStore.ts` | Multi-step state and selected localStorage persistence |
 | `lib/api.ts`, `types/api.ts` | HTTP clients and TypeScript mirrors of API models |
 | `lib/chartLogic.ts`, `tokens.ts` | Column-based visualization selection (the detector and the bar chart pick columns with the same `barColumns`/`hourColumns`; `labelOf` builds bar labels) and design tokens |
@@ -22,11 +22,13 @@
 
 ## State and workflow
 
-The dashboard queries BigQuery only: `lib/api.ts` sends `engine: "bigquery"` on every request, and the UI has no engine switch or DuckDB download. The API still accepts `duckdb`. Generation sends question, engine, and filters to `/api/sql/generate`. On success, SQL/explanation populate the editor and prior results clear. Prebuilt cards bypass the LLM and call `/api/sql/prebuilt/{index}/for/bigquery` with the rail's filters; Step 2 then says which filters the question used ("Uses your dates and routes. Your stop filter isn't used by this question."). New SQL is validated as soon as it loads, so the scan estimate shows before any edit, and the pill reads "Checking…" until the check for the current text returns; checks for older text are dropped. Editing validates after a 500 ms debounce and clears the stored sanitized SQL, so Run sends the visible text (the API re-checks it). Execution sends SQL to `/api/query/run`, which validates again server-side.
+The dashboard queries BigQuery only: `lib/api.ts` sends `engine: "bigquery"` on every request, and the UI has no engine switch or DuckDB download. The API still accepts `duckdb`. Generation sends question, engine, and filters to `/api/sql/generate`. While it waits (usually 10–20 seconds with Gemini), a live line under the form says so and counts seconds after 5. On success, SQL/explanation populate the editor and prior results clear. While a query runs, a skeleton replaces the previous result. The landing page's four question chips link to `/app?prebuilt=N`, which loads that ready-made question (no AI call, nothing runs) and drops the parameter; topic examples still use `?q=`, which only fills the question box. Prebuilt cards bypass the LLM and call `/api/sql/prebuilt/{index}/for/bigquery` with the rail's filters; Step 2 then says which filters the question used ("Uses your dates and routes. Your stop filter isn't used by this question."). New SQL is validated as soon as it loads, so the scan estimate shows before any edit, and the pill reads "Checking…" until the check for the current text returns; checks for older text are dropped. Editing validates after a 500 ms debounce and clears the stored sanitized SQL, so Run sends the visible text (the API re-checks it). Execution sends SQL to `/api/query/run`, which validates again server-side.
 
-The Zustand store starts with a seven-day date range. Filter updates merge into state. They reload an unedited ready-made question but do not rewrite generated or edited SQL. Inspect the query after changing filters.
+The Zustand store starts with the last seven days and today by Denver's calendar (before November 8, 2026 it used the UTC date, a day ahead every evening). Filter updates merge into state. They reload an unedited ready-made question but do not rewrite generated or edited SQL. Inspect the query after changing filters.
 
 The route box reads "Loading routes…" until `/api/filters/bigquery` returns. A route entered before then is added once the list arrives; a route that isn't in the list gets an inline "No route called …" message. The whole-table download checks the row limit (1,000–2,000,000) before calling the API and shows API failures as plain sentences.
+
+The SQL editor autocompletes approved table and column names from `/api/models`, with SQL keywords in upper case.
 
 LocalStorage key `whyline-dashboard` (persist version 1; older saved state is discarded because it can hold DuckDB SQL) persists filters, question, generated SQL, edited SQL, explanation, and generation cache-hit state. Results, run errors, validation results, and byte estimates are not persisted. Closing a tab does not erase the persisted question/SQL. Persistence is per browser origin; no live cross-tab synchronization is implemented.
 
@@ -44,13 +46,13 @@ Always load the map dynamically:
 const StopMap = dynamic(() => import("@/components/viz/StopMap"), { ssr: false });
 ```
 
-MapLibre requires browser APIs and must not execute during SSR.
+MapLibre requires browser APIs and must not execute during SSR. StopMap mounts DeckGL only after measuring its container, then fits the points with `WebMercatorViewport.fitBounds` (40 px padding, zoom at most 14). Remounting DeckGL during initialization throws a luma.gl `maxTextureDimension2D` error, which React's development double-mount also shows; production builds don't. `.wl-enter` uses `animation-fill-mode: backwards`: with `both`, the card kept an identity transform, which made it the containing block for the full-screen map's `position: fixed`.
 
 ## API proxy and downloads
 
 `next.config.mjs` rewrites `/api/:path*` to `${API_BASE_URL}/api/:path*` when configured. Set `API_BASE_URL=http://localhost:8000` in `frontend/.env.local`, or the production Cloud Run origin in Vercel settings. It is server-side configuration; the proxy is not API authentication.
 
-The results view can download displayed query data as CSV. DownloadPanel offers seven analytic mart CSVs from BigQuery. There is no public Parquet download control; Parquet is an internal synchronization format. See [API reference](API_REFERENCE.md).
+The results view can download displayed query data as CSV, named `whylinedenver_<question, 40 characters>_<Denver date>.csv`. DownloadPanel offers the 18 app mart CSVs from BigQuery. For the seven marts with a service date, "Use the dates from Filters" (on by default) sends the rail's dates; the API returns those marts newest first. The other marts say they have no dates. There is no public Parquet download control; Parquet is an internal synchronization format. See [API reference](API_REFERENCE.md).
 
 ## Development and validation
 
@@ -62,7 +64,7 @@ npm run build
 npm run lint
 ```
 
-For repeated `EMFILE` watcher failures, use `WATCHPACK_POLLING=1000 npm run dev`. The build uses configured Google fonts and can need network access. Playwright is declared, but no specs/configuration are checked in; no Jest suite exists. See [testing](TESTING.md).
+For repeated `EMFILE` watcher failures, use `WATCHPACK_POLLING=1000 npm run dev`. The build uses configured Google fonts and can need network access. `npm test` runs the Playwright unit-style specs in `frontend/tests/`; no Jest suite exists. See [testing](TESTING.md).
 
 Privacy documentation must account for persisted browser state, provider requests, API logs, and the Analytics/Speed Insights components mounted in the root layout; do not claim that all state disappears when a tab closes.
 

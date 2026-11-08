@@ -5,37 +5,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { fetchFreshness } from "@/lib/api";
 import { DOCS, GLOSSARY } from "@/lib/links";
-
-const _MT_FMT = new Intl.DateTimeFormat("en-US", {
-  timeZone: "America/Denver",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false,
-  timeZoneName: "short",
-});
-
-function toMountainTime(raw: string): string {
-  if (
-    !raw ||
-    raw.startsWith("Loading") ||
-    raw.startsWith("Unavailable") ||
-    raw.startsWith("Awaiting") ||
-    raw.startsWith("Latest run_date") ||
-    raw.includes("MST") ||
-    raw.includes("MDT")
-  ) return raw;
-
-  // Normalize "2026-03-08 20:05 UTC" → "2026-03-08T20:05Z"
-  const normalized = raw.replace(" UTC", "Z").replace(/^(\d{4}-\d{2}-\d{2}) /, "$1T");
-  const d = new Date(normalized);
-  if (isNaN(d.getTime())) return raw;
-
-  const p = Object.fromEntries(_MT_FMT.formatToParts(d).map((x) => [x.type, x.value]));
-  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} ${p.timeZoneName}`;
-}
+import { readableTimestamp } from "@/lib/format";
 
 /** When the BigQuery data was last updated, refetched every 60s; shared by the header and the filter rail. */
 export function useFreshness() {
@@ -45,7 +15,7 @@ export function useFreshness() {
     refetchInterval: 60_000,
     staleTime: 30_000,
   });
-  return toMountainTime(data?.bigquery_freshness ?? "Loading…");
+  return readableTimestamp(data?.bigquery_freshness ?? "Loading…");
 }
 
 /** Sticky glass nav for the dashboard, matching the landing page. */

@@ -39,3 +39,14 @@ def test_adapt_sql_bigquery_leaves_already_qualified_tables_alone() -> None:
     }
     result = adapt_sql_for_engine(sql, "bigquery", models)
     assert result == sql
+
+
+def test_prompt_asks_for_exactly_the_users_dates() -> None:
+    from whyline.llm import build_prompt
+
+    with_dates = build_prompt("q", {"start_date": "2026-11-01", "end_date": "2026-11-07"}, "")
+    assert "service_date_mst BETWEEN DATE '2026-11-01' AND DATE '2026-11-07'" in with_dates
+    assert "no other date window" in with_dates and "30-90 days" not in with_dates
+
+    without = build_prompt("q", {"start_date": None, "end_date": None}, "")
+    assert "30-90 days" in without and "no other date window" not in without

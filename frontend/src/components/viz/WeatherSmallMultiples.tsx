@@ -2,6 +2,8 @@
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { chartColors, chartTheme } from "@/lib/tokens";
+import { withoutToday } from "@/lib/format";
+import { TodayNote } from "@/components/viz/TimeSeriesChart";
 
 interface Props {
   data: Record<string, unknown>[];
@@ -14,12 +16,14 @@ const small = { ...chartTheme.tick, fontSize: 11 };
  * Weather small multiples — one line chart per precipitation bin, all in one
  * hue on a shared 0–1 on-time scale; the facet title carries identity.
  */
-export function WeatherSmallMultiples({ data, title }: Props) {
+export function WeatherSmallMultiples({ data: allData, title }: Props) {
+  const { rows: data, dropped } = withoutToday(allData, "service_date_mst");
   const bins = Array.from(new Set(data.map((r) => String(r.precip_bin))));
 
   return (
     <figure className="m-0 w-full">
       {title && <figcaption className="mb-3 font-black text-lg text-wl-navy">{title}</figcaption>}
+      {dropped && <TodayNote />}
       <div className="grid sm:grid-cols-2 gap-4">
         {bins.map((bin) => {
           const binData = data

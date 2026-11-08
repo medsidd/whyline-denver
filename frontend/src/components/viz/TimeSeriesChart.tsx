@@ -1,7 +1,7 @@
 "use client";
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { axisTick, formatValue } from "@/lib/format";
+import { axisTick, formatValue, withoutToday } from "@/lib/format";
 import { chartColors, chartTheme } from "@/lib/tokens";
 
 interface Props {
@@ -20,8 +20,14 @@ const axes = (xKey: string, yKey: string) => [
   <Tooltip key="t" {...chartTheme.tooltip} formatter={(v) => formatValue(yKey, v)} cursor={{ stroke: "#C9D6E3", strokeWidth: 2 }} />,
 ];
 
-export function TimeSeriesChart({ data, xKey, yKey, groupKey, title }: Props) {
-  const caption = title && <figcaption className="mb-3 font-black text-lg text-wl-navy">{title}</figcaption>;
+export function TimeSeriesChart({ data: allData, xKey, yKey, groupKey, title }: Props) {
+  const { rows: data, dropped } = withoutToday(allData, xKey);
+  const caption = (
+    <>
+      {title && <figcaption className="mb-3 font-black text-lg text-wl-navy">{title}</figcaption>}
+      {dropped && <TodayNote />}
+    </>
+  );
 
   // If groupKey present, pivot to grouped line chart (top 5 groups)
   if (groupKey) {
@@ -68,5 +74,13 @@ export function TimeSeriesChart({ data, xKey, yKey, groupKey, title }: Props) {
         </LineChart>
       </ResponsiveContainer>
     </figure>
+  );
+}
+
+export function TodayNote() {
+  return (
+    <p className="mt-0 mb-3 text-[13px] font-bold text-wl-ink2">
+      Today is still being collected and is left out of the chart. It’s in the table.
+    </p>
   );
 }
