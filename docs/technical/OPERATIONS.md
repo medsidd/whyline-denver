@@ -663,6 +663,8 @@ gcloud run services update whylinedenver-api --project=whyline-denver --region=u
 
 **PR 3 before merge** (production build, local API): `robots.txt`, `sitemap.xml` and the canonical and `og:url` tags of all five pages were correct; an unknown path returned the branded 404 with status 404; axe found 0 violations on every page at 1280 and 390 px; the skip link moved focus to `main`; a mocked 429 showed the friendly message on run and download.
 
+**PR 3 after merge ([#127](https://github.com/medsidd/whyline-denver/pull/127)).** On whylinedenver.com: `robots.txt` and the five-page `sitemap.xml` are served, `/` and `/app` carry their canonical and `og:url`, an unknown path returns the branded 404 with status 404, and axe reports 0 violations on every page at 1280 and 390 px. A regression run of all 8 ready-made questions (route 15, stop 12084) and the phone flow passed with no console errors; about 10 BigQuery queries, each under 50 MB. One Vercel preview build failed with no code change and passed on a rebuild.
+
 **Owner step: rate limits (owner decision of November 7, 2026).** Install and link the Vercel CLI (`npm i -g vercel`, then `cd frontend && vercel link`). Stage both rules in log mode, review, then publish:
 
 ```bash
