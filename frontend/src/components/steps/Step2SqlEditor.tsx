@@ -7,7 +7,7 @@ import { sql as sqlLang } from "@codemirror/lang-sql";
 import { EditorView } from "@codemirror/view";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
-import { fetchModels, validateSql } from "@/lib/api";
+import { errorText, fetchModels, validateSql } from "@/lib/api";
 import { filterUseNote, humanBytes } from "@/lib/format";
 import { useDashboardStore } from "@/store/dashboardStore";
 import { StepShell, type StepStatus } from "@/components/steps/StepShell";
@@ -75,7 +75,13 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
   const { data: modelData } = useQuery({ queryKey: ["models"], queryFn: fetchModels, staleTime: 60 * 60 * 1000 });
   const extensions = useMemo(() => {
     const schema = Object.fromEntries((modelData?.models ?? []).map((m) => [m.name, Object.keys(m.columns)]));
-    return [sqlLang({ schema, upperCaseKeywords: true }), navyHighlight, EditorView.lineWrapping];
+    return [
+      sqlLang({ schema, upperCaseKeywords: true }),
+      navyHighlight,
+      EditorView.lineWrapping,
+      // The wrapper's aria-label doesn't reach the editable element screen readers land on.
+      EditorView.contentAttributes.of({ "aria-label": "SQL query" }),
+    ];
   }, [modelData]);
   // The SQL the last finished check was for; anything else is still unchecked.
   const [checkedSql, setCheckedSql] = useState<string | null>(null);
@@ -90,7 +96,7 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
     },
     onError: (err, s) => {
       if (s !== useDashboardStore.getState().editedSql) return;
-      setValidation(null, null, String(err));
+      setValidation(null, null, errorText(err));
       setCheckedSql(s);
     },
   });
@@ -164,7 +170,6 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
         )}
         <CodeMirror
           value={editedSql}
-          aria-label="SQL query"
           extensions={extensions}
           theme={navyTheme}
           onChange={handleChange}

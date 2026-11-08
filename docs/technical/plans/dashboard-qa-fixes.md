@@ -1,6 +1,6 @@
 # Dashboard QA fixes
 
-**Status:** active. PR 1 merged ([#124](https://github.com/medsidd/whyline-denver/pull/124)), its API deployed by the owner on November 7, 2026 and verified on production. PR 2 in review; PR 3 not started.
+**Status:** active. PR 1 ([#124](https://github.com/medsidd/whyline-denver/pull/124)) and PR 2 ([#126](https://github.com/medsidd/whyline-denver/pull/126)) merged and verified on production; PR 2's API image awaits the owner's deploy. PR 3 in review; its firewall rule and apex redirect are owner steps.
 
 ## Why
 
@@ -50,6 +50,15 @@ Code review found two SQL-injection paths: route and weather filter values were 
 - **Copy:** the rail's "Weather" is "Precipitation", and filter notes say "precipitation".
 - **LLM prompt:** with dates set, the model is asked for exactly the server's date predicate and no other window. Telling it to leave dates out would have dropped them whenever the SQL never named `service_date_mst`, since the server only injects into SQL that does.
 - **Dependency:** `@deck.gl/core` (already installed through `deck.gl`, same 9.2.9) is now declared, for `WebMercatorViewport`.
+
+## PR 3 as built
+
+- **Metadata:** `metadataBase` is `https://www.whylinedenver.com`. `pageMetadata` (`lib/seo.ts`) sets each page's canonical URL and a complete Open Graph and Twitter preview; the landing preview URL is `/` (it was `/app/`) and its title matches `<title>`. `/app` gets metadata from a new `app/app/layout.tsx`.
+- **`robots.txt` and `sitemap.xml`** from `robots.ts` and `sitemap.ts`: everything but `/api/` is crawlable; the sitemap lists `/`, `/app`, `/privacy`, `/terms` and `/attribution`.
+- **404:** "This page isn't on the map", with "Back to home" and "Open dashboard", not indexed.
+- **Accessibility:** the landing SQL block is focusable with a label; skip links on every page; the SQL editor's editable element is labelled (axe flagged it once a question was loaded). axe reports 0 violations on all pages at 1280 and 390 px, including the dashboard with a result.
+- **Rate limits:** the dashboard shows a 429 as "Too many requests. Wait a minute and try again." The Vercel rule itself is an owner step ([operations](../OPERATIONS.md)): the Vercel CLI isn't installed in the agent's environment and the Vercel connector isn't authorized. The Cloud Run origin stays reachable directly, so the rule can be bypassed; restricting ingress is a separate decision.
+- **Apex redirect:** `whylinedenver.com` answers 307; making it 308 is a Vercel domain setting (owner step).
 
 ## Verification
 

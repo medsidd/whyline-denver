@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { SITE } from "@/lib/seo";
 
 const nunito = Nunito({
   subsets: ["latin"],
@@ -12,7 +13,9 @@ const nunito = Nunito({
   display: "swap",
 });
 
+// Pages set their own canonical URL and link previews (pageMetadata in lib/seo.ts).
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE),
   title: "WhyLine Denver | Independent Denver Transit Reliability Analytics",
   description:
     "WhyLine Denver — an independent, unofficial project. Ask anything about Denver-area bus and rail, built from public GTFS schedule and realtime feeds. Analyze reliability, delays, safety, and equity gaps in plain English, powered by BigQuery.",
@@ -21,22 +24,6 @@ export const metadata: Metadata = {
     "Denver public transportation", "transit reliability dashboard",
     "Denver bus equity analysis", "Denver GTFS-Realtime",
   ],
-  openGraph: {
-    type: "website",
-    url: "https://www.whylinedenver.com/app/",
-    title: "WhyLine Denver | Independent Denver Transit Reliability Analytics",
-    description:
-      "Ask questions about Denver transit in plain English. Powered by BigQuery.",
-    images: [{ url: "https://www.whylinedenver.com/assets/og-image.png", width: 1200, height: 630 }],
-    siteName: "WhyLine Denver",
-    locale: "en_US",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "WhyLine Denver | Independent Denver Transit Reliability Analytics",
-    description: "Ask questions about Denver transit in plain English.",
-    images: ["https://www.whylinedenver.com/assets/og-image.png"],
-  },
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },

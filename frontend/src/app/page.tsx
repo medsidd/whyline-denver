@@ -5,13 +5,16 @@ import { ScrollRoute } from "@/components/landing/ScrollRoute";
 import { SiteFooter } from "@/components/landing/SiteFooter";
 import { DOCS, GITHUB, GLOSSARY } from "@/lib/links";
 import { readableTimestamp } from "@/lib/format";
+import { SITE, pageMetadata } from "@/lib/seo";
+import { SkipLink } from "@/components/landing/SkipLink";
 import type { FreshnessResponse } from "@/types/api";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "WhyLine Denver | Free, Independent Denver Transit Analytics",
   description:
     "WhyLine Denver — ask plain-English questions about Denver-area transit reliability, delays, equity gaps, safety, and weather impacts. Free, open-source and unofficial, built from public transit feeds.",
-};
+  path: "/",
+});
 
 // Re-render hourly even if the freshness fetch failed at build time.
 export const revalidate = 3600;
@@ -136,8 +139,8 @@ const jsonLd = [
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "WhyLine Denver",
-    url: "https://www.whylinedenver.com",
-    logo: "https://www.whylinedenver.com/assets/logo-512.png",
+    url: SITE,
+    logo: `${SITE}/assets/logo-512.png`,
     description:
       "WhyLine Denver turns plain-English questions into Denver transit insights across reliability, delays, safety, weather, and equity.",
     sameAs: [GITHUB, DOCS],
@@ -155,7 +158,7 @@ const jsonLd = [
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "WhyLine Denver",
-    url: "https://www.whylinedenver.com/",
+    url: `${SITE}/`,
     inLanguage: "en-US",
   },
 ];
@@ -224,6 +227,7 @@ export default async function LandingPage() {
 
   return (
     <div id="top" className="wl min-h-screen bg-wl-canvas text-wl-navy font-rounded text-[17px] leading-[1.55] font-medium">
+      <SkipLink />
       <header className="wl-nav sticky top-0 z-30 border-b border-wl-navy/[0.08]">
         <div className="max-w-[1200px] mx-auto px-[clamp(16px,4vw,48px)]">
           <nav aria-label="Main" className="h-16 flex items-center gap-3 sm:gap-6">
@@ -257,7 +261,7 @@ export default async function LandingPage() {
         </div>
       </header>
 
-      <main className="max-w-[1200px] mx-auto px-[clamp(16px,4vw,48px)]">
+      <main id="main" tabIndex={-1} className="max-w-[1200px] mx-auto px-[clamp(16px,4vw,48px)]">
         {/* Hero */}
         <section aria-labelledby="hero-title" className="pt-16 pb-8 flex flex-wrap gap-x-14 gap-y-12 items-center">
           <div className="flex-[1_1_480px] min-w-0">
@@ -400,7 +404,7 @@ export default async function LandingPage() {
                 </span>
               </figcaption>
               {/* The first ready-made question in src/whyline/prebuilt.py, with no dates set */}
-              <pre className="mx-2.5 mb-2.5 mt-0 p-5 rounded-3xl bg-wl-navy-deep overflow-x-auto text-sm leading-[1.75] text-[#E6EEF5]" style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" }}>
+              <pre tabIndex={0} role="region" aria-label="Example SQL: the worst 10 routes over the last 30 days" className="mx-2.5 mb-2.5 mt-0 p-5 rounded-3xl bg-wl-navy-deep overflow-x-auto text-sm leading-[1.75] text-[#E6EEF5]" style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" }}>
                 <code>
                   <K>SELECT</K> route_id, <K>AVG</K>(pct_on_time) <K>AS</K> avg_pct_on_time{"\n"}
                   <K>FROM</K> <span className="text-[#7FD0E6]">mart_reliability_by_route_day</span>{"\n"}

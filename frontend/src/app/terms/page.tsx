@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage } from "@/components/landing/LegalPage";
+import { pageMetadata } from "@/lib/seo";
 import { GITHUB, GLOSSARY } from "@/lib/links";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Terms of Use | WhyLine Denver",
   description: "The terms that apply when you use the WhyLine Denver website, dashboard and downloads.",
-};
+  path: "/terms",
+});
 
 export default function TermsPage() {
   return (

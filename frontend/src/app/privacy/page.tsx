@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage } from "@/components/landing/LegalPage";
+import { pageMetadata } from "@/lib/seo";
 import { GITHUB } from "@/lib/links";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Privacy Policy | WhyLine Denver",
   description: "What WhyLine Denver collects, why, who processes it, and the choices you have.",
-};
+  path: "/privacy",
+});
 
 export default function PrivacyPage() {
   return (

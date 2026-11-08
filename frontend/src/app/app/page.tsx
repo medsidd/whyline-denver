@@ -3,6 +3,7 @@
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { SiteFooter } from "@/components/landing/SiteFooter";
+import { SkipLink } from "@/components/landing/SkipLink";
 import { Step1QuestionInput } from "@/components/steps/Step1QuestionInput";
 import { Step2SqlEditor } from "@/components/steps/Step2SqlEditor";
 import { Step3Results } from "@/components/steps/Step3Results";
@@ -25,10 +26,11 @@ export default function DashboardPage() {
 
   return (
     <div className="wl min-h-screen flex flex-col bg-wl-canvas text-wl-navy font-rounded font-medium">
+      <SkipLink />
       <Header />
       <div className="flex-1 w-full max-w-[1440px] mx-auto px-[clamp(16px,3vw,40px)] pt-6 lg:pt-8 pb-16 grid gap-6 lg:gap-10 lg:grid-cols-[300px_minmax(0,1fr)] items-start">
         <Sidebar />
-        <main className="min-w-0 max-w-[920px]">
+        <main id="main" tabIndex={-1} className="min-w-0 max-w-[920px]">
           <h1 className="m-0 font-black text-[clamp(30px,4vw,44px)] leading-[1.05] tracking-[-0.035em]">
             Ask about Denver transit
           </h1>
