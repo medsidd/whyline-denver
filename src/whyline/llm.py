@@ -31,12 +31,13 @@ def build_schema_brief(models: Mapping[str, ModelInfo], *, max_columns: int | No
 def build_prompt(question: str, filters: Mapping[str, Any] | None, schema_brief: str) -> str:
     filters = filters or {}
     filters_serialized = json.dumps(filters, indent=2, sort_keys=True) if filters else "{}"
-    # The API adds the user's date range itself (api/routers/sql.py _add_filter_clauses);
-    # a second, model-written window duplicated or contradicted it.
-    if filters.get("start_date") and filters.get("end_date"):
+    # A model-written window (e.g. the last 30 days) contradicted the user's dates, which the API
+    # also injects. Asking for exactly the injected predicate lets _add_filter_clauses skip its copy.
+    start, end = filters.get("start_date"), filters.get("end_date")
+    if start and end:
         dates_rule = (
-            "- The user picked dates; the server adds service_date_mst BETWEEN those dates "
-            "itself. Do not write any date range on service_date_mst.\n"
+            "- The user picked dates. On tables with service_date_mst, filter with exactly "
+            f"service_date_mst BETWEEN DATE '{start}' AND DATE '{end}' and no other date window.\n"
         )
     else:
         dates_rule = "- Honor recency cues by filtering service_date_mst within 30-90 days when appropriate.\n"

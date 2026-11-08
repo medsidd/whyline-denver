@@ -48,7 +48,7 @@ Code review found two SQL-injection paths: route and weather filter values were 
 - **Autocomplete:** approved tables and columns from `/api/models`, upper-case keywords, no emoji icons.
 - **Dates:** "Nov 7, 5:05 PM MST" in the header and landing page, "Oct 23, 2025 to Nov 7, 2026" in the rail. The rail's default dates now follow Denver's calendar; they used the UTC date, a day ahead every evening.
 - **Copy:** the rail's "Weather" is "Precipitation", and filter notes say "precipitation".
-- **LLM prompt:** with dates set, the model is told the server adds the date range.
+- **LLM prompt:** with dates set, the model is asked for exactly the server's date predicate and no other window. Telling it to leave dates out would have dropped them whenever the SQL never named `service_date_mst`, since the server only injects into SQL that does.
 - **Dependency:** `@deck.gl/core` (already installed through `deck.gl`, same 9.2.9) is now declared, for `WebMercatorViewport`.
 
 ## Verification

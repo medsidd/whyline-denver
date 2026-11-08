@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { columnLabel, formatValue, orderColumns } from "@/lib/format";
 
 interface Props {
@@ -32,11 +32,8 @@ function compare(a: unknown, b: unknown): number {
 export function DataTable({ columns: rawColumns, data, totalRows, maxDisplayRows = 10_000 }: Props) {
   const columns = useMemo(() => orderColumns(rawColumns), [rawColumns]);
   const [page, setPage] = useState(0);
+  // Step 3 keys this table by the run SQL, so a new result starts unsorted on page 1.
   const [sort, setSort] = useState<Sort>(null);
-  useEffect(() => {
-    setSort(null);
-    setPage(0);
-  }, [data]);
   const sorted = useMemo(() => {
     if (!sort) return data;
     const sign = sort.dir === "ascending" ? 1 : -1;

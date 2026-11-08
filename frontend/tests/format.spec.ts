@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { orderColumns, readableDate, readableTimestamp, resultFilename, withoutToday } from "../src/lib/format";
+import { denverDate, orderColumns, readableDate, readableTimestamp, resultFilename, withoutToday } from "../src/lib/format";
 
 test("result CSV names carry the question and date", () => {
   expect(resultFilename("Worst 10 routes by on-time share", "2026-11-07")).toBe("whylinedenver_worst-10-routes-by-on-time-share_2026-11-07.csv");
@@ -33,4 +33,11 @@ test("today's partial day is left out of trends", () => {
   const rows = [{ d: "2026-11-06", v: 1 }, { d: "2026-11-07", v: 0.2 }];
   expect(withoutToday(rows, "d", "2026-11-07")).toEqual({ rows: [rows[0]], dropped: true });
   expect(withoutToday(rows, "d", "2026-11-08")).toEqual({ rows, dropped: false });
+  // A result of only today keeps it
+  expect(withoutToday([rows[1]], "d", "2026-11-07")).toEqual({ rows: [rows[1]], dropped: false });
+});
+
+test("Denver's date, not UTC's", () => {
+  expect(denverDate(new Date("2026-11-08T05:30:00Z"))).toBe("2026-11-07");
+  expect(denverDate(new Date("2026-11-08T07:30:00Z"))).toBe("2026-11-08");
 });

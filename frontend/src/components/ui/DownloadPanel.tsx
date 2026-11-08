@@ -67,7 +67,8 @@ export function DownloadPanel() {
   const [useDates, setUseDates] = useState(true);
   const { start_date, end_date } = useDashboardStore((s) => s.filters);
   const dated = DATED_MARTS.has(mart);
-  const datesOn = dated && useDates && !!start_date && !!end_date;
+  const haveDates = !!start_date && !!end_date;
+  const datesOn = dated && useDates && haveDates;
   const limitOk = Number.isInteger(limitRows) && limitRows >= MIN_ROWS && limitRows <= MAX_ROWS;
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -139,14 +140,17 @@ export function DownloadPanel() {
           <label className="mt-3 flex items-start gap-2.5 text-[14px] font-bold text-wl-navy">
             <input
               type="checkbox"
-              checked={useDates}
+              checked={datesOn}
+              disabled={!haveDates}
               onChange={(e) => setUseDates(e.target.checked)}
-              className="mt-1 w-4 h-4 accent-[#0D657F]"
+              className="mt-1 w-4 h-4 accent-[#0D657F] disabled:opacity-50"
             />
             <span>
               Use the dates from Filters
-              {start_date && end_date ? ` (${readableDate(start_date)} to ${readableDate(end_date)})` : ""}
-              <span className="block text-[13px] font-semibold text-wl-ink2">Newest rows first, up to the row limit.</span>
+              {haveDates ? ` (${readableDate(start_date)} to ${readableDate(end_date)})` : ""}
+              <span className="block text-[13px] font-semibold text-wl-ink2">
+                {haveDates ? "Newest rows first, up to the row limit." : "Set both dates in Filters to use them. Without dates, newest rows come first."}
+              </span>
             </span>
           </label>
         ) : (

@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import { runQuery, triggerDownload } from "@/lib/api";
 import { useDashboardStore } from "@/store/dashboardStore";
 import { barColumns, detectChartType, detectMapData, hourColumns, labelOf } from "@/lib/chartLogic";
-import { columnLabel, denverDate, resultFilename } from "@/lib/format";
+import { columnLabel, denverDate, orderColumns, resultFilename } from "@/lib/format";
 import { StepShell, type StepStatus } from "@/components/steps/StepShell";
 import { DataTable } from "@/components/ui/DataTable";
 import { RouteBarChart } from "@/components/viz/RouteBarChart";
@@ -71,9 +71,11 @@ export function Step3Results({ status }: { status: StepStatus }) {
 
   const handleCsvDownload = () => {
     if (!queryResult) return;
-    const header = queryResult.columns.join(",");
+    // Same column order as the table: names beside their IDs.
+    const columns = orderColumns(queryResult.columns);
+    const header = columns.join(",");
     const rows = queryResult.data.map((row) =>
-      queryResult.columns.map((c) => {
+      columns.map((c) => {
         const v = row[c];
         const s = v === null || v === undefined ? "" : String(v);
         return s.includes(",") || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
@@ -86,6 +88,8 @@ export function Step3Results({ status }: { status: StepStatus }) {
 
   // While a query runs, the skeleton replaces the previous result.
   const result = queryResult && !queryResult.error && !mutation.isPending ? queryResult : null;
+  // Stable across re-renders, so the map only re-fits for a new result.
+  const mapRows = useMemo(() => (queryResult ? queryResult.data.slice(0, 1000) : []), [queryResult]);
   const isEmpty = result?.total_rows === 0;
 
   return (
@@ -185,10 +189,10 @@ export function Step3Results({ status }: { status: StepStatus }) {
                     Showing the first 1,000 of {result.total_rows.toLocaleString()} points.
                   </p>
                 )}
-                <StopMap data={result.data.slice(0, 1000)} />
+                <StopMap data={mapRows} />
               </>
             )}
-            {view === "table" && <DataTable columns={result.columns} data={result.data} totalRows={result.total_rows} />}
+            {view === "table" && <DataTable key={resultSql} columns={result.columns} data={result.data} totalRows={result.total_rows} />}
           </div>
         </div>
       )}

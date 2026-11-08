@@ -86,8 +86,12 @@ export function filterUseNote(use: { applied: string[]; skipped: string[] }): st
 }
 
 /** Today's date in Denver as YYYY-MM-DD. */
+const DENVER_DAY = new Intl.DateTimeFormat("en-US", { timeZone: "America/Denver", year: "numeric", month: "2-digit", day: "2-digit" });
+
 export function denverDate(d: Date = new Date()): string {
-  return d.toLocaleDateString("en-CA", { timeZone: "America/Denver" });
+  // formatToParts, not an en-CA string: locale data has changed that format before.
+  const p = Object.fromEntries(DENVER_DAY.formatToParts(d).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
 }
 
 /** "whylinedenver_worst-10-routes-by-on-time-share_2026-11-07.csv"; the slug is cut to 40 characters. */
@@ -155,5 +159,6 @@ export function orderColumns(columns: string[]): string[] {
 /** Rows without today's Denver date in `dateKey`: today is still being collected, so a trend line would dip. */
 export function withoutToday<T extends Record<string, unknown>>(rows: T[], dateKey: string, today = denverDate()) {
   const kept = rows.filter((r) => String(r[dateKey] ?? "").slice(0, 10) !== today);
-  return { rows: kept, dropped: kept.length < rows.length };
+  // A result of only today keeps it: an empty chart would say less.
+  return kept.length && kept.length < rows.length ? { rows: kept, dropped: true } : { rows, dropped: false };
 }

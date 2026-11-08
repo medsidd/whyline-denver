@@ -62,7 +62,8 @@ export function StopMap({ data }: Props) {
     const ro = new ResizeObserver(([entry]) => setWidth(Math.round(entry.contentRect.width)));
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+    // The box only renders once there are points to show.
+  }, [data.length > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!isFullscreen) return;
