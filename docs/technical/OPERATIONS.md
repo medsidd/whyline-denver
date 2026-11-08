@@ -665,6 +665,11 @@ gcloud run services update whylinedenver-api --project=whyline-denver --region=u
 
 **PR 3 after merge ([#127](https://github.com/medsidd/whyline-denver/pull/127)).** On whylinedenver.com: `robots.txt` and the five-page `sitemap.xml` are served, `/` and `/app` carry their canonical and `og:url`, an unknown path returns the branded 404 with status 404, and axe reports 0 violations on every page at 1280 and 390 px. A regression run of all 8 ready-made questions (route 15, stop 12084) and the phone flow passed with no console errors; about 10 BigQuery queries, each under 50 MB. One Vercel preview build failed with no code change and passed on a rebuild.
 
+**PR 2's API deployed by the owner** at 03:17 UTC on November 8: revision `whylinedenver-api-00017-bxk` serves `@sha256:04c8dd11…`. Checked on production right after:
+- An undated whole-table download of route-day reliability returned 1,000 rows from November 7 back to October 30, newest first (the previous revision returned February 2026 to November 2025 in no order). A dated download of wait-by-route stayed within its dates, newest first.
+- One Gemini question with dates November 1–6 came back with a single date predicate, exactly the user's range.
+- The DuckDB reopen from #123 still needs its check: dispatching Nightly DuckDB from the agent session was refused by the permission check, so it waits for the scheduled 09:30 UTC run. Check: run an `engine: duckdb` query before 09:30 to warm an instance, then a different one a few minutes after the upload, and look for a `Copying DuckDB from` log line after the upload time.
+
 **Owner step: rate limits (owner decision of November 7, 2026).** Install and link the Vercel CLI (`npm i -g vercel`, then `cd frontend && vercel link`). Stage both rules in log mode, review, then publish:
 
 ```bash
