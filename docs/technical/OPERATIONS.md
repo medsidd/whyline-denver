@@ -733,7 +733,11 @@ gcloud run services update whylinedenver-api --project=whyline-denver --region=u
   --image=us-central1-docker.pkg.dev/whyline-denver/api-service/whylinedenver-api@sha256:a950dbfe1380d3731f51336103ff54294bff22c705b42e8f4cd2941ef503bb17
 ```
 
-Until step 2, the dashboard's ready-made question 9 fails to load (the current API has eight) and maps show stops only. Deploying the API before step 1 also works, but live questions and question 9 then fail with "Not found" until the views exist, and maps show stops only. After both, check question 9 on production, a live question in your own words, and a route map.
+Until step 2, the dashboard's ready-made question 9 fails to load (the current API has eight), maps show stops only, and a route-only result such as "Worst 10 routes by on-time share" shows "No route lines are available" in place of a map (the current API has no `/api/routes/shapes`). Deploying the API before step 1 also works, but live questions and question 9 then fail with "Not found" until the views exist, and maps show stops only. After both, check question 9 on production, a live question in your own words, and a route map.
+
+**Nightly BigQuery dispatched** at 16:33 UTC (run 42655957703) on the owner's request, ahead of the API deploy.
+
+**Dashboard tidy ([#136](https://github.com/medsidd/whyline-denver/pull/136)).** The intro line under the dashboard title is gone. The October 29 method note moved from the top of the dashboard to above results that have an on-time column. The ready-made questions are a collapsed panel like "What can I ask about?".
 
 ### Query usage report
 
