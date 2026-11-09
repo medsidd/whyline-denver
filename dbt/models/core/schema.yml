@@ -30,6 +30,31 @@ models:
       - name: year
         description: "Calendar year."
 
+  - name: dim_route_shape
+    description: "Each route's most-run shape per direction in the latest GTFS extract, as a GEOGRAPHY line. Current schedule only, for drawing routes on maps."
+    data_tests:
+      - unique_combination:
+          column_names: ['route_id', 'direction_id']
+    columns:
+      - name: route_id
+        description: "GTFS route identifier."
+        data_tests:
+          - not_null
+      - name: direction_id
+        description: "GTFS direction (0 or 1; 0 when the feed leaves it blank)."
+        data_tests:
+          - not_null
+      - name: shape_id
+        description: "The GTFS shape this route and direction runs most often in the latest extract."
+        data_tests:
+          - not_null
+      - name: n_trips
+        description: "Scheduled trips in the latest extract that use this shape; the shape kept is the one with the most."
+      - name: geom
+        description: "The shape as a GEOGRAPHY line, unsimplified."
+        data_tests:
+          - not_null
+
   - name: dim_stop
     description: "GTFS stops, Type 2 over extracts. is_current = present in the latest extract; is_latest_version = last version ever published."
     data_tests:

@@ -11,6 +11,7 @@ import type {
   GenerateSqlResponse,
   MartDownloadRequest,
   ModelInfo,
+  RouteShape,
   RunQueryResponse,
   ValidateSqlResponse,
 } from "@/types/api";
@@ -55,6 +56,11 @@ export function fetchFilters(): Promise<FilterOptionsResponse> {
 
 export function fetchModels(): Promise<{ models: ModelInfo[] }> {
   return get("/api/models");
+}
+
+/** Lines for up to 10 routes; empty until the shapes table has been built. */
+export function fetchRouteShapes(ids: string[]): Promise<RouteShape[]> {
+  return get(`/api/routes/shapes?ids=${encodeURIComponent(ids.join(","))}`);
 }
 
 export function fetchFreshness(): Promise<FreshnessResponse> {

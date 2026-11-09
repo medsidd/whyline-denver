@@ -106,6 +106,15 @@ export interface MartDownloadRequest {
   date_end: string | null;
 }
 
+// ─── Route shapes ─────────────────────────────────────────────────────────
+
+export interface RouteShape {
+  route_id: string;
+  direction_id: number;
+  /** [lon, lat] pairs */
+  path: [number, number][];
+}
+
 // ─── Freshness ────────────────────────────────────────────────────────────
 
 export interface FreshnessResponse {

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { barColumns, detectChartType, hourColumns, labelOf, orderByColumn } from "../src/lib/chartLogic";
+import { barColumns, detectChartType, detectMapData, hourColumns, labelOf, orderByColumn, routeIdsOf } from "../src/lib/chartLogic";
 import { columnLabel, filterUseNote, humanBytes } from "../src/lib/format";
 
 const EQUITY_SQL = "SELECT stop_id, stop_name, priority_score, vuln_score_0_100, crash_score_0_100,\n  reliability_score_0_100, lat, lon\nFROM mart_priority_hotspots\nWHERE reliability_score_0_100 IS NOT NULL\nORDER BY priority_score DESC\nLIMIT 20";
@@ -72,4 +72,14 @@ test("hour columns are hour-of-day only, and a null first row doesn't hide the O
   expect(hourColumns(["event_hour_mst", "pct_on_time"])).toEqual({ hour: "event_hour_mst", metric: "pct_on_time" });
   const rows = [{ route_id: "A", metric: null }, { route_id: "B", metric: 0.4 }];
   expect(barColumns(["route_id", "metric"], "SELECT * FROM t ORDER BY metric", rows)).toEqual({ category: "route_id", metric: "metric" });
+});
+
+test("maps: stops need coordinates, routes need only a route_id; at most 10 routes, in order", () => {
+  expect(detectMapData(["stop_id", "lat", "lon"])).toBe(true);
+  expect(detectMapData(["route_id", "avg_pct_on_time"])).toBe(true);
+  expect(detectMapData(["stop_id", "crash_250m_cnt"])).toBe(false);
+  const rows = [{ route_id: "15" }, { route_id: "0" }, { route_id: "15" }, { route_id: null }, ...Array.from({ length: 12 }, (_, i) => ({ route_id: `R${i}` }))];
+  expect(routeIdsOf(rows)).toEqual(["15", "0", "R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7"]);
+  expect(routeIdsOf([{ stop_id: "1" }])).toEqual([]);
+  expect(routeIdsOf([{ ROUTE_ID: "15" }])).toEqual(["15"]);
 });

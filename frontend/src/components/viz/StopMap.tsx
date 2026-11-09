@@ -3,11 +3,14 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import DeckGL from "@deck.gl/react";
 import { WebMercatorViewport } from "@deck.gl/core";
-import { ScatterplotLayer } from "@deck.gl/layers";
+import { PathLayer, ScatterplotLayer } from "@deck.gl/layers";
+import { useQuery } from "@tanstack/react-query";
 import { Map } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { detectMapMetric } from "@/lib/chartLogic";
-import { columnLabel, formatValue } from "@/lib/format";
+import { detectMapMetric, routeIdsOf } from "@/lib/chartLogic";
+import { fetchRouteShapes } from "@/lib/api";
+import type { RouteShape } from "@/types/api";
+import { columnLabel, escapeHtml, formatValue } from "@/lib/format";
 
 // Denver center coordinates (same as Pydeck default in charts.py)
 const DENVER_VIEW = {
@@ -35,11 +38,19 @@ interface Props {
 
 const MAP_HEIGHT = 420;
 
-/** View that fits every point with 40 px padding, at most zoom 14; Denver when there's nothing to fit. */
-export function fitView(points: { lat: number; lon: number }[], width: number, height: number) {
-  if (!points.length || width < 100) return DENVER_VIEW;
-  const lons = points.map((p) => p.lon);
-  const lats = points.map((p) => p.lat);
+// Route lines: distinct from the red stop dots, and named in the legend under the map.
+const ROUTE_COLORS: [number, number, number][] = [
+  [10, 127, 160], [217, 154, 0], [53, 87, 184], [125, 140, 31], [4, 47, 84],
+  [155, 79, 150], [0, 137, 123], [138, 109, 59], [92, 107, 192], [96, 125, 139],
+];
+const rgb = ([r, g, b]: [number, number, number]) => `rgb(${r},${g},${b})`;
+const TOOLTIP_STYLE = { background: "#FFFFFF", padding: "10px 12px", borderRadius: "14px", boxShadow: "0 12px 32px -12px rgba(4,47,84,.35)" };
+
+/** View that fits every [lon, lat] with 40 px padding, at most zoom 14; Denver when there's nothing to fit. */
+export function fitView(coords: [number, number][], width: number, height: number) {
+  if (!coords.length || width < 100) return DENVER_VIEW;
+  const lons = coords.map((c) => c[0]);
+  const lats = coords.map((c) => c[1]);
   const pad = 0.002; // a single point still gets a box to fit
   const { longitude, latitude, zoom } = new WebMercatorViewport({ width, height }).fitBounds(
     [
@@ -106,9 +117,53 @@ export function StopMap({ data }: Props) {
   const maxVal = metricValues.length ? Math.max(...metricValues) : 1;
   const minVal = metricValues.length ? Math.min(...metricValues) : 0;
 
-  // Fit when the points change; later resizes (full screen, rotation) keep the user's pan and zoom.
+  // Routes the result names are drawn under the stops (a stop-only result has none).
+  const routeIds = useMemo(() => routeIdsOf(data), [data]);
+  const { data: rawShapes, isFetched: shapesSettled, isError: shapesFailed } = useQuery({
+    queryKey: ["route-shapes", routeIds.join(",")],
+    queryFn: () => fetchRouteShapes(routeIds),
+    enabled: routeIds.length > 0,
+    staleTime: 60 * 60 * 1000,
+    retry: 1,
+  });
+  // Only well-formed [lon, lat] paths reach the map: a malformed one would break fitting and drawing.
+  const shapes = useMemo(
+    () => (rawShapes ?? []).filter((s) => s.path.length >= 2 && s.path.every((c) => Number.isFinite(c[0]) && Number.isFinite(c[1]))),
+    [rawShapes]
+  );
+  const colorOf = (routeId: string) => ROUTE_COLORS[Math.max(0, routeIds.indexOf(routeId)) % ROUTE_COLORS.length];
+  const routeNames = useMemo(() => {
+    const names: Record<string, string> = {};
+    const key = Object.keys(data[0] ?? {}).find((c) => c.toLowerCase() === "route_id") ?? "route_id";
+    for (const r of data) {
+      const id = r[key] == null ? "" : String(r[key]);
+      const name = [r.route_long_name, r.route_name].map((v) => (v ? String(v) : "")).find((v) => v && v !== id);
+      if (id && name && !names[id]) names[id] = name;
+    }
+    return names;
+  }, [data]);
+  const drawn = routeIds.filter((id) => shapes.some((s) => s.route_id === id));
+
+  // Fit to the stops; a route-only result fits its lines, and waits for them before mounting the map.
+  // Lines arriving later never refit, so a user's pan and zoom survive (as do resizes).
   const measured = width > 0;
-  const view = useMemo(() => fitView(points, width, MAP_HEIGHT), [points, measured]); // eslint-disable-line react-hooks/exhaustive-deps
+  const routeOnly = points.length === 0;
+  const view = useMemo(
+    () => fitView(routeOnly ? shapes.flatMap((s) => s.path) : points.map((p) => [p.lon, p.lat] as [number, number]), width, MAP_HEIGHT),
+    [points, routeOnly ? shapes : null, measured] // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  const routeLayer = new PathLayer<RouteShape>({
+    id: "routes",
+    data: shapes,
+    getPath: (d) => d.path,
+    getColor: (d) => [...colorOf(d.route_id), 220],
+    getWidth: 4,
+    widthUnits: "pixels",
+    capRounded: true,
+    jointRounded: true,
+    pickable: true,
+  });
 
   const layer = new ScatterplotLayer<StopPoint>({
     id: "stops",
@@ -129,7 +184,14 @@ export function StopMap({ data }: Props) {
     radiusUnits: "pixels",
   });
 
-  if (points.length === 0) return null;
+  if (points.length === 0 && routeIds.length === 0) return null;
+  if (routeOnly && (shapesFailed || (shapesSettled && drawn.length === 0))) {
+    return (
+      <p className="m-0 px-5 py-4 rounded-[22px] bg-wl-canvas text-[15px] font-bold text-wl-ink2">
+        No route lines are available for these routes right now, and the result has no stop locations to map.
+      </p>
+    );
+  }
 
   const containerStyle: React.CSSProperties = isFullscreen
     ? { position: "fixed", inset: 0, zIndex: 50, background: "#F4F8FB" }
@@ -143,21 +205,30 @@ export function StopMap({ data }: Props) {
       style={containerStyle}
     >
       {/* Mount only once measured: initialViewState is read at mount, and remounting DeckGL mid-init throws. */}
-      {width > 0 && (
+      {width > 0 && (!routeOnly || shapesSettled) && (
       <DeckGL
         initialViewState={view}
         controller
-        layers={[layer]}
+        layers={[routeLayer, layer]}
         getTooltip={({ object }) => {
           if (!object) return null;
+          if ("path" in object) {
+            const route = object as RouteShape;
+            const name = routeNames[route.route_id];
+            return {
+              html: `<div style="font:900 13px/1.4 var(--font-nunito),system-ui,sans-serif;color:#042F54">Route ${escapeHtml(route.route_id)}${name ? ` · ${escapeHtml(name)}` : ""}</div>`,
+              style: TOOLTIP_STYLE,
+            };
+          }
           const point = object as StopPoint;
-          const label = point.stop_name ? `${point.stop_name} (${point.stop_id})` : String(point.stop_id ?? "");
+          // Result values are user-controlled (custom SQL): escape before they become HTML
+          const label = escapeHtml(point.stop_name ? `${point.stop_name} (${point.stop_id})` : String(point.stop_id ?? ""));
           const metric = metricKey
-            ? `${columnLabel(metricKey)}: ${formatValue(metricKey, point[metricKey])}`
+            ? escapeHtml(`${columnLabel(metricKey)}: ${formatValue(metricKey, point[metricKey])}`)
             : "";
           return {
             html: `<div style="font:700 13px/1.4 var(--font-nunito),system-ui,sans-serif;color:#4A5F73"><b style="color:#042F54;font-weight:900">${label}</b>${metric ? `<br/>${metric}` : ""}</div>`,
-            style: { background: "#FFFFFF", padding: "10px 12px", borderRadius: "14px", boxShadow: "0 12px 32px -12px rgba(4,47,84,.35)" },
+            style: TOOLTIP_STYLE,
           };
         }}
       >
@@ -174,6 +245,22 @@ export function StopMap({ data }: Props) {
         {isFullscreen ? "Exit full screen" : "Full screen"}
       </button>
     </div>
+    {drawn.length > 0 && (
+      <ul aria-label="Routes on the map" className="mt-2 mb-0 px-1 p-0 list-none flex flex-wrap gap-x-4 gap-y-1.5 text-[13px] font-bold text-wl-ink2">
+        {drawn.map((id) => (
+          <li key={id} className="flex items-center gap-1.5">
+            <span aria-hidden="true" className="inline-block w-5 h-1.5 rounded-full" style={{ background: rgb(colorOf(id)) }} />
+            <span className="text-wl-navy font-extrabold">{id}</span>
+            {routeNames[id] && <span>{routeNames[id]}</span>}
+          </li>
+        ))}
+      </ul>
+    )}
+    {routeIds.length > drawn.length && shapes.length > 0 && (
+      <p className="mt-1.5 mb-0 px-1 text-[13px] font-semibold text-wl-ink2">
+        No line available for route {routeIds.filter((id) => !drawn.includes(id)).join(", ")}.
+      </p>
+    )}
     {metricKey && metricValues.length > 0 && (
       <figcaption className="mt-2 px-1 flex items-center gap-2 text-[13px] font-bold text-wl-ink2">
         <svg aria-hidden="true" width="34" height="16" viewBox="0 0 34 16">
