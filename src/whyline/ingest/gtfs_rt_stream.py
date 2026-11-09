@@ -82,6 +82,37 @@ def _md5(data: bytes) -> str:
     return hashlib.md5(data, usedforsecurity=False).hexdigest()
 
 
+class _HashingWriter:
+    """File wrapper that counts and hashes what is written through it."""
+
+    def __init__(self, handle):
+        self.handle, self.size = handle, 0
+        self.digest = hashlib.md5(usedforsecurity=False)
+
+    def write(self, data: bytes) -> int:
+        self.digest.update(data)
+        self.size += len(data)
+        return self.handle.write(data)
+
+    def flush(self) -> None:
+        self.handle.flush()
+
+
+def _gzip_file(src: Path, dest: Path) -> tuple[int, str]:
+    """Stream src into dest as gzip (mtime 0, so a re-seal of the same rows hashes the same);
+    return the compressed size and MD5.
+
+    Compressing in memory held a whole window twice; the 191,000-row recovery window on
+    November 9, 2026 ran the e2-micro out of memory mid-seal.
+    """
+    with src.open("rb") as raw, dest.open("wb") as handle:
+        out = _HashingWriter(handle)
+        with gzip.GzipFile(filename="", mode="wb", fileobj=out, mtime=0) as gz:
+            shutil.copyfileobj(raw, gz, 1 << 20)
+        os.fsync(handle.fileno())
+    return out.size, out.digest.hexdigest()
+
+
 def _cell(value: object) -> object:
     if value is None:
         return ""
@@ -158,18 +189,27 @@ class Window:
                         handle.truncate(keep)
 
     def seal(self, dest: Path, meta: dict, dirname: str | None = None) -> Path:
-        """Gzip the CSVs, close the tar, write the manifest, and move the batch into dest."""
+        """Gzip the CSVs, close the tar, write the manifest, and move the batch into dest.
+
+        The batch is built in a hidden staging directory and renamed into dest in one step, and
+        the open window is left untouched until then, so a kill at any point leaves either no
+        batch (seal again from the open window) or a complete one. Before November 9, 2026 an
+        OOM kill mid-seal left a half-written batch that failed every restart.
+        """
         out = dest / (dirname or self.label)
-        out.mkdir(parents=True)  # never overwrite a sealed batch that may not be published yet
+        if out.exists():
+            raise FileExistsError(out)  # never overwrite a sealed batch that may not be published
+        stage = dest / f".{out.name}.tmp"
+        shutil.rmtree(stage, ignore_errors=True)  # a previous attempt that died
+        stage.mkdir(parents=True)
         files_meta = {}
         for name in OUTPUTS:
-            payload = gzip.compress(self._csv(name).read_bytes(), mtime=0)
-            (out / f"{name}.csv.gz").write_bytes(payload)
+            size, digest = _gzip_file(self._csv(name), stage / f"{name}.csv.gz")
             files_meta[f"{name}.csv.gz"] = {
                 "path": f"{meta['raw_root']}/snapshot_at={self.label}/{name}.csv.gz",
                 "row_count": self.rows[name],
-                "bytes": len(payload),
-                "hash_md5": _md5(payload),
+                "bytes": size,
+                "hash_md5": digest,
                 "status": "ok",
                 "error": None,
             }
@@ -180,11 +220,14 @@ class Window:
         info = tarfile.TarInfo("meta.json")
         info.size = len(tar_meta)
         info.mtime = self.start
-        with self.tar_path.open("ab") as handle:
+        # Close a copy of the tar: appending to the open one would repeat meta.json on a retry
+        if self.tar_path.exists():
+            shutil.copyfile(self.tar_path, stage / "archive.tar")
+        with (stage / "archive.tar").open("ab") as handle:
             handle.write(info.tobuf(format=tarfile.USTAR_FORMAT))
             handle.write(tar_meta + b"\0" * (-len(tar_meta) % tarfile.BLOCKSIZE))
             handle.write(b"\0" * (2 * tarfile.BLOCKSIZE))  # end-of-archive marker
-        shutil.move(str(self.tar_path), out / "archive.tar")
+            os.fsync(handle.fileno())
         manifest = {
             "source": meta["source"],
             "extract_date": self.label[:10],
@@ -202,7 +245,11 @@ class Window:
             "static": {"md5": meta.get("static_md5"), "feed_version": meta.get("feed_version")},
             "config": meta.get("config", {}),
         }
-        (out / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True))
+        with (stage / "manifest.json").open("w") as handle:
+            handle.write(json.dumps(manifest, indent=2, sort_keys=True))
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.rename(stage, out)
         shutil.rmtree(self.dir)
         return out
 
@@ -238,11 +285,15 @@ class GcsSink:
         self.archive_bucket = archive_bucket
         self.raw_root = f"gs://{bucket}/raw/{STREAM_PREFIX}"
 
-    def _put(self, bucket: str, path: str, data: bytes, content_type: str) -> None:
+    def _put(self, bucket: str, path: str, data: bytes | Path, content_type: str) -> None:
         from google.api_core.exceptions import PreconditionFailed
 
         try:
-            io.upload_bytes_gcs(bucket, path, data, content_type, if_generation_match=0)
+            # Files upload from disk: a backlog window's CSVs can be tens of MB on an e2-micro
+            if isinstance(data, Path):
+                io.upload_file_gcs(bucket, path, data, content_type, if_generation_match=0)
+            else:
+                io.upload_bytes_gcs(bucket, path, data, content_type, if_generation_match=0)
         except PreconditionFailed:
             # Create-only: the object exists, so an earlier attempt already uploaded this batch.
             LOGGER.info("Already uploaded gs://%s/%s", bucket, path)
@@ -251,19 +302,16 @@ class GcsSink:
         label = batch.name
         prefix = f"raw/{STREAM_PREFIX}/snapshot_at={label}"
         for name in OUTPUTS:
-            data = (batch / f"{name}.csv.gz").read_bytes()
-            self._put(self.bucket, f"{prefix}/{name}.csv.gz", data, "application/gzip")
+            path = batch / f"{name}.csv.gz"
+            self._put(self.bucket, f"{prefix}/{name}.csv.gz", path, "application/gzip")
         self._put(
-            self.bucket,
-            f"{prefix}/manifest.json",
-            (batch / "manifest.json").read_bytes(),
-            "application/json",
+            self.bucket, f"{prefix}/manifest.json", batch / "manifest.json", "application/json"
         )
         archive_path = f"{ARCHIVE_PREFIX}/date={label[:10]}/{label[11:13]}{label[14:16]}.tar"
         self._put(
             self.archive_bucket,
             archive_path,
-            (batch / "archive.tar").read_bytes(),
+            batch / "archive.tar",
             "application/x-tar",
         )
 
@@ -445,6 +493,18 @@ class Stream:
         if state["static_md5"]:
             self.static.load_cached(state["static_md5"])
         saved = state["window"]
+        if saved is not None:
+            label = window_label(saved["start"])
+            batch, open_dir = self.outbox / label, self.state_dir / "open" / label
+            if batch.exists() and not (batch / "manifest.json").exists():
+                # Half-written by a seal from before staging (November 9, 2026). The open window
+                # holds the rows; take the payload tar back if it had already been moved.
+                tar = batch / "archive.tar"
+                if tar.exists() and not (open_dir / "archive.tar").exists():
+                    shutil.move(str(tar), open_dir / "archive.tar")
+                shutil.rmtree(batch)
+            elif batch.exists():
+                shutil.rmtree(open_dir, ignore_errors=True)  # sealed; died before cleanup
         # A window sealed after this checkpoint was written is already in the outbox.
         if saved is not None and (self.state_dir / "open" / window_label(saved["start"])).exists():
             window = Window(self.state_dir, saved["start"])
@@ -580,10 +640,14 @@ class Stream:
         self.checkpoint()  # the checkpoint must never point at a window that is already sealed
         LOGGER.info("Sealed window %s rows=%s", window.label, window.rows)
 
+    def _batches(self) -> list[Path]:
+        """Sealed batches; hidden staging directories are seals still in progress or abandoned."""
+        return [p for p in self.outbox.iterdir() if p.is_dir() and not p.name.startswith(".")]
+
     def drain_outbox(self, now: float) -> None:
         if now < self.next_upload:
             return
-        batches = sorted(p for p in self.outbox.iterdir() if p.is_dir())
+        batches = sorted(self._batches())
         for batch in batches:
             try:
                 self.sink.publish(batch)
@@ -595,7 +659,7 @@ class Stream:
             shutil.rmtree(batch)
             self.upload_backoff = 15.0
             LOGGER.info("Published window %s", batch.name)
-        remaining = [p for p in self.outbox.iterdir() if p.is_dir()]
+        remaining = self._batches()
         size = sum(f.stat().st_size for p in remaining for f in p.iterdir())
         if len(remaining) > OUTBOX_ALERT_WINDOWS or size > OUTBOX_ALERT_BYTES:
             LOGGER.error("RT_STREAM_OUTBOX_BACKLOG windows=%d bytes=%d", len(remaining), size)
@@ -613,7 +677,7 @@ class Stream:
                     "last_header_utc": iso(self.processor.last_header.get("tu")),
                     "open_trips": len(self.processor.engine.trips),
                     "trip_errors": self.processor.engine.trip_errors,
-                    "outbox_windows": sum(1 for p in self.outbox.iterdir() if p.is_dir()),
+                    "outbox_windows": len(self._batches()),
                     "peak_rss_mb": peak_rss_mb(),
                     "static_md5": self.static.current,
                 },

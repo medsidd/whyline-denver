@@ -172,6 +172,22 @@ def upload_bytes_gcs(
     )
 
 
+def upload_file_gcs(
+    bucket: str,
+    path: str,
+    local_path: Path,
+    content_type: str,
+    *,
+    if_generation_match: int | None = None,
+) -> None:
+    """Upload a local file to Google Cloud Storage without reading it into memory."""
+    client = _get_gcs_client()
+    blob = client.bucket(bucket).blob(path)
+    blob.upload_from_filename(
+        str(local_path), content_type=content_type, if_generation_match=if_generation_match
+    )
+
+
 def exists(path: PathLike) -> bool:
     """Return True when the local path or GCS blob exists."""
     target = str(path)

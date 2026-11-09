@@ -708,6 +708,12 @@ After a few days of the firewall traffic view showing only heavy clients, remove
 - A payload that parses but fails in the engine is still archived, so a future engine bug can be replayed.
 - Checks: regression tests that fail without the fix, the full suite, and a replay of the archived November 7 payloads (00:00–14:45) through the fixed engine with no errors.
 
+**Recovery, November 9.** The owner deployed `whylinedenver-realtime@sha256:01a5b6c6…` (`0970c38`) and restarted the poller at 11:33 UTC. Errors stopped, and closing the stuck trips released 191,066 stop visits and 5,339 trip-status rows that had been held in memory since November 7. Those are the only realtime records from the outage.
+- At 11:45 the e2-micro ran out of memory while sealing that window (the seal gzipped each CSV in memory). The kill left a half-written batch in the outbox, and every restart then failed with `FileExistsError` on it, so nothing more was captured or published.
+- **Second fix ([#131](https://github.com/medsidd/whyline-denver/pull/131)):** a seal builds its batch in a hidden staging directory and renames it into the outbox in one step, leaving the open window untouched until then, so a kill leaves no batch or a complete one. CSVs are gzipped and uploaded by streaming from disk; a 200,000-row seal now adds about 3 MB of memory instead of over 100 MB. A restart repairs the half-written batch the old seal left (the November 9 state). Regression tests fail without it.
+
+**Vercel, November 9.** The apex `whylinedenver.com` now redirects to `www` with a 308 (was 307). One firewall rule, "Rate limit API (SQL, queries, downloads)", is published in **log** mode: 20 requests a minute per IP across `/api/sql/generate`, `/api/query/run`, `/api/downloads/mart` and `/api/downloads/warehouse`. The Hobby plan allows one rate-limit rule, so downloads share it rather than having their own 5-a-minute rule. After a few days of the firewall traffic view showing only heavy clients, change its action from Log to Too Many Requests (429) in Vercel → Firewall → Rules.
+
 ### Query usage report
 
 From release R1 of the [metrics plan](plans/metrics-implementation.md), the first API image with WP0's change, every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:
