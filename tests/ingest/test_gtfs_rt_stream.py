@@ -304,3 +304,43 @@ def test_static_cache_keeps_the_version_a_trip_started_on(tmp_path):
     cache.add(new_payload, 3600 + stream.STATIC_KEEP_SEC + 1)
     assert old not in cache.feeds
     assert isinstance(cache.lookup("T1", old).feed, rt_static.StaticFeed)  # falls back to current
+
+
+def test_seal_redoes_a_batch_left_half_written(tmp_path):
+    # November 9, 2026: the poller was OOM-killed mid-seal; the partial outbox batch then made
+    # every restart fail with FileExistsError.
+    window = stream.Window(tmp_path, T(15, 30, 0))
+    window.write("tu_changes", [tuple(range(16))])
+    window.archive("tu", 100, b"tu-bytes")
+    partial = tmp_path / "outbox" / window.label
+    partial.mkdir(parents=True)
+    (partial / "tu_changes.csv.gz").write_bytes(b"truncated")
+    out = window.seal(tmp_path / "outbox", {"raw_root": "r", "source": {}})
+    assert (out / "manifest.json").exists()
+    assert len(read_gz_csv(out / "tu_changes.csv.gz")) == 2
+    with tarfile.open(out / "archive.tar") as tar:
+        assert "tu/100.pb.gz" in tar.getnames()
+
+
+def test_streamed_gzip_round_trips_and_is_deterministic(tmp_path):
+    src = tmp_path / "a.csv"
+    src.write_bytes(b"a,b\n" + b"1,2\n" * 300_000)
+    stream._gzip_file(src, tmp_path / "a.csv.gz")
+    stream._gzip_file(src, tmp_path / "b.csv.gz")
+    assert gzip.decompress((tmp_path / "a.csv.gz").read_bytes()) == src.read_bytes()
+    assert (tmp_path / "a.csv.gz").read_bytes() == (tmp_path / "b.csv.gz").read_bytes()
+
+
+def test_restore_drops_an_open_window_whose_seal_finished(tmp_path):
+    s = stream.Stream(args_for(tmp_path))
+    s.ensure_window(T(15, 31, 0))
+    s.window.write("tu_changes", [tuple(range(16))])
+    s.checkpoint()
+    label = s.window.label
+    s.window.seal(s.outbox, {"raw_root": "r", "source": {}})
+    (s.state_dir / "open" / label).mkdir(parents=True)  # died before the open dir was removed
+    restored = stream.Stream(args_for(tmp_path))
+    restored.restore()
+    assert restored.window is None
+    assert not (s.state_dir / "open" / label).exists()
+    assert (s.outbox / label / "manifest.json").exists()

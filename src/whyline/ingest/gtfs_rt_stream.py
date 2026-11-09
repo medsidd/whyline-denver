@@ -82,6 +82,25 @@ def _md5(data: bytes) -> str:
     return hashlib.md5(data, usedforsecurity=False).hexdigest()
 
 
+def _md5_file(path: Path) -> str:
+    digest = hashlib.md5(usedforsecurity=False)
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _gzip_file(src: Path, dest: Path) -> None:
+    """Stream src into dest as gzip (mtime 0, so a re-seal of the same rows hashes the same).
+
+    Compressing in memory held a whole window twice; the 191,000-row recovery window on
+    November 9, 2026 ran the e2-micro out of memory mid-seal.
+    """
+    with src.open("rb") as raw, dest.open("wb") as handle:
+        with gzip.GzipFile(filename="", mode="wb", fileobj=handle, mtime=0) as gz:
+            shutil.copyfileobj(raw, gz, 1 << 20)
+
+
 def _cell(value: object) -> object:
     if value is None:
         return ""
@@ -160,16 +179,23 @@ class Window:
     def seal(self, dest: Path, meta: dict, dirname: str | None = None) -> Path:
         """Gzip the CSVs, close the tar, write the manifest, and move the batch into dest."""
         out = dest / (dirname or self.label)
+        if out.exists() and not (out / "manifest.json").exists():
+            # A seal that died part way (OOM on November 9, 2026) left a batch with no manifest,
+            # and every restart then failed here. The open window is still the full copy, so redo
+            # it. A batch with a manifest is complete: mkdir below refuses to overwrite it.
+            if (out / "archive.tar").exists() and not self.tar_path.exists():
+                shutil.move(str(out / "archive.tar"), self.tar_path)
+            shutil.rmtree(out)
         out.mkdir(parents=True)  # never overwrite a sealed batch that may not be published yet
         files_meta = {}
         for name in OUTPUTS:
-            payload = gzip.compress(self._csv(name).read_bytes(), mtime=0)
-            (out / f"{name}.csv.gz").write_bytes(payload)
+            target = out / f"{name}.csv.gz"
+            _gzip_file(self._csv(name), target)
             files_meta[f"{name}.csv.gz"] = {
                 "path": f"{meta['raw_root']}/snapshot_at={self.label}/{name}.csv.gz",
                 "row_count": self.rows[name],
-                "bytes": len(payload),
-                "hash_md5": _md5(payload),
+                "bytes": target.stat().st_size,
+                "hash_md5": _md5_file(target),
                 "status": "ok",
                 "error": None,
             }
@@ -445,6 +471,12 @@ class Stream:
         if state["static_md5"]:
             self.static.load_cached(state["static_md5"])
         saved = state["window"]
+        if saved is not None:
+            label = window_label(saved["start"])
+            # A seal that finished but died before removing the open window: the batch is complete.
+            if (self.outbox / label / "manifest.json").exists():
+                shutil.rmtree(self.state_dir / "open" / label, ignore_errors=True)
+                saved = None
         # A window sealed after this checkpoint was written is already in the outbox.
         if saved is not None and (self.state_dir / "open" / window_label(saved["start"])).exists():
             window = Window(self.state_dir, saved["start"])
