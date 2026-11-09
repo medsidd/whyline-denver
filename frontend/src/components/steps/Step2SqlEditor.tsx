@@ -9,6 +9,7 @@ import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 import { errorText, fetchModels, validateSql } from "@/lib/api";
 import { filterUseNote, humanBytes } from "@/lib/format";
+import { LiveNote } from "@/components/steps/LiveNote";
 import { useDashboardStore } from "@/store/dashboardStore";
 import { StepShell, type StepStatus } from "@/components/steps/StepShell";
 
@@ -64,6 +65,7 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
     sqlError,
     bqEstBytes,
     prebuiltFilters,
+    sqlIsLive,
     generation,
     setEditedSql,
     setValidation,
@@ -91,7 +93,7 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
     // A check for text that has since changed is stale; drop it.
     onSuccess: (data, s) => {
       if (s !== useDashboardStore.getState().editedSql) return;
-      setValidation(data.sanitized_sql, data.bq_est_bytes, data.error);
+      setValidation(data.sanitized_sql, data.bq_est_bytes, data.error, !!data.is_live);
       setCheckedSql(s);
     },
     onError: (err, s) => {
@@ -168,6 +170,7 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
             )}
           </div>
         )}
+        {sqlIsLive && !checking && <LiveNote className="mx-2 mb-3" />}
         <CodeMirror
           value={editedSql}
           extensions={extensions}

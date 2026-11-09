@@ -1,6 +1,6 @@
 # Dashboard: live questions, route maps and polish
 
-**Status:** active. PR A (polish, topics, site map) merged ([#132](https://github.com/medsidd/whyline-denver/pull/132)); PR B (route maps) in review; PR C (live questions) follows.
+**Status:** active. PR A ([#132](https://github.com/medsidd/whyline-denver/pull/132)) and PR B ([#133](https://github.com/medsidd/whyline-denver/pull/133)) merged; PR C (live questions) in review. PRs B and C reach the app with the next Nightly BigQuery build and API image.
 
 ## Owner requests and decisions (November 9, 2026)
 
@@ -30,6 +30,10 @@
 - **Map:** a result with `route_id` gets the Map tab even without coordinates. `StopMap` draws the first 10 routes under the stop dots in ten distinct colors (none red, the stops' color), lists them with their names, says which routes have no line, and fits the view to the stops (a route-only result waits for its lines and fits them; lines arriving later never reset the user's view). A route-only result with no lines says so instead of showing an empty map. A stop-only result draws no lines. Tooltip text is HTML-escaped: result values are user-controlled, and the existing stop tooltip wasn't escaped either.
 - **Release:** the tables appear after the next Nightly BigQuery build; the endpoint needs the next API image. Until both, maps show stops only.
 
-## PR C: live questions
+## PR C as built: live questions
 
-Views over the 15-minute realtime loads answer "right now" questions. Generated SQL that reads them is flagged as live, and the results say how old the newest record is. Ready-made "Which routes are running right now?" question. Expect 15–30 minutes of delay: the poller publishes every 15 minutes and `realtime-load` loads at :02, :17, :32 and :47.
+- **Models:** core view `fct_vehicle_report` over the stream's vehicle reports (marts read only gold core), and two live mart views in `marts/live/`: `mart_vehicles_now` (vehicles running in the newest load: latest report in the last 45 minutes and within 10 minutes of the newest report, with route and stop names and `minutes_ago`) and `mart_stop_visits_recent` (stop visits in the last 2 hours including skipped stops, with delay and the nightly marts' on-time thresholds). Their time filters prune to today's partitions: about 2.6 MB and 1.3 MB a query. Run read-only against live data on November 9: 471 vehicles on 107 routes, reports 10–20 minutes old; 12,089 visits including 128 skipped.
+- **Exposure:** `LIVE_MARTS` in `src/whyline/sync/constants.py`: queryable in the app on BigQuery (not DuckDB), never exported to Parquet or DuckDB.
+- **Asking:** the prompt sends questions about right now, currently or live to the live views, tells the model not to date-filter them, and to say in the explanation that they trail real time by 15–30 minutes. The API marks SQL that reads them with `is_live` on generation, the check and the run; a live run also returns `live_loaded_at`, when the newest vehicle report was made. Found on the way: `EXTRACT(HOUR FROM ts)` was read as a table by the guardrail and by BigQuery qualification, which rejected hourly questions; fixed. They have no `service_date_mst`, so the date filter isn't injected.
+- **Showing:** Steps 2 and 3 show a note when the API says the SQL reads a live view; Step 3's says when the newest vehicle report was made, and both give the 15–30 minute delay. Ready-made question 9, "Which routes are running right now?", counts vehicles per route; its map draws the route lines. A "Right now" topic joins the topics on the landing page and in the dashboard panel. The landing page's "A day behind" and the FAQ's live-arrivals answer are updated.
+- **Release:** the views are created by the next Nightly BigQuery build; the API image carries the regenerated artifacts (committed in this PR; the catalog gains the views' column types once they exist). The API is backward compatible, so it is deployed before this PR merges: otherwise the frontend's question 9 would reach an API that doesn't have it.

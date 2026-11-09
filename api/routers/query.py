@@ -6,6 +6,7 @@ import sys
 import time
 from pathlib import Path
 
+import pandas as pd
 from fastapi import APIRouter
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -19,9 +20,11 @@ from api.deps import (
     get_stop_lookup,
 )
 from api.models import RunQueryRequest, RunQueryResponse
+from whyline.config import settings
 from whyline.engines import bigquery_engine, duckdb_engine
 from whyline.llm import adapt_sql_for_engine
-from whyline.logs import log_query, query_cache
+from whyline.logs import QueryCache, log_query, query_cache
+from whyline.prebuilt import is_live
 from whyline.sql_guardrails import SqlValidationError, referenced_tables, sanitize_sql
 
 router = APIRouter()
@@ -54,6 +57,30 @@ def _enrich_result(display_df):  # type: ignore[no-untyped-def]
                 )
 
     return display_df
+
+
+# The newest vehicle report changes with each 15-minute load; a minute's cache is plenty.
+_live_cache = QueryCache(ttl_seconds=60)
+
+
+def _live_loaded_at() -> str | None:
+    """When the newest vehicle report in the live data was made, or None if it can't be read."""
+    cached = _live_cache.get("bigquery", "live_loaded_at")
+    if cached:
+        return cached
+    table = f"`{settings.GCP_PROJECT_ID}.{settings.BQ_DATASET_MART}.mart_vehicles_now`"
+    try:
+        _, df = bigquery_engine.execute(f"SELECT MAX(report_ts_utc) AS t FROM {table}")
+        value = df["t"].iloc[0] if len(df) else None
+        if value is None or pd.isna(value):
+            return None
+        stamp = pd.Timestamp(value)
+        stamp = stamp.tz_localize("UTC") if stamp.tzinfo is None else stamp.tz_convert("UTC")
+    except Exception:  # noqa: BLE001 - the note just omits the time
+        return None
+    loaded = stamp.strftime("%Y-%m-%d %H:%M UTC")
+    _live_cache.set("bigquery", "live_loaded_at", loaded)
+    return loaded
 
 
 @router.post("/query/run", response_model=RunQueryResponse)
@@ -113,12 +140,15 @@ def run_query(req: RunQueryRequest) -> RunQueryResponse:
                 display_df = display_df.copy()
                 display_df[col] = display_df[col].astype(str)
 
+        live = is_live(sanitized)
         return RunQueryResponse(
             rows=min(total_rows, _MAX_DISPLAY_ROWS),
             columns=list(display_df.columns),
             data=display_df.to_dict(orient="records"),
             total_rows=total_rows,
             stats=stats,
+            is_live=live,
+            live_loaded_at=_live_loaded_at() if live and req.engine == "bigquery" else None,
         )
 
     except Exception as exc:

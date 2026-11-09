@@ -40,7 +40,7 @@ FastAPI registers five routers under `/api` in `api/main.py`. `api/models.py` is
 
 `question` is required. `filters` is optional and defaults to empty/null fields. Its shape is `FilterState`: nullable `start_date`/`end_date` strings, route/weather string lists, and a stop string. The implementation injects supported conditions when relevant column names appear in generated SQL; filters are not a universal relational query builder and do not rewrite edited SQL. Filter values are validated first (`clean_filters` in `src/whyline/prebuilt.py`): routes and weather bins must match `[A-Za-z0-9_-]{1,16}`, the stop `[A-Za-z0-9]{1,16}`, and dates must be ISO dates with the start on or before the end. Invalid values are dropped, never quoted into SQL. Review the actual SQL.
 
-Response: `sql`, `explanation`, `cache_hit`, `error`, and `applied_filters`/`skipped_filters` (empty here; set by the ready-made endpoints). Provider/guardrail failures can return HTTP 200 with a non-null `error`. Prompt cache keys include provider, engine, question, and filters; default TTL is 900 seconds per process. Gemini sends the question, filters, and schema brief to the provider. When dates are set, the prompt asks for exactly the predicate the server injects (`service_date_mst BETWEEN DATE '…' AND DATE '…'`) and no other date window, so the injection finds it and adds nothing; without dates it asks for a recent window when the question implies one. Stub avoids provider calls; other named providers are unimplemented.
+Response: `sql`, `explanation`, `cache_hit`, `error`, `applied_filters`/`skipped_filters` (empty here; set by the ready-made endpoints), and `is_live`: true when the SQL reads a live view (`mart_vehicles_now`, `mart_stop_visits_recent`), which trails real time by 15–30 minutes. The prompt sends questions about right now to those views and tells the model not to date-filter them; they have no `service_date_mst`, so the date filter isn't injected. Provider/guardrail failures can return HTTP 200 with a non-null `error`. Prompt cache keys include provider, engine, question, and filters; default TTL is 900 seconds per process. Gemini sends the question, filters, and schema brief to the provider. When dates are set, the prompt asks for exactly the predicate the server injects (`service_date_mst BETWEEN DATE '…' AND DATE '…'`) and no other date window, so the injection finds it and adds nothing; without dates it asks for a recent window when the question implies one. Stub avoids provider calls; other named providers are unimplemented.
 
 ## Validate SQL
 
@@ -50,13 +50,13 @@ Request to `/api/sql/validate`:
 {"sql":"SELECT stop_id, stop_name FROM mart_gtfs_stops LIMIT 10","engine":"duckdb"}
 ```
 
-Response fields: `valid`, nullable `sanitized_sql`, nullable `bq_est_bytes`, nullable `error`. BigQuery estimation errors are nonfatal, so `valid: true` with no estimate does not prove the query will execute.
+Response fields: `valid`, nullable `sanitized_sql`, nullable `bq_est_bytes`, nullable `error`, and `is_live` (the SQL reads a live view). BigQuery estimation errors are nonfatal, so `valid: true` with no estimate does not prove the query will execute.
 
-Guardrails accept one SELECT/WITH statement, reject denylisted write keywords (a query that starts with another word gets "SQL must start with SELECT or WITH. Check the first word ('SELEC')."), and check referenced table/project/dataset allowlists. They add `LIMIT 5000` only when a numeric limit is absent; existing limits are not reduced. BigQuery's partition-filter suggestion checks for a configured date column without a WHERE clause; it does not guarantee effective partition pruning. These are regex checks and must be backed by least-privilege database credentials.
+Guardrails accept one SELECT/WITH statement, reject denylisted write keywords (a query that starts with another word gets "SQL must start with SELECT or WITH. Check the first word ('SELEC')."), and check referenced table/project/dataset allowlists. They add `LIMIT 5000` only when a numeric limit is absent; existing limits are not reduced. BigQuery's partition-filter suggestion checks for a configured date column without a WHERE clause; it does not guarantee effective partition pruning. On DuckDB the live views aren't allowed: they exist only in BigQuery. `EXTRACT(HOUR FROM ts)`'s FROM is not read as a table, by the check or by BigQuery table qualification (both treated it as one before November 9, 2026). These are regex checks and must be backed by least-privilege database credentials.
 
 ## Prebuilt SQL
 
-Indices follow the order of `PREBUILT` in `src/whyline/prebuilt.py`: 0 worst routes by on-time share, 1 crash exposure, 2 snow days against other days per route and method, 3 equity gaps, 4 scheduled frequency, 5 arrival-prediction accuracy, 6 missed trips, 7 slowest bus segments at rush hour. `frontend/src/types/api.ts` mirrors the labels. Prefer the engine-specific endpoint used by the frontend.
+Indices follow the order of `PREBUILT` in `src/whyline/prebuilt.py`: 0 worst routes by on-time share, 1 crash exposure, 2 snow days against other days per route and method, 3 equity gaps, 4 scheduled frequency, 5 arrival-prediction accuracy, 6 missed trips, 7 slowest bus segments at rush hour, 8 routes running right now (live). `frontend/src/types/api.ts` mirrors the labels. Prefer the engine-specific endpoint used by the frontend.
 
 Both endpoints take an optional `FilterState` body (an empty or missing body uses each question's default window). `build_prebuilt_sql` puts the user's dates in place of the default window and adds the route, stop and weather predicates the question supports, with the right table alias. The response adds `applied_filters` and `skipped_filters`, lists of `dates`, `routes`, `stop` and `weather`: skipped are filters the user set that the question doesn't take, or with invalid values (a filter with some valid and some invalid values is in both lists). `explanation` is a plain sentence written for each question.
 
@@ -70,6 +70,7 @@ Both endpoints take an optional `FilterState` body (an empty or missing body use
 | 5 | Prediction accuracy | ✓ (30 days) | ✓ | – | – |
 | 6 | Missed trips | ✓ (7 complete days) | ✓ | – | – |
 | 7 | Slow segments | – (28-day mart) | ✓ (`s.route_id`) | – | – |
+| 8 | Routes running right now (live) | – (live view) | ✓ | – | – |
 
 ## Execute
 
@@ -87,6 +88,8 @@ curl -sS http://localhost:8000/api/query/run   -H 'Content-Type: application/jso
 | `total_rows` | Result size before the display truncation, not a count of all source-table rows |
 | `stats` | Engine execution metadata; shape varies by engine |
 | `error` | Nullable execution/validation error |
+| `is_live` | The SQL reads a live view |
+| `live_loaded_at` | For live results on BigQuery: when the newest vehicle report was made, `YYYY-MM-DD HH:MM UTC` (from `MAX(report_ts_utc)` of `mart_vehicles_now`, cached 60 s) |
 
 Execution always re-sanitizes server-side. Results display at most 10,000 records; SQL/engine limits still determine work performed before display. Stop IDs can add missing stop names/coordinates and route IDs can add missing route names via cached lookup tables. Lookup availability is separate from query success.
 

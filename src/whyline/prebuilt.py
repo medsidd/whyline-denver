@@ -13,6 +13,9 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
+from whyline.sql_guardrails import referenced_tables
+from whyline.sync.constants import LIVE_MARTS
+
 ROUTE_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,16}")
 STOP_PATTERN = re.compile(r"[A-Za-z0-9]{1,16}")
 WEATHER_PATTERN = ROUTE_PATTERN
@@ -281,7 +284,31 @@ PREBUILT: list[Prebuilt] = [
         supports=frozenset({"routes"}),
         alias="s.",
     ),
+    Prebuilt(
+        label="Which routes are running right now?",
+        explanation=(
+            "Counts the vehicles on each route in the newest live data, with how many minutes "
+            "old their latest reports are. Live data trails real time by 15 to 30 minutes, "
+            "because vehicle reports load every 15 minutes."
+        ),
+        sql=(
+            "SELECT route_id, ANY_VALUE(route_name) AS route_name,\n"
+            "  ANY_VALUE(route_long_name) AS route_long_name,\n"
+            "  COUNT(DISTINCT vehicle_id) AS n_vehicles, MIN(minutes_ago) AS newest_minutes_ago\n"
+            "FROM mart_vehicles_now\n"
+            "WHERE route_id IS NOT NULL{filters}\n"
+            "GROUP BY route_id\n"
+            "ORDER BY n_vehicles DESC\n"
+            "LIMIT 200"
+        ),
+        supports=frozenset({"routes"}),
+    ),
 ]
+
+
+def is_live(sql: str) -> bool:
+    """Whether SQL reads the live views, which trail real time by 15–30 minutes."""
+    return bool(set(LIVE_MARTS) & set(referenced_tables(sql)))
 
 
 @dataclass(frozen=True)

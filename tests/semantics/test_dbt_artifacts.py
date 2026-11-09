@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from whyline.semantics.dbt_artifacts import DbtArtifacts
-from whyline.sync.constants import ALLOWLISTED_MARTS
+from whyline.sync.constants import ALLOWLISTED_MARTS, LIVE_MARTS
 
 
 @pytest.fixture(scope="module")
@@ -72,8 +72,13 @@ def artifacts(tmp_path_factory) -> DbtArtifacts:
 
 
 def test_every_allowlisted_mart_is_exposed(artifacts: DbtArtifacts) -> None:
-    # Each allowlisted mart must also set meta.allow_in_app, or the app silently drops it.
-    assert set(artifacts.allowed_models()) == set(ALLOWLISTED_MARTS)
+    # Each allowlisted or live mart must also set meta.allow_in_app, or the app silently drops it.
+    assert set(artifacts.allowed_models()) == set(ALLOWLISTED_MARTS) | set(LIVE_MARTS)
+
+
+def test_live_marts_are_never_exported() -> None:
+    # Live views change every 15 minutes; a nightly Parquet copy would be stale and misleading.
+    assert not set(LIVE_MARTS) & set(ALLOWLISTED_MARTS)
 
 
 def test_columns_and_descriptions_loaded(artifacts: DbtArtifacts) -> None:

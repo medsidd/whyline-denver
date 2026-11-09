@@ -335,6 +335,17 @@ Limits:
 
 `mart_stop_scorecard` (one row per stop) and `mart_route_scorecard` (one row per route, both directions) gather the measures above over the last 28 service dates, using the same definitions. Each measured part comes with the count it rests on (`n_visits_measured`, `n_visits_with_occupancy`, `n_trips_observable` and so on). A part with no data stays empty rather than zero, so a stop with no occupancy reports isn't shown as uncrowded.
 
+## Live data
+
+Two views answer questions about right now. They read the newest realtime load every time they're queried, so they **trail real time by 15–30 minutes**: the poller publishes a batch every 15 minutes and `realtime-load` loads it at :02, :17, :32 and :47. They aren't an arrivals board.
+
+| View | What it holds |
+|---|---|
+| `mart_vehicles_now` | Vehicles running in the newest load: each vehicle's latest report from the last 45 minutes of feed time, kept when it is within 10 minutes of the newest report, so a bus that stopped reporting drops out with the next load. Route (NULL when the vehicle isn't on a trip), direction, trip, the stop it's at or heading to, position, speed, occupancy level, `report_ts_mst` and `minutes_ago`. |
+| `mart_stop_visits_recent` | Stop visits from the last 2 hours, skipped stops included (by their scheduled arrival): route, stop, `arrival_ts_mst`, `delay_sec`, `delay_min` and `is_on_time` (the nightly marts' thresholds, RTD's rule by default; NULL when the delay is unknown). |
+
+"Routes running now" counts routes with at least one vehicle on a trip in `mart_vehicles_now`. A route whose vehicles stopped reporting looks like it isn't running. The dashboard says when the newest vehicle report was made. The dashboard's date filter doesn't apply to these views, and they aren't in the nightly downloads or the DuckDB warehouse.
+
 ## Dates, provenance, and reference tables
 
 `service_date_mst` and `event_hour_mst` use `America/Denver`, including daylight saving time despite the historical suffix. Stop-visit service dates are GTFS service dates (`start_date`), so a trip running past midnight counts on the day it began; legacy partitions used the Denver date of the poll. `build_run_at` records model rebuilding, not newest underlying observation.

@@ -168,3 +168,13 @@ def test_lone_semicolon_is_a_validation_error():
     config = GuardrailConfig(allowed_models={"mart_access_score_by_stop"}, engine="duckdb")
     with pytest.raises(SqlValidationError, match="No SQL provided"):
         sanitize_sql(" ; ", config)
+
+
+def test_extract_from_is_not_a_table():
+    sql = (
+        "SELECT EXTRACT(HOUR FROM arrival_ts_mst) AS h, AVG(delay_min) AS avg_delay "
+        "FROM mart_stop_visits_recent GROUP BY h"
+    )
+    assert referenced_tables(sql) == ["mart_stop_visits_recent"]
+    config = GuardrailConfig(allowed_models={"mart_stop_visits_recent"}, engine="bigquery")
+    assert "EXTRACT(HOUR FROM arrival_ts_mst)" in sanitize_sql(sql, config)

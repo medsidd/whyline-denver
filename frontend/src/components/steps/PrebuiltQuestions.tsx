@@ -17,6 +17,7 @@ const CHIP_COLORS = [
   TEAL, // predictions
   TEAL, // missed trips
   TEAL, // slow segments
+  { dot: "bg-wl-ink2" }, // live
 ];
 
 /**

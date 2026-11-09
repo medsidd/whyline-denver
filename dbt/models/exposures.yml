@@ -22,6 +22,8 @@ exposures:
       - ref('mart_gtfs_stops')
       - ref('mart_gtfs_routes')
       - ref('mart_route_shapes')
+      - ref('mart_vehicles_now')
+      - ref('mart_stop_visits_recent')
       - ref('mart_service_frequency_by_stop')
       - ref('mart_frequent_network_by_route')
       - ref('mart_service_intensity_by_tract')
