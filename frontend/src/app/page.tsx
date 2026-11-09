@@ -7,6 +7,7 @@ import { DOCS, GITHUB, GLOSSARY } from "@/lib/links";
 import { readableTimestamp } from "@/lib/format";
 import { SITE, pageMetadata } from "@/lib/seo";
 import { SkipLink } from "@/components/landing/SkipLink";
+import { TOPICS } from "@/lib/topics";
 import type { FreshnessResponse } from "@/types/api";
 
 export const metadata: Metadata = pageMetadata({
@@ -28,41 +29,6 @@ const CHIPS = [
   { q: "Stops with the most crashes nearby", prebuilt: 1, tint: "bg-wl-red-tint", dot: "bg-wl-red" },
   { q: "Where snow hurts reliability most", prebuilt: 2, tint: "bg-wl-gold-tint", dot: "bg-wl-gold" },
   { q: "Equity gaps", prebuilt: 3, tint: "bg-wl-navy-tint", dot: "bg-wl-navy" },
-];
-
-const TOPICS = [
-  {
-    name: "Reliability",
-    line: "bg-wl-teal",
-    tint: "bg-wl-teal-tint",
-    body: "On-time share, waits and bunching, missed trips, crowding, and how far to trust the arrival countdown, by route, stop and hour.",
-    example: "Which routes missed the most scheduled trips last week?",
-    source: "From RTD GTFS schedules and GTFS-Realtime",
-  },
-  {
-    name: "Weather",
-    line: "bg-wl-gold",
-    tint: "bg-wl-gold-tint",
-    body: "How on-time performance shifts on days with rain or snow.",
-    example: "Do snowy days lower on-time performance on route 0?",
-    source: "From NOAA daily observations at Denver International Airport",
-  },
-  {
-    name: "Safety",
-    line: "bg-wl-red",
-    tint: "bg-wl-red-tint",
-    body: "Reported traffic crashes within 250 meters of each stop.",
-    example: "Which stops have the most crashes nearby?",
-    source: "From Denver Open Data crash records",
-  },
-  {
-    name: "Equity and access",
-    line: "bg-wl-navy",
-    tint: "bg-wl-navy-tint",
-    body: "Where weak service overlaps with neighborhoods that rely on transit, and how much sidewalk is near each stop.",
-    example: "Which high-need stops have the least sidewalk around them?",
-    source: "From U.S. Census ACS 2023 and Denver’s sidewalk inventory",
-  },
 ];
 
 const STEPS = [
@@ -265,7 +231,7 @@ export default async function LandingPage() {
         {/* Hero */}
         <section aria-labelledby="hero-title" className="pt-16 pb-8 flex flex-wrap gap-x-14 gap-y-12 items-center">
           <div className="flex-[1_1_480px] min-w-0">
-            <h1 id="hero-title" className="m-0 font-black text-[clamp(44px,6vw,80px)] leading-[1.02] tracking-[-0.035em] text-wl-navy max-w-[11ch]">
+            <h1 id="hero-title" className="m-0 font-black text-[clamp(44px,5.4vw,72px)] leading-[1.02] tracking-[-0.035em] text-wl-navy max-w-[14ch]">
               Ask how Denver’s buses are really running.
             </h1>
             <p className="mt-6 text-[clamp(17px,1.5vw,20px)] text-wl-ink2 max-w-[52ch]">
@@ -457,7 +423,7 @@ export default async function LandingPage() {
         {/* FAQ */}
         <section id="faq" aria-labelledby="faq-title" className="pt-28">
           <h2 id="faq-title" className={h2}>Questions</h2>
-          <div className="mt-8 max-w-[820px] border-t-2 border-wl-navy/10">
+          <div className="mt-8 border-t-2 border-wl-navy/10">
             {FAQ.map(({ q, a }) => (
               <details key={q} className="wl-faq border-b-2 border-wl-navy/10">
                 <summary className="flex justify-between items-center gap-4 min-h-[68px] font-extrabold text-lg text-wl-navy">

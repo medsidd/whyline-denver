@@ -9,6 +9,7 @@ const LINKS: [string, string][] = [
   [GITHUB, "GitHub"],
   [DOCS, "Technical docs"],
   [GLOSSARY, "Metric definitions"],
+  ["/site-map", "Site map"],
 ];
 
 /** Footer for the landing and legal pages; carries the notices data providers require. */

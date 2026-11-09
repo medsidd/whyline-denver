@@ -30,7 +30,7 @@ export default function DashboardPage() {
       <Header />
       <div className="flex-1 w-full max-w-[1440px] mx-auto px-[clamp(16px,3vw,40px)] pt-6 lg:pt-8 pb-16 grid gap-6 lg:gap-10 lg:grid-cols-[300px_minmax(0,1fr)] items-start">
         <Sidebar />
-        <main id="main" tabIndex={-1} className="min-w-0 max-w-[920px]">
+        <main id="main" tabIndex={-1} className="min-w-0 max-w-[1000px]">
           <h1 className="m-0 font-black text-[clamp(30px,4vw,44px)] leading-[1.05] tracking-[-0.035em]">
             Ask about Denver transit
           </h1>

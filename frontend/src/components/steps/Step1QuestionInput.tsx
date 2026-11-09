@@ -5,6 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { errorText, generateSql } from "@/lib/api";
 import { useDashboardStore } from "@/store/dashboardStore";
 import { PrebuiltQuestions } from "@/components/steps/PrebuiltQuestions";
+import { TopicsPanel } from "@/components/steps/TopicsPanel";
 import { StepShell, type StepStatus } from "@/components/steps/StepShell";
 
 /** Step 1: ask in plain English, or load a ready-made question. */
@@ -127,6 +128,7 @@ export function Step1QuestionInput({ status }: { status: StepStatus }) {
         </p>
       )}
 
+      <TopicsPanel />
       <PrebuiltQuestions />
     </StepShell>
   );

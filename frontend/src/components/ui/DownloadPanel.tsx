@@ -96,7 +96,7 @@ export function DownloadPanel() {
   };
 
   return (
-    <section aria-labelledby="wl-downloads" className="mt-14 pt-8 border-t-2 border-wl-navy/10">
+    <section aria-labelledby="wl-downloads" className="mt-14 pt-8 sm:pl-[68px] border-t-2 border-wl-navy/10">
       <h2 id="wl-downloads" className="m-0 font-black text-2xl tracking-[-0.01em]">
         Download a whole table
       </h2>
@@ -104,7 +104,7 @@ export function DownloadPanel() {
         No question needed. Pick a table and get it as CSV, up to the row limit you set.
       </p>
 
-      <div className="mt-5 bg-white rounded-[24px] p-5 max-w-[720px] wl-shadow">
+      <div className="mt-5 bg-white rounded-[28px] p-5 wl-shadow">
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px]">
           <label>
             <span className={label}>Table</span>
