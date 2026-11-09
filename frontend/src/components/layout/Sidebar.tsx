@@ -81,11 +81,8 @@ export function Sidebar() {
       </button>
 
       <div id="wl-filters" className={`${open ? "flex" : "hidden"} lg:flex flex-col gap-6 p-5 pt-1 lg:px-0 lg:pt-2`}>
-        <p className="m-0 text-[13px] font-semibold text-wl-ink2">
-          These filters are added to the SQL WhyLine writes for your question.
-          {/* The header shows this from md up */}
-          {/\d:\d\d/.test(freshness) && <span className="md:hidden"> Data updated {freshness}.</span>}
-        </p>
+        {/* The header shows this from md up */}
+        {/\d:\d\d/.test(freshness) && <p className="md:hidden m-0 text-[13px] font-semibold text-wl-ink2">Data updated {freshness}.</p>}
 
         {/* Dates */}
         <fieldset>

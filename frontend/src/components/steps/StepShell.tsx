@@ -1,5 +1,8 @@
 export type StepStatus = "done" | "current" | "upcoming";
 
+/** Left offset of step content (the stop column plus the gap), for content that lines up with it. */
+export const STEP_INDENT = "sm:ml-[68px]";
+
 interface Props {
   n: number;
   title: string;
@@ -14,6 +17,7 @@ interface Props {
 export function StepShell({ n, title, status, last, aside, children }: Props) {
   return (
     <li className="flex gap-3 sm:gap-5">
+      {/* w-12 + gap-5 = 68 px: STEP_INDENT */}
       <div aria-hidden="true" className="flex-none w-10 sm:w-12 flex flex-col items-center">
         <div
           key={status}

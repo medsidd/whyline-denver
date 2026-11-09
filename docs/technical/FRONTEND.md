@@ -7,11 +7,13 @@
 | Path under `frontend/src/` | Purpose |
 |---|---|
 | `app/layout.tsx`, `providers.tsx` | Fonts, `metadataBase` and site-wide metadata, TanStack Query provider, Vercel Analytics and Speed Insights |
-| `lib/seo.ts`, `app/robots.ts`, `app/sitemap.ts`, `app/app/layout.tsx` | `pageMetadata` gives each page its title, description, canonical URL and full link preview (Next.js replaces a parent's `openGraph` rather than merging it); robots allows everything but `/api/`; the sitemap lists the five public pages; the dashboard's metadata lives in its layout because the page is a client component |
+| `lib/seo.ts`, `app/robots.ts`, `app/sitemap.ts`, `app/app/layout.tsx` | `pageMetadata` gives each page its title, description, canonical URL and full link preview (Next.js replaces a parent's `openGraph` rather than merging it); robots allows everything but `/api/`; the sitemap lists the six public pages; the dashboard's metadata lives in its layout because the page is a client component |
+| `app/site-map/page.tsx` | Readable site map (pages, home-page sections, documentation, `sitemap.xml`, `robots.txt`), linked from the footer |
 | `app/not-found.tsx`, `components/landing/SkipLink.tsx` | Branded 404 ("This page isn't on the map") in the legal-page shell; a "Skip to content" link, visible on focus, first on the landing, dashboard, legal and 404 pages, targeting `main#main` |
-| `components/layout/` | Header (glass nav, data freshness as "Nov 7, 5:05 PM MST") and Sidebar (filter rail, collapsible below `lg`; the weather filter is labelled "Precipitation") |
+| `components/layout/` | Header (glass nav, data freshness as "Nov 7, 5:05 PM MST") and Sidebar (filter rail, collapsible below `lg`; the weather filter is labelled "Precipitation"; on phones it shows when the data was updated) |
 | `components/steps/StepShell.tsx` | Numbered stop, connecting line and card for each step; status is done, current or upcoming |
-| `components/steps/Step1QuestionInput.tsx` | Natural-language question and generation request; renders the ready-made questions |
+| `components/steps/Step1QuestionInput.tsx` | Natural-language question and generation request; renders the topics panel and the ready-made questions |
+| `components/steps/TopicsPanel.tsx`, `lib/topics.ts` | Collapsible "What can I ask about?" list; each topic's example fills the question box. `TOPICS` is shared with the landing page |
 | `components/steps/PrebuiltQuestions.tsx` | Eight ready-made question chips (BigQuery SQL from the API, narrowed by the filter rail; the list is `PREBUILT_QUERIES` in `types/api.ts`), colored by the landing page topic each belongs to. While one is loaded unedited, a filter change reloads it after 400 ms; results stay when the SQL comes back the same, and only the newest response is used |
 | `components/steps/Step2SqlEditor.tsx` | CodeMirror SQL editing (navy theme), validation on load and debounced while typing, BigQuery estimate, which filters a ready-made question used, and a note when edited SQL may not match the description |
 | `components/steps/Step3Results.tsx` | Execution, Chart/Map/Table tabs, result CSV |
@@ -38,7 +40,7 @@ LocalStorage key `whyline-dashboard` (persist version 1; older saved state is di
 
 ## Charts and maps
 
-`detectChartType(columns, sql, row)` selects by column names, in order: stop/hour reliability, precipitation/date reliability, date reliability, a metric by hour with nothing else grouped (vertical bars sorted by hour), ranked categories (horizontal bars, up to 25, labels truncated with the full text on hover), or none. For bars, the metric is the column the run SQL's first `ORDER BY` names when it is numeric in the first row (a regex, not a parser), else the first metric-like column; `lat`, `lon` and `direction_id` never are. The category prefers `from_stop_name` (labelled "17:00 A → B"), `stop_name`, then `route_id` (with the route's long name when the API added one). This is a naming heuristic, not inferred statistical meaning.
+`detectChartType(columns, sql, row)` selects by column names, in order: stop/hour reliability, precipitation/date reliability, date reliability, a metric by hour with nothing else grouped (vertical bars sorted by hour), ranked categories (horizontal bars, up to 25, labels truncated with the full text on hover; the label column is about a third of the chart's measured width, 96–180 px, at 8 px a character), or none. For bars, the metric is the column the run SQL's first `ORDER BY` names when it is numeric in the first row (a regex, not a parser), else the first metric-like column; `lat`, `lon` and `direction_id` never are. The category prefers `from_stop_name` (labelled "17:00 A → B"), `stop_name`, then `route_id` (with the route's long name when the API added one). This is a naming heuristic, not inferred statistical meaning.
 
 The `heatmap` branch currently renders grouped bars rather than a full heatmap. Weather small multiples group precipitation categories; they do not prove snow-specific effects. Without an `ORDER BY` match, generic charts depend on name words such as `avg`, `pct` or `score`, not a full schema/type inspection.
 

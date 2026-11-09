@@ -25,4 +25,4 @@ export function pageMetadata({ title, description, path }: { title: string; desc
 }
 
 /** Public pages, for the sitemap. */
-export const PAGES = ["/", "/app", "/privacy", "/terms", "/attribution"] as const;
+export const PAGES = ["/", "/app", "/privacy", "/terms", "/attribution", "/site-map"] as const;
