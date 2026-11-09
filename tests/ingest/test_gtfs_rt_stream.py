@@ -7,6 +7,7 @@ import gzip
 import hashlib
 import io
 import json
+import shutil
 import tarfile
 from pathlib import Path
 
@@ -214,7 +215,7 @@ def test_gcs_publish_treats_existing_objects_as_uploaded(tmp_path, monkeypatch):
         calls.append((bucket, path, if_generation_match))
         raise PreconditionFailed("exists")
 
-    monkeypatch.setattr(stream.io, "upload_bytes_gcs", fake_upload)
+    monkeypatch.setattr(stream.io, "upload_file_gcs", fake_upload)
     window = stream.Window(tmp_path, T(15, 30, 0))
     batch = window.seal(tmp_path / "outbox", {"raw_root": "r", "source": {}})
     stream.GcsSink("raw-bucket", "archive-bucket").publish(batch)
@@ -306,20 +307,60 @@ def test_static_cache_keeps_the_version_a_trip_started_on(tmp_path):
     assert isinstance(cache.lookup("T1", old).feed, rt_static.StaticFeed)  # falls back to current
 
 
-def test_seal_redoes_a_batch_left_half_written(tmp_path):
-    # November 9, 2026: the poller was OOM-killed mid-seal; the partial outbox batch then made
-    # every restart fail with FileExistsError.
+def test_seal_ignores_an_abandoned_staging_directory(tmp_path):
     window = stream.Window(tmp_path, T(15, 30, 0))
     window.write("tu_changes", [tuple(range(16))])
     window.archive("tu", 100, b"tu-bytes")
-    partial = tmp_path / "outbox" / window.label
+    stale = tmp_path / "outbox" / f".{window.label}.tmp"
+    stale.mkdir(parents=True)
+    (stale / "tu_changes.csv.gz").write_bytes(b"truncated")
+    out = window.seal(tmp_path / "outbox", {"raw_root": "r", "source": {}})
+    assert not stale.exists() and (out / "manifest.json").exists()
+    assert len(read_gz_csv(out / "tu_changes.csv.gz")) == 2
+    with tarfile.open(out / "archive.tar") as tar:
+        assert tar.getnames() == ["tu/100.pb.gz", "meta.json"]
+
+
+def test_a_killed_seal_leaves_the_open_window_whole(tmp_path, monkeypatch):
+    window = stream.Window(tmp_path, T(15, 30, 0))
+    window.write("tu_changes", [tuple(range(16))])
+    window.archive("tu", 100, b"tu-bytes")
+    real_rename = stream.os.rename
+
+    def killed(*_args):
+        raise MemoryError("OOM")
+
+    monkeypatch.setattr(stream.os, "rename", killed)
+    with pytest.raises(MemoryError):
+        window.seal(tmp_path / "outbox", {"raw_root": "r", "source": {}})
+    monkeypatch.setattr(stream.os, "rename", real_rename)
+    assert window.dir.exists() and not (tmp_path / "outbox" / window.label).exists()
+    out = window.seal(tmp_path / "outbox", {"raw_root": "r", "source": {}})
+    with tarfile.open(out / "archive.tar") as tar:  # one meta.json, not two
+        assert tar.getnames() == ["tu/100.pb.gz", "meta.json"]
+
+
+def test_restore_repairs_a_batch_half_written_before_staging(tmp_path):
+    # November 9, 2026: an OOM kill mid-seal left outbox/<label> without a manifest, and every
+    # restart then failed with FileExistsError.
+    s = stream.Stream(args_for(tmp_path))
+    s.ensure_window(T(15, 31, 0))
+    s.window.write("tu_changes", [tuple(range(16))])
+    s.window.archive("tu", 100, b"tu-bytes")
+    s.checkpoint()
+    label = s.window.label
+    partial = s.outbox / label
     partial.mkdir(parents=True)
     (partial / "tu_changes.csv.gz").write_bytes(b"truncated")
-    out = window.seal(tmp_path / "outbox", {"raw_root": "r", "source": {}})
-    assert (out / "manifest.json").exists()
+    shutil.move(str(s.window.tar_path), partial / "archive.tar")
+    restored = stream.Stream(args_for(tmp_path))
+    restored.restore()
+    assert not partial.exists() and restored.window is not None
+    out = restored.window.seal(restored.outbox, {"raw_root": "r", "source": {}})
     assert len(read_gz_csv(out / "tu_changes.csv.gz")) == 2
     with tarfile.open(out / "archive.tar") as tar:
         assert "tu/100.pb.gz" in tar.getnames()
+    assert restored._batches() == [out]
 
 
 def test_streamed_gzip_round_trips_and_is_deterministic(tmp_path):
