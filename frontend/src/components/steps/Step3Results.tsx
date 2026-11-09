@@ -186,7 +186,7 @@ export function Step3Results({ status }: { status: StepStatus }) {
               <>
                 {result.total_rows > 1000 && (
                   <p className="mt-0 mb-2 text-[13px] font-bold text-wl-ink2">
-                    Showing the first 1,000 of {result.total_rows.toLocaleString()} points.
+                    The map uses the first 1,000 of {result.total_rows.toLocaleString()} rows.
                   </p>
                 )}
                 <StopMap data={mapRows} />

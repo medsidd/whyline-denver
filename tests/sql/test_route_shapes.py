@@ -23,6 +23,7 @@ def engine(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
     monkeypatch.setattr(filters.bigquery_engine, "execute", execute)
     monkeypatch.setattr(filters, "_shapes_cache", QueryCache(ttl_seconds=60))
+    monkeypatch.setattr(filters, "_shapes_failures", QueryCache(ttl_seconds=60))
     return seen
 
 
@@ -46,6 +47,7 @@ def test_multilinestrings_become_one_path_per_part(monkeypatch: pytest.MonkeyPat
         ),
     )
     monkeypatch.setattr(filters, "_shapes_cache", QueryCache(ttl_seconds=60))
+    monkeypatch.setattr(filters, "_shapes_failures", QueryCache(ttl_seconds=60))
     paths = [s.path for s in filters.get_route_shapes("A")]
     assert paths == [[[0, 0], [1, 1]], [[2, 2], [3, 3]]]  # the one-point part is dropped
 
@@ -56,7 +58,28 @@ def test_skips_invalid_and_unknown_ids_and_caps_the_count(engine: list[str]) -> 
     assert {s.route_id for s in filters.get_route_shapes(many)} == {"0"}  # 15 is past the cap
 
 
-def test_missing_table_gives_no_shapes_and_is_not_cached(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_points_and_collections_are_skipped(monkeypatch: pytest.MonkeyPatch) -> None:
+    rows = [
+        '{"type":"Point","coordinates":[1,2]}',
+        '{"type":"GeometryCollection","geometries":[]}',
+        LINE,
+    ]
+    monkeypatch.setattr(
+        filters.bigquery_engine,
+        "execute",
+        lambda sql: (
+            {},
+            pd.DataFrame({"route_id": ["P", "G", "L"], "direction_id": [0, 0, 0], "geojson": rows}),
+        ),
+    )
+    monkeypatch.setattr(filters, "_shapes_cache", QueryCache(ttl_seconds=60))
+    monkeypatch.setattr(filters, "_shapes_failures", QueryCache(ttl_seconds=60))
+    assert [s.route_id for s in filters.get_route_shapes("P,G,L")] == ["L"]
+
+
+def test_missing_table_gives_no_shapes_and_is_retried_after_a_pause(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     calls = []
 
     def boom(sql: str):
@@ -65,6 +88,11 @@ def test_missing_table_gives_no_shapes_and_is_not_cached(monkeypatch: pytest.Mon
 
     monkeypatch.setattr(filters.bigquery_engine, "execute", boom)
     monkeypatch.setattr(filters, "_shapes_cache", QueryCache(ttl_seconds=60))
+    failures = QueryCache(ttl_seconds=60)
+    monkeypatch.setattr(filters, "_shapes_failures", failures)
     assert filters.get_route_shapes("15") == []
+    assert filters.get_route_shapes("15") == []
+    assert len(calls) == 1  # the failure is remembered, not retried on every map
+    monkeypatch.setattr(filters, "_shapes_failures", QueryCache(ttl_seconds=60))
     assert filters.get_route_shapes("15") == []
     assert len(calls) == 2

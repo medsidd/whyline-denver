@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { denverDate, orderColumns, readableDate, readableTimestamp, resultFilename, withoutToday } from "../src/lib/format";
+import { denverDate, escapeHtml, orderColumns, readableDate, readableTimestamp, resultFilename, withoutToday } from "../src/lib/format";
 
 test("result CSV names carry the question and date", () => {
   expect(resultFilename("Worst 10 routes by on-time share", "2026-11-07")).toBe("whylinedenver_worst-10-routes-by-on-time-share_2026-11-07.csv");
@@ -40,4 +40,9 @@ test("today's partial day is left out of trends", () => {
 test("Denver's date, not UTC's", () => {
   expect(denverDate(new Date("2026-11-08T05:30:00Z"))).toBe("2026-11-07");
   expect(denverDate(new Date("2026-11-08T07:30:00Z"))).toBe("2026-11-08");
+});
+
+test("tooltip text is escaped", () => {
+  expect(escapeHtml(`<img src=x onerror="alert(1)">&'`)).toBe("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;&amp;&#39;");
+  expect(escapeHtml(null)).toBe("");
 });

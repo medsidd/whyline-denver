@@ -10,7 +10,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { detectMapMetric, routeIdsOf } from "@/lib/chartLogic";
 import { fetchRouteShapes } from "@/lib/api";
 import type { RouteShape } from "@/types/api";
-import { columnLabel, formatValue } from "@/lib/format";
+import { columnLabel, escapeHtml, formatValue } from "@/lib/format";
 
 // Denver center coordinates (same as Pydeck default in charts.py)
 const DENVER_VIEW = {
@@ -44,6 +44,7 @@ const ROUTE_COLORS: [number, number, number][] = [
   [155, 79, 150], [0, 137, 123], [138, 109, 59], [92, 107, 192], [96, 125, 139],
 ];
 const rgb = ([r, g, b]: [number, number, number]) => `rgb(${r},${g},${b})`;
+const TOOLTIP_STYLE = { background: "#FFFFFF", padding: "10px 12px", borderRadius: "14px", boxShadow: "0 12px 32px -12px rgba(4,47,84,.35)" };
 
 /** View that fits every [lon, lat] with 40 px padding, at most zoom 14; Denver when there's nothing to fit. */
 export function fitView(coords: [number, number][], width: number, height: number) {
@@ -118,11 +119,12 @@ export function StopMap({ data }: Props) {
 
   // Routes the result names are drawn under the stops (a stop-only result has none).
   const routeIds = useMemo(() => routeIdsOf(data), [data]);
-  const { data: rawShapes } = useQuery({
+  const { data: rawShapes, isFetched: shapesSettled, isError: shapesFailed } = useQuery({
     queryKey: ["route-shapes", routeIds.join(",")],
     queryFn: () => fetchRouteShapes(routeIds),
     enabled: routeIds.length > 0,
     staleTime: 60 * 60 * 1000,
+    retry: 1,
   });
   // Only well-formed [lon, lat] paths reach the map: a malformed one would break fitting and drawing.
   const shapes = useMemo(
@@ -132,8 +134,9 @@ export function StopMap({ data }: Props) {
   const colorOf = (routeId: string) => ROUTE_COLORS[Math.max(0, routeIds.indexOf(routeId)) % ROUTE_COLORS.length];
   const routeNames = useMemo(() => {
     const names: Record<string, string> = {};
+    const key = Object.keys(data[0] ?? {}).find((c) => c.toLowerCase() === "route_id") ?? "route_id";
     for (const r of data) {
-      const id = r.route_id == null ? "" : String(r.route_id);
+      const id = r[key] == null ? "" : String(r[key]);
       const name = [r.route_long_name, r.route_name].map((v) => (v ? String(v) : "")).find((v) => v && v !== id);
       if (id && name && !names[id]) names[id] = name;
     }
@@ -141,11 +144,13 @@ export function StopMap({ data }: Props) {
   }, [data]);
   const drawn = routeIds.filter((id) => shapes.some((s) => s.route_id === id));
 
-  // Fit when the result or its routes change; later resizes (full screen, rotation) keep the user's pan and zoom.
+  // Fit to the stops; a route-only result fits its lines, and waits for them before mounting the map.
+  // Lines arriving later never refit, so a user's pan and zoom survive (as do resizes).
   const measured = width > 0;
+  const routeOnly = points.length === 0;
   const view = useMemo(
-    () => fitView([...points.map((p) => [p.lon, p.lat] as [number, number]), ...shapes.flatMap((s) => s.path)], width, MAP_HEIGHT),
-    [points, shapes, measured] // eslint-disable-line react-hooks/exhaustive-deps
+    () => fitView(routeOnly ? shapes.flatMap((s) => s.path) : points.map((p) => [p.lon, p.lat] as [number, number]), width, MAP_HEIGHT),
+    [points, routeOnly ? shapes : null, measured] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   const routeLayer = new PathLayer<RouteShape>({
@@ -180,6 +185,13 @@ export function StopMap({ data }: Props) {
   });
 
   if (points.length === 0 && routeIds.length === 0) return null;
+  if (routeOnly && (shapesFailed || (shapesSettled && drawn.length === 0))) {
+    return (
+      <p className="m-0 px-5 py-4 rounded-[22px] bg-wl-canvas text-[15px] font-bold text-wl-ink2">
+        No route lines are available for these routes right now, and the result has no stop locations to map.
+      </p>
+    );
+  }
 
   const containerStyle: React.CSSProperties = isFullscreen
     ? { position: "fixed", inset: 0, zIndex: 50, background: "#F4F8FB" }
@@ -193,7 +205,7 @@ export function StopMap({ data }: Props) {
       style={containerStyle}
     >
       {/* Mount only once measured: initialViewState is read at mount, and remounting DeckGL mid-init throws. */}
-      {width > 0 && (
+      {width > 0 && (!routeOnly || shapesSettled) && (
       <DeckGL
         initialViewState={view}
         controller
@@ -204,18 +216,19 @@ export function StopMap({ data }: Props) {
             const route = object as RouteShape;
             const name = routeNames[route.route_id];
             return {
-              html: `<div style="font:900 13px/1.4 var(--font-nunito),system-ui,sans-serif;color:#042F54">Route ${route.route_id}${name ? ` · ${name}` : ""}</div>`,
-              style: { background: "#FFFFFF", padding: "10px 12px", borderRadius: "14px", boxShadow: "0 12px 32px -12px rgba(4,47,84,.35)" },
+              html: `<div style="font:900 13px/1.4 var(--font-nunito),system-ui,sans-serif;color:#042F54">Route ${escapeHtml(route.route_id)}${name ? ` · ${escapeHtml(name)}` : ""}</div>`,
+              style: TOOLTIP_STYLE,
             };
           }
           const point = object as StopPoint;
-          const label = point.stop_name ? `${point.stop_name} (${point.stop_id})` : String(point.stop_id ?? "");
+          // Result values are user-controlled (custom SQL): escape before they become HTML
+          const label = escapeHtml(point.stop_name ? `${point.stop_name} (${point.stop_id})` : String(point.stop_id ?? ""));
           const metric = metricKey
-            ? `${columnLabel(metricKey)}: ${formatValue(metricKey, point[metricKey])}`
+            ? escapeHtml(`${columnLabel(metricKey)}: ${formatValue(metricKey, point[metricKey])}`)
             : "";
           return {
             html: `<div style="font:700 13px/1.4 var(--font-nunito),system-ui,sans-serif;color:#4A5F73"><b style="color:#042F54;font-weight:900">${label}</b>${metric ? `<br/>${metric}` : ""}</div>`,
-            style: { background: "#FFFFFF", padding: "10px 12px", borderRadius: "14px", boxShadow: "0 12px 32px -12px rgba(4,47,84,.35)" },
+            style: TOOLTIP_STYLE,
           };
         }}
       >
@@ -245,7 +258,7 @@ export function StopMap({ data }: Props) {
     )}
     {routeIds.length > drawn.length && shapes.length > 0 && (
       <p className="mt-1.5 mb-0 px-1 text-[13px] font-semibold text-wl-ink2">
-        No line for route {routeIds.filter((id) => !drawn.includes(id)).join(", ")}: it isn&apos;t in the current schedule.
+        No line available for route {routeIds.filter((id) => !drawn.includes(id)).join(", ")}.
       </p>
     )}
     {metricKey && metricValues.length > 0 && (

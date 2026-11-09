@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
 from pathlib import Path
 
 import pandas as pd
@@ -32,7 +33,24 @@ from whyline.prebuilt import ROUTE_PATTERN
 _filters_cache = QueryCache(ttl_seconds=600)
 # Route shapes change with the GTFS feed (nightly at most); the whole table is about 370 KB.
 _shapes_cache = QueryCache(ttl_seconds=6 * 3600)
+# A failed read (before the table's first build) is remembered briefly, so maps don't query
+# BigQuery on every render; one request at a time fills the cache.
+_shapes_failures = QueryCache(ttl_seconds=300)
+_shapes_lock = threading.Lock()
 MAX_SHAPE_ROUTES = 10
+
+
+def _line_parts(geometry: dict) -> list[list[list[float]]]:
+    """[lon, lat] paths of a LineString or MultiLineString with at least two points; other
+    geometry types (a Point, if simplifying collapsed a tiny shape) give none."""
+    kind, coords = geometry.get("type"), geometry.get("coordinates") or []
+    parts = [coords] if kind == "LineString" else coords if kind == "MultiLineString" else []
+    return [
+        [[float(c[0]), float(c[1])] for c in part]
+        for part in parts
+        if len(part) >= 2 and all(isinstance(c, list) and len(c) >= 2 for c in part)
+    ]
+
 
 router = APIRouter()
 
@@ -147,27 +165,27 @@ def get_stops(engine_name: str) -> list[dict]:
 
 def _all_route_shapes() -> dict[str, list[dict]]:
     """Every route's shapes from mart_route_shapes, by route_id; cached unless the query failed."""
-    cached = _shapes_cache.get("bigquery", "route_shapes")
-    if cached is not None:
-        return cached
-    table = _qualify_table("bigquery", "mart_route_shapes")
-    _, df = bigquery_engine.execute(f"SELECT route_id, direction_id, geojson FROM {table}")
-    shapes: dict[str, list[dict]] = {}
-    for row in df.itertuples(index=False):
-        geometry = json.loads(row.geojson)
-        # Simplifying can split a shape (a third of RTD's): one path per part
-        parts = (
-            geometry.get("coordinates") or []
-            if geometry.get("type") == "MultiLineString"
-            else [geometry.get("coordinates") or []]
-        )
-        for part in parts:
-            if len(part) >= 2:
+    with _shapes_lock:
+        cached = _shapes_cache.get("bigquery", "route_shapes")
+        if cached is not None:
+            return cached
+        if _shapes_failures.get("bigquery", "route_shapes"):
+            raise RuntimeError("route shapes unavailable (recent failure)")
+        table = _qualify_table("bigquery", "mart_route_shapes")
+        try:
+            _, df = bigquery_engine.execute(f"SELECT route_id, direction_id, geojson FROM {table}")
+        except Exception:
+            _shapes_failures.set("bigquery", "route_shapes", True)
+            raise
+        shapes: dict[str, list[dict]] = {}
+        for row in df.itertuples(index=False):
+            # Simplifying can split a shape (a third of RTD's): one path per part
+            for part in _line_parts(json.loads(row.geojson)):
                 shapes.setdefault(str(row.route_id), []).append(
                     {"direction_id": int(row.direction_id), "path": part}
                 )
-    _shapes_cache.set("bigquery", "route_shapes", shapes)
-    return shapes
+        _shapes_cache.set("bigquery", "route_shapes", shapes)
+        return shapes
 
 
 @router.get("/routes/shapes", response_model=list[RouteShape])

@@ -118,9 +118,11 @@ export const MAX_MAP_ROUTES = 10;
 
 /** The routes a result names, in row order, at most MAX_MAP_ROUTES (the API's cap too). */
 export function routeIdsOf(rows: Record<string, unknown>[]): string[] {
+  const key = Object.keys(rows[0] ?? {}).find((c) => c.toLowerCase() === "route_id");
   const ids: string[] = [];
+  if (!key) return ids;
   for (const r of rows) {
-    const id = r.route_id == null ? "" : String(r.route_id);
+    const id = r[key] == null ? "" : String(r[key]);
     if (id && !ids.includes(id)) ids.push(id);
     if (ids.length === MAX_MAP_ROUTES) break;
   }

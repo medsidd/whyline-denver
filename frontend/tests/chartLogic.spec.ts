@@ -81,4 +81,5 @@ test("maps: stops need coordinates, routes need only a route_id; at most 10 rout
   const rows = [{ route_id: "15" }, { route_id: "0" }, { route_id: "15" }, { route_id: null }, ...Array.from({ length: 12 }, (_, i) => ({ route_id: `R${i}` }))];
   expect(routeIdsOf(rows)).toEqual(["15", "0", "R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7"]);
   expect(routeIdsOf([{ stop_id: "1" }])).toEqual([]);
+  expect(routeIdsOf([{ ROUTE_ID: "15" }])).toEqual(["15"]);
 });

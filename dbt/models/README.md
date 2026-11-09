@@ -46,7 +46,7 @@ Dimensions carry INT64 surrogate keys (`farm_fingerprint` of the natural key and
 | [dim_date](core/dim_date.sql) | dimension | One row per date, 2025-01-01 to 60 days ahead; role-plays as service, crash, and weather date. |
 | [dim_stop](core/dim_stop.sql) | Type 2 | Stop versions over GTFS extracts. `is_current` = present in the latest extract; `is_latest_version` = last version ever published. |
 | [dim_route](core/dim_route.sql) | Type 2 | Route versions; `-1` is Unassigned. |
-| [dim_route_shape](core/dim_route_shape.sql) | Current only | Each route's most-run shape per direction in the latest GTFS extract, as a GEOGRAPHY line, for maps. |
+| [dim_route_shape](core/dim_route_shape.sql) | Current only | Each route's most-run valid shape per direction in the latest GTFS extract, as a GEOGRAPHY line, for maps. The count spans every service period in the extract. |
 | [dim_trip](core/dim_trip.sql) | Type 2 | Trip versions (route, service, direction, headsign). |
 | [dim_tract](core/dim_tract.sql) | Type 1 | Latest tract boundaries. |
 | [dim_sidewalk_segment](core/dim_sidewalk_segment.sql) | Type 1 | Latest sidewalk inventory. |

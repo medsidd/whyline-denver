@@ -162,3 +162,8 @@ export function withoutToday<T extends Record<string, unknown>>(rows: T[], dateK
   // A result of only today keeps it: an empty chart would say less.
   return kept.length && kept.length < rows.length ? { rows: kept, dropped: true } : { rows, dropped: false };
 }
+
+/** Text for an HTML string (map tooltips are HTML): result values can hold markup. */
+export function escapeHtml(value: unknown): string {
+  return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
