@@ -7,7 +7,6 @@ replay of archived payloads reproduces the live output exactly.
 from __future__ import annotations
 
 import bisect
-import logging
 import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -16,9 +15,10 @@ from typing import NamedTuple
 
 from google.transit import gtfs_realtime_pb2 as rt
 
+from whyline.ingest import io
 from whyline.ingest.rt_static import Shape, StaticFeed, Trip, project, to_xy
 
-_LOGGER = logging.getLogger(__name__)
+LOGGER = io.get_logger(__name__)
 
 # Also used by the snapshot ingestor (gtfs_realtime.py). It holds every RTD shape with margin:
 # Eldora reaches -105.58 and north Longmont 40.21 in the October 2026 feed.
@@ -488,6 +488,7 @@ class VisitEngine:
         self.trip_dates: dict[str, str] = {}
         self.closed: dict[tuple[str, str], int] = {}
         self.tu_keys: set[tuple[str, str]] = set()
+        self.trip_errors = 0  # trips closed early because processing them raised
         self.now = 0
         self.visit_rows: list[tuple] = []
         self.status_rows: list[tuple] = []
@@ -499,6 +500,7 @@ class VisitEngine:
         return state
 
     def __setstate__(self, state: dict) -> None:
+        self.trip_errors = 0  # absent from checkpoints written before November 9, 2026
         self.__dict__.update(state)
 
     def drain(self) -> tuple[list[tuple], list[tuple]]:
@@ -818,12 +820,12 @@ class VisitEngine:
                     self._finalize(st, geom, closing)
                 if closing:
                     self._close(key, st, geom)
-            except (IndexError, KeyError):
-                # One trip whose state no longer fits its geometry must not stop every other trip:
-                # the exception used to abort each payload for good, because the trip never closed.
-                _LOGGER.exception("Dropping trip %s %s after an error", *key)
-                self.trips.pop(key, None)
-                self.closed[key] = self.now
+            except Exception:  # noqa: BLE001 - one trip must not fail every later payload
+                # Before November 9, 2026 an error here aborted each payload for good, because the
+                # trip never closed. Close it without static (its status row says no_static).
+                LOGGER.exception("Closing trip %s %s after an error", *key)
+                self.trip_errors += 1
+                self._close(key, st, None)
         for key, ts in list(self.closed.items()):
             if self.now - ts > TOMBSTONE_SEC:
                 del self.closed[key]
@@ -987,7 +989,11 @@ class VisitEngine:
     def _geom(self, st: TripState) -> Geom | None:
         if st.md5 is None or self.lookup is None:
             return None
-        return self.lookup(st.trip_id, st.md5, st.start_date)
+        geom = self.lookup(st.trip_id, st.md5, st.start_date)
+        # A trip's indexes belong to the version it started on. If that version is gone, the lookup
+        # falls back to the current one, whose stop list can differ (the November 7, 2026 outage):
+        # treat the trip as having no static rather than read its state against another geometry.
+        return geom if geom is not None and geom.feed.md5 == st.md5 else None
 
     def _idx(self, st: TripState, geom: Geom, seq: int) -> int | None:
         if not st.seq_idx:

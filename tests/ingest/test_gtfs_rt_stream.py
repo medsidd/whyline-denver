@@ -172,6 +172,41 @@ def test_poll_skips_not_modified_and_repeated_headers(tmp_path, monkeypatch):
         assert tar.getnames() == [f"tu/{T(15, 41, 0)}.pb.gz"]
 
 
+def test_payload_that_fails_in_the_engine_is_still_archived(tmp_path, monkeypatch):
+    # November 7–9, 2026: payloads that parsed but failed in the engine were not archived, so
+    # the outage could not be replayed with the fixed engine.
+    payload = tu_payload(T(15, 41, 0), {3: T(15, 42, 0)})
+
+    def fake_get(url, **_kw):
+        return FakeResponse(200, payload, "e1") if "TripUpdate" in url else FakeResponse(304)
+
+    monkeypatch.setattr(stream.io, "http_get_with_retry", fake_get)
+    s = stream.Stream(args_for(tmp_path))
+    s.ensure_window(T(15, 41, 0))
+
+    def broken(*_args):
+        raise IndexError("engine bug")
+
+    s.processor.engine.on_trip_updates = broken
+    assert s.poll_once() is True
+    assert s.window.stats["tu_parse_errors"] == 1
+    with tarfile.open(s.window.tar_path) as tar:
+        assert tar.getnames() == [f"tu/{T(15, 41, 0)}.pb.gz"]
+
+
+def test_unparseable_payload_is_not_archived(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        stream.io,
+        "http_get_with_retry",
+        lambda url, **_kw: (
+            FakeResponse(200, b"not protobuf") if "TripUpdate" in url else FakeResponse(304)
+        ),
+    )
+    s = stream.Stream(args_for(tmp_path))
+    s.ensure_window(T(15, 41, 0))
+    assert s.poll_once() is False
+
+
 def test_gcs_publish_treats_existing_objects_as_uploaded(tmp_path, monkeypatch):
     calls = []
 

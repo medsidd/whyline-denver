@@ -692,16 +692,21 @@ After a few days of the firewall traffic view showing only heavy clients, remove
 
 ### Realtime stream outage, November 7–9, 2026 (UTC)
 
-**Found November 9 at 10:50 UTC.** `raw_gtfsrt_vp_stream`, `raw_gtfsrt_stop_visits` and `raw_gtfsrt_trip_status` received no rows after 14:47–15:04 UTC on November 7. `realtime-load` kept succeeding, loading empty files, so nothing alerted on the job. `fct_stop_visit`, `fct_trip_status` and every mart built on them have no data for November 7 (afternoon) onward.
+**Found November 9 at 10:50 UTC.** `raw_gtfsrt_vp_stream`, `raw_gtfsrt_stop_visits` and `raw_gtfsrt_trip_status` received no rows after 14:47 UTC on November 7. `realtime-load` kept succeeding on empty files, and the heartbeat kept beating, so nothing alerted. `fct_stop_visit`, `fct_trip_status` and every mart built on them have no data from then until the fixed poller runs.
 
-**Cause.** From 15:59 UTC on November 7, every vehicle-position payload failed in `VisitEngine._emit` with `IndexError: array index out of range`.
-- `StaticCache.add` evicted a superseded static GTFS version once it was 36 hours past its *load* time, so a long-running version was dropped the moment a new one arrived, while trips that started on it were still open.
-- Those trips' lookups then fell back to the new version, whose stop lists differ, and a visit's stop index pointed past the end.
-- `_sweep` raised before the trip could close, so the same trip failed every payload. Open trips grew to about 5,350 and the container restarted every 15 minutes from a checkpoint holding the same trip, so restarts didn't help.
+**Cause.** At 14:47:42 the poller loaded a new static GTFS version (`641ea889…`, feed of November 5) and the next payload failed in the visit engine with `IndexError: array index out of range`; every trip-update and vehicle-position payload failed after that.
+- `StaticCache.add` evicted a superseded version once it was 36 hours past its *load* time. The previous version (`b640c864…`) had been loaded on October 30, so it was dropped the moment the new one arrived, while trips that started on it were still open.
+- Their lookups fell back to the new version, whose stop lists differ, and a visit's stop index ran past the end.
+- `_sweep` raised before the trip could close, so the same trip failed every payload. Open trips grew to about 5,350 and the container restarted every 15 minutes from a checkpoint holding the same trips, so restarts didn't help.
 
-**Fix ([#130](https://github.com/medsidd/whyline-denver/pull/130)).** A superseded version is kept 36 hours from when it was superseded, and `_sweep` drops a trip whose state no longer fits its geometry (logged) instead of failing the payload. Regression tests fail without the fix.
+**Data lost.** Payloads were archived only after the engine processed them, so the archive tars from 15:00 on November 7 are empty (2 KB) and the outage cannot be replayed. The snapshot ingest (`realtime-ingest`) is paused, so there is no second copy. Stop visits, trip status and vehicle reports from 14:47 UTC on November 7 until the fixed poller runs are gone. Marts will show no realtime data for those dates.
 
-**Data.** The archive bucket holds every raw payload for the outage (`whylinedenver-rt-archive`, 96 tars on November 8), so the missing visits can be rebuilt with `gtfs_rt_stream --replay` once the fixed image runs.
+**Fix ([#130](https://github.com/medsidd/whyline-denver/pull/130)).**
+- A trip is never read against a version other than the one it started on: if that version is gone, it is treated as having no static and closes as `no_static`.
+- A superseded version is kept 36 hours from when it was superseded, and a restart reloads the versions open trips are pinned to.
+- An error in one trip closes that trip (counted as `trip_errors` in the heartbeat) instead of failing the payload.
+- A payload that parses but fails in the engine is still archived, so a future engine bug can be replayed.
+- Checks: regression tests that fail without the fix, the full suite, and a replay of the archived November 7 payloads (00:00–14:45) through the fixed engine with no errors.
 
 ### Query usage report
 
