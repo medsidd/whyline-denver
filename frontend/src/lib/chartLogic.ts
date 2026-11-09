@@ -108,10 +108,23 @@ export function labelOf(columns: string[], category: string): (row: Record<strin
   return (r) => String(r[category] ?? "");
 }
 
-/** Detect whether data has lat/lon for map rendering */
+/** A result can be mapped when it has stop coordinates (lat/lon) or names routes (drawn as lines). */
 export function detectMapData(columns: string[]): boolean {
   const cols = new Set(columns.map((c) => c.toLowerCase()));
-  return cols.has("lat") && cols.has("lon");
+  return (cols.has("lat") && cols.has("lon")) || cols.has("route_id");
+}
+
+export const MAX_MAP_ROUTES = 10;
+
+/** The routes a result names, in row order, at most MAX_MAP_ROUTES (the API's cap too). */
+export function routeIdsOf(rows: Record<string, unknown>[]): string[] {
+  const ids: string[] = [];
+  for (const r of rows) {
+    const id = r.route_id == null ? "" : String(r.route_id);
+    if (id && !ids.includes(id)) ids.push(id);
+    if (ids.length === MAX_MAP_ROUTES) break;
+  }
+  return ids;
 }
 
 /** Find the best metric column for map radius/color scaling — mirrors build_map() priority */

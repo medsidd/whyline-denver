@@ -44,7 +44,7 @@ LocalStorage key `whyline-dashboard` (persist version 1; older saved state is di
 
 The `heatmap` branch currently renders grouped bars rather than a full heatmap. Weather small multiples group precipitation categories; they do not prove snow-specific effects. Without an `ORDER BY` match, generic charts depend on name words such as `avg`, `pct` or `score`, not a full schema/type inspection.
 
-`detectMapData()` checks for `lat` and `lon`. Metric preference starts with priority score/rank, crash counts, vulnerability, reliability score, and on-time share. See [metric definitions](../public/METRICS_GLOSSARY.md) before interpreting color or rank direction.
+`detectMapData()` maps a result with `lat` and `lon` (stop dots) or a `route_id` (route lines). `StopMap` fetches lines for the result's first 10 route IDs from `/api/routes/shapes` and draws them under the stops, one color per route, with a legend naming each route; a stop-only result draws no lines, and a route the current schedule lacks is listed as having none. It fits the view to stops and lines together. Metric preference starts with priority score/rank, crash counts, vulnerability, reliability score, and on-time share. See [metric definitions](../public/METRICS_GLOSSARY.md) before interpreting color or rank direction.
 
 Always load the map dynamically:
 

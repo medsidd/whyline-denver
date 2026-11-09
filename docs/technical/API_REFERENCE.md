@@ -10,13 +10,14 @@ FastAPI registers five routers under `/api` in `api/main.py`. `api/models.py` is
 | `GET /api/freshness` | Returns `bigquery_freshness` and `duckdb_freshness` strings from sync state/fallback artifacts |
 | `GET /api/filters/{engine_name}` | Route IDs, weather bins, available minimum/maximum service dates |
 | `GET /api/filters/{engine_name}/stops` | Stop lookup list (`stop_id`, `stop_name`, `lat`, `lon`) |
+| `GET /api/routes/shapes?ids=15,0` | Lines for up to 10 route IDs (comma-separated, request order): `route_id`, `direction_id`, `path` as `[lon, lat]` pairs, one entry per line part. Reads `mart_route_shapes` once per process every 6 hours; invalid or unknown IDs are skipped, and the answer is empty if the table can't be read |
 | `GET /api/models` | Allowed model names, qualified names, descriptions, and column metadata from dbt artifacts |
 | `POST /api/sql/generate` | Generate SQL using the selected provider and apply filters/guardrails/dialect adaptation |
 | `POST /api/sql/validate` | Validate/adapt SQL; optionally return a BigQuery dry-run estimate |
 | `POST /api/sql/prebuilt/{index}` | Return raw prebuilt SQL; no engine argument/adaptation/validation |
 | `POST /api/sql/prebuilt/{index}/for/{engine_name}` | Validate and adapt prebuilt SQL for DuckDB or BigQuery |
 | `POST /api/query/run` | Revalidate/adapt/execute SQL and enrich displayed results |
-| `POST /api/downloads/mart` | CSV export of one of seven explicitly listed analytic marts |
+| `POST /api/downloads/mart` | CSV export of one of the 18 marts in `MART_OPTIONS` |
 | `GET /api/downloads/warehouse` | Binary download of the configured DuckDB file, or 404 |
 
 `engine` is `duckdb` or `bigquery`. Generation defaults to DuckDB; validation, execution, and mart-download requests require an engine. Health's default comes from configuration and is independent of request defaults.

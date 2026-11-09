@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -13,15 +14,25 @@ if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from api.deps import get_models
-from api.models import FilterOptionsResponse, ModelColumnInfo, ModelInfo, ModelsResponse
+from api.models import (
+    FilterOptionsResponse,
+    ModelColumnInfo,
+    ModelInfo,
+    ModelsResponse,
+    RouteShape,
+)
 from whyline.config import settings
 from whyline.engines import bigquery_engine, duckdb_engine
 from whyline.llm import adapt_sql_for_engine
 from whyline.logs import QueryCache
+from whyline.prebuilt import ROUTE_PATTERN
 
 # Routes, weather bins and the date range change at most nightly; three BigQuery queries per
 # page load took about 6 s.
 _filters_cache = QueryCache(ttl_seconds=600)
+# Route shapes change with the GTFS feed (nightly at most); the whole table is about 370 KB.
+_shapes_cache = QueryCache(ttl_seconds=6 * 3600)
+MAX_SHAPE_ROUTES = 10
 
 router = APIRouter()
 
@@ -132,6 +143,52 @@ def get_stops(engine_name: str) -> list[dict]:
         return df.to_dict(orient="records")
     except Exception:
         return []
+
+
+def _all_route_shapes() -> dict[str, list[dict]]:
+    """Every route's shapes from mart_route_shapes, by route_id; cached unless the query failed."""
+    cached = _shapes_cache.get("bigquery", "route_shapes")
+    if cached is not None:
+        return cached
+    table = _qualify_table("bigquery", "mart_route_shapes")
+    _, df = bigquery_engine.execute(f"SELECT route_id, direction_id, geojson FROM {table}")
+    shapes: dict[str, list[dict]] = {}
+    for row in df.itertuples(index=False):
+        geometry = json.loads(row.geojson)
+        # Simplifying can split a shape (a third of RTD's): one path per part
+        parts = (
+            geometry.get("coordinates") or []
+            if geometry.get("type") == "MultiLineString"
+            else [geometry.get("coordinates") or []]
+        )
+        for part in parts:
+            if len(part) >= 2:
+                shapes.setdefault(str(row.route_id), []).append(
+                    {"direction_id": int(row.direction_id), "path": part}
+                )
+    _shapes_cache.set("bigquery", "route_shapes", shapes)
+    return shapes
+
+
+@router.get("/routes/shapes", response_model=list[RouteShape])
+def get_route_shapes(ids: str = "") -> list[RouteShape]:
+    """Paths for up to MAX_SHAPE_ROUTES route IDs (comma-separated), in the order given.
+
+    Unknown or invalid IDs are skipped. If the shapes table can't be read (before its first
+    nightly build), the answer is empty: maps then show stops only.
+    """
+    wanted = [
+        r for r in dict.fromkeys(i.strip() for i in ids.split(",")) if ROUTE_PATTERN.fullmatch(r)
+    ]
+    try:
+        shapes = _all_route_shapes()
+    except Exception:  # noqa: BLE001 - a missing table must not break the map
+        return []
+    return [
+        RouteShape(route_id=r, direction_id=s["direction_id"], path=s["path"])
+        for r in wanted[:MAX_SHAPE_ROUTES]
+        for s in shapes.get(r, [])
+    ]
 
 
 @router.get("/models", response_model=ModelsResponse)

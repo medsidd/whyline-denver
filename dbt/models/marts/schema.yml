@@ -356,6 +356,33 @@ models:
       - name: route_type
         description: "GTFS route type integer (0=light rail, 2=commuter rail, 3=bus)."
 
+  - name: mart_route_shapes
+    description: "Route lines for result maps: dim_route_shape simplified to about 10 m, as GeoJSON. Drawn under result maps by the dashboard (served by /api/routes/shapes); not queryable from the dashboard."
+    data_tests:
+      - unique_combination:
+          column_names: ['route_id', 'direction_id']
+    columns:
+      - name: route_id
+        description: "GTFS route identifier; joins to mart_gtfs_routes.route_id."
+        data_tests:
+          - not_null
+      - name: direction_id
+        description: "GTFS direction (0 or 1; 0 when the feed leaves it blank)."
+        data_tests:
+          - not_null
+      - name: shape_id
+        description: "The GTFS shape this route and direction runs most often in the latest extract."
+        data_tests:
+          - not_null
+      - name: n_trips
+        description: "Scheduled trips in the latest extract that use this shape; the shape kept is the one with the most."
+      - name: geojson
+        description: "The shape as GeoJSON, simplified with a 10 m tolerance (ST_SIMPLIFY): a LineString, or a MultiLineString when simplifying split it (about a third of RTD's shapes)."
+        data_tests:
+          - not_null
+      - name: build_run_at
+        description: "When the table was built."
+
   - name: mart_gtfs_stops
     description: "GTFS stop lookup: join on stop_id to filter or label stops by name."
     columns:

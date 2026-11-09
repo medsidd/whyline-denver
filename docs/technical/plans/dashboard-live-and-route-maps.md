@@ -1,6 +1,6 @@
 # Dashboard: live questions, route maps and polish
 
-**Status:** active. PR A (polish, topics, site map) in review; PR B (route maps) and PR C (live questions) follow.
+**Status:** active. PR A (polish, topics, site map) merged ([#132](https://github.com/medsidd/whyline-denver/pull/132)); PR B (route maps) in review; PR C (live questions) follows.
 
 ## Owner requests and decisions (November 9, 2026)
 
@@ -23,9 +23,12 @@
   - ranked bar charts size their label column from the chart's own width (about a third, 96–180 px), so the bars keep most of a phone-width card.
 - The filter rail's explanatory line is gone; on phones the rail still shows when the data was updated.
 
-## PR B: route lines on result maps
+## PR B as built: route lines on result maps
 
-A new mart table, `mart_route_shapes`, holds each current route's typical shape per direction as GeoJSON. It is built nightly and isn't queryable from the dashboard. A new endpoint returns the shapes for given route IDs, and `StopMap` draws them under the stop dots, one color per route, at most 10, with a legend. Results with route IDs and no coordinates also get a map.
+- **Models:** core `dim_route_shape` picks each route's most-run shape per direction in the latest GTFS extract (marts read only gold core); `mart_route_shapes` simplifies it to about 10 m as GeoJSON. 258 shapes for 130 of 134 routes, 373 KB; the build scans about 17 MB because both reads inline the latest extract date. `allow_in_app: false`, so the dashboard can't query it and it isn't exported to DuckDB.
+- **API:** `GET /api/routes/shapes?ids=` returns up to 10 routes' paths in request order. It reads the table once per process every 6 hours, splits the MultiLineStrings that simplifying produces (87 of 258) into separate paths, skips invalid or unknown IDs, and answers empty when the table can't be read.
+- **Map:** a result with `route_id` gets the Map tab even without coordinates. `StopMap` draws the first 10 routes under the stop dots in ten distinct colors (none red, the stops' color), lists them with their names, says which routes have no line, and fits the view to stops and lines together. A stop-only result draws no lines.
+- **Release:** the tables appear after the next Nightly BigQuery build; the endpoint needs the next API image. Until both, maps show stops only.
 
 ## PR C: live questions
 

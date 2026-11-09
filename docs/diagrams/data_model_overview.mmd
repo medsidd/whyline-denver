@@ -64,6 +64,7 @@ flowchart LR
     dim_block_group["dim_block_group"]
     dim_date["dim_date"]
     dim_route["dim_route"]
+    dim_route_shape["dim_route_shape"]
     dim_sidewalk_segment["dim_sidewalk_segment"]
     dim_stop["dim_stop"]
     dim_tract["dim_tract"]
@@ -96,6 +97,7 @@ flowchart LR
     mart_crowding_by_stop["mart_crowding_by_stop"]
     mart_frequent_network_by_route["mart_frequent_network_by_route"]
     mart_gtfs_routes["mart_gtfs_routes"]
+    mart_route_shapes["mart_route_shapes"]
     mart_gtfs_stops["mart_gtfs_stops"]
     mart_job_access_by_tract["mart_job_access_by_tract"]
     mart_micromobility_access_by_stop["mart_micromobility_access_by_stop"]
@@ -133,6 +135,7 @@ flowchart LR
   dim_block_group --> mart_service_equity_by_group
   dim_block_group --> mart_vulnerability_by_stop
   dim_route --> fct_scheduled_stop_time
+  dim_route_shape --> mart_route_shapes
   dim_route --> fct_trip_status
   dim_route --> mart_frequent_network_by_route
   dim_route --> mart_gtfs_routes
@@ -244,6 +247,7 @@ flowchart LR
   raw_gtfs_calendar_dates --> stg_gtfs_calendar_dates
   raw_gtfs_routes --> stg_gtfs_routes
   raw_gtfs_shapes --> stg_gtfs_shapes
+  stg_gtfs_shapes --> dim_route_shape
   raw_gtfs_stop_times --> stg_gtfs_stop_times
   raw_gtfs_stops --> stg_gtfs_stops
   raw_gtfs_trips --> stg_gtfs_trips
@@ -272,6 +276,7 @@ flowchart LR
   stg_gtfs_routes --> dim_route
   stg_gtfs_stop_times --> fct_scheduled_stop_time
   stg_gtfs_stops --> dim_stop
+  stg_gtfs_trips --> dim_route_shape
   stg_gtfs_trips --> dim_trip
   stg_gtfs_trips --> fct_scheduled_stop_time
   stg_job_access --> fct_job_access

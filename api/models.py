@@ -101,6 +101,12 @@ class RunQueryResponse(BaseModel):
     error: str | None = None
 
 
+class RouteShape(BaseModel):
+    route_id: str
+    direction_id: int
+    path: list[list[float]]  # [lon, lat] pairs
+
+
 class FreshnessResponse(BaseModel):
     bigquery_freshness: str
     duckdb_freshness: str

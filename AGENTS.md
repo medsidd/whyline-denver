@@ -38,7 +38,7 @@ Set `ENGINE=duckdb` and `LLM_PROVIDER=stub` explicitly for local work. `.env.exa
 ## Code map and invariants
 
 - `src/whyline/ingest/`, `load/`: one CLI per source plus the loader, shared I/O, explicit `JobSpec` registry, MD5 load deduplication.
-- `dbt/models/`: medallion layers: 25 silver staging models (`stg_denver`), 31 gold-core Kimball models (`core_denver`: 7 dims, 20 facts, 4 bridges), 32 serving marts (`mart_denver`). Three are legacy and disabled since the stop-visit cutover: `stg_rt_events`, `fct_trip_observation`, `fct_stop_arrival`. Marts read only gold core. Definitions and schemas are the source of truth; see [model reference](dbt/models/README.md).
+- `dbt/models/`: medallion layers: 25 silver staging models (`stg_denver`), 32 gold-core Kimball models (`core_denver`: 8 dims, 20 facts, 4 bridges), 33 serving marts (`mart_denver`). Three are legacy and disabled since the stop-visit cutover: `stg_rt_events`, `fct_trip_observation`, `fct_stop_arrival`. Marts read only gold core. Definitions and schemas are the source of truth; see [model reference](dbt/models/README.md).
 - `src/whyline/sync/constants.py`: 20 `ALLOWLISTED_MARTS`. API exposure additionally requires manifest `config.meta.allow_in_app`; CSV downloads have a separate 18-mart list.
 - `api/models.py`: request/response contract; `frontend/src/types/api.ts` mirrors it. Five routers under `/api`. Query execution always re-sanitizes SQL server-side.
 - `src/whyline/sql_guardrails.py`: read-only SQL, allowlisted namespaces/tables, default `LIMIT 5000` if absent. Existing limits are preserved, not capped.
