@@ -8,7 +8,7 @@ The stream poller (`whyline.ingest.gtfs_rt_stream`, `JOB_TYPE=stream`) runs on a
 
 Before the cutover, Cloud Scheduler invoked `realtime-ingest` every 15 minutes (verified October 26, 2026). It runs `whyline.ingest.gtfs_realtime`, which writes a manifest plus two compressed CSVs under `raw/rtd_gtfsrt/snapshot_at=…/`. The cutover checklist pauses it; its raw tables and the legacy models built from them are kept. The local `make ingest-gtfs-rt` target takes two snapshots 90 seconds apart, and the two realtime GitHub workflow files are manual fallbacks for that snapshot path.
 
-See [container reference](../../infra/cloud-run/README.md) for configuration. The nightly export/DuckDB cycle is separate, so the public default engine can lag realtime BigQuery.
+See [container reference](../../infra/cloud-run/README.md) for configuration. The nightly export/DuckDB cycle is separate, so the DuckDB warehouse can lag BigQuery; the dashboard queries BigQuery.
 
 ## Feed addresses
 

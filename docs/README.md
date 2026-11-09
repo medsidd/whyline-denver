@@ -8,7 +8,7 @@ Start with the [project README](../README.md). Current implementation guides liv
 |---|---|
 | [Overview](public/OVERVIEW.md) | Product purpose, audience, and limits |
 | [How it works](public/HOW_IT_WORKS.md) | Question-to-answer workflow and data processing |
-| [Data sources](public/DATA_SOURCES.md) | Seven ingestors, geography, vintages, and coverage gaps |
+| [Data sources](public/DATA_SOURCES.md) | Every source, how often it's collected, geography, vintages, and coverage gaps |
 | [Metrics glossary](public/METRICS_GLOSSARY.md) | Actual metric definitions and interpretation caveats |
 | [Use cases](public/USE_CASES.md) | Questions the available data can help investigate |
 | [FAQ](public/FAQ.md) | Freshness, privacy behavior, exports, and common limitations |

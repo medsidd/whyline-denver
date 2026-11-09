@@ -4,21 +4,21 @@
 
 WhyLine Denver combines RTD transit feeds, Denver crash and sidewalk records, NOAA weather, and Census demographics into a transit analytics dashboard. It helps investigate reliability, safety, equity, and access. Ask a question, review the generated SQL, then run it to see tables, charts, maps, and downloadable results.
 
-This is historical analysis of sampled transit observations. It does not provide trip planning, live arrival predictions, ridership counts, or a complete record of every scheduled arrival.
+Since October 29, 2026 every stop visit is timed from RTD's vehicle reports (about every 30 seconds); earlier dates come from 15-minute samples. Questions about right now read live data that trails real time by 15–30 minutes. It does not provide trip planning, arrival predictions or passenger counts, and some trips go unseen.
 
 ## How it works
 
 ```text
-RTD / Denver Open Data / NOAA / Census
-  → Python ingestion → GCS raw files → BigQuery raw_denver
-  → dbt stg_denver → mart_denver
+RTD / Denver Open Data / NOAA / Census / others
+  → Python ingestion (incl. a continuous GTFS-RT poller) → GCS raw files → BigQuery raw_denver
+  → dbt stg_denver → core_denver → mart_denver
   → GCS Parquet → DuckDB warehouse
-  → FastAPI → Next.js dashboard
+  → FastAPI → Next.js dashboard (BigQuery)
 ```
 
-BigQuery builds the warehouse; the API can query BigQuery or DuckDB. The public API defaults to DuckDB. The project has seven ingestors, 34 dbt models in medallion layers (12 silver staging, 13 gold-core Kimball dimensions/facts, nine serving marts), and a Next.js 14 / React 18 frontend. Python dependencies are in `requirements.txt` and `api/requirements.txt`; frontend versions are locked in `frontend/package-lock.json`.
+BigQuery builds the warehouse and answers the dashboard; the API can also query a DuckDB copy of the 20 app marts. The project has 16 ingestion CLIs, 93 dbt models in medallion layers (25 silver staging, 33 gold-core Kimball dimensions/facts/bridges, 35 serving marts, two of them live views), and a Next.js 14 / React 18 frontend. Python dependencies are in `requirements.txt` and `api/requirements.txt`; frontend versions are locked in `frontend/package-lock.json`.
 
-As verified October 26, 2026, both realtime schedules and the three nightly workflows are enabled. Realtime capture and load run every 15 minutes; the nightly workflows request starts at 08:00, 09:00, and 09:30 UTC. These are independent schedules, not completion dependencies. See [operations](docs/technical/OPERATIONS.md) for dated evidence, billing, and verification commands.
+Realtime data comes from a continuous poller on a VM, loaded every 15 minutes by the `realtime-load` job; the old snapshot job is paused. The three nightly workflows request starts at 08:00, 09:00, and 09:30 UTC. These are independent schedules, not completion dependencies. See [operations](docs/technical/OPERATIONS.md) for dated evidence, billing, and verification commands.
 
 ## Run locally
 
