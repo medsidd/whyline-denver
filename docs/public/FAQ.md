@@ -2,7 +2,7 @@
 
 ## How current is the dashboard?
 
-Most tables are rebuilt nightly, so they run through yesterday plus whatever has loaded today. Questions about right now read live views over the 15-minute realtime load, so they trail real time by 15–30 minutes. The downloadable DuckDB warehouse is refreshed nightly. Weather may arrive late. ACS remains the configured 2023 five-year vintage even when re-extracted nightly. Freshness badges are processing timestamps, not guarantees that every source covers that date. See [operations](../technical/OPERATIONS.md) and [sources](DATA_SOURCES.md).
+The two reliability tables (route-day and stop-hour) update every 15 minutes; the other tables are rebuilt once a night, around 09:00 UTC, so they run through the previous day. Questions about right now read live views over the 15-minute realtime load, so they trail real time by 15–30 minutes. The downloadable DuckDB warehouse is refreshed nightly. Weather may arrive late. ACS remains the configured 2023 five-year vintage even when re-extracted nightly. Freshness badges are processing timestamps, not guarantees that every source covers that date. See [operations](../technical/OPERATIONS.md) and [sources](DATA_SOURCES.md).
 
 ## Why does my route's on-time percentage differ from my experience?
 

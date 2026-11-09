@@ -733,7 +733,7 @@ gcloud run services update whylinedenver-api --project=whyline-denver --region=u
   --image=us-central1-docker.pkg.dev/whyline-denver/api-service/whylinedenver-api@sha256:a950dbfe1380d3731f51336103ff54294bff22c705b42e8f4cd2941ef503bb17
 ```
 
-Until step 2, the dashboard's ready-made question 9 fails to load (the current API has eight) and maps show stops only. Between steps 1 and 2 nothing breaks. After both, check question 9 on production, a live question in your own words, and a route map.
+Until step 2, the dashboard's ready-made question 9 fails to load (the current API has eight) and maps show stops only. Deploying the API before step 1 also works, but live questions and question 9 then fail with "Not found" until the views exist, and maps show stops only. After both, check question 9 on production, a live question in your own words, and a route map.
 
 ### Query usage report
 

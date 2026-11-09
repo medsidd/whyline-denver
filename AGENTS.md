@@ -9,7 +9,7 @@
 
 ## Scope and cloud actions
 
-The August pause was superseded by an approved October 2026 restart. Both realtime schedulers and nightly workflows were verified enabled on October 26, 2026; this is dated evidence, not a guarantee of present health. Do not reapply the obsolete freeze or infer permission to change schedules from setup examples.
+The August pause was superseded by an approved October 2026 restart. Realtime data comes from the stream poller on the `rt-stream-poller` VM and the `realtime-load` scheduler; `realtime-ingest` (the old snapshot capture) is intentionally paused, so don't resume it. See [operations](docs/technical/OPERATIONS.md) for dated health. Do not reapply the obsolete freeze or infer permission to change schedules from setup examples.
 
 Keep BigQuery/GCS data intact. Read-only inspection is appropriate for status requests. Starting new paid runs, changing recurring schedules, deploying, publishing, deleting data, or changing credentials must be within the user's authorized scope. Existing authorization persists; do not repeatedly ask for the same action.
 
@@ -46,6 +46,6 @@ Set `ENGINE=duckdb` and `LLM_PROVIDER=stub` explicitly for local work. `.env.exa
 - `src/whyline/prebuilt.py`: the 9 ready-made questions as SQL templates (the ninth reads live data), `is_live`, and `clean_filters`, which validates filter-rail values before any SQL uses them. Keep labels in sync with `frontend/src/types/api.ts`.
 - `src/whyline/engines/`: BigQuery and DuckDB. Use `DUCKDB_COPY_LOCAL=1` on Cloud Run; with it, connections reopen within a few minutes of a warehouse replacement, but lookups are cached for the life of the process, so verify served results.
 - `frontend/`: Next.js 14, Zustand persistence, TanStack Query, Recharts, Deck.gl. Dynamically import `StopMap` with `ssr: false`.
-- `infra/cloud-run/`: one image dispatches `JOB_TYPE=ingest|load`. Update both jobs to the tested immutable image digest when shared source changes; `:latest` is not automatically refreshed in existing jobs.
+- `infra/cloud-run/`: one image dispatches `JOB_TYPE=ingest|load|stream` (`stream` runs on the poller VM). Update the jobs and the VM's `image-uri` to the tested immutable image digest when shared source changes; `:latest` is not automatically refreshed in existing jobs.
 
 Use focused checks appropriate to the change. Do not treat API health, a timestamp, enabled scheduling, completed jobs, actual data coverage, and correct query results as interchangeable evidence. Do not promise complete arrival coverage or describe missing weather as dry. See [metrics](docs/public/METRICS_GLOSSARY.md) for current limitations.

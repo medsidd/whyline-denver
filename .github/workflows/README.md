@@ -9,7 +9,7 @@ Six workflow definitions live directly in this directory. The three nightly work
 | [ci.yml](ci.yml) | Pull requests; pushes to `main` | Python install, Ruff/Black lint, offline pytest and ingestion-selected tests. On successful main pushes, separate jobs generate dbt docs with cloud credentials and deploy Pages. |
 | [nightly-ingest.yml](nightly-ingest.yml) | `0 8 * * *` UTC; manual | `make nightly-ingest-bq`: static-source extraction plus date-window BigQuery loading. Static recipe includes GTFS, crashes, sidewalks, rolling NOAA, configured ACS, and a nonfatal tract attempt. |
 | [nightly-bq.yml](nightly-bq.yml) | `0 9 * * *` UTC; manual | `make nightly-bq`: dbt selection `'staging core marts'`, core and mart tests, then Parquet export. Workflow updates BigQuery timestamp and uploads existing artifact files. |
-| [nightly-duckdb.yml](nightly-duckdb.yml) | `30 9 * * *` UTC; manual | `make nightly-duckdb`: refresh/materialize all nine marts into DuckDB, upload configured warehouse/state; attach local files as workflow artifacts. |
+| [nightly-duckdb.yml](nightly-duckdb.yml) | `30 9 * * *` UTC; manual | `make nightly-duckdb`: refresh/materialize the 20 app marts into DuckDB, upload configured warehouse/state; attach local files as workflow artifacts. |
 | [realtime-gtfs-rt.yml](realtime-gtfs-rt.yml) | Manual only | Capture one GTFS-RT snapshot to GCS. No recurring GitHub cron. |
 | [realtime-bq-load.yml](realtime-bq-load.yml) | Manual only | Date-window raw loading, realtime dbt subset, and BigQuery timestamp update. No recurring GitHub cron. |
 

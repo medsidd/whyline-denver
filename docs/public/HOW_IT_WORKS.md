@@ -28,6 +28,6 @@ Ready-made questions avoid AI generation. They cover route reliability, crash ex
 
 The results view shows a table and, when columns match supported patterns, a chart or map. Query-result CSVs contain displayed results. Separate controls download any of 18 tables as CSV (by your dates, newest rows first, for tables with a service date) or the DuckDB warehouse; Parquet is an internal pipeline format.
 
-Before sharing a result, record the engine, dates, source coverage, metric definition, and SQL. Avoid calling an on-time share a complete arrival rate (unseen trips are missing), a sidewalk score an accessibility audit, or a weather association proof of causation.
+Before sharing a result, record the dates, source coverage, metric definition, and SQL. Avoid calling an on-time share a complete arrival rate (unseen trips are missing), a sidewalk score an accessibility audit, or a weather association proof of causation.
 
 See [data sources](DATA_SOURCES.md), [FAQ](FAQ.md), and [operations](../technical/OPERATIONS.md).
