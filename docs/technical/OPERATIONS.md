@@ -718,6 +718,23 @@ After a few days of the firewall traffic view showing only heavy clients, remove
 
 **Vercel, November 9.** The apex `whylinedenver.com` now redirects to `www` with a 308 (was 307). One firewall rule, "Rate limit API (SQL, queries, downloads)", is published in **log** mode: 20 requests a minute per IP across `/api/sql/generate`, `/api/query/run`, `/api/downloads/mart` and `/api/downloads/warehouse`. The Hobby plan allows one rate-limit rule, so downloads share it rather than having their own 5-a-minute rule. After a few days of the firewall traffic view showing only heavy clients, change its action from Log to Too Many Requests (429) in Vercel → Firewall → Rules.
 
+### Dashboard: polish, route maps and live questions, November 9, 2026 (UTC)
+
+Owner requests of November 9 ([plan](plans/dashboard-live-and-route-maps.md)): [#132](https://github.com/medsidd/whyline-denver/pull/132) topics panel, site map and spacing; [#133](https://github.com/medsidd/whyline-denver/pull/133) route lines on result maps (`dim_route_shape`, `mart_route_shapes`, `/api/routes/shapes`); [#134](https://github.com/medsidd/whyline-denver/pull/134) live questions (`fct_vehicle_report`, `mart_vehicles_now`, `mart_stop_visits_recent`, ready-made question 9). Each was reviewed, tested locally against BigQuery data and merged; the frontend deploys on merge.
+
+**API image built, not deployed:** Cloud Build at 16:15 UTC, tag `fd26139`, `whylinedenver-api@sha256:a950dbfe1380d3731f51336103ff54294bff22c705b42e8f4cd2941ef503bb17`. It carries #133 and #134 and the regenerated dbt artifacts (22 queryable models). Rollback: `@sha256:04c8dd11…` (PR 2).
+
+**Owner steps, in order:**
+1. Build the new tables and views: dispatch Nightly BigQuery, or wait for the 09:00 UTC run on November 10. It creates `dim_route_shape`, `mart_route_shapes`, `fct_vehicle_report` and the two live views.
+2. Deploy the API image:
+
+```bash
+gcloud run services update whylinedenver-api --project=whyline-denver --region=us-central1 \
+  --image=us-central1-docker.pkg.dev/whyline-denver/api-service/whylinedenver-api@sha256:a950dbfe1380d3731f51336103ff54294bff22c705b42e8f4cd2941ef503bb17
+```
+
+Until step 2, the dashboard's ready-made question 9 fails to load (the current API has eight) and maps show stops only. Between steps 1 and 2 nothing breaks. After both, check question 9 on production, a live question in your own words, and a route map.
+
 ### Query usage report
 
 From release R1 of the [metrics plan](plans/metrics-implementation.md), the first API image with WP0's change, every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:

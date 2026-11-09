@@ -1,6 +1,6 @@
 # Data pipeline
 
-Seven ingestors produce versioned source extracts. BigQuery/dbt build nine marts, which are exported to Parquet and materialized in DuckDB for serving. See [architecture](ARCHITECTURE.md), [raw contracts](../contracts/CONTRACTS.md), and [models](../../dbt/models/README.md) for responsibilities and schemas.
+Sixteen ingestion CLIs produce versioned source extracts; one of them, the continuous GTFS-RT poller, runs on a VM and times stop visits itself. BigQuery/dbt build 35 marts. The 20 app marts are exported to Parquet and materialized in DuckDB; two live views read the newest realtime load directly. See [architecture](ARCHITECTURE.md), [raw contracts](../contracts/CONTRACTS.md), and [models](../../dbt/models/README.md) for responsibilities and schemas.
 
 ## Ingestion
 
@@ -13,16 +13,25 @@ Seven ingestors produce versioned source extracts. BigQuery/dbt build nine marts
 | `noaa_daily` | `noaa_daily/extract_date=…/station=…/weather.csv.gz` | GHCND metric observations; default `USW00003017` |
 | `acs` | `acs/extract_date=…/acs_tract.csv.gz` | Configured 2023 ACS five-year estimates, Denver County |
 | `denver_tracts` | `denver_tracts/extract_date=…/tracts.csv.gz` | Census TIGERweb 2020 tract geometry, Denver County |
+| `gtfs_rt_stream` | `rtd_gtfsrt_stream/snapshot_at=…/{tu_changes,vp_reports,stop_visits,trip_status}.csv.gz`; payload tars in the archive bucket | Continuous poller on the `rt-stream-poller` VM: both feeds every 15 s, stop visits timed from vehicle positions, 15-minute batches. Every payload is archived, including ones the engine failed on, so `--replay` can rebuild them |
+| `gtfs_rt_backfill` | replay output | Approximate stop visits from the old 15-minute snapshots (2025-10-23 to the stream's start), `backfill_v1` |
+| `gtfs_alerts` | `rtd_gtfsrt_alerts/snapshot_at=…/` | RTD service alerts, snapshotted by `realtime-load` every 15 minutes |
+| `gbfs_veo` | `gbfs_veo/snapshot_at=…/vehicles.csv.gz` | Veo scooter and e-bike availability, snapshotted by `realtime-load` |
+| `arcgis_reference` | `arcgis_reference/extract_date=…/` | Weekly Denver and CDPHE reference layers (street safety, equity, sidewalk asset inventory) |
+| `ntd_monthly` | `ntd_monthly/extract_date=…/` | RTD monthly ridership and service from the National Transit Database |
+| `weather_hourly` | `weather_hourly/extract_date=…/` | Open-Meteo hourly weather at DIA |
+| `rtd_reported_performance` | `rtd_reported_performance/extract_date=…/` | RTD's own monthly on-time figures from its operations reports |
+| `job_access` | `job_access/extract_date=…/` | Jobs reachable by transit per census tract |
 
 CLIs use `--local` or `--gcs --bucket …`. Most use extract-date output paths; realtime uses minute-level snapshot paths. Existing output/manifest checks vary by ingestor. See module `run()` implementations rather than assuming a universal skip protocol. Most manifests include source, date/time, schema version, row/file counts, hashes, and quality metrics; tract geometry uses a distinct manifest shape. A manifest is not proof of complete data.
 
-`make ingest-all` runs all seven and writes locally by default; it still makes network requests. `make ingest-static` runs GTFS static, crashes, sidewalks, NOAA, ACS, and a nonfatal tract attempt. ACS is re-extracted nightly but its selected vintage does not advance automatically. Tract geometry is static reference data even though collection is attempted nightly.
+`make ingest-all` runs the eleven batch ingestors and writes locally by default; it still makes network requests. The stream poller, its backfill, alerts, Veo and job access run separately. `make ingest-static` runs GTFS static, crashes, sidewalks, NOAA, ACS, and a nonfatal tract attempt. ACS is re-extracted nightly but its selected vintage does not advance automatically. Tract geometry is static reference data even though collection is attempted nightly.
 
-`make ingest-gtfs-rt` captures two snapshots 90 seconds apart. The Cloud Run ingestor defaults to one snapshot per invocation. Weather collection uses a rolling 30-day UTC window through yesterday; absent `NOAA_CDO_TOKEN`, a compatible local CSV is required. The production Census secret is explicitly mapped by the nightly workflow.
+`make ingest-gtfs-rt` captures two snapshots 90 seconds apart with the old snapshot collector, whose Cloud Run job (`realtime-ingest`) is paused; realtime data now comes from the stream poller. Weather collection uses a rolling 30-day UTC window through yesterday; absent `NOAA_CDO_TOKEN`, a compatible local CSV is required. The production Census secret is explicitly mapped by the nightly workflow.
 
 ## BigQuery loading
 
-`load/registry.py::JOBS` defines 19 raw tables using `JobSpec`, ordered `Column` definitions, path patterns, partitioning, and clustering. The loader does not infer arbitrary new CSV schemas. It adds `_ingested_at`, `_source_path`, `_extract_date`, and `_hash_md5` and tracks loads in `raw_denver.__ingestion_log`. MD5-based skipping prevents repeated identical file loads; it does not guarantee there are no logically duplicate source records across different extracts.
+`load/registry.py::JOBS` defines 27 raw tables using `JobSpec`, ordered `Column` definitions, path patterns, partitioning, and clustering. The loader does not infer arbitrary new CSV schemas. It adds `_ingested_at`, `_source_path`, `_extract_date`, and `_hash_md5` and tracks loads in `raw_denver.__ingestion_log`. MD5-based skipping prevents repeated identical file loads; it does not guarantee there are no logically duplicate source records across different extracts.
 
 Snapshot sources (GTFS static, sidewalks, tracts, ACS) partition by `_extract_date`, the two snapshot GTFS-RT tables by `feed_ts_utc`, crashes by `event_ts_utc`, and weather by `date`. The four continuous-stream tables expire partitions after 90 days: trip-update changes and vehicle reports partition by `feed_ts_utc` (day), stop visits and trip status by load hour (`_ingested_at`). When the newest stream batch in the load window was sealed more than 30 minutes earlier, the loader logs `STREAM_STALE` (or `STREAM_MISSING` once the stream has ever loaded), which the dead-poller alert matches.
 

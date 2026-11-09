@@ -27,7 +27,7 @@ Run from the repository root with `.venv` activated. `make install` installs roo
 | `make frontend-build` | Compile and type-check frontend |
 | `make api-test` | Currently targets absent `api/tests/`; do not report API test coverage from it |
 | `make frontend-test` | Playwright unit-style specs in `frontend/tests/` (pure functions; no browser or server) |
-| `make ingest-all` | Seven ingestors writing locally by default; still calls external source APIs |
+| `make ingest-all` | The eleven batch ingestors, writing locally by default; still calls external source APIs. The stream poller, backfill, alerts, Veo and job access run separately |
 | `make bq-load` | GCS raw loading via realtime date window; not restricted to realtime table types |
 | `make dbt-run-staging`, `make dbt-run-core`, `make dbt-run-marts` | Cloud transformations; `dbt-marts` has no recipe |
 | `make sync-duckdb` | BigQuery export then DuckDB refresh, including configured remote uploads; not a warehouse download |

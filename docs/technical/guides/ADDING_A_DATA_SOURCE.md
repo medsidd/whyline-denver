@@ -1,6 +1,6 @@
 # Add a data source
 
-Read an existing ingestor with the closest source format, [raw contracts](../../contracts/CONTRACTS.md), and the actual `load/registry.py` definitions before changing anything. Seven ingestors exist today; a new source needs explicit registration, not just a new file.
+Read an existing ingestor with the closest source format, [raw contracts](../../contracts/CONTRACTS.md), and the actual `load/registry.py` definitions before changing anything. Sixteen ingestion CLIs exist today (`src/whyline/ingest/`); a new source needs explicit registration, not just a new file.
 
 ## Required reach
 

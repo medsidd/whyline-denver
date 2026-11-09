@@ -5,33 +5,33 @@ WhyLine Denver is a Python/SQL transit warehouse served by FastAPI and a Next.js
 ## Processing and serving
 
 ```text
-Seven public-source ingestors
-  → GCS raw files and manifests
+16 ingestion CLIs, including the continuous GTFS-RT poller on a VM
+  → GCS raw files and manifests (the poller also archives every feed payload)
   → BigQuery raw_denver (explicit schemas + loader metadata)
   → dbt stg_denver (silver: source-conformed staging)
-  → dbt core_denver (gold core: Kimball dimensions, facts, bridge)
-  → dbt mart_denver (gold serving: nine marts)
-  → GCS Parquet exports → DuckDB warehouse
+  → dbt core_denver (gold core: Kimball dimensions, facts, bridges)
+  → dbt mart_denver (gold serving: 35 marts; 20 app marts, 2 live views)
+  → GCS Parquet exports of the 20 app marts → DuckDB warehouse
 
-BigQuery or DuckDB → FastAPI → Next.js /app
+BigQuery → FastAPI → Next.js /app   (the API also answers on DuckDB; the dashboard uses BigQuery)
 ```
 
 | Boundary | Implementation and reason |
 |---|---|
-| Source ingestion | `src/whyline/ingest/`: standalone argparse CLIs, shared retry/I/O utilities, local or GCS output. Raw snapshots preserve source lineage. The continuous GTFS-RT poller (`gtfs_rt_stream`) is a long-running VM process: it derives stop visits itself and archives every feed payload. |
+| Source ingestion | `src/whyline/ingest/`: 16 standalone argparse CLIs (see [data pipeline](DATA_PIPELINE.md#ingestion)), shared retry/I/O utilities, local or GCS output. Raw snapshots preserve source lineage. The continuous GTFS-RT poller (`gtfs_rt_stream`) is a long-running VM process: it derives stop visits itself and archives every feed payload. |
 | Loading | `load/bq_load.py` and `registry.py`: explicit ordered schemas, metadata, MD5-based skipping. Raw CSVs are normalized extracts, not universally untouched source records. |
-| Transformation | Medallion layers: 17 silver staging models (views, plus the disabled legacy `stg_rt_events`), 15 gold-core models (Type 2 GTFS dimensions with surrogate keys and Unknown members; incremental schedule, stop-visit and trip-status facts, plus the disabled legacy trip-observation and stop-arrival facts; nightly crash, weather, and demographics facts; a weighted stop-tract bridge), and nine serving marts built only from gold core. See the [model reference](../../dbt/models/README.md). |
-| Published schema | `DbtArtifacts` reads manifest/catalog. Models must have `config.meta.allow_in_app` and be in `sync/constants.py::ALLOWLISTED_MARTS`. |
-| Export | Two partitioned reliability marts; seven snapshot marts. Rebuilt partitions are selected using `build_run_at` as well as date checkpoints. |
-| Embedded warehouse | `sync/refresh_duckdb.py` materializes nine marts. Partitioned history is limited by `DUCKDB_MAX_AGE_DAYS` (90 by default); snapshots use latest run date. |
-| HTTP | Five routers in `api/routers/`, registered under `/api`; request/response models in `api/models.py`. |
+| Transformation | Medallion layers: 25 silver staging models, 33 gold-core models (eight dimensions, 21 facts, four bridges: Type 2 GTFS dimensions with surrogate keys and Unknown members; incremental schedule, stop-visit and trip-status facts; nightly crash, weather, demographics and other facts), and 35 serving marts built only from gold core. Three legacy models are disabled since the stop-visit cutover. See the [model reference](../../dbt/models/README.md). |
+| Published schema | `DbtArtifacts` reads manifest/catalog. Models must have `config.meta.allow_in_app` and be in `sync/constants.py`: the 20 `ALLOWLISTED_MARTS` or the 2 `LIVE_MARTS` (live views, BigQuery only). |
+| Export | The 20 app marts: date-partitioned marts by rebuilt partition (selected using `build_run_at` as well as date checkpoints), the rest as daily snapshots. Live views and `allow_in_app: false` marts are not exported. |
+| Embedded warehouse | `sync/refresh_duckdb.py` materializes the 20 app marts. Partitioned history is limited by `DUCKDB_MAX_AGE_DAYS` (90 by default); snapshots use latest run date. |
+| HTTP | Five routers in `api/routers/` (health, filters including `/routes/shapes`, sql, query, downloads), registered under `/api`; request/response models in `api/models.py`. |
 | Presentation | Next.js 14, React 18, Zustand, TanStack Query, Recharts, Deck.gl/MapLibre, CodeMirror. |
 
 ## Why two engines?
 
-BigQuery performs cloud transformations and supports querying the current mart tables. Its API query engine uses a dry-run estimate and `MAX_BYTES_BILLED` (2,000,000,000 by default). That cap applies to this engine's queries, not every loader/dbt/export/billing query in the project.
+BigQuery performs cloud transformations and answers every dashboard query (the dashboard sends `engine: bigquery`); the live views exist only there. Its API query engine uses a dry-run estimate and `MAX_BYTES_BILLED` (2,000,000,000 by default). That cap applies to this engine's queries, not every loader/dbt/export/billing query in the project.
 
-DuckDB serves a copied warehouse without per-query BigQuery analysis charges. Local querying needs no cloud credentials when the warehouse, dbt artifacts, and sync-state configuration are local. Downloading data, hosting it on Cloud Run, refreshing it, or accessing GCS still has infrastructure/access costs.
+DuckDB serves a copied warehouse of the 20 app marts without per-query BigQuery analysis charges, for API callers that ask for it and for the warehouse download. Local querying needs no cloud credentials when the warehouse, dbt artifacts, and sync-state configuration are local. Downloading data, hosting it on Cloud Run, refreshing it, or accessing GCS still has infrastructure/access costs.
 
 `llm.adapt_sql_for_engine()` handles the supported dialect rewrites and BigQuery table qualification. It is not a general SQL transpiler; test queries on each intended engine.
 
@@ -56,7 +56,7 @@ The guardrails are regex-based checks, not a database permission system. Keep cl
 
 The API runs as Cloud Run service `whylinedenver-api`. The Makefile deployment defaults are 0–3 instances, 2 vCPU, and 2 GiB; verify live configuration separately. The GCS bucket is mounted at `/mnt/gcs`, and DuckDB is copied locally for reliable access.
 
-Two Cloud Run jobs share an image and dispatch on `JOB_TYPE`. Cloud Scheduler invokes them; the October 26 readback showed 15-minute capture/load schedules. Three independent GitHub Actions cron workflows ingest static sources, transform/export, and refresh DuckDB. The two realtime GitHub workflows are manual alternatives, not scheduled collectors. CI runs Python lint/tests and deploys dbt docs on successful pushes to `main`.
+The continuous GTFS-RT poller runs as a container on the `rt-stream-poller` VM (image set in the instance's `image-uri` metadata; see [operations](OPERATIONS.md) for upgrade steps). It reads both feeds every 15 seconds, times each stop visit itself, and publishes 15-minute batches. Two Cloud Run jobs share an image and dispatch on `JOB_TYPE`: `realtime-load` runs every 15 minutes (it loads the poller's batches, snapshots service alerts and Veo vehicles, and builds `fct_stop_visit` and `fct_trip_status`); `realtime-ingest`, the old 15-minute snapshot collector, is paused. Three independent GitHub Actions cron workflows ingest static sources, transform/export, and refresh DuckDB. The two realtime GitHub workflows are manual alternatives, not scheduled collectors. CI runs Python lint/tests and deploys dbt docs on successful pushes to `main`.
 
 Next.js uses server-side rewrites from `/api/*` to `API_BASE_URL`. This avoids requiring the browser to call a separate origin; it is not an authentication boundary and does not make the public API secret. `StopMap` must use `ssr: false` because MapLibre needs browser APIs.
 
