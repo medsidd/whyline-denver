@@ -85,27 +85,34 @@ export function PrebuiltQuestions() {
   }, [filtersKey]);
 
   return (
-    <div className="mt-5">
-      <p className="m-0 text-sm font-extrabold text-wl-ink2">Or start from a ready-made question</p>
-      <ul className="mt-2 mb-0 p-0 list-none grid sm:grid-cols-2 gap-x-6">
-        {PREBUILT_QUERIES.map((q, i) => {
-          const pending = mutation.isPending && !mutation.variables?.reload && mutation.variables?.index === q.index;
-          const color = CHIP_COLORS[q.index] ?? TEAL;
-          return (
-            <li key={q.index}>
-              <button
-                type="button"
-                onClick={() => load(q.index, q.label)}
-                disabled={mutation.isPending && !mutation.variables?.reload}
-                className="w-full flex items-start gap-3 min-h-[44px] py-2.5 px-2 -mx-2 rounded-xl text-left text-[15px] font-extrabold text-wl-navy border-b-2 border-wl-navy/[0.06] hover:bg-white disabled:cursor-wait"
-              >
-                <span aria-hidden="true" className={`flex-none mt-[7px] w-2.5 h-2.5 rounded-full ${color.dot}`} />
-                {pending ? "Loading…" : q.label}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+    <div className="mt-3">
+      <details className="wl-faq rounded-[22px] bg-white/70 border-2 border-wl-navy/[0.06] px-4">
+        <summary className="flex items-center justify-between gap-3 min-h-[48px] text-sm font-extrabold text-wl-ink2">
+          Or start from a ready-made question
+          <span aria-hidden="true" className="wl-plus flex-none w-7 h-7 rounded-full bg-wl-navy-tint flex items-center justify-center text-lg leading-none text-wl-navy">
+            +
+          </span>
+        </summary>
+        <ul className="m-0 mb-3 p-0 list-none grid sm:grid-cols-2 gap-x-6">
+          {PREBUILT_QUERIES.map((q, i) => {
+            const pending = mutation.isPending && !mutation.variables?.reload && mutation.variables?.index === q.index;
+            const color = CHIP_COLORS[q.index] ?? TEAL;
+            return (
+              <li key={q.index}>
+                <button
+                  type="button"
+                  onClick={() => load(q.index, q.label)}
+                  disabled={mutation.isPending && !mutation.variables?.reload}
+                  className="w-full flex items-start gap-3 min-h-[44px] py-2.5 px-2 -mx-2 rounded-xl text-left text-[15px] font-extrabold text-wl-navy border-b-2 border-wl-navy/[0.06] hover:bg-white disabled:cursor-wait"
+                >
+                  <span aria-hidden="true" className={`flex-none mt-[7px] w-2.5 h-2.5 rounded-full ${color.dot}`} />
+                  {pending ? "Loading…" : q.label}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </details>
       {mutation.isError && !mutation.variables?.reload && (
         <p role="alert" className="mt-3 text-sm font-bold text-wl-red">
           That question didn’t load. Try again, or ask it in your own words.
