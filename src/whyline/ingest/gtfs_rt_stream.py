@@ -275,7 +275,8 @@ class GcsSink:
 
 
 class StaticCache:
-    """Loaded static feeds by MD5; trips keep the version they started on for 36 hours."""
+    """Loaded static feeds by MD5. A superseded version stays 36 hours after it was superseded, so
+    trips keep the version they started on."""
 
     def __init__(self, cache_dir: Path):
         self.dir = cache_dir
@@ -298,9 +299,14 @@ class StaticCache:
             changed = True
         else:
             changed = False
+        if self.current not in (None, md5):
+            # Keep the superseded version STATIC_KEEP_SEC from now, not from when it was loaded:
+            # trips that started on it are still open. Evicting it at once (November 7, 2026) sent
+            # their lookups to the new version, whose stop lists differ, and the engine crashed.
+            self.feeds[self.current] = (self.feeds[self.current][0], now)
         self.current = md5
-        for old, (_, loaded) in list(self.feeds.items()):
-            if old != md5 and now - loaded > STATIC_KEEP_SEC:
+        for old, (_, since) in list(self.feeds.items()):
+            if old != md5 and now - since > STATIC_KEEP_SEC:
                 del self.feeds[old]
         return md5, changed
 
@@ -431,6 +437,11 @@ class Stream:
         self.processor.engine.lookup = self.static.lookup
         self.etags = state["etags"]
         self.archived_static = state["archived_static"]
+        # Superseded versions that open trips are pinned to, then the current one (loaded last)
+        pinned = {st.md5 for st in self.processor.engine.trips.values() if st.md5}
+        for md5 in sorted(pinned - {state["static_md5"]}):
+            if not self.static.load_cached(md5):
+                LOGGER.warning("Static %s for open trips is not cached; they close without it", md5)
         if state["static_md5"]:
             self.static.load_cached(state["static_md5"])
         saved = state["window"]
@@ -522,12 +533,17 @@ class Stream:
             payload = self.fetch(kind)
             if payload is None:
                 continue
+            before = self.processor.last_header.get(kind)
             try:
                 header_ts = self.processor.handle(kind, payload, self.window)
             except Exception:  # noqa: BLE001 - one bad payload must not stop capture
                 LOGGER.exception("Failed to process %s payload", kind)
                 self.window.stats[f"{kind}_parse_errors"] += 1
-                continue
+                # A payload that parsed but failed in the engine is still archived, so a fixed
+                # engine can replay it. From November 7 to 9, 2026 those payloads were lost.
+                header_ts = self.processor.last_header.get(kind)
+                if header_ts == before:
+                    continue
             if header_ts is not None:
                 self.window.archive(kind, header_ts, payload)
                 changed = True
@@ -596,6 +612,7 @@ class Stream:
                     "vp_refreshes": w.stats["vp_refreshes"] if w else 0,
                     "last_header_utc": iso(self.processor.last_header.get("tu")),
                     "open_trips": len(self.processor.engine.trips),
+                    "trip_errors": self.processor.engine.trip_errors,
                     "outbox_windows": sum(1 for p in self.outbox.iterdir() if p.is_dir()),
                     "peak_rss_mb": peak_rss_mb(),
                     "static_md5": self.static.current,

@@ -478,3 +478,38 @@ def test_static_without_shape_dist_traveled_projects_stops():
     trip = feed.trips["T1"]
     assert list(trip.dists) == pytest.approx([0.0, 700.0, 1500.0], abs=8.0)
     assert feed.shapes["shp"].ds[-1] == pytest.approx(2000.0, rel=0.01)
+
+
+def test_a_trip_is_never_read_against_another_static_version():
+    # November 7–9, 2026: a trip pinned to an evicted version was read against the new one, whose
+    # stop list was shorter; its visit indexes ran past the end on every payload.
+    h = Harness(straight_feed())
+    h.tu(T(15, 50, 0), listed(1, 2, 3, 4, 5))
+    h.vp(T(15, 50, 0), 0.0, 0.0, "S0", "STOPPED_AT")
+    h.vp(T(15, 51, 0), 900.0, 0.0, "S2", "IN_TRANSIT_TO")
+    (st,) = h.engine.trips.values()
+    assert st.visits
+    short = gtfs_zip(
+        {"shp": [(x, 0.0) for x in range(0, 600, 100)]},
+        {"S0": (0.0, 0.0)},
+        [("T1", "15", "3", "shp", [(1, "S0", 0.0)])],
+    )
+    h.feed = rt_static.load_zip(short)  # the lookup now only knows a different version
+    h.vp(T(15, 52, 0), 1400.0, 0.0, "S3", "IN_TRANSIT_TO")  # must not raise
+    h.flush()
+    assert not h.engine.trips
+    assert h.status[-1]["outcome"] == "no_static"
+
+
+def test_an_error_in_one_trip_closes_it_and_spares_the_rest():
+    h = Harness(straight_feed())
+    h.tu(T(15, 50, 0), listed(1, 2, 3, 4, 5))
+    h.vp(T(15, 50, 0), 0.0, 0.0, "S0", "STOPPED_AT")
+
+    def broken(*_args):
+        raise TypeError("bad state")
+
+    h.engine._finalize = broken
+    h.vp(T(15, 51, 0), 900.0, 0.0, "S2", "IN_TRANSIT_TO")  # must not raise
+    assert not h.engine.trips and h.engine.trip_errors == 1
+    assert h.status[-1]["trip_id"] == "T1"

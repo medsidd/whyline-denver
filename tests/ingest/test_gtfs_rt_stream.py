@@ -172,6 +172,41 @@ def test_poll_skips_not_modified_and_repeated_headers(tmp_path, monkeypatch):
         assert tar.getnames() == [f"tu/{T(15, 41, 0)}.pb.gz"]
 
 
+def test_payload_that_fails_in_the_engine_is_still_archived(tmp_path, monkeypatch):
+    # November 7–9, 2026: payloads that parsed but failed in the engine were not archived, so
+    # the outage could not be replayed with the fixed engine.
+    payload = tu_payload(T(15, 41, 0), {3: T(15, 42, 0)})
+
+    def fake_get(url, **_kw):
+        return FakeResponse(200, payload, "e1") if "TripUpdate" in url else FakeResponse(304)
+
+    monkeypatch.setattr(stream.io, "http_get_with_retry", fake_get)
+    s = stream.Stream(args_for(tmp_path))
+    s.ensure_window(T(15, 41, 0))
+
+    def broken(*_args):
+        raise IndexError("engine bug")
+
+    s.processor.engine.on_trip_updates = broken
+    assert s.poll_once() is True
+    assert s.window.stats["tu_parse_errors"] == 1
+    with tarfile.open(s.window.tar_path) as tar:
+        assert tar.getnames() == [f"tu/{T(15, 41, 0)}.pb.gz"]
+
+
+def test_unparseable_payload_is_not_archived(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        stream.io,
+        "http_get_with_retry",
+        lambda url, **_kw: (
+            FakeResponse(200, b"not protobuf") if "TripUpdate" in url else FakeResponse(304)
+        ),
+    )
+    s = stream.Stream(args_for(tmp_path))
+    s.ensure_window(T(15, 41, 0))
+    assert s.poll_once() is False
+
+
 def test_gcs_publish_treats_existing_objects_as_uploaded(tmp_path, monkeypatch):
     calls = []
 
@@ -244,6 +279,17 @@ def test_replay_reproduces_live_visits(tmp_path):
     assert replayed[:2] == live_visits[:2]  # same rows from the same payloads and static
 
 
+def test_long_loaded_version_survives_a_switch(tmp_path):
+    # November 7, 2026: a version loaded more than STATIC_KEEP_SEC earlier was evicted the moment
+    # a new one arrived, while trips that started on it were still open.
+    cache = stream.StaticCache(tmp_path)
+    old, _ = cache.add(static_zip(), 0)
+    cache.add(static_zip(), stream.STATIC_KEEP_SEC * 2)  # same version, refreshed later
+    new, changed = cache.add(static_zip(route="16"), stream.STATIC_KEEP_SEC * 2 + 60)
+    assert changed and old in cache.feeds
+    assert cache.lookup("T1", old).feed.md5 == old
+
+
 def test_static_cache_keeps_the_version_a_trip_started_on(tmp_path):
     cache = stream.StaticCache(tmp_path)
     old, _ = cache.add(static_zip(), 0)
@@ -252,6 +298,9 @@ def test_static_cache_keeps_the_version_a_trip_started_on(tmp_path):
     assert changed and cache.current == new != old
     assert cache.lookup("T1", old).feed.md5 == old  # pinned version still served
     assert cache.lookup("T1", None).feed.md5 == new
+    # The old version is kept STATIC_KEEP_SEC from when it was superseded, not from its load
+    cache.add(new_payload, 3600 + stream.STATIC_KEEP_SEC - 1)
+    assert old in cache.feeds
     cache.add(new_payload, 3600 + stream.STATIC_KEEP_SEC + 1)
     assert old not in cache.feeds
     assert isinstance(cache.lookup("T1", old).feed, rt_static.StaticFeed)  # falls back to current
