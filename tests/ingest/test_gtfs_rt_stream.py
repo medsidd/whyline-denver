@@ -244,6 +244,17 @@ def test_replay_reproduces_live_visits(tmp_path):
     assert replayed[:2] == live_visits[:2]  # same rows from the same payloads and static
 
 
+def test_long_loaded_version_survives_a_switch(tmp_path):
+    # November 7, 2026: a version loaded more than STATIC_KEEP_SEC earlier was evicted the moment
+    # a new one arrived, while trips that started on it were still open.
+    cache = stream.StaticCache(tmp_path)
+    old, _ = cache.add(static_zip(), 0)
+    cache.add(static_zip(), stream.STATIC_KEEP_SEC * 2)  # same version, refreshed later
+    new, changed = cache.add(static_zip(route="16"), stream.STATIC_KEEP_SEC * 2 + 60)
+    assert changed and old in cache.feeds
+    assert cache.lookup("T1", old).feed.md5 == old
+
+
 def test_static_cache_keeps_the_version_a_trip_started_on(tmp_path):
     cache = stream.StaticCache(tmp_path)
     old, _ = cache.add(static_zip(), 0)
@@ -252,6 +263,9 @@ def test_static_cache_keeps_the_version_a_trip_started_on(tmp_path):
     assert changed and cache.current == new != old
     assert cache.lookup("T1", old).feed.md5 == old  # pinned version still served
     assert cache.lookup("T1", None).feed.md5 == new
+    # The old version is kept STATIC_KEEP_SEC from when it was superseded, not from its load
+    cache.add(new_payload, 3600 + stream.STATIC_KEEP_SEC - 1)
+    assert old in cache.feeds
     cache.add(new_payload, 3600 + stream.STATIC_KEEP_SEC + 1)
     assert old not in cache.feeds
     assert isinstance(cache.lookup("T1", old).feed, rt_static.StaticFeed)  # falls back to current

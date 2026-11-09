@@ -478,3 +478,25 @@ def test_static_without_shape_dist_traveled_projects_stops():
     trip = feed.trips["T1"]
     assert list(trip.dists) == pytest.approx([0.0, 700.0, 1500.0], abs=8.0)
     assert feed.shapes["shp"].ds[-1] == pytest.approx(2000.0, rel=0.01)
+
+
+def test_a_trip_whose_geometry_shrank_is_dropped_not_fatal():
+    # A trip's visits held indexes from a longer stop list; every sweep raised IndexError, so
+    # every later payload failed and the stream recorded nothing (November 7–9, 2026).
+    h = Harness(straight_feed())
+    h.tu(T(15, 50, 0), listed(1, 2, 3, 4, 5))
+    h.vp(T(15, 50, 0), 0.0, 0.0, "S0", "STOPPED_AT")
+    h.vp(T(15, 51, 0), 900.0, 0.0, "S2", "IN_TRANSIT_TO")
+    (st,) = h.engine.trips.values()
+    assert st.visits
+    short = gtfs_zip(
+        {"shp": [(x, 0.0) for x in range(0, 600, 100)]},
+        {"S0": (0.0, 0.0)},
+        [("T1", "15", "3", "shp", [(1, "S0", 0.0)])],
+    )
+    h.feed = rt_static.load_zip(short)
+    for visit in st.visits.values():
+        visit.idx = 3  # past the end of the new one-stop list
+        visit.left = True
+    h.flush()  # must not raise
+    assert not h.engine.trips

@@ -298,9 +298,14 @@ class StaticCache:
             changed = True
         else:
             changed = False
+        if self.current not in (None, md5) and self.current in self.feeds:
+            # Keep the superseded version STATIC_KEEP_SEC from now, not from when it was loaded:
+            # trips that started on it are still open. Evicting it at once (November 7, 2026) sent
+            # their lookups to the new version, whose stop lists differ, and the engine crashed.
+            self.feeds[self.current] = (self.feeds[self.current][0], now)
         self.current = md5
-        for old, (_, loaded) in list(self.feeds.items()):
-            if old != md5 and now - loaded > STATIC_KEEP_SEC:
+        for old, (_, since) in list(self.feeds.items()):
+            if old != md5 and now - since > STATIC_KEEP_SEC:
                 del self.feeds[old]
         return md5, changed
 

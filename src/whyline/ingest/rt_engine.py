@@ -7,6 +7,7 @@ replay of archived payloads reproduces the live output exactly.
 from __future__ import annotations
 
 import bisect
+import logging
 import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -16,6 +17,8 @@ from typing import NamedTuple
 from google.transit import gtfs_realtime_pb2 as rt
 
 from whyline.ingest.rt_static import Shape, StaticFeed, Trip, project, to_xy
+
+_LOGGER = logging.getLogger(__name__)
 
 # Also used by the snapshot ingestor (gtfs_realtime.py). It holds every RTD shape with margin:
 # Eldora reaches -105.58 and north Longmont 40.21 in the October 2026 feed.
@@ -809,11 +812,18 @@ class VisitEngine:
             st = self.trips[key]
             geom = self._geom(st)
             closing = force or self.now - st.last_seen >= TRIP_CLOSE_SEC[self.mode]
-            if geom is not None:
-                self._resolve_predictions(st, geom, closing)
-                self._finalize(st, geom, closing)
-            if closing:
-                self._close(key, st, geom)
+            try:
+                if geom is not None:
+                    self._resolve_predictions(st, geom, closing)
+                    self._finalize(st, geom, closing)
+                if closing:
+                    self._close(key, st, geom)
+            except (IndexError, KeyError):
+                # One trip whose state no longer fits its geometry must not stop every other trip:
+                # the exception used to abort each payload for good, because the trip never closed.
+                _LOGGER.exception("Dropping trip %s %s after an error", *key)
+                self.trips.pop(key, None)
+                self.closed[key] = self.now
         for key, ts in list(self.closed.items()):
             if self.now - ts > TOMBSTONE_SEC:
                 del self.closed[key]
