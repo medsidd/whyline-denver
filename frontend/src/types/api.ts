@@ -76,6 +76,8 @@ export interface ValidateSqlResponse {
   sanitized_sql: string | null;
   bq_est_bytes: number | null;
   error: string | null;
+  /** The SQL reads a live view (15–30 minutes behind real time). Absent from an older API. */
+  is_live?: boolean;
 }
 
 // ─── Query Execution ──────────────────────────────────────────────────────
@@ -94,6 +96,9 @@ export interface RunQueryResponse {
   total_rows: number;
   stats: Record<string, unknown>;
   error: string | null;
+  is_live?: boolean;
+  /** When the newest vehicle report was made, "YYYY-MM-DD HH:MM UTC" */
+  live_loaded_at?: string | null;
 }
 
 // ─── Downloads ────────────────────────────────────────────────────────────

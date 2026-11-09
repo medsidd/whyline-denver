@@ -58,3 +58,21 @@ def test_prompt_points_live_questions_at_the_live_views() -> None:
     prompt = build_prompt("What routes are running right now?", {}, "")
     assert "mart_vehicles_now" in prompt and "mart_stop_visits_recent" in prompt
     assert "15 to 30 minutes" in prompt
+
+
+def test_bigquery_qualifier_leaves_extract_from_alone() -> None:
+    from whyline.llm import adapt_sql_for_engine
+    from whyline.semantics.dbt_artifacts import ModelInfo
+
+    models = {
+        "mart_stop_visits_recent": ModelInfo(
+            name="mart_stop_visits_recent", fq_name="x", description=None
+        )
+    }
+    out = adapt_sql_for_engine(
+        "SELECT EXTRACT(HOUR FROM arrival_ts_mst) h FROM mart_stop_visits_recent",
+        "bigquery",
+        models,
+    )
+    assert "EXTRACT(HOUR FROM arrival_ts_mst)" in out
+    assert out.count("mart_denver") == 1

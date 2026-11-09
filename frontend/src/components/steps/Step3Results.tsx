@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import { errorText, runQuery, triggerDownload } from "@/lib/api";
 import { useDashboardStore } from "@/store/dashboardStore";
 import { barColumns, detectChartType, detectMapData, hourColumns, labelOf } from "@/lib/chartLogic";
-import { columnLabel, denverDate, isLiveSql, orderColumns, resultFilename } from "@/lib/format";
+import { columnLabel, denverDate, orderColumns, resultFilename } from "@/lib/format";
 import { LiveNote } from "@/components/steps/LiveNote";
 import { StepShell, type StepStatus } from "@/components/steps/StepShell";
 import { DataTable } from "@/components/ui/DataTable";
@@ -146,7 +146,7 @@ export function Step3Results({ status }: { status: StepStatus }) {
         </p>
       )}
 
-      {result && isLiveSql(resultSql) && <LiveNote className="mt-4" />}
+      {result?.is_live && <LiveNote className="mt-4" loadedAt={result.live_loaded_at} />}
 
       {result && !isEmpty && (
         <div className="wl-enter mt-4 bg-white rounded-[28px] p-2 wl-shadow">

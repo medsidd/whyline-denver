@@ -341,10 +341,10 @@ Two views answer questions about right now. They read the newest realtime load e
 
 | View | What it holds |
 |---|---|
-| `mart_vehicles_now` | Each vehicle's latest report from the last 45 minutes of feed time: route (NULL when the vehicle isn't on a trip), direction, trip, the stop it's at or heading to, position, speed, occupancy level and `minutes_ago`. |
-| `mart_stop_visits_recent` | Stop visits that arrived in the last 2 hours: route, stop, arrival time, `delay_sec`, `delay_min` and `is_on_time` (RTD's rule, less than 1 minute early to 5 minutes late; NULL when the delay is unknown). |
+| `mart_vehicles_now` | Vehicles running in the newest load: each vehicle's latest report from the last 45 minutes of feed time, kept when it is within 10 minutes of the newest report, so a bus that stopped reporting drops out with the next load. Route (NULL when the vehicle isn't on a trip), direction, trip, the stop it's at or heading to, position, speed, occupancy level, `report_ts_mst` and `minutes_ago`. |
+| `mart_stop_visits_recent` | Stop visits from the last 2 hours, skipped stops included (by their scheduled arrival): route, stop, `arrival_ts_mst`, `delay_sec`, `delay_min` and `is_on_time` (the nightly marts' thresholds, RTD's rule by default; NULL when the delay is unknown). |
 
-"Routes running now" counts routes with at least one vehicle on a trip in `mart_vehicles_now`. A route whose vehicles stopped reporting looks like it isn't running. The dashboard's date filter doesn't apply to these views, and they aren't in the nightly downloads or the DuckDB warehouse.
+"Routes running now" counts routes with at least one vehicle on a trip in `mart_vehicles_now`. A route whose vehicles stopped reporting looks like it isn't running. The dashboard says when the newest vehicle report was made. The dashboard's date filter doesn't apply to these views, and they aren't in the nightly downloads or the DuckDB warehouse.
 
 ## Dates, provenance, and reference tables
 

@@ -92,6 +92,7 @@ class ValidateSqlResponse(BaseModel):
     sanitized_sql: str | None = None
     bq_est_bytes: int | None = None
     error: str | None = None
+    is_live: bool = False
 
 
 class RunQueryResponse(BaseModel):
@@ -101,6 +102,9 @@ class RunQueryResponse(BaseModel):
     total_rows: int
     stats: dict[str, Any]
     error: str | None = None
+    # Live results: when the newest vehicle report was made ("YYYY-MM-DD HH:MM UTC")
+    is_live: bool = False
+    live_loaded_at: str | None = None
 
 
 class RouteShape(BaseModel):

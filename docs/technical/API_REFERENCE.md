@@ -50,9 +50,9 @@ Request to `/api/sql/validate`:
 {"sql":"SELECT stop_id, stop_name FROM mart_gtfs_stops LIMIT 10","engine":"duckdb"}
 ```
 
-Response fields: `valid`, nullable `sanitized_sql`, nullable `bq_est_bytes`, nullable `error`. BigQuery estimation errors are nonfatal, so `valid: true` with no estimate does not prove the query will execute.
+Response fields: `valid`, nullable `sanitized_sql`, nullable `bq_est_bytes`, nullable `error`, and `is_live` (the SQL reads a live view). BigQuery estimation errors are nonfatal, so `valid: true` with no estimate does not prove the query will execute.
 
-Guardrails accept one SELECT/WITH statement, reject denylisted write keywords (a query that starts with another word gets "SQL must start with SELECT or WITH. Check the first word ('SELEC')."), and check referenced table/project/dataset allowlists. They add `LIMIT 5000` only when a numeric limit is absent; existing limits are not reduced. BigQuery's partition-filter suggestion checks for a configured date column without a WHERE clause; it does not guarantee effective partition pruning. These are regex checks and must be backed by least-privilege database credentials.
+Guardrails accept one SELECT/WITH statement, reject denylisted write keywords (a query that starts with another word gets "SQL must start with SELECT or WITH. Check the first word ('SELEC')."), and check referenced table/project/dataset allowlists. They add `LIMIT 5000` only when a numeric limit is absent; existing limits are not reduced. BigQuery's partition-filter suggestion checks for a configured date column without a WHERE clause; it does not guarantee effective partition pruning. On DuckDB the live views aren't allowed: they exist only in BigQuery. `EXTRACT(HOUR FROM ts)`'s FROM is not read as a table, by the check or by BigQuery table qualification (both treated it as one before November 9, 2026). These are regex checks and must be backed by least-privilege database credentials.
 
 ## Prebuilt SQL
 
@@ -88,6 +88,8 @@ curl -sS http://localhost:8000/api/query/run   -H 'Content-Type: application/jso
 | `total_rows` | Result size before the display truncation, not a count of all source-table rows |
 | `stats` | Engine execution metadata; shape varies by engine |
 | `error` | Nullable execution/validation error |
+| `is_live` | The SQL reads a live view |
+| `live_loaded_at` | For live results on BigQuery: when the newest vehicle report was made, `YYYY-MM-DD HH:MM UTC` (from `MAX(report_ts_utc)` of `mart_vehicles_now`, cached 60 s) |
 
 Execution always re-sanitizes server-side. Results display at most 10,000 records; SQL/engine limits still determine work performed before display. Stop IDs can add missing stop names/coordinates and route IDs can add missing route names via cached lookup tables. Lookup availability is separate from query success.
 

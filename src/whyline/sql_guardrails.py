@@ -44,6 +44,15 @@ TABLE_PATTERN = re.compile(
 )
 
 LIMIT_PATTERN = re.compile(r"\bLIMIT\s+(\d+)", re.IGNORECASE)
+# `EXTRACT(HOUR FROM ts)`: its FROM names a column, not a table
+_EXTRACT_BEFORE = re.compile(r"\bEXTRACT\s*\(\s*\w+\s+$", re.IGNORECASE)
+
+
+def is_extract_from(sql: str, start: int) -> bool:
+    """Whether the FROM at `start` is EXTRACT's (`EXTRACT(HOUR FROM ts)`), not a table clause."""
+    return bool(_EXTRACT_BEFORE.search(sql[max(0, start - 40) : start]))
+
+
 CTE_PATTERN = re.compile(
     r"(?:\bWITH\b|,)\s+(`[^`]+`|[a-zA-Z_][\w-]*)\s+AS\s*\(",
     re.IGNORECASE,
@@ -168,6 +177,8 @@ def _extract_referenced_identifiers(
 ) -> list[tuple[str | None, str | None, str, str]]:
     identifiers: list[tuple[str | None, str | None, str, str]] = []
     for match in TABLE_PATTERN.finditer(sql):
+        if is_extract_from(sql, match.start()):
+            continue
         token = match.group(1).strip()
         if not token:
             continue
@@ -234,6 +245,8 @@ def _ensure_limit(sql: str, max_rows: int) -> str:
 def _quote_hyphenated_tables(sql: str) -> str:
     def replacer(match: re.Match[str]) -> str:
         token = match.group(1)
+        if is_extract_from(sql, match.start()):
+            return match.group(0)
         if token.startswith("`") and token.endswith("`"):
             return match.group(0)
         if "-" not in token:

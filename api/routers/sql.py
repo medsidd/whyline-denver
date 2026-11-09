@@ -156,7 +156,9 @@ def validate_sql(req: ValidateSqlRequest) -> ValidateSqlResponse:
         except Exception:
             pass  # estimate failure is non-fatal
 
-    return ValidateSqlResponse(valid=True, sanitized_sql=sanitized, bq_est_bytes=bq_est_bytes)
+    return ValidateSqlResponse(
+        valid=True, sanitized_sql=sanitized, bq_est_bytes=bq_est_bytes, is_live=is_live(sanitized)
+    )
 
 
 @router.post("/sql/prebuilt/{index}", response_model=GenerateSqlResponse)

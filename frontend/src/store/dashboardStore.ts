@@ -26,6 +26,8 @@ interface DashboardState {
   sqlError: string | null;
   sqlCacheHit: boolean;
   bqEstBytes: number | null;
+  /** The last check found the SQL reads live data. */
+  sqlIsLive: boolean;
   /** Ready-made question whose SQL is loaded unedited; null otherwise. */
   prebuiltIndex: number | null;
   prebuiltFilters: PrebuiltFilterUse;
@@ -57,7 +59,8 @@ interface DashboardState {
   setValidation: (
     sanitizedSql: string | null,
     bqEstBytes: number | null,
-    error: string | null
+    error: string | null,
+    isLive?: boolean
   ) => void;
 
   /** Called after /api/query/run returns */
@@ -94,6 +97,7 @@ export const useDashboardStore = create<DashboardState>()(
   sqlError: null,
   sqlCacheHit: false,
   bqEstBytes: null,
+  sqlIsLive: false,
   prebuiltIndex: null,
   prebuiltFilters: null,
   generation: 0,
@@ -131,11 +135,12 @@ export const useDashboardStore = create<DashboardState>()(
       prebuiltIndex: sql === s.generatedSql ? s.prebuiltIndex : null,
     })),
 
-  setValidation: (sanitizedSql, bqEstBytes, error) =>
+  setValidation: (sanitizedSql, bqEstBytes, error, isLive = false) =>
     set({
       sanitizedSql,
       bqEstBytes,
       sqlError: error,
+      sqlIsLive: isLive,
     }),
 
   setQueryResult: (queryResult, runError) => set({ queryResult, runError }),

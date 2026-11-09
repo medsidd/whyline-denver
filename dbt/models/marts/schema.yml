@@ -384,7 +384,7 @@ models:
         description: "When the table was built."
 
   - name: mart_vehicles_now
-    description: "Live: each vehicle's latest report from the last 45 minutes of feed time, for 'right now' questions. Usually 15–30 minutes behind real time (loads arrive every 15 minutes). A view, so every query reads the newest load. route_id is NULL for a vehicle not on a trip."
+    description: "Live: vehicles running in the newest load, one row each, for 'right now' questions: each vehicle's latest report from the last 45 minutes of feed time, kept when it is within 10 minutes of the newest report. Usually 15–30 minutes behind real time (loads arrive every 15 minutes). A view, so every query reads the newest load. route_id is NULL for a vehicle not on a trip."
     columns:
       - name: vehicle_id
         description: "RTD vehicle identifier."
@@ -423,13 +423,13 @@ models:
         description: "GTFS-Realtime occupancy level the vehicle reports, when it reports one."
       - name: report_ts_utc
         description: "When the vehicle made this report (UTC)."
-      - name: report_time_mst
+      - name: report_ts_mst
         description: "When the vehicle made this report, Denver local time."
       - name: minutes_ago
         description: "Minutes between the report and the query; usually 15–30."
 
   - name: mart_stop_visits_recent
-    description: "Live: stop visits that arrived in the last 2 hours, for 'how late are buses right now' questions. Usually 15–30 minutes behind real time. On time is RTD's rule: less than 1 minute early to 5 minutes late. A view over fct_stop_visit."
+    description: "Live: stop visits from the last 2 hours (skipped stops by their scheduled arrival), for 'how late are buses right now' questions. Usually 15–30 minutes behind real time. On time uses the nightly marts' thresholds (RTD's rule: less than 1 minute early to 5 minutes late). A view over fct_stop_visit."
     columns:
       - name: service_date
         description: "GTFS service date of the trip."
@@ -460,9 +460,11 @@ models:
       - name: skipped
         description: "True when the trip skipped this stop; such visits have no arrival delay."
       - name: arrival_ts_utc
-        description: "Arrival time at the stop (UTC)."
-      - name: arrival_time_mst
-        description: "Arrival time at the stop, Denver local time."
+        description: "Arrival time at the stop (UTC); NULL for a skipped stop."
+      - name: arrival_ts_mst
+        description: "Arrival time at the stop, Denver local time; NULL for a skipped stop."
+      - name: scheduled_arrival_ts
+        description: "Scheduled arrival time at the stop (UTC)."
       - name: delay_sec
         description: "Arrival minus scheduled arrival, in seconds (negative is early); NULL when unknown."
       - name: delay_min
@@ -470,7 +472,7 @@ models:
       - name: is_on_time
         description: "On time by RTD's rule (more than 60 s early is early, more than 300 s late is late); NULL when the delay is unknown."
       - name: minutes_ago
-        description: "Minutes between the arrival and the query."
+        description: "Minutes between the arrival (the scheduled arrival for a skipped stop) and the query."
       - name: data_version
         description: "stream_v1 (30-second vehicle reports)."
 

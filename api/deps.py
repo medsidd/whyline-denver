@@ -20,6 +20,7 @@ from whyline.llm import build_schema_brief
 from whyline.semantics.dbt_artifacts import DbtArtifacts
 from whyline.semantics.dbt_artifacts import ModelInfo as WhylineModelInfo
 from whyline.sql_guardrails import GuardrailConfig
+from whyline.sync.constants import LIVE_MARTS
 
 
 @lru_cache(maxsize=1)
@@ -121,6 +122,9 @@ def get_guardrail_config(engine: str) -> GuardrailConfig:
     """Build guardrail config, adding BQ project/dataset constraints when needed."""
     models = _load_models()
     allowlist = set(models.keys())
+    if engine == "duckdb":
+        # Live views exist only in BigQuery; they're never exported to the warehouse file
+        allowlist -= set(LIVE_MARTS)
 
     extra: dict[str, set[str]] = {}
     if engine == "bigquery":
