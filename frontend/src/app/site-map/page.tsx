@@ -48,16 +48,20 @@ const SECTIONS: { heading: string; links: [string, string, string?][] }[] = [
   },
 ];
 
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+// Pages render through Next.js links; files and other sites are plain links.
+const isPage = (href: string) => href.startsWith("/") && !/\.(xml|txt)$/.test(href);
+
 export default function SiteMapPage() {
   return (
     <LegalPage title="Site map">
       {SECTIONS.map(({ heading, links }) => (
-        <section key={heading} aria-labelledby={`map-${heading}`}>
-          <h2 id={`map-${heading}`}>{heading}</h2>
+        <section key={heading} aria-labelledby={`map-${slug(heading)}`}>
+          <h2 id={`map-${slug(heading)}`}>{heading}</h2>
           <ul>
             {links.map(([href, label, note]) => (
               <li key={href}>
-                {href.startsWith("/") && !href.includes(".") ? <Link href={href}>{label}</Link> : <a href={href}>{label}</a>}
+                {isPage(href) ? <Link href={href}>{label}</Link> : <a href={href}>{label}</a>}
                 {note && <span className="text-wl-ink2">: {note}</span>}
               </li>
             ))}

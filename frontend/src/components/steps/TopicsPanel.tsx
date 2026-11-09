@@ -5,7 +5,7 @@ import { useDashboardStore } from "@/store/dashboardStore";
 
 /** What you can ask about, with an example per topic that fills the question box (nothing runs). */
 export function TopicsPanel() {
-  const setQuestion = useDashboardStore((s) => s.setQuestion);
+  const { setQuestion, resetForNewQuestion } = useDashboardStore();
 
   return (
     <details className="wl-faq mt-5 rounded-[22px] bg-white/70 border-2 border-wl-navy/[0.06] px-4">
@@ -26,8 +26,13 @@ export function TopicsPanel() {
             <button
               type="button"
               onClick={() => {
+                // A new question: clear the loaded SQL and results, as the landing page's ?q= link does
+                resetForNewQuestion();
                 setQuestion(t.example);
-                document.getElementById("wl-question")?.focus();
+                const box = document.getElementById("wl-question");
+                // Focusing on a touch screen would open the keyboard over the page
+                if (window.matchMedia("(pointer: fine)").matches) box?.focus();
+                else box?.scrollIntoView({ behavior: "smooth", block: "center" });
               }}
               className={`text-left py-2 px-3 rounded-2xl rounded-bl-md ${t.tint} text-sm font-bold text-wl-navy hover:underline`}
             >

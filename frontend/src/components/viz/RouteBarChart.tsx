@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { axisTick, formatValue } from "@/lib/format";
 import { chartColors, chartTheme } from "@/lib/tokens";
@@ -19,17 +19,19 @@ const MAX_BARS = 25;
 const ROW_PX = 28;
 const truncate = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
-/** Phones get a narrower label column, so the bars keep most of a ~290 px card. */
-function useNarrow() {
-  const [narrow, setNarrow] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 639px)");
-    setNarrow(mq.matches);
-    const on = (e: MediaQueryListEvent) => setNarrow(e.matches);
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
+/** Width of the chart's own box, measured before paint so the label column never jumps. */
+function useBoxWidth() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setWidth(el.getBoundingClientRect().width);
+    const ro = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
-  return narrow;
+  return [ref, width] as const;
 }
 
 /** One-line category label, truncated, with the full text on hover. Recharts' own tick would wrap. */
@@ -44,7 +46,11 @@ function CategoryTick({ x, y, payload, max }: { x: number; y: number; payload: {
 }
 
 export function RouteBarChart({ data, xKey, yKey, title, orientation = "vertical", labelOf }: Props) {
-  const narrow = useNarrow();
+  // The label column takes about a third of the chart, 96–180 px; 8 px a character keeps wide
+  // (capitalised) labels inside it.
+  const [box, width] = useBoxWidth();
+  const labelWidth = Math.round(Math.min(180, Math.max(96, width * 0.32)));
+  const maxChars = Math.floor(labelWidth / 8);
   const display = data.slice(0, MAX_BARS).map((row) => ({ ...row, __label: labelOf ? labelOf(row) : String(row[xKey] ?? "") }));
   const tooltip = (
     <Tooltip
@@ -56,7 +62,7 @@ export function RouteBarChart({ data, xKey, yKey, title, orientation = "vertical
   );
 
   return (
-    <figure className="m-0 w-full">
+    <figure ref={box} className="m-0 w-full">
       {title && <figcaption className="mb-3 font-black text-lg text-wl-navy">{title}</figcaption>}
       {orientation === "horizontal" ? (
         <ResponsiveContainer width="100%" height={display.length * ROW_PX + 40}>
@@ -66,8 +72,8 @@ export function RouteBarChart({ data, xKey, yKey, title, orientation = "vertical
             <YAxis
               type="category"
               dataKey="__label"
-              tick={(props: { x: number; y: number; payload: { value: string } }) => <CategoryTick {...props} max={narrow ? 15 : 24} />}
-              width={narrow ? 112 : 180}
+              tick={(props: { x: number; y: number; payload: { value: string } }) => <CategoryTick {...props} max={maxChars} />}
+              width={labelWidth}
               interval={0}
               axisLine={false}
               tickLine={false}

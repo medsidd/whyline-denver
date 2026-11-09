@@ -5,6 +5,7 @@ import { track } from "@vercel/analytics";
 import { DownloadError, TOO_MANY, downloadMartCsv, triggerDownload } from "@/lib/api";
 import { denverDate, readableDate } from "@/lib/format";
 import { useDashboardStore } from "@/store/dashboardStore";
+import { STEP_INDENT } from "@/components/steps/StepShell";
 
 const MART_OPTIONS = [
   { value: "mart_reliability_by_route_day", label: "Reliability by route and day" },
@@ -96,7 +97,7 @@ export function DownloadPanel() {
   };
 
   return (
-    <section aria-labelledby="wl-downloads" className="mt-14 pt-8 sm:pl-[68px] border-t-2 border-wl-navy/10">
+    <section aria-labelledby="wl-downloads" className={`mt-14 pt-8 ${STEP_INDENT} border-t-2 border-wl-navy/10`}>
       <h2 id="wl-downloads" className="m-0 font-black text-2xl tracking-[-0.01em]">
         Download a whole table
       </h2>

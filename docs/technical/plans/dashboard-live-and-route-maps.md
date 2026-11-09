@@ -13,14 +13,14 @@
 
 ## PR A as built: polish, topics, site map
 
-- **Topics** move to `frontend/src/lib/topics.ts`, shared by the landing page and a new collapsible "What can I ask about?" panel in Step 1 (`TopicsPanel`). Each topic's example fills the question box; nothing runs.
+- **Topics** move to `frontend/src/lib/topics.ts`, shared by the landing page and a new collapsible "What can I ask about?" panel in Step 1 (`TopicsPanel`). Each topic's example clears any loaded question and fills the question box; nothing runs.
 - **Site map** at `/site-map` (pages, home-page sections, documentation, `sitemap.xml`, `robots.txt`), linked from the footer and listed in `sitemap.xml`. The path isn't `/sitemap`, which would sit beside the generated `sitemap.xml` route.
 - **Spacing:**
   - landing hero title wraps in three lines instead of four (`max-w-[14ch]`, up to 72 px);
   - the FAQ uses the full content width like the other sections;
   - the dashboard column is up to 1,000 px (was 920);
   - the whole-table download section lines up with the step cards and its card spans the column (it stopped at 720 px);
-  - ranked bar charts use a 112 px label column on phones (180 px on wider screens), so the bars keep most of the card.
+  - ranked bar charts size their label column from the chart's own width (about a third, 96–180 px), so the bars keep most of a phone-width card.
 - The filter rail's explanatory line is gone; on phones the rail still shows when the data was updated.
 
 ## PR B: route lines on result maps
