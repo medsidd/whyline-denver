@@ -43,8 +43,8 @@ const LIMITS = [
     body: "Reliability counts stop visits seen in vehicle positions, but some trips go unseen and older dates come from 15-minute samples. Treat on-time shares as estimates.",
   },
   {
-    title: "A day behind",
-    body: "Realtime data is collected through the day, but the dashboard reads a nightly snapshot. It’s not a live arrivals board.",
+    title: "Mostly a day behind",
+    body: "Most tables are rebuilt nightly. Questions about right now read live vehicle data that trails real time by 15–30 minutes. It’s not an arrivals board.",
   },
   {
     title: "Context, not cause",
@@ -72,7 +72,7 @@ const FAQ = [
   },
   {
     q: "Can I plan a trip or see live arrivals?",
-    a: "No. WhyLine is for looking at how service has performed. It has no trip planner, live arrivals, passenger counts, fares or service alerts. Crowding comes from the occupancy level some vehicles report, not from passenger counts.",
+    a: "No trip planner or arrivals board. You can ask what’s running now or how late buses are, but that live data trails real time by 15–30 minutes, so don’t use it to catch a bus. WhyLine has no passenger counts or fares. Crowding comes from the occupancy level some vehicles report, not from passenger counts.",
   },
   {
     q: "Why are on-time figures lower from October 29, 2026?",
@@ -272,7 +272,7 @@ export default async function LandingPage() {
             <div aria-hidden="true" className="wl-sun absolute left-[12%] right-[12%] top-[2%] aspect-square rounded-full bg-[#FFE9A8]" />
             <svg
               role="img"
-              aria-label="Schematic map: four colored lines, one for each topic, run through a shared interchange labeled Your question."
+              aria-label="Schematic map: four colored lines, one for each of the main topics, run through a shared interchange labeled Your question."
               viewBox="0 0 520 440"
               className="relative w-full h-auto block"
             >
@@ -294,7 +294,7 @@ export default async function LandingPage() {
               </g>
             </svg>
             <figcaption className="relative mt-2 text-sm font-semibold text-wl-ink2 max-w-[44ch]">
-              Four topics share one dataset, so a single question can cross all of them.
+              The topics share one dataset, so a single question can cross several of them.
             </figcaption>
           </figure>
         </section>

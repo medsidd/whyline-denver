@@ -83,6 +83,8 @@ class GenerateSqlResponse(BaseModel):
     # and those set but not taken by the question or invalid.
     applied_filters: list[str] = Field(default_factory=list)
     skipped_filters: list[str] = Field(default_factory=list)
+    # The SQL reads the live views, which trail real time by 15–30 minutes.
+    is_live: bool = False
 
 
 class ValidateSqlResponse(BaseModel):

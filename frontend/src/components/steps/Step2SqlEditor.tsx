@@ -8,7 +8,8 @@ import { EditorView } from "@codemirror/view";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 import { errorText, fetchModels, validateSql } from "@/lib/api";
-import { filterUseNote, humanBytes } from "@/lib/format";
+import { filterUseNote, humanBytes, isLiveSql } from "@/lib/format";
+import { LiveNote } from "@/components/steps/LiveNote";
 import { useDashboardStore } from "@/store/dashboardStore";
 import { StepShell, type StepStatus } from "@/components/steps/StepShell";
 
@@ -168,6 +169,7 @@ export function Step2SqlEditor({ status }: { status: StepStatus }) {
             )}
           </div>
         )}
+        {isLiveSql(editedSql) && <LiveNote className="mx-2 mb-3" />}
         <CodeMirror
           value={editedSql}
           extensions={extensions}

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from whyline.prebuilt import PREBUILT, build_prebuilt_sql, clean_filters
+from whyline.prebuilt import PREBUILT, build_prebuilt_sql, clean_filters, is_live
 from whyline.sql_guardrails import GuardrailConfig, referenced_tables, sanitize_sql
 
 ALL = {
@@ -37,6 +37,7 @@ def test_applied_and_skipped_match_support_table() -> None:
         5: ["dates", "routes"],
         6: ["dates", "routes"],
         7: ["routes"],
+        8: ["routes"],
     }
     for index, applied in expected.items():
         built = build_prebuilt_sql(index, ALL)
@@ -102,3 +103,9 @@ def test_partly_invalid_filter_is_applied_and_skipped() -> None:
     built = build_prebuilt_sql(0, {"routes": ["15", "bad route"]})
     assert built.applied == ["routes"] and built.skipped == ["routes"]
     assert "route_id IN ('15')" in built.sql
+
+
+def test_only_the_live_question_reads_live_views() -> None:
+    assert [i for i in range(len(PREBUILT)) if is_live(build_prebuilt_sql(i).sql)] == [8]
+    assert is_live("SELECT * FROM `whyline-denver.mart_denver.mart_stop_visits_recent` LIMIT 5")
+    assert not is_live("WITH mart_vehicles_now AS (SELECT 1 AS x) SELECT * FROM mart_vehicles_now")

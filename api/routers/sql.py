@@ -28,6 +28,7 @@ from whyline.prebuilt import (
     build_prebuilt_sql,
     clean_filters,
     date_predicate,
+    is_live,
     route_predicate,
     stop_predicate,
     weather_predicate,
@@ -101,6 +102,7 @@ def generate_sql(req: GenerateSqlRequest) -> GenerateSqlResponse:
             sql=sanitized,
             explanation=cached_explanation,
             cache_hit=True,
+            is_live=is_live(sanitized),
         )
 
     # No cache hit — call the LLM
@@ -129,7 +131,7 @@ def generate_sql(req: GenerateSqlRequest) -> GenerateSqlResponse:
         {"sql": sanitized, "explanation": explanation},
     )
 
-    return GenerateSqlResponse(sql=sanitized, explanation=explanation)
+    return GenerateSqlResponse(sql=sanitized, explanation=explanation, is_live=is_live(sanitized))
 
 
 @router.post("/sql/validate", response_model=ValidateSqlResponse)
@@ -172,6 +174,7 @@ def prebuilt_sql(index: int, filters: FilterState | None = None) -> GenerateSqlR
         explanation=PREBUILT[index].explanation,
         applied_filters=built.applied,
         skipped_filters=built.skipped,
+        is_live=is_live(built.sql),
     )
 
 
@@ -202,4 +205,5 @@ def prebuilt_sql_for_engine(
         explanation=PREBUILT[index].explanation,
         applied_filters=built.applied,
         skipped_filters=built.skipped,
+        is_live=is_live(built.sql),
     )

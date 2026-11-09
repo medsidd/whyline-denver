@@ -23,4 +23,8 @@ ALLOWLISTED_MARTS: tuple[str, ...] = (
     "mart_trip_runtime_by_route_day",
 )
 
-__all__ = ["ALLOWLISTED_MARTS"]
+# Live views over the 15-minute realtime loads: queryable in the app (BigQuery only), never
+# exported to Parquet or DuckDB.
+LIVE_MARTS: tuple[str, ...] = ("mart_vehicles_now", "mart_stop_visits_recent")
+
+__all__ = ["ALLOWLISTED_MARTS", "LIVE_MARTS"]

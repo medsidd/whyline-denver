@@ -167,3 +167,8 @@ export function withoutToday<T extends Record<string, unknown>>(rows: T[], dateK
 export function escapeHtml(value: unknown): string {
   return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 }
+
+/** Whether SQL reads the live views (LIVE_MARTS in src/whyline/sync/constants.py). */
+export function isLiveSql(sql: string): boolean {
+  return /\bmart_(vehicles_now|stop_visits_recent)\b/i.test(sql);
+}

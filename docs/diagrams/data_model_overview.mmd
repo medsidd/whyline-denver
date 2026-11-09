@@ -65,6 +65,7 @@ flowchart LR
     dim_date["dim_date"]
     dim_route["dim_route"]
     dim_route_shape["dim_route_shape"]
+    fct_vehicle_report["fct_vehicle_report"]
     dim_sidewalk_segment["dim_sidewalk_segment"]
     dim_stop["dim_stop"]
     dim_tract["dim_tract"]
@@ -98,6 +99,8 @@ flowchart LR
     mart_frequent_network_by_route["mart_frequent_network_by_route"]
     mart_gtfs_routes["mart_gtfs_routes"]
     mart_route_shapes["mart_route_shapes"]
+    mart_vehicles_now["mart_vehicles_now"]
+    mart_stop_visits_recent["mart_stop_visits_recent"]
     mart_gtfs_stops["mart_gtfs_stops"]
     mart_job_access_by_tract["mart_job_access_by_tract"]
     mart_micromobility_access_by_stop["mart_micromobility_access_by_stop"]
@@ -136,6 +139,13 @@ flowchart LR
   dim_block_group --> mart_vulnerability_by_stop
   dim_route --> fct_scheduled_stop_time
   dim_route_shape --> mart_route_shapes
+  stg_rt_vehicle_positions --> fct_vehicle_report
+  fct_vehicle_report --> mart_vehicles_now
+  dim_route --> mart_vehicles_now
+  dim_stop --> mart_vehicles_now
+  fct_stop_visit --> mart_stop_visits_recent
+  dim_route --> mart_stop_visits_recent
+  dim_stop --> mart_stop_visits_recent
   dim_route --> fct_trip_status
   dim_route --> mart_frequent_network_by_route
   dim_route --> mart_gtfs_routes

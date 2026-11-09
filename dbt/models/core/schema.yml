@@ -55,6 +55,42 @@ models:
         data_tests:
           - not_null
 
+  - name: fct_vehicle_report
+    description: "Every distinct vehicle report from the continuous stream (a view over stg_rt_vehicle_positions), for the live marts. Readers must filter feed_ts_utc, which prunes the raw partitions."
+    columns:
+      - name: feed_ts_utc
+        description: "Header time of the feed refresh that carried the report (UTC); the partition column."
+      - name: report_ts_utc
+        description: "When the vehicle made the report (UTC)."
+      - name: vehicle_id
+        description: "RTD vehicle identifier."
+      - name: vehicle_label
+        description: "Label shown on the vehicle."
+      - name: trip_id
+        description: "GTFS trip the vehicle is serving; NULL when none."
+      - name: service_date
+        description: "Service date of that trip."
+      - name: route_id
+        description: "Route of that trip; NULL when none."
+      - name: direction_id
+        description: "Direction of that trip."
+      - name: stop_id
+        description: "Stop the vehicle reports it is at or heading to."
+      - name: current_status
+        description: "STOPPED_AT, INCOMING_AT or IN_TRANSIT_TO."
+      - name: lat
+        description: "Latitude (WGS84)."
+      - name: lon
+        description: "Longitude (WGS84)."
+      - name: bearing
+        description: "Heading in degrees clockwise from north."
+      - name: speed_mps
+        description: "Reported speed (m/s)."
+      - name: occupancy_status
+        description: "GTFS-Realtime occupancy level, when reported."
+      - name: report_age_sec
+        description: "Seconds between the report and its feed header (at most 120 here)."
+
   - name: dim_stop
     description: "GTFS stops, Type 2 over extracts. is_current = present in the latest extract; is_latest_version = last version ever published."
     data_tests:

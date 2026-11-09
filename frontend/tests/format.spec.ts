@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { denverDate, escapeHtml, orderColumns, readableDate, readableTimestamp, resultFilename, withoutToday } from "../src/lib/format";
+import { denverDate, escapeHtml, isLiveSql, orderColumns, readableDate, readableTimestamp, resultFilename, withoutToday } from "../src/lib/format";
 
 test("result CSV names carry the question and date", () => {
   expect(resultFilename("Worst 10 routes by on-time share", "2026-11-07")).toBe("whylinedenver_worst-10-routes-by-on-time-share_2026-11-07.csv");
@@ -45,4 +45,10 @@ test("Denver's date, not UTC's", () => {
 test("tooltip text is escaped", () => {
   expect(escapeHtml(`<img src=x onerror="alert(1)">&'`)).toBe("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;&amp;&#39;");
   expect(escapeHtml(null)).toBe("");
+});
+
+test("live SQL is recognised by its views", () => {
+  expect(isLiveSql("SELECT * FROM `whyline-denver.mart_denver.mart_vehicles_now`")).toBe(true);
+  expect(isLiveSql("select * from mart_stop_visits_recent")).toBe(true);
+  expect(isLiveSql("SELECT * FROM mart_reliability_by_route_day")).toBe(false);
 });

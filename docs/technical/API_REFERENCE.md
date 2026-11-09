@@ -40,7 +40,7 @@ FastAPI registers five routers under `/api` in `api/main.py`. `api/models.py` is
 
 `question` is required. `filters` is optional and defaults to empty/null fields. Its shape is `FilterState`: nullable `start_date`/`end_date` strings, route/weather string lists, and a stop string. The implementation injects supported conditions when relevant column names appear in generated SQL; filters are not a universal relational query builder and do not rewrite edited SQL. Filter values are validated first (`clean_filters` in `src/whyline/prebuilt.py`): routes and weather bins must match `[A-Za-z0-9_-]{1,16}`, the stop `[A-Za-z0-9]{1,16}`, and dates must be ISO dates with the start on or before the end. Invalid values are dropped, never quoted into SQL. Review the actual SQL.
 
-Response: `sql`, `explanation`, `cache_hit`, `error`, and `applied_filters`/`skipped_filters` (empty here; set by the ready-made endpoints). Provider/guardrail failures can return HTTP 200 with a non-null `error`. Prompt cache keys include provider, engine, question, and filters; default TTL is 900 seconds per process. Gemini sends the question, filters, and schema brief to the provider. When dates are set, the prompt asks for exactly the predicate the server injects (`service_date_mst BETWEEN DATE '…' AND DATE '…'`) and no other date window, so the injection finds it and adds nothing; without dates it asks for a recent window when the question implies one. Stub avoids provider calls; other named providers are unimplemented.
+Response: `sql`, `explanation`, `cache_hit`, `error`, `applied_filters`/`skipped_filters` (empty here; set by the ready-made endpoints), and `is_live`: true when the SQL reads a live view (`mart_vehicles_now`, `mart_stop_visits_recent`), which trails real time by 15–30 minutes. The prompt sends questions about right now to those views and tells the model not to date-filter them; they have no `service_date_mst`, so the date filter isn't injected. Provider/guardrail failures can return HTTP 200 with a non-null `error`. Prompt cache keys include provider, engine, question, and filters; default TTL is 900 seconds per process. Gemini sends the question, filters, and schema brief to the provider. When dates are set, the prompt asks for exactly the predicate the server injects (`service_date_mst BETWEEN DATE '…' AND DATE '…'`) and no other date window, so the injection finds it and adds nothing; without dates it asks for a recent window when the question implies one. Stub avoids provider calls; other named providers are unimplemented.
 
 ## Validate SQL
 
@@ -56,7 +56,7 @@ Guardrails accept one SELECT/WITH statement, reject denylisted write keywords (a
 
 ## Prebuilt SQL
 
-Indices follow the order of `PREBUILT` in `src/whyline/prebuilt.py`: 0 worst routes by on-time share, 1 crash exposure, 2 snow days against other days per route and method, 3 equity gaps, 4 scheduled frequency, 5 arrival-prediction accuracy, 6 missed trips, 7 slowest bus segments at rush hour. `frontend/src/types/api.ts` mirrors the labels. Prefer the engine-specific endpoint used by the frontend.
+Indices follow the order of `PREBUILT` in `src/whyline/prebuilt.py`: 0 worst routes by on-time share, 1 crash exposure, 2 snow days against other days per route and method, 3 equity gaps, 4 scheduled frequency, 5 arrival-prediction accuracy, 6 missed trips, 7 slowest bus segments at rush hour, 8 routes running right now (live). `frontend/src/types/api.ts` mirrors the labels. Prefer the engine-specific endpoint used by the frontend.
 
 Both endpoints take an optional `FilterState` body (an empty or missing body uses each question's default window). `build_prebuilt_sql` puts the user's dates in place of the default window and adds the route, stop and weather predicates the question supports, with the right table alias. The response adds `applied_filters` and `skipped_filters`, lists of `dates`, `routes`, `stop` and `weather`: skipped are filters the user set that the question doesn't take, or with invalid values (a filter with some valid and some invalid values is in both lists). `explanation` is a plain sentence written for each question.
 
@@ -70,6 +70,7 @@ Both endpoints take an optional `FilterState` body (an empty or missing body use
 | 5 | Prediction accuracy | ✓ (30 days) | ✓ | – | – |
 | 6 | Missed trips | ✓ (7 complete days) | ✓ | – | – |
 | 7 | Slow segments | – (28-day mart) | ✓ (`s.route_id`) | – | – |
+| 8 | Routes running right now (live) | – (live view) | ✓ | – | – |
 
 ## Execute
 

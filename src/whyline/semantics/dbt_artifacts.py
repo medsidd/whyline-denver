@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable
 
 from whyline.config import Settings
-from whyline.sync import ALLOWLISTED_MARTS
+from whyline.sync import ALLOWLISTED_MARTS, LIVE_MARTS
 
 
 @dataclass(slots=True)
@@ -67,7 +67,7 @@ class DbtArtifacts:
             if not config_meta.get("allow_in_app"):
                 continue
             model_name = node.get("name")
-            if ALLOWLISTED_MARTS and model_name not in ALLOWLISTED_MARTS:
+            if ALLOWLISTED_MARTS and model_name not in (*ALLOWLISTED_MARTS, *LIVE_MARTS):
                 continue
             models[model_name] = self._build_model_info(node, catalog_by_name.get(model_name))
         return models

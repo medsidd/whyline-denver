@@ -32,7 +32,7 @@ Displayed query results as CSV, seven analytic mart tables as CSV, and the DuckD
 
 ## Is this an official RTD or City tool?
 
-No. It is an independent project combining public sources. Public availability does not imply a blanket reuse license; consult each source's terms. The app does not provide trip planning, live arrival predictions, passenger counts, fares, service alerts, or verified accessible walking routes.
+No. It is an independent project combining public sources. Public availability does not imply a blanket reuse license; consult each source's terms. The app does not provide trip planning, arrival predictions, passenger counts, fares, or verified accessible walking routes. It can answer questions about right now (which routes are running, how late buses are), but that live data trails real time by 15–30 minutes.
 
 ## What does it cost to run?
 

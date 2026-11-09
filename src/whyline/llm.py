@@ -59,6 +59,7 @@ def build_prompt(question: str, filters: Mapping[str, Any] | None, schema_brief:
         "- Prefer analytic window functions such as LAG() and ROW_NUMBER() to calculate change over time instead of fabricating previous_* tables.\n"
         "- Include severity metrics (fatal and severe crash counts) alongside total crashes when the question focuses on risk or hotspots.\n"
         "- Reliability changed method on 2026-10-29: rows before it have data_version NULL and count on-time differently. Never average or compare pct_on_time across the two; add data_version IS NOT NULL unless the question is about history before then.\n"
+        "- Live questions (right now, currently, at the moment, live, still running, in the last hour) use the live views: mart_vehicles_now (one row per vehicle seen in the last 45 minutes, with route, position and minutes_ago) and mart_stop_visits_recent (stop visits from the last 2 hours with delay and is_on_time). They trail real time by 15 to 30 minutes; say so in the explanation. Never filter them by date, and never use the nightly marts for live questions. Routes running now: COUNT(DISTINCT vehicle_id) by route_id WHERE route_id IS NOT NULL.\n"
         "- Return the coverage column with a rate (n_trips_with_data or pct_trips_with_data for crowding, n_predictions for prediction accuracy, n_observable for missed trips), so a share is never read without its base.\n\n"
         f"Question: {question}\n"
         "User filters (values only):\n"

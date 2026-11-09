@@ -50,3 +50,11 @@ def test_prompt_asks_for_exactly_the_users_dates() -> None:
 
     without = build_prompt("q", {"start_date": None, "end_date": None}, "")
     assert "30-90 days" in without and "no other date window" not in without
+
+
+def test_prompt_points_live_questions_at_the_live_views() -> None:
+    from whyline.llm import build_prompt
+
+    prompt = build_prompt("What routes are running right now?", {}, "")
+    assert "mart_vehicles_now" in prompt and "mart_stop_visits_recent" in prompt
+    assert "15 to 30 minutes" in prompt

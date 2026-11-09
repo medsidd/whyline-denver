@@ -42,4 +42,12 @@ export const TOPICS: Topic[] = [
     example: "Which high-need stops have the least sidewalk around them?",
     source: "From U.S. Census ACS 2023 and Denver’s sidewalk inventory",
   },
+  {
+    name: "Right now",
+    line: "bg-wl-ink2",
+    tint: "bg-wl-navy-tint",
+    body: "Which routes are running and how late buses are, from live vehicle data that trails real time by 15–30 minutes.",
+    example: "Which routes are running right now?",
+    source: "From RTD GTFS-Realtime, loaded every 15 minutes",
+  },
 ];

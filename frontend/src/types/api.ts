@@ -61,6 +61,7 @@ export interface GenerateSqlResponse {
   /** Ready-made questions: filters applied to the SQL, and those set but not taken or invalid. Optional so an older API still parses. */
   applied_filters?: FilterName[];
   skipped_filters?: FilterName[];
+  is_live?: boolean;
 }
 
 // ─── SQL Validation ───────────────────────────────────────────────────────
@@ -145,4 +146,5 @@ export const PREBUILT_QUERIES: PrebuiltQuery[] = [
   { label: "Which routes have the least reliable arrival predictions?", index: 5 },
   { label: "Which routes missed the most scheduled trips?", index: 6 },
   { label: "Where are the slowest bus segments at rush hour?", index: 7 },
+  { label: "Which routes are running right now?", index: 8 },
 ];
