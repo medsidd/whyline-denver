@@ -737,6 +737,14 @@ Until step 2, the dashboard's ready-made question 9 fails to load (the current A
 
 **Nightly BigQuery dispatched** at 16:33 UTC (run 42655957703) on the owner's request, ahead of the API deploy.
 
+**Released and verified, November 9.** Nightly BigQuery (run 42655957703, 16:33 UTC) built the new tables: `dim_route_shape` and `mart_route_shapes` 258 shapes for 130 routes, `fct_vehicle_report` 9.9 million reports, `mart_vehicles_now` 584 vehicles, `mart_stop_visits_recent` 39,946 visits. Nightly DuckDB (run 42658655357) followed. The owner then deployed `whylinedenver-api@sha256:a950dbfe…` (revision `whylinedenver-api-00018-gdq`). Checks on production at 17:29 UTC:
+- `/api/models` lists 22 models, including both live views.
+- Ready-made question 9 (API index 8) returns 107 routes, flagged live, with `live_loaded_at` 17:14 UTC, 15 minutes behind.
+- Through Gemini, "What are the transit routes running right now?" wrote SQL on `mart_vehicles_now` (107 routes), and "Which stops have the longest delays in the last hour?" wrote SQL on `mart_stop_visits_recent` filtered to `minutes_ago <= 60`. Both were flagged live and their explanations mention the delay.
+- On whylinedenver.com, "Worst 10 routes by on-time share" (no stop locations) and question 9 each draw 10 route lines with a legend; the method note shows with the first and not with the live one.
+- DuckDB: the API serves the file from the dispatched run (freshness 09:55 MST, data through November 9), and a query naming `mart_vehicles_now` on DuckDB is refused as unauthorized. No API errors logged in the hour.
+- Sidewalks: after this Nightly BigQuery, `mart_stop_walk_safety` matches the pre-merge counts exactly (2,707 stops; 2,664 with frontage; 311, 98, 520 and 633).
+
 **Dashboard tidy ([#136](https://github.com/medsidd/whyline-denver/pull/136)).** The intro line under the dashboard title is gone. The October 29 method note moved from the top of the dashboard to above results that have an on-time column. The ready-made questions are a collapsed panel like "What can I ask about?".
 
 ### Query usage report
