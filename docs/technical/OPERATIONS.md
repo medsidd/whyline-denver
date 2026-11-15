@@ -747,6 +747,106 @@ Until step 2, the dashboard's ready-made question 9 fails to load (the current A
 
 **Dashboard tidy ([#136](https://github.com/medsidd/whyline-denver/pull/136)).** The intro line under the dashboard title is gone. The October 29 method note moved from the top of the dashboard to above results that have an on-time column. The ready-made questions are a collapsed panel like "What can I ask about?".
 
+### Code and resource audit, fixes and owner steps, November 14–15, 2026 (UTC)
+
+An end-to-end review of the code, the cloud project and the warehouse, followed by five pull requests. Nothing below was deployed to Cloud Run or the VM by the review; the frontend deployed itself from `main`.
+
+**What was wrong (confirmed, not theoretical)**
+
+- **Table allowlist.** A comma join or a comment after `FROM` got any table past `sanitize_sql`. Production `/api/sql/validate` accepted the billing export, `raw_denver` and a Google public dataset (dry runs only). The API account has project-wide `bigquery.dataViewer`. The job history (179 days) shows it read only `mart_denver` and the tables behind the two live views, so there is no sign of use.
+- **File reads.** A read-only DuckDB connection still ran `read_text('/etc/hosts')`. With external access off, DuckDB can still read inside its temp directory, which was `/tmp` itself; CI caught that on Linux.
+- **Row limit and memory.** Any `LIMIT` anywhere satisfied the guard, results were cached without a bound, and both downloads were built whole in memory (the warehouse file is 99 MB).
+- **Loader race.** The nightly load and the 15-minute load scan the same files. Run together, both read `__ingestion_log` before either wrote to it. 4,641 files were loaded twice (85 in November 2026). Key-based staging models hide it; Veo vehicles have no key, so five snapshots (November 3 00:17, 7 14:34, 7 15:49, 9 18:03, 13 15:47 UTC) counted about 16,700 vehicles where there were about 8,300.
+- **Nightly order.** Separate crons started 6–10 hours late; on November 12 the DuckDB refresh (17:41–17:45) overlapped the build (17:27–17:43).
+- **Tests after the fact.** `dbt run` rebuilt every table and `dbt test` reported afterwards. One staging test, never run nightly, failed in production: 54 trips from the shifted-column loads pointed at no route.
+- **Dependencies.** `npm audit` listed 24 findings (3 critical); `google-generativeai` is end-of-life.
+
+**What changed**
+
+| PR | Change |
+|---|---|
+| [#138](https://github.com/medsidd/whyline-denver/pull/138) | Engines re-check visitor SQL with their own parsers (BigQuery dry run; DuckDB `extract_statements` and `get_table_names`), DuckDB external access off with its own temp folder, rows capped at fetch, 120 s BigQuery timeout, downloads streamed (500,000 rows, two at once), request text bounded, repo-root path fixed |
+| [#139](https://github.com/medsidd/whyline-denver/pull/139) | `google-genai`, patched Python pins, Streamlit-era packages removed, API image without dbt and as a non-root user, Next.js 14.2.35, maplibre-gl 6, `deck.gl` bundle dropped |
+| [#140](https://github.com/medsidd/whyline-denver/pull/140) | Nightly workflows chained, `dbt build`, source freshness at the end of Nightly Ingest, timeouts, frontend job in CI, old snapshot capture's workflow and entrypoint mode removed, VM start script prunes old images |
+| [#141](https://github.com/medsidd/whyline-denver/pull/141) | Loader lock in Cloud Storage, unreadable ingestion log stops the run, Veo view keeps the first load of each file |
+
+**Checks**
+
+- 231 offline tests pass (168 before); CI now also runs the API tests and a frontend job.
+- Local API against real BigQuery and DuckDB: normal, live and ready-made queries run; every bypass shape is refused on validate and run; four downloads at once give two 200 and two 429.
+- API image run locally as uid 10001 on a read-only disk: queries and the warehouse download work; `read_text('/proc/self/environ')` and `glob('/tmp/*')` are refused.
+- One real Gemini call through `google-genai` for a nightly and a live question.
+- Production build of the frontend: map draws stops, route lines and the base map; the preview and production sites serve `/vendor/maplibre-gl-worker.mjs`. `npm audit --omit=dev` is down to 2 findings (Next.js and its bundled postcss; both need Next.js 16).
+- Warehouse: `dbt test --select 'staging core marts'` on production gave 238 pass, 1 known warning (`assert_stop_visit_arrivals_monotonic`, 106 visits) and the 1 staging failure above, which passes after its fix. `dbt source freshness`: 25 sources, none stale once the hand-loaded calibration table was exempted. All 34 mart tables are non-empty and were rebuilt November 15.
+- Loader lock: one acquire, refused second acquire and release against real Cloud Storage under a self-test object name.
+
+**Read-only findings with no code change**
+
+- **Poller VM** (`rt-stream-poller`, e2-micro): `/var` 4.3 of 26 GB used (17%), root 65% of 2 GB, 537 of 966 MB memory in use, container up 6 days, three images of about 1.36 GB each on disk. The serial log holds 130 out-of-memory kills on November 8–9 (the known outage) and none since.
+- **Vercel:** Hobby plan, Node 24, one environment variable (`API_BASE_URL`), previews behind Vercel login, production at the merged commit. The firewall has one rule, 20 requests a minute per IP on generate, run and the two downloads, still in Log mode; managed rule sets are off.
+- **Python packages:** `pip-audit` flags pins that only a major upgrade fixes (protobuf 5, pyarrow 23, dbt's `sqlparse` and `deepdiff`). Dependabot security updates are now on and opened pull requests #142–#148; they are unreviewed.
+- **Spending:** about $0.09–0.37 a day net. The 15-minute `realtime-load` job is about 73% of BigQuery query spend. `raw_gtfsrt_trip_updates` (47 GB, frozen) and `raw_gtfs_stop_times` (42 GB, 217 daily extracts, part of it double loads) are the largest tables.
+
+**Owner steps, in order** (none was run by the review)
+
+1. Deploy the API (`make api-deploy`), then check:
+
+```bash
+B=https://whylinedenver-api-1058998667347.us-central1.run.app
+curl -s -o /dev/null -w "%{http_code}\n" $B/api/downloads/warehouse   # 200: the non-root user reads the mount
+curl -s $B/api/sql/validate -H 'content-type: application/json' \
+  -d '{"engine":"bigquery","sql":"SELECT * FROM /* x */ `bigquery-public-data.samples.shakespeare` LIMIT 5"}'   # valid:false
+```
+
+2. Rebuild the realtime image, update `realtime-load` and the VM's `image-uri` to the new digest ([deployment](DEPLOYMENT.md)), and update the VM's `user-data` from `infra/stream-vm/cloud-init.yaml`. Until then the 15-minute loader does not take the lock.
+3. Narrow the API account's BigQuery access (the live views read through to core and raw):
+
+```bash
+SA="serviceAccount:api-service@whyline-denver.iam.gserviceaccount.com"
+for DS in mart_denver core_denver stg_denver raw_denver; do
+  bq query --use_legacy_sql=false \
+    "GRANT \`roles/bigquery.dataViewer\` ON SCHEMA \`whyline-denver.$DS\` TO \"$SA\""
+done
+gcloud projects remove-iam-policy-binding whyline-denver \
+  --member="$SA" --role="roles/bigquery.dataViewer"
+```
+
+4. Set a BigQuery quota in the console (IAM & Admin → Quotas → BigQuery API): "Query usage per day per user" 100 GiB and "Query usage per day" 300 GiB. The default is about 200 TiB a day; real use is about 65 GB. Add a budget alert.
+5. Rebuild the Veo hours that counted double (raw snapshots expire after 30 days, so before December 3):
+
+```bash
+DBT_PROFILES_DIR=$PWD/dbt/profiles python -m tools.dbt_with_env run --project-dir dbt --target prod \
+  --select stg_gbfs_veo_vehicles fct_micromobility_near_stop+ --vars '{micromobility_days: 14}'
+```
+
+6. Start the chain once by hand to prove it: `gh workflow run "Nightly Ingest" --ref main`. Nightly BigQuery should start when it ends and Nightly DuckDB after that.
+7. Disable the unused key, then delete it after a quiet week; rotate the Gemini key as cheap insurance:
+
+```bash
+gcloud iam service-accounts keys list --iam-account=whylinedbt-sa@whyline-denver.iam.gserviceaccount.com
+gcloud iam service-accounts keys disable KEY_ID --iam-account=whylinedbt-sa@whyline-denver.iam.gserviceaccount.com
+```
+
+8. Remove the retired snapshot capture and tidy defaults:
+
+```bash
+gcloud scheduler jobs delete realtime-ingest --location=us-central1 --project=whyline-denver
+gcloud run jobs delete realtime-ingest --region=us-central1 --project=whyline-denver
+gcloud compute firewall-rules delete default-allow-ssh default-allow-rdp --project=whyline-denver
+gcloud projects remove-iam-policy-binding whyline-denver \
+  --member="serviceAccount:api-service@whyline-denver.iam.gserviceaccount.com" --role="roles/run.invoker"
+```
+
+   IAP SSH to the poller VM has its own rule (`whyline-rt-iap-ssh`), so the two default rules are not needed. Artifact Registry holds 8.4 GiB with no cleanup policy; a keep-last-5 policy on both repositories stops it growing.
+9. Switch the Vercel firewall rule from Log to enforce after a look at its traffic.
+
+**Still open**
+
+- Next.js 16 (the last two `npm audit` findings) and the major Python upgrades.
+- Keyless GitHub login in place of the `whylinedev-sa` key (needs a workload identity pool).
+- Duplicate rows already in raw tables from past double loads were left in place; they cost storage and scan bytes, not correctness.
+- Not verified: the Cloud Storage mount read by the non-root user on Cloud Run (step 1 checks it), the chain on `main` (step 6), a phone-width check of the new map.
+
 ### Query usage report
 
 From release R1 of the [metrics plan](plans/metrics-implementation.md), the first API image with WP0's change, every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:
