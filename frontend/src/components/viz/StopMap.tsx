@@ -6,6 +6,7 @@ import { WebMercatorViewport } from "@deck.gl/core";
 import { PathLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { useQuery } from "@tanstack/react-query";
 import { Map } from "react-map-gl/maplibre";
+import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { detectMapMetric, routeIdsOf } from "@/lib/chartLogic";
 import { fetchRouteShapes } from "@/lib/api";
@@ -20,6 +21,11 @@ const DENVER_VIEW = {
   pitch: 0,
   bearing: 0,
 };
+
+// maplibre-gl 6 loads its worker from a file beside itself, and a bundle has no such file.
+// `npm run dev` and `npm run build` copy it into public/vendor (the minifier can't parse it as
+// a bundled asset); without this the base map never draws.
+maplibregl.setWorkerUrl(`/vendor/maplibre-gl-worker.mjs?v=${maplibregl.getVersion()}`);
 
 // Free light map style (no token required), quiet enough for red stop markers
 const MAP_STYLE = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
@@ -232,7 +238,7 @@ export function StopMap({ data }: Props) {
           };
         }}
       >
-        <Map mapStyle={MAP_STYLE} />
+        <Map mapLib={maplibregl} mapStyle={MAP_STYLE} />
       </DeckGL>
       )}
 

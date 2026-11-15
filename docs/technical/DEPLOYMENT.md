@@ -27,6 +27,8 @@ This submits a Cloud Build, pushes `us-central1-docker.pkg.dev/whyline-denver/ap
 
 It sets DuckDB as engine, Gemini as provider, the API query byte cap, and dataset/state locations. It mounts the bucket at `/mnt/gcs`, sets `DUCKDB_PATH=/mnt/gcs/marts/duckdb/warehouse.duckdb` and `DUCKDB_COPY_LOCAL=1`, and maps the Gemini secret. Prefer Secret Manager references over literal keys. Required capabilities include BigQuery read/job creation, GCS read, and access to the specific Gemini secret; grant the narrow scope required by the deployment.
 
+The image runs as the unprivileged user `app` (uid 10001), holds no dbt packages (the API reads the manifest and catalog as JSON), and writes only the query log under `/app/data/logs` and DuckDB copies under `/tmp`. After a deploy, `GET /api/downloads/warehouse` returning 200 confirms that user can read the Cloud Storage mount.
+
 Check usable manifest/catalog artifacts are included. `api/Dockerfile` consumes local artifacts; CI's generated artifacts do not automatically update a separately built API image. A healthy service without current artifacts may still fail `/api/models` or SQL generation.
 
 ## Realtime shared image
