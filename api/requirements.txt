@@ -15,7 +15,7 @@ protobuf==4.25.8
 google-genai>=1.0
 
 # Utility
-requests==2.32.4
+requests==2.33.0
 certifi
 python-dotenv==1.2.2
 
