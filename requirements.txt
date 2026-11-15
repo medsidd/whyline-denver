@@ -10,7 +10,7 @@ gtfs-realtime-bindings==1.0.0
 pyproj==3.6.1
 python-dotenv==1.2.2
 ruff==0.6.3
-black==24.8.0
+black==26.10.1
 pytest==8.2.0
 google-cloud-bigquery-storage
 requests==2.32.4
