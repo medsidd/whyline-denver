@@ -16,7 +16,7 @@ from whyline.sql_guardrails import GuardrailConfig  # noqa: E402
 def ran(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     seen: list[str] = []
 
-    def execute(sql: str):
+    def execute(sql: str, **_):
         seen.append(sql)
         if "MAX(report_ts_utc)" in sql:
             return {}, pd.DataFrame({"t": [pd.Timestamp("2026-11-09 13:05:42", tz="UTC")]})

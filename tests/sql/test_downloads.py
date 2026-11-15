@@ -16,16 +16,13 @@ from whyline.sql_guardrails import GuardrailConfig  # noqa: E402
 def ran(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     seen: list[str] = []
 
-    def execute(sql: str):
+    def execute(sql: str, **_):
         seen.append(sql)
         return {}, pd.DataFrame({"a": [1]})
 
     monkeypatch.setattr(downloads.bigquery_engine, "execute", execute)
     monkeypatch.setattr(downloads, "get_models", lambda: {})
     monkeypatch.setattr(downloads, "adapt_sql_for_engine", lambda sql, *_: sql)
-    monkeypatch.setattr(
-        downloads, "query_cache", type("C", (), {"get": lambda *a: None, "set": lambda *a: None})()
-    )
     monkeypatch.setattr(downloads, "log_query", lambda **_: None)
 
     config = GuardrailConfig(allowed_models=set(downloads.ALLOWED_MARTS), engine="bigquery")

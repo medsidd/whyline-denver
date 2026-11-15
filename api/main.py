@@ -32,7 +32,6 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "https://www.whylinedenver.com",
-        "https://*.vercel.app",
     ],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],

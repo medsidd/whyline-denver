@@ -7,8 +7,9 @@ import sys
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
+from google.api_core.exceptions import GoogleAPICallError
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
@@ -151,10 +152,20 @@ def validate_sql(req: ValidateSqlRequest) -> ValidateSqlResponse:
     bq_est_bytes: int | None = None
     if req.engine == "bigquery":
         try:
-            estimate_stats = bigquery_engine.estimate(sanitized)
+            estimate_stats = bigquery_engine.estimate(
+                sanitized, allowed_tables=guardrail_config.allowed_models
+            )
             bq_est_bytes = estimate_stats.get("bq_est_bytes")
+        except SqlValidationError as exc:
+            # BigQuery's own parse found a table or statement the text checks missed
+            return ValidateSqlResponse(valid=False, error=str(exc))
+        except GoogleAPICallError as exc:
+            # BigQuery refused the query (syntax, unknown column, missing table); running it
+            # would fail the same way
+            reason = (exc.errors or [{}])[0].get("message") or exc.message or str(exc)
+            return ValidateSqlResponse(valid=False, error=reason)
         except Exception:
-            pass  # estimate failure is non-fatal
+            pass  # no credentials or network: the estimate is optional
 
     return ValidateSqlResponse(
         valid=True, sanitized_sql=sanitized, bq_est_bytes=bq_est_bytes, is_live=is_live(sanitized)
