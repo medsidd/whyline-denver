@@ -39,9 +39,9 @@ DuckDB serves a copied warehouse of the 20 app marts without per-query BigQuery 
 
 Generation sends the user's question, filters, and schema brief to the configured LLM. Gemini is implemented; stub mode returns canned queries. OpenAI and Anthropic provider names raise `NotImplementedError`.
 
-Generation, validation, and execution apply `sanitize_sql()`. It checks SELECT/WITH shape, single-statement syntax, denylisted write keywords, allowed table references and BigQuery namespaces. It adds `LIMIT 5000` only when there is no numeric limit. Existing limits are preserved. The query response displays at most 10,000 rows after execution; a display limit is not a scan limit.
+Generation, validation, and execution apply `sanitize_sql()`. It checks SELECT/WITH shape, single-statement syntax, denylisted write keywords, allowed table references and BigQuery namespaces. It adds `LIMIT 5000` only when there is no numeric limit. Existing limits are preserved in the SQL; the engines fetch at most 10,000 rows for a query, and the scan is bounded separately (`MAX_BYTES_BILLED`, a 120-second BigQuery job timeout).
 
-The guardrails are regex-based checks, not a database permission system. Keep cloud identities least-privileged and retain server-side validation regardless of browser validation. See [API reference](API_REFERENCE.md).
+`sanitize_sql()` is a text check for early, readable errors, not the security boundary: a comma join or a comment after `FROM` passes it. Each engine therefore re-checks visitor SQL with its own parser before running it (BigQuery's dry-run statement type and table list; DuckDB's `extract_statements` and `get_table_names`), and DuckDB connections cannot read files (`enable_external_access=false`). Keep cloud identities least-privileged as the third layer and retain server-side validation regardless of browser validation. See [API reference](API_REFERENCE.md).
 
 ## State and caching
 

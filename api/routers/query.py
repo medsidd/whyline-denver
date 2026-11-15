@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 from fastapi import APIRouter
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
@@ -114,7 +114,11 @@ def run_query(req: RunQueryRequest) -> RunQueryResponse:
             cache_hit = True
         else:
             start = time.monotonic()
-            raw_stats, df = engine_module.execute(sanitized)
+            raw_stats, df = engine_module.execute(
+                sanitized,
+                allowed_tables=guardrail_config.allowed_models,
+                max_rows=_MAX_DISPLAY_ROWS,
+            )
             latency_ms = (time.monotonic() - start) * 1000
             stats = raw_stats if isinstance(raw_stats, dict) else {}
             query_cache.set(req.engine, sanitized, (raw_stats, df))
@@ -131,7 +135,8 @@ def run_query(req: RunQueryRequest) -> RunQueryResponse:
             prebuilt_index=req.prebuilt_index,
         )
 
-        total_rows = len(df)
+        # The engine fetched at most _MAX_DISPLAY_ROWS; BigQuery still reports the full count
+        total_rows = stats.get("total_rows", len(df))
         display_df = _enrich_result(df.head(_MAX_DISPLAY_ROWS))
 
         # Ensure JSON-serializable types
@@ -142,7 +147,7 @@ def run_query(req: RunQueryRequest) -> RunQueryResponse:
 
         live = is_live(sanitized)
         return RunQueryResponse(
-            rows=min(total_rows, _MAX_DISPLAY_ROWS),
+            rows=len(display_df),
             columns=list(display_df.columns),
             data=display_df.to_dict(orient="records"),
             total_rows=total_rows,

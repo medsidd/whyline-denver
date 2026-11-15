@@ -22,9 +22,8 @@ def _rotate_log_if_needed(path: Path) -> None:
         return
     if path.stat().st_size <= MAX_LOG_BYTES:
         return
-    timestamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
-    rotated = path.with_name(f"{path.stem}-{timestamp}{path.suffix}")
-    path.rename(rotated)
+    # Keep one older file. Dated copies piled up without end, and on Cloud Run the disk is memory.
+    path.replace(path.with_name(f"{path.stem}-previous{path.suffix}"))
 
 
 def log_query(
@@ -74,8 +73,9 @@ class CacheEntry:
 
 
 class QueryCache:
-    def __init__(self, ttl_seconds: int = 180) -> None:
+    def __init__(self, ttl_seconds: int = 180, max_entries: int = 64) -> None:
         self.ttl = ttl_seconds
+        self.max_entries = max_entries
         self._store: dict[str, CacheEntry] = {}
         self._order: deque[str] = deque()
         self._lock = threading.Lock()
@@ -111,7 +111,8 @@ class QueryCache:
         while self._order:
             key = self._order[0]
             entry = self._store.get(key)
-            if not entry or entry.expires_at < now:
+            # Also drop the oldest when full: entries hold whole results, so the count is bounded
+            if not entry or entry.expires_at < now or len(self._order) > self.max_entries:
                 self._order.popleft()
                 self._store.pop(key, None)
             else:

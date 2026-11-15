@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sys
 import threading
 from pathlib import Path
@@ -10,7 +11,7 @@ from pathlib import Path
 import pandas as pd
 from fastapi import APIRouter, HTTPException
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
@@ -97,8 +98,10 @@ def _load_filters(engine_name: str) -> FilterOptionsResponse:
             sql = adapt_sql_for_engine(sql, engine_name, models)
         _, df = engine.execute(sql)
         routes = df["route_id"].astype(str).tolist()
-    except Exception as exc:
-        error = str(exc)
+    except Exception:
+        # The reason goes to the log; engine error text isn't for visitors
+        logging.getLogger(__name__).exception("Loading filter options failed")
+        error = "Filter options could not be loaded."
 
     # Weather bins
     weather_bins: list[str] = ["none", "light", "mod", "heavy"]

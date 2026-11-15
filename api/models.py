@@ -6,41 +6,46 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+# Request text is sent to Gemini or parsed on every call, so it is bounded. The longest
+# ready-made query is under 2,000 characters.
+MAX_QUESTION_CHARS = 1_000
+MAX_SQL_CHARS = 20_000
+
 # ─── Request Models ──────────────────────────────────────────────────────────
 
 
 class FilterState(BaseModel):
     """Sidebar filter values applied by the user."""
 
-    start_date: str | None = None  # "YYYY-MM-DD"
-    end_date: str | None = None  # "YYYY-MM-DD"
-    routes: list[str] = Field(default_factory=list)
-    stop_id: str = ""
-    weather: list[str] = Field(default_factory=list)
+    start_date: str | None = Field(default=None, max_length=32)  # "YYYY-MM-DD"
+    end_date: str | None = Field(default=None, max_length=32)  # "YYYY-MM-DD"
+    routes: list[str] = Field(default_factory=list, max_length=200)
+    stop_id: str = Field(default="", max_length=64)
+    weather: list[str] = Field(default_factory=list, max_length=10)
 
 
 class GenerateSqlRequest(BaseModel):
-    question: str
+    question: str = Field(max_length=MAX_QUESTION_CHARS)
     engine: Literal["duckdb", "bigquery"] = "duckdb"
     filters: FilterState = Field(default_factory=FilterState)
 
 
 class ValidateSqlRequest(BaseModel):
-    sql: str
+    sql: str = Field(max_length=MAX_SQL_CHARS)
     engine: Literal["duckdb", "bigquery"]
 
 
 class RunQueryRequest(BaseModel):
-    sql: str
+    sql: str = Field(max_length=MAX_SQL_CHARS)
     engine: Literal["duckdb", "bigquery"]
-    question: str = ""
+    question: str = Field(default="", max_length=MAX_QUESTION_CHARS)
     prebuilt_index: int | None = None
 
 
 class MartDownloadRequest(BaseModel):
     engine: Literal["duckdb", "bigquery"]
     mart: str
-    limit_rows: int = Field(default=200_000, ge=1_000, le=2_000_000)
+    limit_rows: int = Field(default=200_000, ge=1_000, le=500_000)
     date_column: str | None = None
     date_start: str | None = None  # "YYYY-MM-DD"
     date_end: str | None = None  # "YYYY-MM-DD"

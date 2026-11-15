@@ -178,3 +178,22 @@ def test_extract_from_is_not_a_table():
     assert referenced_tables(sql) == ["mart_stop_visits_recent"]
     config = GuardrailConfig(allowed_models={"mart_stop_visits_recent"}, engine="bigquery")
     assert "EXTRACT(HOUR FROM arrival_ts_mst)" in sanitize_sql(sql, config)
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT x FROM mart_a, UNNEST([1, 2]) AS x LIMIT 5",
+        "SELECT x FROM mart_a CROSS JOIN UNNEST(tags) AS x LIMIT 5",
+        "SELECT * FROM mart_a WHERE note = 'a; b' LIMIT 5",
+        "SELECT * FROM mart_a WHERE a IS DISTINCT FROM b LIMIT 5",
+    ],
+)
+def test_valid_shapes_the_text_checks_used_to_reject(sql: str):
+    assert sanitize_sql(sql, GuardrailConfig(allowed_models={"mart_a"}, engine="duckdb")) == sql
+
+
+def test_only_unnest_may_be_called_in_from():
+    config = GuardrailConfig(allowed_models={"mart_a"}, engine="duckdb")
+    with pytest.raises(SqlValidationError):
+        sanitize_sql("SELECT * FROM read_text('/etc/hosts')", config)

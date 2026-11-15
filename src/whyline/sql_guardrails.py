@@ -44,13 +44,21 @@ TABLE_PATTERN = re.compile(
 )
 
 LIMIT_PATTERN = re.compile(r"\bLIMIT\s+(\d+)", re.IGNORECASE)
-# `EXTRACT(HOUR FROM ts)`: its FROM names a column, not a table
-_EXTRACT_BEFORE = re.compile(r"\bEXTRACT\s*\(\s*\w+\s+$", re.IGNORECASE)
+# `EXTRACT(HOUR FROM ts)` and `a IS DISTINCT FROM b`: the FROM names a column, not a table
+_EXTRACT_BEFORE = re.compile(r"\b(?:EXTRACT\s*\(\s*\w+|DISTINCT)\s+$", re.IGNORECASE)
+_CALL_AFTER = re.compile(r"\s*\(")
+# Quoted text, so a `;` inside a value isn't read as a second statement
+_QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"")
 
 
 def is_extract_from(sql: str, start: int) -> bool:
-    """Whether the FROM at `start` is EXTRACT's (`EXTRACT(HOUR FROM ts)`), not a table clause."""
+    """Whether the FROM at `start` is EXTRACT's or IS DISTINCT FROM's, not a table clause."""
     return bool(_EXTRACT_BEFORE.search(sql[max(0, start - 40) : start]))
+
+
+def is_unnest(sql: str, token: str, end: int) -> bool:
+    """Whether a FROM/JOIN target is `UNNEST(...)`, which reads an array, not a table."""
+    return token.lower() == "unnest" and bool(_CALL_AFTER.match(sql, end))
 
 
 CTE_PATTERN = re.compile(
@@ -74,6 +82,8 @@ class GuardrailConfig:
 
 
 def sanitize_sql(sql: str, config: GuardrailConfig) -> str:
+    """Text checks that give a clear message early. They are not the security boundary:
+    the engines re-check the statement type and tables with their own parsers, and cap rows."""
     parsed = _normalize(sql)
     _ensure_single_statement(parsed)
     _ensure_read_only(parsed)
@@ -102,7 +112,7 @@ def _normalize(sql: str) -> str:
 
 
 def _ensure_single_statement(sql: str) -> None:
-    if ";" in sql:
+    if ";" in _QUOTED.sub("", sql):
         raise SqlValidationError(
             "Multiple SQL statements detected; only single SELECT queries are allowed."
         )
@@ -180,7 +190,7 @@ def _extract_referenced_identifiers(
         if is_extract_from(sql, match.start()):
             continue
         token = match.group(1).strip()
-        if not token:
+        if not token or is_unnest(sql, token, match.end(1)):
             continue
         project, dataset, table = _split_identifier(token)
         if table is None:

@@ -50,7 +50,7 @@ const DownloadIcon = () => (
 );
 
 const MIN_ROWS = 1_000;
-const MAX_ROWS = 2_000_000;
+const MAX_ROWS = 500_000;
 
 /** A plain sentence for a failed download, instead of the API's raw response. */
 function downloadErrorMessage(err: unknown): string {
@@ -132,7 +132,7 @@ export function DownloadPanel() {
             />
             {!limitOk && (
               <span id="wl-limit-hint" className="block mt-1.5 text-[13px] font-bold text-[#A80F12]">
-                Use a whole number from 1,000 to 2,000,000.
+                Use a whole number from 1,000 to 500,000.
               </span>
             )}
           </label>

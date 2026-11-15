@@ -9,9 +9,12 @@ import tempfile
 import threading
 import time
 from pathlib import Path
+from typing import Iterable
 
 import duckdb
 import pandas as pd
+
+from whyline.sql_guardrails import SqlValidationError
 
 _thread_local = threading.local()
 # The local copy every thread should use, rechecked against the source at most once a minute.
@@ -123,7 +126,9 @@ def _create_connection_internal(db_path: Path) -> duckdb.DuckDBPyConnection:
     # Apply PRAGMAs. Allow overrides via env vars.
     threads = int(os.getenv("DUCKDB_THREADS", "2"))
     mem_limit = os.getenv("DUCKDB_MEMORY_LIMIT", "1GB")
-    temp_dir = os.getenv("DUCKDB_TEMP_DIR", tempfile.gettempdir())
+    # A folder of its own: with external access off, SQL can still read files inside the
+    # temp directory, and /tmp holds more than DuckDB's spill files.
+    temp_dir = Path(os.getenv("DUCKDB_TEMP_DIR", tempfile.gettempdir())) / "duckdb-spill"
     pragmas = [
         f"PRAGMA threads={threads};",
         f"PRAGMA memory_limit='{mem_limit}';",
@@ -137,6 +142,10 @@ def _create_connection_internal(db_path: Path) -> duckdb.DuckDBPyConnection:
             # Pragmas are best-effort; continue on failure
             _logger.debug("DuckDB PRAGMA failed: %s (%s)", stmt, exc)
 
+    # Read-only protects the database, not the disk: without this, visitor SQL can call
+    # read_text('/proc/self/environ'). Not best-effort; a failure here must stop the query.
+    con.execute("SET enable_external_access=false")
+    con.execute("SET lock_configuration=true")
     return con
 
 
@@ -161,15 +170,55 @@ def _get_connection() -> duckdb.DuckDBPyConnection:
     return new_con
 
 
-def execute(sql: str) -> tuple[dict, pd.DataFrame]:
-    """Execute SQL query and return stats and results DataFrame."""
+def _check_reads(con: duckdb.DuckDBPyConnection, sql: str, allowed_tables: Iterable[str]) -> None:
+    """Refuse anything but one SELECT over the allowed tables, as DuckDB itself parses it.
+
+    The text checks in sql_guardrails can be talked around (comma joins, comments, TABLE x);
+    DuckDB's own statement type and table list cannot.
+    """
+    try:
+        statements = duckdb.extract_statements(sql)
+        tables = con.get_table_names(sql)
+    except duckdb.Error as exc:
+        raise SqlValidationError(f"The SQL could not be parsed: {exc}") from exc
+    if len(statements) != 1 or statements[0].type != duckdb.StatementType.SELECT:
+        raise SqlValidationError("Only single SELECT statements are allowed.")
+    allowed = {name.lower() for name in allowed_tables}
+    bad = sorted(name for name in tables if name.lower() not in allowed)
+    if bad:
+        raise SqlValidationError(
+            f"Query references unauthorized tables: {', '.join(bad)}. "
+            "Only app-approved marts may be queried."
+        )
+
+
+def execute(
+    sql: str, *, allowed_tables: Iterable[str] | None = None, max_rows: int | None = None
+) -> tuple[dict, pd.DataFrame]:
+    """Execute SQL query and return stats and results DataFrame.
+
+    Visitor SQL passes `allowed_tables` (checked with DuckDB's parser) and `max_rows`
+    (rows fetched; `truncated` in the stats says whether more were left behind).
+    """
     try:
         con = _get_connection()
+        if allowed_tables is not None:
+            _check_reads(con, sql, allowed_tables)
         _logger.debug("Executing query: %s", sql[:200])  # Log first 200 chars
-        df = con.execute(sql).fetch_df()
-        stats = {"engine": "duckdb", "rows": len(df)}
+        cursor = con.execute(sql)
+        if max_rows is None:
+            df = cursor.fetch_df()
+            truncated = False
+        else:
+            # Chunks hold 2,048 rows each; ask for enough to see one row past the cap
+            df = cursor.fetch_df_chunk(max_rows // 2048 + 1)
+            truncated = len(df) > max_rows
+            df = df.head(max_rows)
+        stats = {"engine": "duckdb", "rows": len(df), "total_rows": len(df), "truncated": truncated}
         _logger.info("Query executed successfully: %d rows", len(df))
         return stats, df
+    except SqlValidationError:
+        raise
     except Exception as exc:
         _logger.error("DuckDB query failed: %s", exc, exc_info=True)
         raise

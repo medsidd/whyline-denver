@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
-import io
 import os
 import sys
+import threading
 import time
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
+from typing import Iterator
 
+import pandas as pd
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
@@ -20,7 +22,7 @@ from api.deps import get_guardrail_config, get_models
 from api.models import MartDownloadRequest
 from whyline.engines import bigquery_engine, duckdb_engine
 from whyline.llm import adapt_sql_for_engine
-from whyline.logs import log_query, query_cache
+from whyline.logs import log_query
 from whyline.sql_guardrails import SqlValidationError, sanitize_sql
 
 router = APIRouter()
@@ -65,9 +67,23 @@ WAREHOUSE_PATH = Path(_warehouse_env).expanduser()
 if not WAREHOUSE_PATH.is_absolute():
     WAREHOUSE_PATH = (ROOT / WAREHOUSE_PATH).resolve()
 
+# A download holds its whole result in memory (up to MartDownloadRequest's row limit), so
+# only this many may build at once per instance; the rest get a 429 and retry.
+_download_slots = threading.BoundedSemaphore(2)
+_CSV_CHUNK_ROWS = 50_000
+
+
+def _csv_chunks(df: pd.DataFrame) -> Iterator[bytes]:
+    """The CSV in pieces, so the text is never held whole next to the DataFrame."""
+    if df.empty:
+        yield df.to_csv(index=False).encode("utf-8")
+    for start in range(0, len(df), _CSV_CHUNK_ROWS):
+        chunk = df.iloc[start : start + _CSV_CHUNK_ROWS]
+        yield chunk.to_csv(index=False, header=start == 0).encode("utf-8")
+
 
 def _build_filename(mart: str, engine: str, date_filter: tuple | None) -> str:
-    ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     suffix = ""
     if date_filter:
         col, start, end = date_filter
@@ -120,20 +136,20 @@ def download_mart(req: MartDownloadRequest) -> StreamingResponse:
     except SqlValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-    cached = query_cache.get(req.engine, sanitized)
-    cache_hit = False
-    latency_ms = 0.0
-    if cached:
-        stats, df = cached
-        cache_hit = True
-    else:
-        try:
-            start_time = time.monotonic()
-            stats, df = engine_module.execute(adapted)
-            latency_ms = (time.monotonic() - start_time) * 1000
-            query_cache.set(req.engine, sanitized, (stats, df))
-        except Exception as exc:
-            raise HTTPException(status_code=500, detail=str(exc))
+    if not _download_slots.acquire(blocking=False):
+        raise HTTPException(status_code=429, detail="Too many downloads at once. Try again soon.")
+    try:
+        start_time = time.monotonic()
+        # No max_rows: the SQL is built here with its own LIMIT, and an uncapped BigQuery read
+        # can use the faster Storage API
+        stats, df = engine_module.execute(adapted, allowed_tables=guardrail_config.allowed_models)
+        latency_ms = (time.monotonic() - start_time) * 1000
+    except SqlValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    finally:
+        _download_slots.release()
 
     log_query(
         engine=req.engine,
@@ -142,31 +158,27 @@ def download_mart(req: MartDownloadRequest) -> StreamingResponse:
         models=[req.mart],
         sql=sanitized,
         question=f"[download] {req.mart}",
-        cache_hit=cache_hit,
+        cache_hit=False,
         bq_est_bytes=stats.get("bq_est_bytes") if isinstance(stats, dict) else None,
     )
 
-    csv_bytes = df.to_csv(index=False).encode("utf-8")
     filename = _build_filename(req.mart, req.engine, date_filter)
 
     return StreamingResponse(
-        io.BytesIO(csv_bytes),
+        _csv_chunks(df),
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
 @router.get("/downloads/warehouse")
-def download_warehouse() -> StreamingResponse:
-    """Return the local DuckDB warehouse file as a binary download."""
+def download_warehouse() -> FileResponse:
+    """Return the local DuckDB warehouse file as a binary download, read from disk in pieces."""
     if not WAREHOUSE_PATH.exists():
         raise HTTPException(
             status_code=404,
             detail=f"DuckDB warehouse not found at {WAREHOUSE_PATH}. Run 'make sync-duckdb'.",
         )
-    data = WAREHOUSE_PATH.read_bytes()
-    return StreamingResponse(
-        io.BytesIO(data),
-        media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{WAREHOUSE_PATH.name}"'},
+    return FileResponse(
+        WAREHOUSE_PATH, media_type="application/octet-stream", filename=WAREHOUSE_PATH.name
     )

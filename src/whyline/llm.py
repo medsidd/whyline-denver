@@ -13,7 +13,7 @@ except ImportError:  # pragma: no cover - optional dependency for stub mode
 
 from whyline.config import settings
 from whyline.semantics.dbt_artifacts import ModelInfo
-from whyline.sql_guardrails import CTE_PATTERN, is_extract_from
+from whyline.sql_guardrails import CTE_PATTERN, is_extract_from, is_unnest
 
 
 def build_schema_brief(models: Mapping[str, ModelInfo], *, max_columns: int | None = None) -> str:
@@ -210,6 +210,8 @@ def _qualify_bigquery_tables(sql: str, models: Mapping[str, ModelInfo]) -> str:
         if is_extract_from(sql, match.start()):
             return match.group(0)
         table_token = match.group("table")
+        if is_unnest(sql, table_token, match.end("table")):
+            return match.group(0)
         alias = match.group("alias") or ""
         raw_table = table_token.strip("`")
         if raw_table.lower() in cte_names:
