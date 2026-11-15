@@ -140,9 +140,9 @@ def download_mart(req: MartDownloadRequest) -> StreamingResponse:
         raise HTTPException(status_code=429, detail="Too many downloads at once. Try again soon.")
     try:
         start_time = time.monotonic()
-        stats, df = engine_module.execute(
-            adapted, allowed_tables=guardrail_config.allowed_models, max_rows=req.limit_rows
-        )
+        # No max_rows: the SQL is built here with its own LIMIT, and an uncapped BigQuery read
+        # can use the faster Storage API
+        stats, df = engine_module.execute(adapted, allowed_tables=guardrail_config.allowed_models)
         latency_ms = (time.monotonic() - start_time) * 1000
     except SqlValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
