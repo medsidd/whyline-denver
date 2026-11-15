@@ -10,9 +10,13 @@ concurrency:
   group: nightly-ingest
   cancel-in-progress: false
 
+# First link of the nightly chain: Nightly BigQuery starts when this finishes, and Nightly
+# DuckDB when that succeeds. GitHub starts scheduled runs hours late, so separate clocks
+# let the DuckDB refresh overlap the build.
 jobs:
   ingest:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: read
     steps:
@@ -50,3 +54,12 @@ jobs:
           NOAA_CDO_TOKEN: ${{ secrets.NOAA_CDO_TOKEN }}
           CENSUS_API_KEY: ${{ secrets.CENSUS_API_KEY }}
         run: make nightly-ingest-bq
+
+      # Last, so a source that stopped arriving turns this run red without holding up the
+      # load above or the build that follows.
+      - name: Check raw sources are fresh
+        env:
+          DBT_PROFILES_DIR: ${{ github.workspace }}/dbt/profiles
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          BQ_DATASET_RAW: ${{ secrets.BQ_DATASET_RAW }}
+        run: make dbt-source-freshness

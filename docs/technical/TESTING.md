@@ -44,7 +44,7 @@ make dbt-test-marts
 make dbt-source-freshness
 ```
 
-Model tests live in schema YAML and `dbt/tests/`; inspect the selected models and compiled tests. Do not assume a source-freshness command establishes freshness for every source if no applicable freshness thresholds are declared.
+The nightly build runs all three as part of the chain: `dbt build` runs every staging, core and mart test next to its model, and Nightly Ingest ends with `dbt-source-freshness`. Model tests live in schema YAML and `dbt/tests/`; inspect the selected models and compiled tests. Do not assume a source-freshness command establishes freshness for every source if no applicable freshness thresholds are declared.
 
 The nightly BigQuery recipe runs transformations, then mart tests, then exports. A failed test prevents that recipe from reaching export. It does not automatically cancel independently scheduled DuckDB or realtime jobs.
 

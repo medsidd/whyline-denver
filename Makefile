@@ -234,8 +234,7 @@ nightly-ingest-bq-full:
 
 nightly-bq:
 	@set -euo pipefail; \
-	DBT_TARGET=prod $(DBT_CMD) run --project-dir dbt --target prod --select 'staging core marts'; \
-	DBT_TARGET=prod $(DBT_CMD) test --project-dir dbt --target prod --select 'core marts'; \
+	DBT_TARGET=prod $(DBT_CMD) build --project-dir dbt --target prod --select 'staging core marts'; \
 	$(MAKE) sync-export
 
 nightly-duckdb:
