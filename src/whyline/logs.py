@@ -22,9 +22,8 @@ def _rotate_log_if_needed(path: Path) -> None:
         return
     if path.stat().st_size <= MAX_LOG_BYTES:
         return
-    timestamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
-    rotated = path.with_name(f"{path.stem}-{timestamp}{path.suffix}")
-    path.rename(rotated)
+    # Keep one older file. Dated copies piled up without end, and on Cloud Run the disk is memory.
+    path.replace(path.with_name(f"{path.stem}-previous{path.suffix}"))
 
 
 def log_query(
