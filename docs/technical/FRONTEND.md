@@ -48,6 +48,8 @@ The `heatmap` branch currently renders grouped bars rather than a full heatmap. 
 
 `detectMapData()` maps a result with `lat` and `lon` (stop dots) or a `route_id` (route lines). `StopMap` fetches lines for the result's first 10 route IDs from `/api/routes/shapes` and draws them under the stops, one color per route, with a legend naming each route; a stop-only result draws no lines, and a route without a line is listed. It fits to the stops, or for a route-only result waits for and fits the lines; a route-only result with no lines shows a sentence instead of an empty map. Tooltip text is HTML-escaped (`escapeHtml`), because result values come from user SQL. Metric preference starts with priority score/rank, crash counts, vulnerability, reliability score, and on-time share. See [metric definitions](../public/METRICS_GLOSSARY.md) before interpreting color or rank direction.
 
+The base map is `maplibre-gl` 6, which loads its worker from a file beside itself. `npm run dev` and `npm run build` first copy `maplibre-gl-worker.mjs` into `public/vendor/` (git-ignored), and `StopMap` points the library at `/vendor/maplibre-gl-worker.mjs`. If the base map is blank with "Worker failed to load" in the console, that copy did not run (for example `npx next dev` instead of `npm run dev`). Only `@deck.gl/core`, `layers` and `react` are installed; the `deck.gl` bundle pulled in unused loaders with open advisories.
+
 Always load the map dynamically:
 
 ```typescript
