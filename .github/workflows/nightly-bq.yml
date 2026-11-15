@@ -1,8 +1,11 @@
 name: Nightly BigQuery
 
 on:
-  schedule:
-    - cron: "0 9 * * *"
+  # After Nightly Ingest, whatever its result: a failed source download must not stop the
+  # build of everything else.
+  workflow_run:
+    workflows: ["Nightly Ingest"]
+    types: [completed]
   workflow_dispatch:
 
 # A manual run and a late scheduled run must not build or export at the same time; queue instead.
@@ -13,9 +16,9 @@ concurrency:
 jobs:
   build-export:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     permissions:
       contents: read
-      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4

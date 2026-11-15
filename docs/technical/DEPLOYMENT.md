@@ -7,10 +7,10 @@ This is a deployment reference, not an instruction to start or redeploy resource
 | Component | Configuration/source |
 |---|---|
 | FastAPI Cloud Run service `whylinedenver-api` | `api/Dockerfile`, `infra/api-service/cloudbuild.yaml`, Makefile `api-build` / `api-deploy` |
-| Cloud Run jobs `realtime-ingest`, `realtime-load` | Shared `infra/cloud-run/Dockerfile` and `entrypoint.sh`; `JOB_TYPE` selects behavior |
+| Cloud Run job `realtime-load` | Shared `infra/cloud-run/Dockerfile` and `entrypoint.sh`; `JOB_TYPE` (`load` or `stream`, required) selects behavior. The paused `realtime-ingest` job has no mode in the image any more |
 | Cloud Scheduler | Calls the Run jobs API with an authorized identity; inspect actual schedules |
 | Next.js on Vercel | `frontend/` build, server-side `API_BASE_URL` |
-| Nightly workflows and CI | `.github/workflows/*.yml`; cron jobs are independent |
+| Nightly workflows and CI | `.github/workflows/*.yml`; the three nightly workflows run as a chain. CI has a Python job and a frontend job (lint, unit specs, build) |
 | Model documentation | CI generates dbt artifacts and publishes GitHub Pages on successful pushes to `main` |
 
 Project: `whyline-denver`; region: `us-central1`; bucket: `whylinedenver-raw`. Cloudflare/domain/Vercel configuration is external to this repository; verify those settings before claiming automatic deployment behavior.
@@ -35,11 +35,10 @@ See [container reference](../../infra/cloud-run/README.md). Build from a clean r
 
 The Makefile offers `cloud-run-build` (local Docker), `cloud-run-tag`, and `cloud-run-push`. They use the working-tree root as context; check `.dockerignore` and the context contents rather than assuming secrets are excluded. For Cloud Build, provide the intended Dockerfile through an appropriate build configuration; `gcloud builds submit --tag` alone expects a root Dockerfile.
 
-After pushing a tested image, resolve its immutable URI and update **both** jobs:
+After pushing a tested image, resolve its immutable URI and update the job (and the poller VM's `image-uri`):
 
 ```bash
 # Set IMAGE_URI to the reviewed us-central1-docker.pkg.dev/...@sha256:... URI.
-gcloud run jobs update realtime-ingest --project=whyline-denver   --region=us-central1 --image="$IMAGE_URI"
 gcloud run jobs update realtime-load --project=whyline-denver   --region=us-central1 --image="$IMAGE_URI"
 ```
 
@@ -49,7 +48,7 @@ Verify the new digest in completed executions, not just job configuration. A sha
 
 ## Workflow configuration
 
-The nightly schedules request 08:00/09:00/09:30 UTC. They are not chained and can start late. The realtime workflow YAMLs have only `workflow_dispatch`; Cloud Scheduler handles recurring realtime work.
+Nightly Ingest requests 08:00 UTC and can start hours late; Nightly BigQuery starts when it finishes and Nightly DuckDB when that succeeds. The realtime workflow YAML has only `workflow_dispatch`; Cloud Scheduler handles recurring realtime work.
 
 Workflow secret names used by configuration include `GOOGLE_APPLICATION_CREDENTIALS`, `GCP_PROJECT_ID`, `GCS_BUCKET`, `BQ_DATASET_RAW`, `BQ_DATASET_STG`, `BQ_DATASET_MART`, `NOAA_CDO_TOKEN`, and `CENSUS_API_KEY`. A stored secret is ineffective unless mapped into the step that consumes it. Inspect names and bindings without exposing values.
 
