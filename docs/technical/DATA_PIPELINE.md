@@ -27,7 +27,7 @@ CLIs use `--local` or `--gcs --bucket …`. Most use extract-date output paths; 
 
 `make ingest-all` runs the eleven batch ingestors and writes locally by default; it still makes network requests. The stream poller, its backfill, alerts, Veo and job access run separately. `make ingest-static` runs GTFS static, crashes, sidewalks, NOAA and ACS, then tracts, ArcGIS reference layers, NTD, hourly weather and RTD's reports as nonfatal steps (their failures don't stop the run). ACS is re-extracted nightly but its selected vintage does not advance automatically. Tract geometry is static reference data even though collection is attempted nightly.
 
-`make ingest-gtfs-rt` captures two snapshots 90 seconds apart with the old snapshot collector, whose Cloud Run job (`realtime-ingest`) is paused; realtime data now comes from the stream poller. Weather collection uses a rolling 30-day UTC window through yesterday; absent `NOAA_CDO_TOKEN`, a compatible local CSV is required. The production Census secret is explicitly mapped by the nightly workflow.
+`make ingest-gtfs-rt` captures two snapshots 90 seconds apart with the old snapshot collector, which is local-only now: the image's entrypoint no longer has an `ingest` mode, and the paused `realtime-ingest` Cloud Run job and its scheduler are left for the owner to delete; realtime data now comes from the stream poller. Weather collection uses a rolling 30-day UTC window through yesterday; absent `NOAA_CDO_TOKEN`, a compatible local CSV is required. The production Census secret is explicitly mapped by the nightly workflow.
 
 ## BigQuery loading
 
@@ -101,12 +101,12 @@ make sync-duckdb     # both, not a file download
 
 | Trigger | Actual recipe |
 |---|---|
-| GitHub cron 08:00 UTC | `nightly-ingest-bq`: static-source collection + date-window raw loading |
-| GitHub cron 09:00 UTC | `nightly-bq`: selected transformations, mart tests, export; workflow updates BigQuery timestamp |
-| GitHub cron 09:30 UTC | `nightly-duckdb`: warehouse refresh |
+| GitHub cron 08:00 UTC (Nightly Ingest) | `nightly-ingest-bq`: static-source collection + date-window raw loading, then `dbt-source-freshness` as the last step |
+| When Nightly Ingest finishes, pass or fail (Nightly BigQuery) | `nightly-bq`: `dbt build` of staging, core and marts (each model's tests run before the models that read it, so a failed test leaves the tables downstream as they were), then the export; the workflow updates the BigQuery timestamp |
+| When Nightly BigQuery succeeds (Nightly DuckDB) | `nightly-duckdb`: warehouse refresh |
 | Stream poller on the `rt-stream-poller` VM, continuous | Reads both realtime feeds every 15 s and publishes a batch every 15 minutes |
 | Cloud Scheduler, every 15 minutes (`realtime-load`) | Snapshots alerts and Veo vehicles, loads new raw files including the poller's batches, runs the six-model `dbt-run-realtime` subset (the two stream views, `fct_stop_visit`, `fct_trip_status` and the two reliability marts), and updates the timestamp. `realtime-ingest`, the old snapshot capture, is paused |
 
-GitHub cron starts can be delayed. These workflows have no completion dependency between each other. Verify upstream completion before a manual sequential recovery. The two realtime GitHub workflows are manual fallbacks, not the recurring scheduler.
+The three nightly workflows are a chain (`workflow_run`), since November 15, 2026. Before that each had its own cron, GitHub started them 6–10 hours late, and on November 12 the DuckDB refresh overlapped the build. Only Nightly Ingest has a schedule now; if GitHub drops that one start, nothing runs that night, so check the Actions page when the freshness badge looks old. A manual run of any workflow starts the ones after it; all three keep a 60/90/30-minute timeout. A raw source that stopped arriving turns Nightly Ingest red (`warn_after`/`error_after` in `dbt/models/sources_raw.yml`) but does not stop the build. `Realtime BigQuery Load` is a manual fallback for the Cloud Run job, not the recurring scheduler; the manual workflow for the old snapshot capture was removed.
 
 The API queries BigQuery or a local copy of the GCS-mounted DuckDB warehouse. Cached connections/results/lookups can differ from the newest file/state. Verify real results as well as `/api/health` and `/api/freshness`; see [QA validation](../QA_Validation_Guide.md).

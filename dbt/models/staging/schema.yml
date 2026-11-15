@@ -64,6 +64,10 @@ models:
           - relationships:
               to: ref('stg_gtfs_routes')
               field: route_id
+              # Rows from the shifted-column loads (2025-12-09 to 2026-01-04) hold other
+              # columns' values here; is_valid marks them and downstream models drop them.
+              config:
+                where: "is_valid"
       - name: is_valid
         description: "The row passed the staging format check described on the model; invalid rows are excluded downstream."
       - name: trip_headsign

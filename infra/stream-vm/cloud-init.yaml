@@ -21,6 +21,11 @@ write_files:
       image="$(get image-uri)"
       docker-credential-gcr configure-docker --registries="${image%%/*}"
       docker rm -f whyline-stream >/dev/null 2>&1 || true
+      # Each deploy leaves a 1.4 GB image behind on a 26 GB disk; keep only the one in use.
+      keep="$(docker images -q "$image" | head -1)"
+      if [ -n "$keep" ]; then
+        docker images -q | grep -v "$keep" | xargs -r docker rmi >/dev/null 2>&1 || true
+      fi
       # Host networking: Docker's default bridge has no IPv6, and RTD is reached over IPv6.
       exec docker run --rm --name whyline-stream --network host --memory 600m \
         --log-driver journald -v /var/lib/whyline/state:/state \

@@ -19,6 +19,8 @@ exclude = ["dbt/target","dbt/.dbt"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# The repo root, so `pytest` can import the `api` package the way `python -m pytest` does
+pythonpath = ["."]
 
 [build-system]
 requires = ["setuptools>=64", "wheel"]

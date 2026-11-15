@@ -1,14 +1,12 @@
 # Realtime Cloud Run jobs
 
-The shared [Dockerfile](Dockerfile) packages Python dependencies, application source, dbt, Makefile, and launcher tools. [entrypoint.sh](entrypoint.sh) selects one of two behaviors using `JOB_TYPE`:
+The shared [Dockerfile](Dockerfile) packages Python dependencies, application source, dbt, Makefile, and launcher tools. [entrypoint.sh](entrypoint.sh) selects one of two behaviors using `JOB_TYPE`, which must be set:
 
 | Job | Required mode | Work performed |
 |---|---|---|
-| `realtime-ingest` | `ingest` (default) | Fetch RTD Trip Updates and Vehicle Positions, serialize CSV/gzip, upload raw snapshot and manifest |
 | `realtime-load` | `load` | Snapshot RTD service alerts (`whyline.ingest.gtfs_alerts`) and Veo vehicles (`whyline.ingest.gbfs_veo`); a failure logs `ALERTS_INGEST_FAILED` or `VEO_INGEST_FAILED` and the load continues. Then `make bq-load-realtime`, `make dbt-run-realtime` and `make update-bq-timestamp` |
 | Stream poller VM (not a Run job) | `stream` | `whyline.ingest.gtfs_rt_stream`: polls both feeds every 15 s, uploads one batch per table and an archive tar every 15 minutes; needs `GCS_BUCKET` and `ARCHIVE_BUCKET`, state in `STATE_DIR` (`/state`). Installed by [`infra/stream-vm/cloud-init.yaml`](../stream-vm/cloud-init.yaml); see the [plan runbook](../../docs/technical/plans/realtime-stop-visits.md#7-runbook-owner-commands-in-order). |
 
-Ingest requires `GCS_BUCKET`; `GTFS_SNAPSHOTS` defaults to 1 and `GTFS_INTERVAL_SEC` to 120 (only separates snapshots when there is more than one). `GTFS_EXTRA_FLAGS` is split into additional CLI arguments. Do not put secrets in extra flags; the entrypoint uses shell tracing.
 
 Load uses BigQuery/GCS project/dataset settings and dbt credentials. Despite its name, the loader scans all registered source patterns in its date window. The realtime dbt selection is a subset (`stg_rt_stop_visits`, `stg_rt_trip_status`, `fct_stop_visit`, `fct_trip_status`, two reliability marts) and requires the dimensions and schedule fact built nightly. Neither branch performs the nightly Parquet export/DuckDB refresh.
 
