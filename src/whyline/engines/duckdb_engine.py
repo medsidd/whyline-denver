@@ -126,7 +126,9 @@ def _create_connection_internal(db_path: Path) -> duckdb.DuckDBPyConnection:
     # Apply PRAGMAs. Allow overrides via env vars.
     threads = int(os.getenv("DUCKDB_THREADS", "2"))
     mem_limit = os.getenv("DUCKDB_MEMORY_LIMIT", "1GB")
-    temp_dir = os.getenv("DUCKDB_TEMP_DIR", tempfile.gettempdir())
+    # A folder of its own: with external access off, SQL can still read files inside the
+    # temp directory, and /tmp holds more than DuckDB's spill files.
+    temp_dir = Path(os.getenv("DUCKDB_TEMP_DIR", tempfile.gettempdir())) / "duckdb-spill"
     pragmas = [
         f"PRAGMA threads={threads};",
         f"PRAGMA memory_limit='{mem_limit}';",

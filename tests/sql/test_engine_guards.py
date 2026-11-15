@@ -23,6 +23,8 @@ def warehouse(tmp_path, monkeypatch: pytest.MonkeyPatch):
     con.close()
     monkeypatch.setenv("DUCKDB_PATH", str(path))
     monkeypatch.setenv("DUCKDB_COPY_LOCAL", "0")
+    # DuckDB may read inside its temp directory; the engine must not point that at tmp_path itself
+    monkeypatch.setenv("DUCKDB_TEMP_DIR", str(tmp_path))
     monkeypatch.setattr(duckdb_engine, "_current_path", None)
     monkeypatch.setattr(duckdb_engine, "_thread_local", type(duckdb_engine._thread_local)())
     (tmp_path / "secret.txt").write_text("secret")
@@ -56,8 +58,9 @@ def test_duckdb_cannot_read_files(warehouse):
         with pytest.raises(SqlValidationError):
             duckdb_engine.execute(sql, allowed_tables=ALLOWED)
     # Internal callers pass no allowlist; the connection itself must still refuse
-    with pytest.raises(duckdb.Error, match="disabled"):
-        duckdb_engine.execute(f"SELECT * FROM read_text('{secret}')")
+    for sql in (f"SELECT * FROM read_text('{secret}')", f"SELECT * FROM glob('{warehouse}/*')"):
+        with pytest.raises(duckdb.Error, match="disabled"):
+            duckdb_engine.execute(sql)
     with pytest.raises(duckdb.Error):
         duckdb_engine.execute("SET enable_external_access=true")
 
