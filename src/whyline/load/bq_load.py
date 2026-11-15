@@ -8,13 +8,15 @@ import hashlib
 import json
 import logging
 import sys
+import time
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import Iterable, Iterator, Sequence
 
-from google.api_core.exceptions import NotFound
+from google.api_core.exceptions import NotFound, PreconditionFailed
 from google.cloud import bigquery, storage
 
 from whyline.config import settings
@@ -29,6 +31,11 @@ INGESTION_LOG_TABLE = "__ingestion_log"
 STREAM_PATH_MARKER = "/rtd_gtfsrt_stream/"
 STREAM_WINDOW_MIN = 15
 STREAM_STALE_MIN = 30
+LOCK_BLOB = "state/bq_load.lock"
+LOCK_WAIT_SEC = 600
+LOCK_POLL_SEC = 15
+# The longest loads (a day of GTFS stop times) take about ten minutes
+LOCK_STALE = timedelta(minutes=45)
 
 
 @dataclass
@@ -99,6 +106,61 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not args.dry_run:
         ensure_ingestion_log_table(bq_client)
 
+    if args.dry_run or not bucket:
+        return _load(args, bq_client, storage_client, bucket, start_date, end_date)
+    with loader_lock(storage_client.bucket(bucket)) as held:
+        if not held:
+            # The loader holding the lock scans the same files, so nothing is left behind
+            LOGGER.warning("LOADER_BUSY another loader held the lock for %ds", LOCK_WAIT_SEC)
+            return 0
+        return _load(args, bq_client, storage_client, bucket, start_date, end_date)
+
+
+@contextmanager
+def loader_lock(bucket: storage.Bucket) -> Iterator[bool]:
+    """Let one loader run at a time; yields False if another still holds the lock after the wait.
+
+    The nightly load and the 15-minute load scan the same files. Run together, both read the
+    ingestion log before either wrote to it and loaded the same file twice (4,641 files by
+    November 2026). Creating an object only if it doesn't exist is atomic in Cloud Storage.
+    """
+    blob = bucket.blob(LOCK_BLOB)
+    deadline = time.monotonic() + LOCK_WAIT_SEC
+    held = False
+    while not held:
+        try:
+            blob.upload_from_string(datetime.now(UTC).isoformat(), if_generation_match=0)
+            held = True
+        except PreconditionFailed:
+            try:
+                blob.reload()
+                if datetime.now(UTC) - blob.updated > LOCK_STALE:
+                    LOGGER.warning("Breaking loader lock left at %s", blob.updated)
+                    blob.delete(if_generation_match=blob.generation)
+                    continue
+            except (NotFound, PreconditionFailed):
+                continue  # released or replaced meanwhile; try again
+            if time.monotonic() >= deadline:
+                break
+            time.sleep(LOCK_POLL_SEC)
+    try:
+        yield held
+    finally:
+        if held:
+            try:
+                blob.delete()
+            except NotFound:
+                pass
+
+
+def _load(
+    args: argparse.Namespace,
+    bq_client: bigquery.Client,
+    storage_client: storage.Client | None,
+    bucket: str | None,
+    start_date: date | None,
+    end_date: date | None,
+) -> int:
     # Load ingestion log cache once for all deduplication checks
     ingestion_cache = load_ingestion_log_cache(bq_client)
     plan = build_plan(
@@ -543,9 +605,7 @@ def load_ingestion_log_cache(bq_client: bigquery.Client) -> set[tuple[str, str]]
     except NotFound:
         LOGGER.warning("Ingestion log table not found, returning empty cache")
         return set()
-    except Exception as exc:
-        LOGGER.error("Failed to load ingestion log cache: %s", exc)
-        return set()
+    # Any other failure stops the run: an empty cache would reload every file in the window
 
 
 def ensure_destination_table(bq_client: bigquery.Client, job: JobSpec) -> None:
