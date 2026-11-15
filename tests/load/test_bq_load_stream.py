@@ -70,3 +70,58 @@ def test_stream_staleness_warnings(caplog):
         "STREAM_MISSING no stream batch in the load window"
     ]
     assert warnings([], set(), now, caplog) == []  # poller not deployed yet: stay quiet
+
+
+class FakeLockBucket:
+    """Create-if-absent and delete, as Cloud Storage does them."""
+
+    def __init__(self, updated: datetime | None = None):
+        self.exists = updated is not None
+        self.updated, self.generation = updated, 1
+
+    def blob(self, _name):
+        return self
+
+    def upload_from_string(self, _data, if_generation_match=None):
+        if self.exists:
+            raise bq_load.PreconditionFailed("exists")
+        self.exists, self.updated = True, datetime.now(UTC)
+
+    def reload(self):
+        if not self.exists:
+            raise NotFound("gone")
+
+    def delete(self, if_generation_match=None):
+        self.exists = False
+
+
+def test_loader_lock_admits_one_loader_and_is_released(monkeypatch):
+    monkeypatch.setattr(bq_load, "LOCK_WAIT_SEC", 0)
+    bucket = FakeLockBucket()
+    with bq_load.loader_lock(bucket) as first:
+        with bq_load.loader_lock(bucket) as second:
+            assert (first, second) == (True, False)
+        assert bucket.exists  # the loader that was turned away must not release the lock
+    assert not bucket.exists
+    with bq_load.loader_lock(bucket) as again:
+        assert again
+
+
+def test_loader_lock_left_by_a_dead_loader_is_broken(monkeypatch):
+    monkeypatch.setattr(bq_load, "LOCK_WAIT_SEC", 0)
+    stale = FakeLockBucket(updated=datetime.now(UTC) - bq_load.LOCK_STALE * 2)
+    with bq_load.loader_lock(stale) as held:
+        assert held
+
+
+def test_unreadable_ingestion_log_stops_the_run():
+    """An empty cache would reload every file in the window."""
+
+    class Broken:
+        def query(self, _sql):
+            raise RuntimeError("backend error")
+
+    import pytest
+
+    with pytest.raises(RuntimeError):
+        bq_load.load_ingestion_log_cache(Broken())

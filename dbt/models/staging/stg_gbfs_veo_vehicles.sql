@@ -16,3 +16,6 @@ select
     current_range_m
 from {{ source('raw', 'raw_gbfs_veo_vehicles') }}
 where lat is not null and lon is not null
+-- A snapshot file loaded twice (two loaders at once, before the loader lock) would count every
+-- vehicle twice, and vehicles carry no ID to deduplicate on; keep the first load of each file.
+qualify _ingested_at = min(_ingested_at) over (partition by _source_path)
