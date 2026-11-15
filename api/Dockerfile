@@ -25,6 +25,11 @@ RUN pip install --upgrade pip && \
 COPY api ./api
 COPY dbt/target ./dbt/target
 
+# Visitor SQL runs in this process; it has no need to be root
+# (it writes only the query log under /app/data and DuckDB copies under /tmp)
+RUN useradd --create-home --uid 10001 app && mkdir -p /app/data/logs && chown -R app /app/data
+USER app
+
 EXPOSE 8080
 
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8080"]

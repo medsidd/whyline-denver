@@ -7,7 +7,7 @@ from functools import lru_cache
 from typing import Any, Dict, Mapping
 
 try:
-    import google.generativeai as genai
+    from google import genai
 except ImportError:  # pragma: no cover - optional dependency for stub mode
     genai = None
 
@@ -80,24 +80,21 @@ def call_provider(prompt: str) -> Dict[str, str]:
 
 
 @lru_cache(maxsize=1)
-def _init_gemini_model():
+def _gemini_client():
     if genai is None:
-        raise RuntimeError(
-            "google-generativeai is not installed. Install requirements.txt to use Gemini."
-        )
+        raise RuntimeError("google-genai is not installed. Install requirements.txt to use Gemini.")
 
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("LLM_API_KEY")
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY is not set in the environment.")
 
-    genai.configure(api_key=api_key)
-    model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-    return genai.GenerativeModel(model_name)
+    return genai.Client(api_key=api_key)
 
 
 def _gemini_response(prompt: str) -> Dict[str, str]:
-    model = _init_gemini_model()
-    response = model.generate_content(prompt)
+    response = _gemini_client().models.generate_content(
+        model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"), contents=prompt
+    )
 
     text = getattr(response, "text", None)
     if not text and hasattr(response, "candidates"):
