@@ -20,8 +20,10 @@ Project: `whyline-denver`; region: `us-central1`; bucket: `whylinedenver-raw`. C
 After reviewing the intended source and environment, an authorized API deployment uses:
 
 ```bash
-GEMINI_API_KEY_SECRET=gemini-api-key:latest make api-deploy
+GEMINI_API_KEY_SECRET=gemini-api-key:1 make api-deploy
 ```
+
+The secret is pinned to version 1, the original key. A key created on November 18, 2026 (version 2) gets 404 for `gemini-2.5-flash` ("no longer available to new users"), and every newer Flash model answered 503 (high demand) that day. Move to `:latest` together with a `GEMINI_MODEL` that answers reliably for the new key.
 
 This submits a Cloud Build, pushes `us-central1-docker.pkg.dev/whyline-denver/api-service/whylinedenver-api:latest`, and deploys the service. Makefile defaults: 0–3 instances, concurrency 80, 2 CPUs, 2 GiB memory, gen2 execution environment, unauthenticated access, service identity `api-service@whyline-denver.iam.gserviceaccount.com`.
 

@@ -19,7 +19,8 @@ COPY src ./src
 # Copy only the API requirements (no streamlit/pydeck/folium in this image)
 COPY api/requirements.txt ./api/requirements.txt
 RUN pip install --upgrade pip && \
-    pip install -r api/requirements.txt
+    pip install -r api/requirements.txt && \
+    python -c "import db_dtypes, google.cloud.bigquery_storage, google.genai"
 
 # Copy API source and dbt artifacts (needed for DbtArtifacts at startup)
 COPY api ./api
