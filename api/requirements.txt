@@ -9,6 +9,8 @@ duckdb==1.4.2
 google-cloud-storage==2.18.2
 google-cloud-bigquery==3.25.0
 google-cloud-bigquery-storage
+# BigQuery's to_dataframe needs it; dbt-bigquery used to bring it in
+db-dtypes
 protobuf==4.25.8
 
 # LLM provider

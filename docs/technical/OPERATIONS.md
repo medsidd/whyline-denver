@@ -847,6 +847,13 @@ gcloud projects remove-iam-policy-binding whyline-denver \
 - Duplicate rows already in raw tables from past double loads were left in place; they cost storage and scan bytes, not correctness.
 - Not verified: the Cloud Storage mount read by the non-root user on Cloud Run (step 1 checks it), the chain on `main` (step 6), a phone-width check of the new map.
 
+### API deploy of the audit fixes, November 18, 2026 (UTC)
+
+The owner deployed revision `whylinedenver-api-00019-6sf` (15:30) with a new Gemini key (secret version 2). The warehouse download returned 200, so the non-root user reads the Cloud Storage mount, and the bypass shapes were refused. Two faults showed up:
+
+- **Every BigQuery query failed** with "Please install the 'db-dtypes' package". Dropping dbt from the API image also dropped `db-dtypes`, which `to_dataframe` needs; local checks ran in a venv that still had it. Fixed by listing it in `api/requirements.txt` and an import check in the image build ([#150](https://github.com/medsidd/whyline-denver/pull/150)), checked with real queries in a venv built from the API requirements alone.
+- **SQL generation failed** with 404: the new key cannot use `gemini-2.5-flash` ("no longer available to new users"). Newer Flash models answered 503 for both keys; the old key (version 1) with `gemini-2.5-flash` generated SQL normally. The deploy pins version 1 until a newer model is reliable.
+
 ### Query usage report
 
 From release R1 of the [metrics plan](plans/metrics-implementation.md), the first API image with WP0's change, every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:
