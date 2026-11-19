@@ -4,7 +4,6 @@
  */
 
 import type {
-  Engine,
   FilterOptionsResponse,
   FilterState,
   FreshnessResponse,
@@ -17,9 +16,6 @@ import type {
 } from "@/types/api";
 
 const BASE = "";  // relative to current origin, rewrites handle the proxy
-
-/** The dashboard queries BigQuery only; the API still accepts an engine per request. */
-const ENGINE: Engine = "bigquery";
 
 export const TOO_MANY = "Too many requests. Wait a minute and try again.";
 
@@ -51,7 +47,7 @@ async function get<T>(path: string): Promise<T> {
 // ─── Filters ──────────────────────────────────────────────────────────────
 
 export function fetchFilters(): Promise<FilterOptionsResponse> {
-  return get(`/api/filters/${ENGINE}`);
+  return get("/api/filters");
 }
 
 export function fetchModels(): Promise<{ models: ModelInfo[] }> {
@@ -73,23 +69,23 @@ export function generateSql(
   question: string,
   filters: FilterState
 ): Promise<GenerateSqlResponse> {
-  return post("/api/sql/generate", { question, engine: ENGINE, filters });
+  return post("/api/sql/generate", { question, filters });
 }
 
 export function validateSql(sql: string): Promise<ValidateSqlResponse> {
-  return post("/api/sql/validate", { sql, engine: ENGINE });
+  return post("/api/sql/validate", { sql });
 }
 
 /** A ready-made question's SQL, narrowed by the filters it supports. */
 export function fetchPrebuilt(index: number, filters: FilterState): Promise<GenerateSqlResponse> {
-  return post(`/api/sql/prebuilt/${index}/for/${ENGINE}`, filters);
+  return post(`/api/sql/prebuilt/${index}`, filters);
 }
 
 // ─── Query ────────────────────────────────────────────────────────────────
 
 /** `prebuiltIndex` marks a ready-made question run unedited, for usage counts. */
 export function runQuery(sql: string, question: string, prebuiltIndex: number | null = null): Promise<RunQueryResponse> {
-  return post("/api/query/run", { sql, engine: ENGINE, question, prebuilt_index: prebuiltIndex });
+  return post("/api/query/run", { sql, question, prebuilt_index: prebuiltIndex });
 }
 
 // ─── Downloads ────────────────────────────────────────────────────────────
@@ -100,11 +96,11 @@ export class DownloadError extends Error {
   }
 }
 
-export async function downloadMartCsv(req: Omit<MartDownloadRequest, "engine">): Promise<Blob> {
+export async function downloadMartCsv(req: MartDownloadRequest): Promise<Blob> {
   const res = await fetch("/api/downloads/mart", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...req, engine: ENGINE }),
+    body: JSON.stringify(req),
   });
   if (!res.ok) throw new DownloadError(res.status);
   return res.blob();

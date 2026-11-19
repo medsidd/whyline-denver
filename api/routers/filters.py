@@ -9,7 +9,7 @@ import threading
 from pathlib import Path
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT / "src") not in sys.path:
@@ -139,22 +139,6 @@ def get_stops() -> list[dict]:
         return df.to_dict(orient="records")
     except Exception:
         return []
-
-
-# shortcut: aliases for the dashboard before it switched to the routes above; delete once
-# the frontend no longer calls them.
-@router.get("/filters/{engine_name}/stops", include_in_schema=False)
-def get_stops_alias(engine_name: str) -> list[dict]:
-    if engine_name != "bigquery":
-        raise HTTPException(status_code=404, detail="Not Found")
-    return get_stops()
-
-
-@router.get("/filters/{engine_name}", response_model=FilterOptionsResponse, include_in_schema=False)
-def get_filters_alias(engine_name: str) -> FilterOptionsResponse:
-    if engine_name != "bigquery":
-        raise HTTPException(status_code=404, detail="Not Found")
-    return get_filters()
 
 
 def _all_route_shapes() -> dict[str, list[dict]]:

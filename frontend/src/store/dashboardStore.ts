@@ -163,7 +163,7 @@ export const useDashboardStore = create<DashboardState>()(
     }),
     {
       name: "whyline-dashboard",
-      // v1: BigQuery only. Drop older saved state, which can hold DuckDB-dialect SQL.
+      // v1 dropped older saved state, which could hold DuckDB-dialect SQL (DuckDB is gone).
       version: 1,
       migrate: () => ({}) as DashboardState,
       storage: createJSONStorage(() => localStorage),
