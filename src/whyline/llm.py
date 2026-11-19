@@ -12,6 +12,7 @@ except ImportError:  # pragma: no cover - optional dependency for stub mode
     genai = None
 
 from whyline.config import settings
+from whyline.prebuilt import denver_today
 from whyline.semantics.dbt_artifacts import ModelInfo
 from whyline.sql_guardrails import CTE_PATTERN, is_extract_from, is_unnest
 
@@ -34,6 +35,7 @@ def build_prompt(question: str, filters: Mapping[str, Any] | None, schema_brief:
     # A model-written window (e.g. the last 30 days) contradicted the user's dates, which the API
     # also injects. Asking for exactly the injected predicate lets _add_filter_clauses skip its copy.
     start, end = filters.get("start_date"), filters.get("end_date")
+    today = denver_today()
     if start and end:
         dates_rule = (
             "- The user picked dates. On tables with service_date_mst, filter with exactly "
@@ -53,6 +55,9 @@ def build_prompt(question: str, filters: Mapping[str, Any] | None, schema_brief:
         "- All FROM/JOIN sources must come from the allow-listed models; derive comparisons using CTEs or subqueries built on those tables.\n"
         "- Keep results under 5,000 rows.\n"
         f"{dates_rule}"
+        # The model had no calendar: asked about "yesterday" it guessed the end of the user's dates
+        f"- Today in Denver is {today.isoformat()}. Count relative days (yesterday, last week) from it; "
+        "the nightly tables hold complete days through yesterday, and today's rows are partial.\n"
         "- Treat the user filters below as scalar values only—never reference them as tables or views.\n"
         "- Do not invent placeholder tables (e.g., filters, zero, baseline); name any CTEs you create based on the metrics being calculated.\n"
         "- When analyzing crash trends described as 'this month', 'recent', or 'last few days', default to window_days = 30 on mart_crash_proximity_by_stop and anchor comparisons on the latest as_of_date values.\n"
