@@ -22,7 +22,7 @@ No. You can generate SQL from a plain-English question or load a ready-made ques
 
 ## What is stored or sent when I use it?
 
-No account is required by the current app. Selected question, SQL, explanation, and filters persist in browser localStorage and survive closing the tab; results are not persisted by that store. Clearing site data removes that local state.
+No account is required by the current app. Selected question, SQL, explanation, and route, stop and weather filters persist in browser localStorage (dates start at the last week on each visit) and survive closing the tab; results are not persisted by that store. Clearing site data removes that local state.
 
 With Gemini selected, the question, filters, and schema brief are sent to the provider. Backend caches retain prompts/results temporarily in process memory. Application query logs contain hashes and execution metadata; engine logs may include SQL snippets and operational logs can capture errors. The frontend includes Vercel Analytics and Speed Insights. Retention and provider/hosting settings are not fully specified by this repository; do not treat the app as a place to enter sensitive personal data or assume all state disappears on tab close.
 

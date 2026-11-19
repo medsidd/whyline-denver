@@ -32,7 +32,12 @@ export const chartTheme = {
       borderRadius: 14,
       boxShadow: "0 12px 32px -12px rgba(4,47,84,.35)",
       fontWeight: 700,
+      // Long labels wrap: on a phone a one-line tooltip ran past the screen and widened the page
+      whiteSpace: "normal",
+      overflowWrap: "anywhere",
     },
+    // The wrapper sits inside the chart, so 100% is the chart width, which Recharts keeps it within
+    wrapperStyle: { maxWidth: "100%" },
     labelStyle: { color: tokens.navy, fontWeight: 900 },
     itemStyle: { color: tokens.ink2 },
   },

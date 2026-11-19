@@ -58,6 +58,8 @@ export function RouteBarChart({ data, xKey, yKey, title, orientation = "vertical
       formatter={(v) => formatValue(yKey, v)}
       labelFormatter={(l) => String(l)}
       cursor={{ fill: "rgba(4,47,84,.05)" }}
+      // On a phone the plot is narrower than the tooltip, which ran off the screen: pin it left
+      position={width < 480 ? { x: 0 } : undefined}
     />
   );
 

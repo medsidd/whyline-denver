@@ -87,8 +87,9 @@ export function defaultFilters(): FilterState {
 export const useDashboardStore = create<DashboardState>()(
   persist(
     (set) => ({
-  // Initial values
-  filters: defaultFilters(),
+  // Initial values. No dates until the page mounts (see hydrateDashboard): the page is
+  // pre-rendered once, so dates computed here would be the build day's and fail hydration.
+  filters: { ...defaultFilters(), start_date: null, end_date: null },
   question: "",
   generatedSql: null,
   editedSql: "",
@@ -166,14 +167,37 @@ export const useDashboardStore = create<DashboardState>()(
       version: 1,
       migrate: () => ({}) as DashboardState,
       storage: createJSONStorage(() => localStorage),
+      // The page applies saved state after it mounts, so the pre-rendered HTML matches
+      skipHydration: true,
       partialize: (s) => ({
-        filters: s.filters,
+        // Not the dates: a visitor returning a week later would get last week's window
+        filters: { routes: s.filters.routes, stop_id: s.filters.stop_id, weather: s.filters.weather },
         question: s.question,
         generatedSql: s.generatedSql,
         editedSql: s.editedSql,
         explanation: s.explanation,
         sqlCacheHit: s.sqlCacheHit,
       }),
+      merge: (saved, current) => {
+        const { filters, ...rest } = (saved ?? {}) as Partial<DashboardState>;
+        return {
+          ...current,
+          ...rest,
+          filters: {
+            ...current.filters,
+            routes: filters?.routes ?? current.filters.routes,
+            stop_id: filters?.stop_id ?? current.filters.stop_id,
+            weather: filters?.weather ?? current.filters.weather,
+          },
+        };
+      },
     }
   )
 );
+
+/** Apply saved state and today's default dates; the dashboard calls this once, on mount. */
+export function hydrateDashboard(): void {
+  useDashboardStore.persist.rehydrate();
+  const { start_date, end_date } = defaultFilters();
+  useDashboardStore.getState().setFilters({ start_date, end_date });
+}
