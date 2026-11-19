@@ -48,7 +48,7 @@ def build_prompt(question: str, filters: Mapping[str, Any] | None, schema_brief:
         "You may query ONLY these models:\n"
         f"{schema_brief}\n\n"
         "Return a JSON object with keys 'sql' and 'explanation'.\n"
-        "- 'sql' must contain a single DuckDB/BigQuery compatible SELECT statement.\n"
+        "- 'sql' must contain a single BigQuery Standard SQL SELECT statement.\n"
         "- Do not include semicolons or additional statements.\n"
         "- 'explanation' must be 2-3 succinct sentences for non-technical transit stakeholders,\n"
         "  describing what insights the query surfaces and why it matters.\n"
@@ -177,9 +177,6 @@ def _stubbed_response(prompt: str) -> Dict[str, str]:
     }
 
 
-DATE_SUB_PATTERN = re.compile(
-    r"DATE_SUB\(\s*(.+?)\s*,\s*INTERVAL\s+(\d+)\s+DAY\s*\)", re.IGNORECASE
-)
 TABLE_PATTERN = re.compile(
     r"\b(?P<clause>FROM|JOIN)\s+"
     r"(?P<table>(?:`[^`]+`|[\w-]+)(?:\.(?:`[^`]+`|[\w-]+)){0,2})"
@@ -188,24 +185,8 @@ TABLE_PATTERN = re.compile(
 )
 
 
-def adapt_sql_for_engine(
-    sql: str, engine: str, models: Mapping[str, ModelInfo] | None = None
-) -> str:
-    transformed = sql
-    if engine == "duckdb":
-        transformed = DATE_SUB_PATTERN.sub(_duckdb_date_sub_replacer, transformed)
-    if engine == "bigquery" and models:
-        transformed = _qualify_bigquery_tables(transformed, models)
-    return transformed
-
-
-def _duckdb_date_sub_replacer(match: re.Match[str]) -> str:
-    expr = match.group(1).strip()
-    days = match.group(2)
-    return f"{expr} - INTERVAL '{days}' DAY"
-
-
-def _qualify_bigquery_tables(sql: str, models: Mapping[str, ModelInfo]) -> str:
+def qualify_tables(sql: str, models: Mapping[str, ModelInfo]) -> str:
+    """Write bare mart names as `project.mart_dataset.table`; CTEs and qualified names stay."""
     cte_names = {name.strip("`").lower() for name in CTE_PATTERN.findall(sql)}
 
     def replacer(match: re.Match[str]) -> str:
@@ -229,7 +210,7 @@ def _qualify_bigquery_tables(sql: str, models: Mapping[str, ModelInfo]) -> str:
 
 
 __all__ = [
-    "adapt_sql_for_engine",
+    "qualify_tables",
     "build_prompt",
     "build_schema_brief",
     "call_provider",

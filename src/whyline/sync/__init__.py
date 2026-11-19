@@ -1,4 +1,4 @@
-"""Synchronization constants for moving marts between BigQuery, GCS, and DuckDB."""
+"""The app's mart list and the BigQuery freshness record (sync_state.json)."""
 
 from __future__ import annotations
 

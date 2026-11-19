@@ -6,7 +6,7 @@ exposures:
     maturity: low
     url: https://www.whylinedenver.com/app
     description: |
-      Next.js dashboard backed by FastAPI, querying curated marts through DuckDB or BigQuery.
+      Next.js dashboard backed by FastAPI, querying curated marts in BigQuery.
       The reliability marts count observed stop visits (core.fct_stop_visit) since the
       stop-visit cutover; earlier partitions keep the legacy sampled method.
     owner:

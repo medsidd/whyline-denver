@@ -18,7 +18,7 @@ Each new extract date creates another source version. MD5-identical files can be
 
 ## Propagating corrections
 
-Late weather data must pass through every layer: new source extract → raw load → staging → route-day rebuild → weather comparison → export → DuckDB refresh → served query. Rebuilding only the BigQuery table is insufficient.
+Late weather data must pass through every layer: new source extract → raw load → staging → route-day rebuild → weather comparison → served query.
 
 Route-day incremental rebuilding uses the weather lookback. Export logic detects older rebuilt partitions using `build_run_at`, not only a newest-date checkpoint. A deliberate bounded repair can force selected exports after verifying model rebuilds; see [pipeline](../technical/DATA_PIPELINE.md). Historical corrections outside current lookbacks need an explicit selection/full-refresh plan and cloud authorization.
 
@@ -28,6 +28,6 @@ Route-day incremental rebuilding uses the weather lookback. Export logic detects
 2. Compare raw versions with the latest staging record for the same date/station.
 3. Check configured station agreement between ingestion and dbt.
 4. Inspect route-day `unknown` counts and weather comparison baselines.
-5. Verify changed historical partitions were exported and loaded into the served warehouse.
+5. Verify the route-day mart rebuilt the changed historical dates (`build_run_at`), and a dashboard query shows them.
 
 Never convert unavailable precipitation to a dry observation or infer units from value size. The [October recovery case study](../case-studies/pipeline-recovery-2026.md) explains why these rules exist; [QA validation](../QA_Validation_Guide.md) includes current completeness queries.

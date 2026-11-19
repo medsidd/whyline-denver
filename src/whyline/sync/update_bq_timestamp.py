@@ -8,43 +8,12 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from whyline.sync.state_store import SyncStateUploadError, load_sync_state, write_sync_state
+from whyline.sync.state_store import SyncStateUploadError, write_sync_state
 
 LOGGER = logging.getLogger(__name__)
 
 SYNC_STATE_PATH = Path("data/sync_state.json")
 DBT_RUN_RESULTS_PATH = Path("dbt/target/run_results.json")
-
-
-def _load_and_merge_state(path: Path) -> tuple[dict, bool]:
-    default: dict[str, object] = {}
-
-    remote_state = load_sync_state(path=path, prefer_gcs=True)
-    if remote_state:
-        LOGGER.info("Downloaded existing sync_state.json from GCS")
-        serialized = json.dumps(remote_state, indent=2, sort_keys=True) + "\n"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(serialized, encoding="utf-8")
-        default = dict(remote_state)
-    elif path.exists():
-        LOGGER.warning("Using local sync_state.json only; remote download was unavailable")
-    else:
-        LOGGER.error(
-            "Unable to download sync_state.json from GCS and no local copy exists; refusing to overwrite state"
-        )
-        return {}, False
-
-    state = load_sync_state(path=path, prefer_gcs=False)
-    if state is None:
-        LOGGER.error("sync_state.json not found locally after download attempt")
-        return {}, False
-
-    if default:
-        state.setdefault("duckdb_synced_at_utc", default.get("duckdb_synced_at_utc"))
-        if not isinstance(state.get("marts"), dict) or not state["marts"]:
-            state["marts"] = default.get("marts", {})
-
-    return state, True
 
 
 def update_bigquery_timestamp() -> int:
@@ -70,13 +39,8 @@ def update_bigquery_timestamp() -> int:
         LOGGER.warning("No generated_at in dbt run_results, using current time")
         generated_at = datetime.now(UTC).isoformat()
 
-    # Ensure we have the latest sync_state locally before merging.
-    sync_state, ok = _load_and_merge_state(SYNC_STATE_PATH)
-    if not ok:
-        return 1
-
-    # Update BigQuery timestamp while preserving other fields
-    sync_state["bigquery_updated_at_utc"] = generated_at
+    # Only the BigQuery time is kept: the DuckDB fields went with the DuckDB copy (Nov 2026)
+    sync_state = {"bigquery_updated_at_utc": generated_at}
 
     # Write updated state locally and mirror to GCS if configured
     try:

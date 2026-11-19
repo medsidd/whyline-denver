@@ -11,9 +11,8 @@ WhyLine Denver is a Python/SQL transit warehouse served by FastAPI and a Next.js
   → dbt stg_denver (silver: source-conformed staging)
   → dbt core_denver (gold core: Kimball dimensions, facts, bridges)
   → dbt mart_denver (gold serving: 35 marts; 20 app marts, 2 live views)
-  → GCS Parquet exports of the 20 app marts → DuckDB warehouse
 
-BigQuery → FastAPI → Next.js /app   (the API also answers on DuckDB; the dashboard uses BigQuery)
+BigQuery mart_denver → FastAPI → Next.js /app
 ```
 
 | Boundary | Implementation and reason |
@@ -21,42 +20,39 @@ BigQuery → FastAPI → Next.js /app   (the API also answers on DuckDB; the das
 | Source ingestion | `src/whyline/ingest/`: 16 standalone argparse CLIs (see [data pipeline](DATA_PIPELINE.md#ingestion)), shared retry/I/O utilities, local or GCS output. Raw snapshots preserve source lineage. The continuous GTFS-RT poller (`gtfs_rt_stream`) is a long-running VM process: it derives stop visits itself and archives every feed payload. |
 | Loading | `load/bq_load.py` and `registry.py`: explicit ordered schemas, metadata, MD5-based skipping. Raw CSVs are normalized extracts, not universally untouched source records. |
 | Transformation | Medallion layers: 25 silver staging models, 33 gold-core models (eight dimensions, 21 facts, four bridges: Type 2 GTFS dimensions with surrogate keys and Unknown members; incremental schedule, stop-visit and trip-status facts; nightly crash, weather, demographics and other facts), and 35 serving marts built only from gold core. Three legacy models are disabled since the stop-visit cutover. See the [model reference](../../dbt/models/README.md). |
-| Published schema | `DbtArtifacts` reads manifest/catalog. Models must have `config.meta.allow_in_app` and be in `sync/constants.py`: the 20 `ALLOWLISTED_MARTS` or the 2 `LIVE_MARTS` (live views, BigQuery only). |
-| Export | The 20 app marts: date-partitioned marts by rebuilt partition (selected using `build_run_at` as well as date checkpoints), the rest as daily snapshots. Live views and `allow_in_app: false` marts are not exported. |
-| Embedded warehouse | `sync/refresh_duckdb.py` materializes the 20 app marts. Partitioned history is limited by `DUCKDB_MAX_AGE_DAYS` (90 by default), except `mart_reliability_by_route_day`, kept whole (about 40,000 rows) for the year-long snow question; snapshots use latest run date. |
+| Published schema | `DbtArtifacts` reads manifest/catalog. Models must have `config.meta.allow_in_app` and be in `sync/constants.py`: the 20 `ALLOWLISTED_MARTS` or the 2 `LIVE_MARTS` (live views). |
 | HTTP | Five routers in `api/routers/` (health, filters including `/routes/shapes`, sql, query, downloads), registered under `/api`; request/response models in `api/models.py`. |
 | Presentation | Next.js 15, React 19, Zustand, TanStack Query, Recharts, Deck.gl/MapLibre, CodeMirror. |
 
-## Why two engines?
+## One engine
 
-BigQuery performs cloud transformations and answers every dashboard query (the dashboard sends `engine: bigquery`); the live views exist only there. Its API query engine uses a dry-run estimate and `MAX_BYTES_BILLED` (2,000,000,000 by default). That cap applies to this engine's queries, not every loader/dbt/export/billing query in the project.
+Every query runs on BigQuery: the dashboard's, the API's and the downloads'. Visitor SQL gets a dry run first (an estimate, plus BigQuery's own statement and table check), then runs with `MAX_BYTES_BILLED` (2,000,000,000 by default) and a 120-second job timeout. That cap applies to the API's queries, not to loader, dbt or billing queries.
 
-DuckDB serves a copied warehouse of the 20 app marts without per-query BigQuery analysis charges, for API callers that ask for it and for the warehouse download. Local querying needs no cloud credentials when the warehouse, dbt artifacts, and sync-state configuration are local. Downloading data, hosting it on Cloud Run, refreshing it, or accessing GCS still has infrastructure/access costs.
+Until November 19, 2026 the nightly build also exported the 20 app marts to Parquet and copied them into a DuckDB file that the API could query and serve as a download. Nothing read that path but direct API callers, it lagged BigQuery by up to a day, and it needed its own checks, so it was removed (see [operations](OPERATIONS.md)). The tests still run dbt models on small inputs in DuckDB; that's a test harness, not part of the app.
 
-`llm.adapt_sql_for_engine()` handles the supported dialect rewrites and BigQuery table qualification. It is not a general SQL transpiler; test queries on each intended engine.
+`llm.qualify_tables()` writes bare mart names as `project.mart_denver.table` (CTEs and qualified names stay). It does not translate SQL dialects.
 
 ## Query boundary
 
 Generation sends the user's question, filters, and schema brief to the configured LLM. Gemini is implemented; stub mode returns canned queries. OpenAI and Anthropic provider names raise `NotImplementedError`.
 
-Generation, validation, and execution apply `sanitize_sql()`. It checks SELECT/WITH shape, single-statement syntax, denylisted write keywords, allowed table references and BigQuery namespaces. It adds `LIMIT 5000` only when there is no numeric limit. Existing limits are preserved in the SQL; the engines fetch at most 10,000 rows for a query, and the scan is bounded separately (`MAX_BYTES_BILLED`, a 120-second BigQuery job timeout).
+Generation, validation, and execution apply `sanitize_sql()`. It checks SELECT/WITH shape, single-statement syntax, denylisted write keywords, allowed table references and BigQuery namespaces. It adds `LIMIT 5000` only when there is no numeric limit. Existing limits are preserved in the SQL; the API fetches at most 10,000 rows for a query, and the scan is bounded separately (`MAX_BYTES_BILLED`, a 120-second job timeout).
 
-`sanitize_sql()` is a text check for early, readable errors, not the security boundary: a comma join or a comment after `FROM` passes it. Each engine therefore re-checks visitor SQL with its own parser before running it (BigQuery's dry-run statement type and table list; DuckDB's `extract_statements` and its parse tree from `json_serialize_sql`), and DuckDB connections cannot read files (`enable_external_access=false`). Keep cloud identities least-privileged as the third layer and retain server-side validation regardless of browser validation. See [API reference](API_REFERENCE.md).
+`sanitize_sql()` is a text check for early, readable errors, not the security boundary: a comma join or a comment after `FROM` passes it. BigQuery's dry run therefore re-checks visitor SQL before it runs (statement type and the tables it reads). Least-privileged cloud identities are the third layer: the API account should read only `mart_denver`, with the live views authorized on the datasets they read (pending on November 19, 2026; see [operations](OPERATIONS.md)) and retain server-side validation regardless of browser validation. See [API reference](API_REFERENCE.md).
 
 ## State and caching
 
 - Prompt and query caches are process-local and expire according to `src/whyline/logs.py`; restarting clears them. They are not durable shared caches.
 - dbt schema loading is lazy and cached with `lru_cache`, not validated by `/api/health`.
-- Stop/route enrichment lookups are cached after successful reads from DuckDB (stops also have a local GTFS fallback).
-- DuckDB connections are thread-local and read-only by default. With `DUCKDB_COPY_LOCAL=1`, each source version is copied to `warehouse-<mtime_ns>-<size>.duckdb` beside `DUCKDB_LOCAL_PATH`. One shared check reads the source at most once a minute, and each thread reopens on a newer copy. Results can trail a refresh by that minute, the mount's metadata cache and the 180-second query cache. With `DUCKDB_COPY_LOCAL=0`, connections keep the warehouse they opened. Verify actual results after a refresh.
+- Stop/route enrichment lookups (`mart_gtfs_stops`, `mart_gtfs_routes`) are read from BigQuery once per process and kept; a failed read is retried on the next query.
 - The browser persists selected dashboard fields in localStorage, but not result data or validation state. This survives closing a tab; it does not implement synchronized cross-tab state.
 - Query logs contain hashes and execution metadata. Engine logs can include SQL snippets. The frontend mounts Vercel Analytics and Speed Insights. See [FAQ](../public/FAQ.md) before making privacy claims.
 
 ## Hosting and orchestration
 
-The API runs as Cloud Run service `whylinedenver-api`. The Makefile deployment defaults are 0–3 instances, 2 vCPU, and 2 GiB; verify live configuration separately. The GCS bucket is mounted at `/mnt/gcs`, and DuckDB is copied locally for reliable access.
+The API runs as Cloud Run service `whylinedenver-api`. The Makefile deployment defaults are 0–3 instances, 2 vCPU, and 2 GiB, with no storage mount; verify live configuration separately.
 
-The continuous GTFS-RT poller runs as a container on the `rt-stream-poller` VM (image set in the instance's `image-uri` metadata; see [operations](OPERATIONS.md) for upgrade steps). It reads both feeds every 15 seconds, times each stop visit itself, and publishes 15-minute batches. Two Cloud Run jobs share an image and dispatch on `JOB_TYPE`: `realtime-load` runs every 15 minutes (it loads the poller's batches, snapshots service alerts and Veo vehicles, and builds `fct_stop_visit` and `fct_trip_status`); `realtime-ingest`, the old 15-minute snapshot collector, is paused. Three independent GitHub Actions cron workflows ingest static sources, transform/export, and refresh DuckDB. The two realtime GitHub workflows are manual alternatives, not scheduled collectors. CI runs Python lint/tests and deploys dbt docs on successful pushes to `main`.
+The continuous GTFS-RT poller runs as a container on the `rt-stream-poller` VM (image set in the instance's `image-uri` metadata; see [operations](OPERATIONS.md) for upgrade steps). It reads both feeds every 15 seconds, times each stop visit itself, and publishes 15-minute batches. Two Cloud Run jobs share an image and dispatch on `JOB_TYPE`: `realtime-load` runs every 15 minutes (it loads the poller's batches, snapshots service alerts and Veo vehicles, and builds `fct_stop_visit` and `fct_trip_status`); the old snapshot collector `realtime-ingest` was deleted in November 2026. Two chained GitHub Actions workflows ingest static sources (Nightly Ingest) and then build and test BigQuery (Nightly BigQuery). The realtime GitHub workflow is a manual alternative, not a scheduled collector. CI runs Python lint/tests and deploys dbt docs on successful pushes to `main`.
 
 Next.js uses server-side rewrites from `/api/*` to `API_BASE_URL`. This avoids requiring the browser to call a separate origin; it is not an authentication boundary and does not make the public API secret. `StopMap` must use `ssr: false` because MapLibre needs browser APIs.
 

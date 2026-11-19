@@ -12,13 +12,12 @@ Since October 29, 2026 every stop visit is timed from RTD's vehicle reports (abo
 RTD / Denver Open Data / NOAA / Census / others
   → Python ingestion (incl. a continuous GTFS-RT poller) → GCS raw files → BigQuery raw_denver
   → dbt stg_denver → core_denver → mart_denver
-  → GCS Parquet → DuckDB warehouse
-  → FastAPI → Next.js dashboard (BigQuery)
+  → FastAPI → Next.js dashboard (every query runs on BigQuery)
 ```
 
-BigQuery builds the warehouse and answers the dashboard; the API can also query a DuckDB copy of the 20 app marts. The project has 16 ingestion CLIs, 93 dbt models in medallion layers (25 silver staging, 33 gold-core Kimball dimensions/facts/bridges, 35 serving marts, two of them live views), and a Next.js 15 / React 19 frontend. Python dependencies are in `requirements.txt` and `api/requirements.txt`; frontend versions are locked in `frontend/package-lock.json`.
+BigQuery builds the warehouse and answers every query. The project has 16 ingestion CLIs, 93 dbt models in medallion layers (25 silver staging, 33 gold-core Kimball dimensions/facts/bridges, 35 serving marts, two of them live views), and a Next.js 15 / React 19 frontend. Python dependencies are in `requirements.txt` and `api/requirements.txt`; frontend versions are locked in `frontend/package-lock.json`.
 
-Realtime data comes from a continuous poller on a VM, loaded every 15 minutes by the `realtime-load` job; the old snapshot job is paused. Nightly Ingest requests 08:17 UTC; Nightly BigQuery starts when it finishes and Nightly DuckDB when that succeeds. See [operations](docs/technical/OPERATIONS.md) for dated evidence, billing, and verification commands.
+Realtime data comes from a continuous poller on a VM, loaded every 15 minutes by the `realtime-load` job. Nightly Ingest requests 08:17 UTC; Nightly BigQuery starts when it finishes. See [operations](docs/technical/OPERATIONS.md) for dated evidence, billing, and verification commands.
 
 ## Run locally
 
@@ -32,16 +31,9 @@ pip install -r api/requirements.txt
 cp .env.example .env
 ```
 
-Edit `.env`: set `ENGINE=duckdb`, `LLM_PROVIDER=stub`, and `DUCKDB_PATH=data/warehouse.duckdb`. The example file selects Gemini; a missing Gemini key does not automatically select the stub. Stub mode supports canned SQL without a paid LLM call.
+Edit `.env`: set `LLM_PROVIDER=stub`. The example file selects Gemini; a missing Gemini key does not automatically select the stub. Stub mode supports canned SQL without a paid LLM call.
 
-Obtain an existing warehouse from a trusted project export. If you have read access to the project bucket:
-
-```bash
-mkdir -p data
-gcloud storage cp gs://whylinedenver-raw/marts/duckdb/warehouse.duckdb data/warehouse.duckdb
-```
-
-`make sync-duckdb` is a cloud export-and-refresh operation, not a download command. See [development setup](docs/technical/DEVELOPMENT.md) for artifacts, offline configuration, and alternatives.
+Queries run on BigQuery, so the API needs Google credentials that can read `mart_denver` and run query jobs (`gcloud auth application-default login`). See [development setup](docs/technical/DEVELOPMENT.md) for artifacts and configuration.
 
 In separate terminals with the environment activated:
 
@@ -56,7 +48,7 @@ npm ci
 npm run dev
 ```
 
-Open `http://localhost:3000/app`. API docs are at `http://localhost:8000/docs`. API schema endpoints also need usable `dbt/target/manifest.json` and `catalog.json`; a successful health response alone does not establish that those artifacts or the warehouse are available.
+Open `http://localhost:3000/app`. API docs are at `http://localhost:8000/docs`. API schema endpoints also need usable `dbt/target/manifest.json` and `catalog.json`; a successful health response alone does not establish that those artifacts or BigQuery access are available.
 
 ## Where to work
 
@@ -64,8 +56,8 @@ Open `http://localhost:3000/app`. API docs are at `http://localhost:8000/docs`. 
 |---|---|
 | `src/whyline/ingest/`, `load/` | Public-source extraction, manifests, explicit BigQuery schemas, MD5 deduplication |
 | `dbt/models/` | SQL transformations and data quality assertions |
-| `src/whyline/sync/` | Parquet exports, DuckDB refresh, synchronization state |
-| `src/whyline/engines/`, `semantics/` | Query engines and dbt schema/allowlist loading |
+| `src/whyline/sync/` | The app's mart list and the BigQuery freshness record |
+| `src/whyline/engines/`, `semantics/` | BigQuery query engine and dbt schema/allowlist loading |
 | `api/` | SQL generation, validation, execution, filters, and downloads |
 | `frontend/` | Dashboard, visualizations, browser state |
 | `infra/`, `.github/workflows/` | Cloud images, scheduled processing, CI |

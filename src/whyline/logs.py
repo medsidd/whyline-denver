@@ -28,7 +28,6 @@ def _rotate_log_if_needed(path: Path) -> None:
 
 def log_query(
     *,
-    engine: str,
     rows: int,
     latency_ms: float,
     models: Iterable[str],
@@ -42,7 +41,6 @@ def log_query(
 ) -> None:
     record: dict[str, Any] = {
         "ts_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "engine": engine,
         "rows": rows,
         "latency_ms": round(latency_ms, 2),
         "model_names": sorted(set(models)),
@@ -80,13 +78,13 @@ class QueryCache:
         self._order: deque[str] = deque()
         self._lock = threading.Lock()
 
-    def _make_key(self, engine: str, sql: str) -> str:
+    def _make_key(self, namespace: str, sql: str) -> str:
         normalized = " ".join(sql.split())
         digest = sha256(normalized.encode("utf-8")).hexdigest()
-        return f"{engine}:{digest}"
+        return f"{namespace}:{digest}"
 
-    def get(self, engine: str, sql: str) -> Any | None:
-        key = self._make_key(engine, sql)
+    def get(self, namespace: str, sql: str) -> Any | None:
+        key = self._make_key(namespace, sql)
         now = time.monotonic()
         with self._lock:
             entry = self._store.get(key)
@@ -97,8 +95,8 @@ class QueryCache:
                 return None
             return entry.value
 
-    def set(self, engine: str, sql: str, value: Any) -> None:
-        key = self._make_key(engine, sql)
+    def set(self, namespace: str, sql: str, value: Any) -> None:
+        key = self._make_key(namespace, sql)
         expires_at = time.monotonic() + self.ttl
         entry = CacheEntry(value=value, expires_at=expires_at)
         with self._lock:
@@ -144,25 +142,23 @@ class PromptCache:
     def _make_key(
         self,
         provider: str,
-        engine: str,
         question: str,
         filters: Mapping[str, Any] | None,
     ) -> str:
         normalized_question = " ".join((question or "").split()).strip().lower()
         canonical_filters = self._canonicalize_filters(filters)
         filters_payload = json.dumps(canonical_filters, sort_keys=True, default=str)
-        payload = f"{provider}:{engine}:{normalized_question}:{filters_payload}"
+        payload = f"{provider}:{normalized_question}:{filters_payload}"
         digest = sha256(payload.encode("utf-8")).hexdigest()
         return digest
 
     def get(
         self,
         provider: str,
-        engine: str,
         question: str,
         filters: Mapping[str, Any] | None,
     ) -> Any | None:
-        key = self._make_key(provider, engine, question, filters)
+        key = self._make_key(provider, question, filters)
         now = time.monotonic()
         with self._lock:
             entry = self._store.get(key)
@@ -176,12 +172,11 @@ class PromptCache:
     def set(
         self,
         provider: str,
-        engine: str,
         question: str,
         filters: Mapping[str, Any] | None,
         value: Any,
     ) -> None:
-        key = self._make_key(provider, engine, question, filters)
+        key = self._make_key(provider, question, filters)
         expires_at = time.monotonic() + self.ttl
         entry = CacheEntry(value=value, expires_at=expires_at)
         with self._lock:

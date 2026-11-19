@@ -19,7 +19,7 @@ Start with the [project README](../README.md). Current implementation guides liv
 |---|---|
 | [Architecture](technical/ARCHITECTURE.md) | Canonical system design and design rationale |
 | [Development](technical/DEVELOPMENT.md) | Local setup, settings, artifacts, and command side effects |
-| [Data pipeline](technical/DATA_PIPELINE.md) | Ingestion, loading, dbt, exports, and DuckDB refresh |
+| [Data pipeline](technical/DATA_PIPELINE.md) | Ingestion, loading, dbt, and serving |
 | [API reference](technical/API_REFERENCE.md) | Endpoint inventory, models, limits, and errors |
 | [Frontend](technical/FRONTEND.md) | Component map, persistence, API proxy, and visualization behavior |
 | [Testing](technical/TESTING.md) | Existing offline tests, cloud checks, CI, and coverage gaps |

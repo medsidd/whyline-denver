@@ -11,7 +11,7 @@ Project `whyline_denver_dbt`, profile `whyline_denver`. `dbt_project.yml` defaul
 | Bronze | `raw_denver` | As loaded; append-only; every extract retained. Snapshot sources (GTFS static, sidewalks, tracts, ACS) are partitioned by `_extract_date`; realtime by feed time. |
 | Silver | `stg_denver` | One cleaned, typed, deduplicated model per source entity. No cross-domain joins or business rules. Rebuildable from bronze. |
 | Gold core | `core_denver` | Kimball star schema: conformed dimensions, atomic facts, a bridge. Not exposed to the app. |
-| Gold serving | `mart_denver` | Aggregates with dimension attributes appended, built only from gold core. The 20 app marts are exported to DuckDB; the two live views (`marts/live/`) are queryable in the app but never exported; marts with `allow_in_app: false` build in BigQuery only. |
+| Gold serving | `mart_denver` | Aggregates with dimension attributes appended, built only from gold core. The app queries 20 marts and the two live views (`marts/live/`) in BigQuery; marts with `allow_in_app: false` aren't exposed. |
 
 ## Silver (staging)
 
@@ -174,7 +174,7 @@ Changing source data outside these windows does not repair historical results; r
 
 ## API, export, and schemas
 
-All 35 marts declare `meta.allow_in_app`; the 22 set to true are listed in `src/whyline/sync/constants.py` (20 `ALLOWLISTED_MARTS`, 2 `LIVE_MARTS`). API exposure requires both; it also needs matching manifest/catalog artifacts. The two GTFS reference marts are not in the 18-mart CSV-download list. DuckDB refresh maintains separate materialization/latest-snapshot sets and reads Parquet by column name, so appended columns load alongside older partitions. See [add a mart](../../docs/technical/guides/ADDING_A_MART.md).
+All 35 marts declare `meta.allow_in_app`; the 22 set to true are listed in `src/whyline/sync/constants.py` (20 `ALLOWLISTED_MARTS`, 2 `LIVE_MARTS`). API exposure requires both; it also needs matching manifest/catalog artifacts. The two GTFS reference marts are not in the 18-mart CSV-download list. See [add a mart](../../docs/technical/guides/ADDING_A_MART.md).
 
 Model and column descriptions and tests are in [staging schema](staging/schema.yml), [core schema](core/schema.yml), and [mart schema](marts/schema.yml). Every column of every enabled model has a description (1,019 on November 6, 2026), and `persist_docs` in `dbt_project.yml` copies them to the BigQuery tables and views on each build. It sets a table's own description only when the table is created, so the `persist_table_description` post-hook sets it for incremental models on every build. Raw source declarations live in [sources_raw.yml](sources_raw.yml); custom generic tests in `dbt/macros/tests/`; singular tests in `dbt/tests/`; extract helpers (`latest_extract_date`, `recent_extracts_filter`, `scd2_from_extracts`) in `dbt/macros/extracts.sql`. Generated [dbt docs](https://medsidd.github.io/whyline-denver/) describe the last published artifact, which can differ from a working tree.
 

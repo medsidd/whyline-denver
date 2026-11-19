@@ -20,16 +20,16 @@ Project: `whyline-denver`; region: `us-central1`; bucket: `whylinedenver-raw`. C
 After reviewing the intended source and environment, an authorized API deployment uses:
 
 ```bash
-GEMINI_API_KEY_SECRET=gemini-api-key:1 make api-deploy
+make api-deploy
 ```
 
-The secret is pinned to version 1, the original key. A key created on November 18, 2026 (version 2) gets 404 for `gemini-2.5-flash` ("no longer available to new users"), and every newer Flash model answered 503 (high demand) that day. Move to `:latest` together with a `GEMINI_MODEL` that answers reliably for the new key.
+The Makefile pins the Gemini secret to version 1, the original key (`GEMINI_API_KEY_SECRET ?= gemini-api-key:1`; before November 19, 2026 it had to be passed by hand). A key created on November 18, 2026 (version 2) gets 404 for `gemini-2.5-flash` ("no longer available to new users"), and every newer Flash model answered 503 (high demand) that day. Move to `:latest` together with a `GEMINI_MODEL` that answers reliably for the new key.
 
 This submits a Cloud Build, pushes `us-central1-docker.pkg.dev/whyline-denver/api-service/whylinedenver-api:latest`, and deploys the service. Makefile defaults: 0–3 instances, concurrency 80, 2 CPUs, 2 GiB memory, gen2 execution environment, unauthenticated access, service identity `api-service@whyline-denver.iam.gserviceaccount.com`.
 
-It sets DuckDB as engine, Gemini as provider, the API query byte cap, and dataset/state locations. It mounts the bucket at `/mnt/gcs`, sets `DUCKDB_PATH=/mnt/gcs/marts/duckdb/warehouse.duckdb` and `DUCKDB_COPY_LOCAL=1`, and maps the Gemini secret. Prefer Secret Manager references over literal keys. Required capabilities include BigQuery read/job creation, GCS read, and access to the specific Gemini secret; grant the narrow scope required by the deployment.
+It sets Gemini as provider, the API query byte cap, and dataset/state locations, and maps the Gemini secret. `--set-env-vars` replaces the service's whole environment, and `--clear-volume-mounts --clear-volumes` remove any storage mount, so a deploy leaves no DuckDB settings or bucket mount behind (the API mounted the bucket for its DuckDB file until November 19, 2026). Prefer Secret Manager references over literal keys. The service account needs BigQuery job creation, reader access on `mart_denver` (and, until the live views are authorized views, on the datasets they read), read access to `state/sync_state.json` in the bucket for the freshness time, and access to the Gemini secret.
 
-The image runs as the unprivileged user `app` (uid 10001), holds no dbt packages (the API reads the manifest and catalog as JSON), and writes only the query log under `/app/data/logs` and DuckDB copies under `/tmp`. After a deploy, `GET /api/downloads/warehouse` returning 200 confirms that user can read the Cloud Storage mount.
+The image runs as the unprivileged user `app` (uid 10001), holds no dbt packages (the API reads the manifest and catalog as JSON), and writes only the query log under `/app/data/logs`. After a deploy, `GET /api/freshness` showing a time (not "Unavailable") confirms it can read the sync state.
 
 Check usable manifest/catalog artifacts are included. `api/Dockerfile` consumes local artifacts; CI's generated artifacts do not automatically update a separately built API image. A healthy service without current artifacts may still fail `/api/models` or SQL generation.
 
@@ -52,11 +52,11 @@ Verify the new digest in completed executions, not just job configuration. A sha
 
 ## Workflow configuration
 
-Nightly Ingest requests 08:17 UTC (off the hour, which GitHub delays most) and can start hours late; Nightly BigQuery starts when it finishes and Nightly DuckDB when that succeeds. The realtime workflow YAML has only `workflow_dispatch`; Cloud Scheduler handles recurring realtime work.
+Nightly Ingest requests 08:17 UTC (off the hour, which GitHub delays most) and can start hours late; Nightly BigQuery starts when it finishes. The realtime workflow YAML has only `workflow_dispatch`; Cloud Scheduler handles recurring realtime work.
 
 Workflow secret names used by configuration include `GOOGLE_APPLICATION_CREDENTIALS`, `GCP_PROJECT_ID`, `GCS_BUCKET`, `BQ_DATASET_RAW`, `BQ_DATASET_STG`, `BQ_DATASET_MART`, `NOAA_CDO_TOKEN`, and `CENSUS_API_KEY`. A stored secret is ineffective unless mapped into the step that consumes it. Inspect names and bindings without exposing values.
 
-For manual recovery, wait for successful ingestion before transformation/tests/export, then wait for export before DuckDB refresh. Dispatching one workflow does not establish the other stages completed.
+For manual recovery, dispatch Nightly Ingest; Nightly BigQuery follows it. Check both runs: dispatching one does not show the other completed.
 
 ## Frontend
 
@@ -66,6 +66,6 @@ Confirm production branch/project/domain settings in Vercel when deploying; the 
 
 ## Verification and rollback
 
-Read back API revision/image, both job images, scheduler state, workflow results, actual mart dates/quality, exports, DuckDB content, and public results. Check freshness and health separately. With `DUCKDB_COPY_LOCAL=1`, DuckDB connections reopen within a few minutes of a warehouse replacement (one-minute check plus the 180-second query cache). Schema artifacts, caches, and lookups can require a fresh service process to see changed files/schema; decide from query evidence before restarting.
+Read back API revision/image, the job and VM images, scheduler state, workflow results, actual mart dates/quality and public results. Check freshness and health separately. Schema artifacts, caches and lookups can require a fresh service process to see a changed schema; decide from query evidence before restarting.
 
 Retain the previous immutable image digest and revision before deployment. Roll back to that reviewed image/revision if needed; a code rollback does not revert already-written data. Never delete retained raw data as a routine rollback. Use [QA validation](../QA_Validation_Guide.md).

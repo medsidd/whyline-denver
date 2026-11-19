@@ -21,8 +21,8 @@ from api.deps import (
 )
 from api.models import RunQueryRequest, RunQueryResponse
 from whyline.config import settings
-from whyline.engines import bigquery_engine, duckdb_engine
-from whyline.llm import adapt_sql_for_engine
+from whyline.engines import bigquery_engine
+from whyline.llm import qualify_tables
 from whyline.logs import QueryCache, log_query, query_cache
 from whyline.prebuilt import is_live
 from whyline.sql_guardrails import SqlValidationError, referenced_tables, sanitize_sql
@@ -91,18 +91,17 @@ def run_query(req: RunQueryRequest) -> RunQueryResponse:
     Checks query_cache before executing; logs every query.
     """
     models = get_models()
-    guardrail_config = get_guardrail_config(req.engine)
-    engine_module = duckdb_engine if req.engine == "duckdb" else bigquery_engine
+    guardrail_config = get_guardrail_config()
 
     # Server-side re-validation (never trust client SQL)
     try:
         sanitized = sanitize_sql(req.sql, guardrail_config)
-        sanitized = adapt_sql_for_engine(sanitized, req.engine, models)
+        sanitized = qualify_tables(sanitized, models)
     except SqlValidationError as exc:
         return RunQueryResponse(rows=0, columns=[], data=[], total_rows=0, stats={}, error=str(exc))
 
     # Check cache
-    cached = query_cache.get(req.engine, sanitized)
+    cached = query_cache.get("bigquery", sanitized)
     cache_hit = False
     latency_ms = 0.0
     stats: dict = {}
@@ -114,17 +113,16 @@ def run_query(req: RunQueryRequest) -> RunQueryResponse:
             cache_hit = True
         else:
             start = time.monotonic()
-            raw_stats, df = engine_module.execute(
+            raw_stats, df = bigquery_engine.execute(
                 sanitized,
                 allowed_tables=guardrail_config.allowed_models,
                 max_rows=_MAX_DISPLAY_ROWS,
             )
             latency_ms = (time.monotonic() - start) * 1000
             stats = raw_stats if isinstance(raw_stats, dict) else {}
-            query_cache.set(req.engine, sanitized, (raw_stats, df))
+            query_cache.set("bigquery", sanitized, (raw_stats, df))
 
         log_query(
-            engine=req.engine,
             rows=len(df),
             latency_ms=latency_ms,
             models=referenced_tables(sanitized),
@@ -153,12 +151,11 @@ def run_query(req: RunQueryRequest) -> RunQueryResponse:
             total_rows=total_rows,
             stats=stats,
             is_live=live,
-            live_loaded_at=_live_loaded_at() if live and req.engine == "bigquery" else None,
+            live_loaded_at=_live_loaded_at() if live else None,
         )
 
     except Exception as exc:
         log_query(
-            engine=req.engine,
             rows=0,
             latency_ms=0.0,
             models=referenced_tables(sanitized),

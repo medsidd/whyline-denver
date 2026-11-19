@@ -11,9 +11,8 @@ concurrency:
   group: nightly-ingest
   cancel-in-progress: false
 
-# First link of the nightly chain: Nightly BigQuery starts when this finishes, and Nightly
-# DuckDB when that succeeds. GitHub starts scheduled runs hours late, so separate clocks
-# let the DuckDB refresh overlap the build.
+# First link of the nightly chain: Nightly BigQuery starts when this finishes. GitHub starts
+# scheduled runs hours late, so a chain beats a second clock.
 jobs:
   ingest:
     runs-on: ubuntu-latest
