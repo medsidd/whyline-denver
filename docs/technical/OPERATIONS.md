@@ -943,7 +943,7 @@ Readback before the deploy (revision `whylinedenver-api-00021-f2k`): the service
 Owner steps, in order:
 
 1. Deploy the API: `git pull && make api-deploy`. With `B=https://whylinedenver-api-1058998667347.us-central1.run.app`, check that the service has no DuckDB variables or volume (`gcloud run services describe whylinedenver-api --region=us-central1 --project=whyline-denver --format="yaml(spec.template.spec)"`), that `curl -s $B/api/filters` returns routes, and that `curl -s $B/api/freshness` shows a time.
-2. Say so, and the frontend PR (new routes, no `engine`) gets merged; Vercel deploys it.
+2. Say so, and the frontend PR (new routes, no `engine`, aliases dropped from the API) gets merged; Vercel deploys the frontend, and the next `make api-deploy` drops the aliases.
 3. Drop the export state table: `bq rm -f -t whyline-denver:mart_denver.__export_state`.
 4. Delete the exported Parquet and the DuckDB file once nothing needs them. This is permanent; it removes only derived copies (BigQuery keeps every mart): `gcloud storage rm -r gs://whylinedenver-raw/marts/`.
 5. Still open from the QA list: make the live views authorized views and drop the API account's reader access on core, stg and raw (the two scripts under the visitor-SQL finding above).

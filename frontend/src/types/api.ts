@@ -2,8 +2,6 @@
  * TypeScript interfaces mirroring the Pydantic models in api/models.py.
  */
 
-export type Engine = "duckdb" | "bigquery";
-
 // ─── Filter / Sidebar ─────────────────────────────────────────────────────
 
 export interface FilterState {
@@ -47,7 +45,6 @@ export interface ModelsResponse {
 
 export interface GenerateSqlRequest {
   question: string;
-  engine: Engine;
   filters: FilterState;
 }
 
@@ -68,7 +65,6 @@ export interface GenerateSqlResponse {
 
 export interface ValidateSqlRequest {
   sql: string;
-  engine: Engine;
 }
 
 export interface ValidateSqlResponse {
@@ -84,7 +80,6 @@ export interface ValidateSqlResponse {
 
 export interface RunQueryRequest {
   sql: string;
-  engine: Engine;
   question: string;
   prebuilt_index?: number | null;
 }
@@ -104,7 +99,6 @@ export interface RunQueryResponse {
 // ─── Downloads ────────────────────────────────────────────────────────────
 
 export interface MartDownloadRequest {
-  engine: Engine;
   mart: string;
   limit_rows: number;
   date_column: string | null;
@@ -125,14 +119,12 @@ export interface RouteShape {
 
 export interface FreshnessResponse {
   bigquery_freshness: string;
-  duckdb_freshness: string;
 }
 
 // ─── Health ───────────────────────────────────────────────────────────────
 
 export interface HealthResponse {
   status: string;
-  engine_default: string;
 }
 
 // ─── Prebuilt queries: labels mirror PREBUILT in src/whyline/prebuilt.py ──

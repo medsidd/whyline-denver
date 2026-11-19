@@ -18,7 +18,7 @@ FastAPI registers five routers under `/api` in `api/main.py`. `api/models.py` is
 | `POST /api/query/run` | Re-check and run SQL on BigQuery and enrich displayed results |
 | `POST /api/downloads/mart` | CSV export of one of the 18 marts in `MART_OPTIONS` |
 
-Every query runs on BigQuery. Until November 19, 2026 the API also answered on a DuckDB copy of the app marts and served that file at `GET /api/downloads/warehouse`; both are gone. Requests no longer take `engine`; clients that still send it are not refused (unknown fields are ignored). For the dashboard build before the switch, `GET /api/filters/bigquery`, `GET /api/filters/bigquery/stops` and `POST /api/sql/prebuilt/{index}/for/bigquery` still answer as aliases of the routes above (marked `shortcut:` in the code, to delete once the frontend no longer calls them).
+Every query runs on BigQuery. Until November 19, 2026 the API also answered on a DuckDB copy of the app marts and served that file at `GET /api/downloads/warehouse`; both are gone. Requests no longer take `engine`; clients that still send it are not refused (unknown fields are ignored). The engine-named routes (`/api/filters/{engine}`, `/api/filters/{engine}/stops`, `/api/sql/prebuilt/{index}/for/{engine}`) were removed once the dashboard moved to the routes above.
 
 ## Generate SQL
 
@@ -114,6 +114,6 @@ Allowed download marts are `MART_OPTIONS` in `api/routers/downloads.py`: the 18 
 
 ## Errors and health interpretation
 
-Pydantic request validation returns 422. Explicit `HTTPException`s use FastAPI's `detail` field: 400 for invalid download arguments, 404 for an unknown prebuilt index (or a non-`bigquery` engine in the transition aliases), and 500 for download execution failures. SQL generation/validation/query handlers also encode many failures in HTTP-200 response `error` fields. Clients must check both HTTP status and body.
+Pydantic request validation returns 422. Explicit `HTTPException`s use FastAPI's `detail` field: 400 for invalid download arguments, 404 for an unknown prebuilt index, and 500 for download execution failures. SQL generation/validation/query handlers also encode many failures in HTTP-200 response `error` fields. Clients must check both HTTP status and body.
 
 `/api/health` does not load artifacts or execute SQL. `/api/freshness` reports when dbt last built BigQuery, not per-source coverage; timezone formatting differs between deployments and should be read with the returned zone label. Validate actual data using [QA checks](../QA_Validation_Guide.md).

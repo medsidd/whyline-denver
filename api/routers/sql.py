@@ -190,18 +190,3 @@ def prebuilt_sql(index: int, filters: FilterState | None = None) -> GenerateSqlR
         skipped_filters=built.skipped,
         is_live=is_live(built.sql),
     )
-
-
-# shortcut: alias for the dashboard before it switched to the route above; delete once the
-# frontend no longer calls it.
-@router.post(
-    "/sql/prebuilt/{index}/for/{engine_name}",
-    response_model=GenerateSqlResponse,
-    include_in_schema=False,
-)
-def prebuilt_sql_alias(
-    index: int, engine_name: str, filters: FilterState | None = None
-) -> GenerateSqlResponse:
-    if engine_name != "bigquery":
-        raise HTTPException(status_code=404, detail="Not Found")
-    return prebuilt_sql(index, filters)
