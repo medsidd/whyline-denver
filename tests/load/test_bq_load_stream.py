@@ -125,3 +125,24 @@ def test_unreadable_ingestion_log_stops_the_run():
 
     with pytest.raises(RuntimeError):
         bq_load.load_ingestion_log_cache(Broken())
+
+
+def test_temp_tables_expire_so_a_killed_load_leaves_nothing(monkeypatch):
+    """A load killed mid-run skips its cleanup; the temp table must still go away by itself."""
+
+    class Client(FakeClient):
+        def load_table_from_uri(self, *_, **__):
+            raise RuntimeError("killed")
+
+        def delete_table(self, *_, **__):
+            pass
+
+    client = Client()
+    monkeypatch.setattr(bq_load, "build_load_config", lambda job: None)
+    try:
+        bq_load.load_file(bq_client=client, storage_client=None, bucket=None, item=item("x"))
+    except RuntimeError:
+        pass
+    temp = next(t for t in client.created if t.table_id.startswith("__tmp_"))
+    hours = (temp.expires - datetime.now(UTC)).total_seconds() / 3600
+    assert 23 < hours <= 24

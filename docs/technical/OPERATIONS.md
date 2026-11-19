@@ -317,7 +317,7 @@ The highest counts are at Larimer St & 26th St in RiNo (38 scooters and 26 bikes
 
 ### Weekly job access workflow, November 2, 2026 (UTC)
 
-`.github/workflows/weekly-access.yml` (WP12) runs on Mondays at 06:00 UTC and can be dispatched by hand. It:
+`.github/workflows/weekly-access.yml` (WP12) runs on Mondays at 06:23 UTC (06:00 before November 19) and can be dispatched by hand. It:
 1. installs Java 21, `osmium-tool` and `r5py==1.1.7`;
 2. downloads Geofabrik's Colorado extract (about 390 MB), clips it to the RTD box, and downloads RTD's GTFS;
 3. routes the RTD-county tracts in four windows;
@@ -330,7 +330,7 @@ It uses the same repository secrets as the nightly ingest. It doesn't change any
 - **Weekly job access ([#109](https://github.com/medsidd/whyline-denver/pull/109), [#111](https://github.com/medsidd/whyline-denver/pull/111)):** the first `weekly-access.yml` run was dispatched at 00:08 and succeeded in about 10 minutes.
   - Geofabrik's Colorado extract (387 MB) was clipped to 120 MB, and routing took about 1 minute per window.
   - It created `raw_job_access` with 9,360 rows.
-  - The scheduled run is Mondays at 06:00 UTC.
+  - The scheduled run is Mondays at 06:23 UTC.
 - **Bus lanes ([#108](https://github.com/medsidd/whyline-denver/pull/108)):** `bridge_segment_transit_lane` has 115 segment-lane pairs on 8 corridors. No before-and-after is possible yet: every lane predates the data.
 - **Spikes ([#110](https://github.com/medsidd/whyline-denver/pull/110)):** findings are in [metrics spikes](plans/metrics-spikes.md). Nothing is ingested.
 - **Nightly runs:** BigQuery at 00:27 (`e7eeb4a`): 88 models and 179 of 180 tests passed, with the known monotonic-arrivals warning (113 visits). DuckDB at 00:42 succeeded.
@@ -863,6 +863,55 @@ Revision `whylinedenver-api-00020-qfp` serves 100% with Gemini key version 1. Th
 - **The slowest-segments answer led with a layover:** route 204 after Lee Hill Rd & Broadway, 1.1 km/h (880 s for 268 m, 71 s scheduled). Buses park between those stops, and a hold away from the stop has no STOPPED_AT report, so it counted as driving. `fct_segment_traversal` now drops runs over 5 minutes late and 3× the schedule (0.1% of runs). Owner step: rebuild the fact once so older dates lose their holds, `DBT_PROFILES_DIR=$PWD/dbt/profiles .venv/bin/python -m tools.dbt_with_env build --project-dir dbt --target prod --select fct_segment_traversal+ --full-refresh` from the repo root (rebuilds from `fct_stop_visit`, about 3 GB).
 - **"Where snow hurts reliability most" was always empty on DuckDB:** it needs a year of route-days, and DuckDB kept 90 days (no snow since October 14). DuckDB now keeps `mart_reliability_by_route_day` whole (37,767 rows from October 23, 2025); the question gave 10 routes against those exported files. The live question on DuckDB now says it runs on BigQuery only instead of naming a table.
 - **"Worst 10 routes" counted partial days as full ones:** today (14% of stop visits measured at the time) and the November 7 outage day (12%) weighed the same as complete days, and BigQuery's UTC `CURRENT_DATE` made "today" tomorrow every Denver evening. Default windows are now literal Denver dates ending yesterday, and the question skips days with under half their visits measured (`pct_observed < 0.5`).
+- **Returning visitors kept old dates, and every dashboard load failed hydration:** saved filters included the dates, so a question about "last week" ran on the dates of the last visit (Nov 1–15 on Nov 19). `/app` is pre-rendered per deploy with that day's dates, so on any later day React logged #418, #423 and #425 and re-rendered the page. Dates are no longer saved, and saved state plus today's dates apply after mount. Checked with Playwright and a clock set four days ahead: no hydration errors, fresh dates, saved route kept, `?q=` still fills the question.
+- **Phone layout (Playwright, 390 × 844):** no page scrolls sideways (landing, dashboard, privacy, terms, attribution, site map, 404). Bar-chart tooltips did: a long label ran 64 px past the screen and widened the page. Tooltips now wrap within the chart and, on narrow charts, sit at its left edge.
+- **The nightly started 6½–10 hours late every day** (scheduled 08:00 UTC; started 14:28–17:55 UTC since November 3; the weekly 06:00 job too). GitHub delays schedules at the top of the hour most and recommends another minute, so Nightly Ingest is now 08:17 and the weekly job 06:23. If starts stay late, a Cloud Scheduler job that calls the `workflow_dispatch` API is the next step (it needs a GitHub token in Secret Manager).
+- **A load killed mid-run left `raw_denver.__tmp_gbfs_veo_vehicles_20261118104815_77327bd2`** (Nov 18, 10:48 UTC): the loader drops temp tables in a `finally` a kill skips. Temp tables now expire after a day. Owner step: `bq rm -f -t whyline-denver:raw_denver.__tmp_gbfs_veo_vehicles_20261118104815_77327bd2`.
+- **Visitor SQL could read tables outside the app's list:** a comma join to `core_denver.fct_stop_visit`, `dim_stop`, `dim_route` or `raw_denver.raw_gtfsrt_vp_stream` passed, because the exception for the live views' base tables applied to every query, and the API account reads all four datasets. The exception now applies only when the query names a live view. Joining a live view with its base tables still passes until the owner steps below make the live views authorized views, so the API account needs only the mart dataset.
+
+  Owner steps (in order; each check must pass before the next step):
+
+  1. Authorize the live views and the views under them:
+
+     ```bash
+     .venv/bin/python - <<'PY'
+     from google.cloud import bigquery
+     c = bigquery.Client(project="whyline-denver")
+     grants = {
+         "core_denver": ["mart_denver.mart_vehicles_now", "mart_denver.mart_stop_visits_recent"],
+         "stg_denver": ["core_denver.fct_vehicle_report"],
+         "raw_denver": ["stg_denver.stg_rt_vehicle_positions"],
+     }
+     for ds_id, views in grants.items():
+         ds = c.get_dataset(ds_id)
+         entries = list(ds.access_entries)
+         for v in views:
+             d, t = v.split(".")
+             e = bigquery.AccessEntry(None, "view", {"projectId": "whyline-denver", "datasetId": d, "tableId": t})
+             if e not in entries:
+                 entries.append(e)
+         ds.access_entries = entries
+         c.update_dataset(ds, ["access_entries"])
+         print(ds_id, "authorized", views)
+     PY
+     ```
+
+  2. Remove the API account's reader access on the three source datasets:
+
+     ```bash
+     .venv/bin/python - <<'PY'
+     from google.cloud import bigquery
+     c = bigquery.Client(project="whyline-denver")
+     sa = "api-service@whyline-denver.iam.gserviceaccount.com"
+     for ds_id in ("core_denver", "stg_denver", "raw_denver"):
+         ds = c.get_dataset(ds_id)
+         ds.access_entries = [e for e in ds.access_entries if e.entity_id != sa]
+         c.update_dataset(ds, ["access_entries"])
+         print(ds_id, "reader removed")
+     PY
+     ```
+
+  3. Check: the live question runs and the join is refused. `B=https://whylinedenver-api-1058998667347.us-central1.run.app`, then `curl -s $B/api/query/run -H 'content-type: application/json' -d '{"engine":"bigquery","sql":"SELECT route_id, COUNT(*) n FROM mart_vehicles_now GROUP BY 1 LIMIT 3"}'` should return rows, and `curl -s $B/api/sql/validate -H 'content-type: application/json' -d '{"engine":"bigquery","sql":"SELECT COUNT(*) FROM mart_vehicles_now, `whyline-denver.core_denver.dim_stop`"}'` should return `"valid":false`. If the live query fails, restore reader access with `bq add-iam-policy-binding` or the console (BigQuery → dataset → Sharing) and report. Check the live question again after the next nightly, which replaces the views.
 - **Workflow actions on Node 20:** GitHub warned that checkout, setup-python and cache ran Node 20 (deprecated, forced to Node 24). The workflows now use the first majors built for Node 24: checkout v5, setup-python v6, cache v5, setup-node v5, setup-java v5, upload-artifact v6, upload-pages-artifact v5 and deploy-pages v5. The CI frontend build retries once, because `next/font` fetches Google Fonts at build time and that fetch failed two of the last 40 runs.
 
 ### Query usage report

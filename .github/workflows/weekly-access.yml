@@ -5,7 +5,8 @@ name: Weekly Job Access
 # raw/job_access/ and is loaded into raw_job_access; the nightly BigQuery run builds the marts.
 on:
   schedule:
-    - cron: "0 6 * * 1"
+    # Off the hour: GitHub delays top-of-hour schedules most
+    - cron: "23 6 * * 1"
   workflow_dispatch:
 
 concurrency:

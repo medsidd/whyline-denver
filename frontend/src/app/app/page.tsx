@@ -9,7 +9,11 @@ import { Step2SqlEditor } from "@/components/steps/Step2SqlEditor";
 import { Step3Results } from "@/components/steps/Step3Results";
 import type { StepStatus } from "@/components/steps/StepShell";
 import { DownloadPanel } from "@/components/ui/DownloadPanel";
-import { useDashboardStore } from "@/store/dashboardStore";
+import { useEffect, useLayoutEffect } from "react";
+import { hydrateDashboard, useDashboardStore } from "@/store/dashboardStore";
+
+// Layout effects run before the steps' effects, which read ?q= and ?prebuilt= into the store
+const useMountEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 /**
  * /app — main dashboard page.
@@ -17,6 +21,7 @@ import { useDashboardStore } from "@/store/dashboardStore";
  */
 export default function DashboardPage() {
   const { generatedSql, sqlError, queryResult } = useDashboardStore();
+  useMountEffect(hydrateDashboard, []);
 
   // Each step is done once its output exists; the first unfinished one is current.
   const done = [!!generatedSql, !!generatedSql && !sqlError, !!queryResult];

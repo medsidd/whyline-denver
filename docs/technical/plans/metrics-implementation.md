@@ -470,7 +470,7 @@ I'll draft the request text. When data arrives, ingest it as a reference file (`
 **Caveats for the glossary:** LODES suppresses or adjusts some small counts for privacy, and the travel times come from the schedule, not from what actually ran. A later variant could use measured travel times.
 
 **As built, ingestion (2026-11-02):**
-- `whyline.ingest.job_access` and the weekly workflow `weekly-access.yml` (Mondays 06:00 UTC).
+- `whyline.ingest.job_access` and the weekly workflow `weekly-access.yml` (Mondays 06:23 UTC).
 - **Origins:** all RTD-county tracts inside the box (about 780), not only Denver's, so every stop's tract can be scored.
 - **Tract points** come from TIGERweb, which the tract ingestor already uses.
 - **The workflow loads its own output** (`bq_load` for the day), so the nightly run only builds the models.
