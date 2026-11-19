@@ -52,7 +52,7 @@ Verify the new digest in completed executions, not just job configuration. A sha
 
 ## Workflow configuration
 
-Nightly Ingest requests 08:00 UTC and can start hours late; Nightly BigQuery starts when it finishes and Nightly DuckDB when that succeeds. The realtime workflow YAML has only `workflow_dispatch`; Cloud Scheduler handles recurring realtime work.
+Nightly Ingest requests 08:17 UTC (off the hour, which GitHub delays most) and can start hours late; Nightly BigQuery starts when it finishes and Nightly DuckDB when that succeeds. The realtime workflow YAML has only `workflow_dispatch`; Cloud Scheduler handles recurring realtime work.
 
 Workflow secret names used by configuration include `GOOGLE_APPLICATION_CREDENTIALS`, `GCP_PROJECT_ID`, `GCS_BUCKET`, `BQ_DATASET_RAW`, `BQ_DATASET_STG`, `BQ_DATASET_MART`, `NOAA_CDO_TOKEN`, and `CENSUS_API_KEY`. A stored secret is ineffective unless mapped into the step that consumes it. Inspect names and bindings without exposing values.
 

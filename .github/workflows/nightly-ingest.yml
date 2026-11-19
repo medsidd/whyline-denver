@@ -2,7 +2,8 @@ name: Nightly Ingest
 
 on:
   schedule:
-    - cron: "0 8 * * *"
+    # Off the hour: GitHub delays top-of-hour schedules most (runs at 08:00 began 6–10 h late)
+    - cron: "17 8 * * *"
   workflow_dispatch:
 
 # A manual run and a late scheduled run must not build or export at the same time; queue instead.

@@ -317,7 +317,7 @@ The highest counts are at Larimer St & 26th St in RiNo (38 scooters and 26 bikes
 
 ### Weekly job access workflow, November 2, 2026 (UTC)
 
-`.github/workflows/weekly-access.yml` (WP12) runs on Mondays at 06:00 UTC and can be dispatched by hand. It:
+`.github/workflows/weekly-access.yml` (WP12) runs on Mondays at 06:23 UTC (06:00 before November 19) and can be dispatched by hand. It:
 1. installs Java 21, `osmium-tool` and `r5py==1.1.7`;
 2. downloads Geofabrik's Colorado extract (about 390 MB), clips it to the RTD box, and downloads RTD's GTFS;
 3. routes the RTD-county tracts in four windows;
@@ -330,7 +330,7 @@ It uses the same repository secrets as the nightly ingest. It doesn't change any
 - **Weekly job access ([#109](https://github.com/medsidd/whyline-denver/pull/109), [#111](https://github.com/medsidd/whyline-denver/pull/111)):** the first `weekly-access.yml` run was dispatched at 00:08 and succeeded in about 10 minutes.
   - Geofabrik's Colorado extract (387 MB) was clipped to 120 MB, and routing took about 1 minute per window.
   - It created `raw_job_access` with 9,360 rows.
-  - The scheduled run is Mondays at 06:00 UTC.
+  - The scheduled run is Mondays at 06:23 UTC.
 - **Bus lanes ([#108](https://github.com/medsidd/whyline-denver/pull/108)):** `bridge_segment_transit_lane` has 115 segment-lane pairs on 8 corridors. No before-and-after is possible yet: every lane predates the data.
 - **Spikes ([#110](https://github.com/medsidd/whyline-denver/pull/110)):** findings are in [metrics spikes](plans/metrics-spikes.md). Nothing is ingested.
 - **Nightly runs:** BigQuery at 00:27 (`e7eeb4a`): 88 models and 179 of 180 tests passed, with the known monotonic-arrivals warning (113 visits). DuckDB at 00:42 succeeded.
@@ -865,6 +865,8 @@ Revision `whylinedenver-api-00020-qfp` serves 100% with Gemini key version 1. Th
 - **"Worst 10 routes" counted partial days as full ones:** today (14% of stop visits measured at the time) and the November 7 outage day (12%) weighed the same as complete days, and BigQuery's UTC `CURRENT_DATE` made "today" tomorrow every Denver evening. Default windows are now literal Denver dates ending yesterday, and the question skips days with under half their visits measured (`pct_observed < 0.5`).
 - **Returning visitors kept old dates, and every dashboard load failed hydration:** saved filters included the dates, so a question about "last week" ran on the dates of the last visit (Nov 1–15 on Nov 19). `/app` is pre-rendered per deploy with that day's dates, so on any later day React logged #418, #423 and #425 and re-rendered the page. Dates are no longer saved, and saved state plus today's dates apply after mount. Checked with Playwright and a clock set four days ahead: no hydration errors, fresh dates, saved route kept, `?q=` still fills the question.
 - **Phone layout (Playwright, 390 × 844):** no page scrolls sideways (landing, dashboard, privacy, terms, attribution, site map, 404). Bar-chart tooltips did: a long label ran 64 px past the screen and widened the page. Tooltips now wrap within the chart and, on narrow charts, sit at its left edge.
+- **The nightly started 6½–10 hours late every day** (scheduled 08:00 UTC; started 14:28–17:55 UTC since November 3; the weekly 06:00 job too). GitHub delays schedules at the top of the hour most and recommends another minute, so Nightly Ingest is now 08:17 and the weekly job 06:23. If starts stay late, a Cloud Scheduler job that calls the `workflow_dispatch` API is the next step (it needs a GitHub token in Secret Manager).
+- **A load killed mid-run left `raw_denver.__tmp_gbfs_veo_vehicles_20261118104815_77327bd2`** (Nov 18, 10:48 UTC): the loader drops temp tables in a `finally` a kill skips. Temp tables now expire after a day. Owner step: `bq rm -f -t whyline-denver:raw_denver.__tmp_gbfs_veo_vehicles_20261118104815_77327bd2`.
 
 ### Query usage report
 
