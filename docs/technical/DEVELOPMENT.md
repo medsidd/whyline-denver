@@ -70,7 +70,7 @@ Defaults below come from code; `.env.example`, Makefile variables, and deploymen
 | `DUCKDB_PATH` | Query engine defaults to `data/warehouse.duckdb`; set explicitly for other locations |
 | `DUCKDB_COPY_LOCAL`, `DUCKDB_LOCAL_PATH` | Copy enabled unless `0`. Each version is copied to `warehouse-<mtime_ns>-<size>.duckdb` beside the local path (the temp directory by default) and picked up by running connections. Use `1` with Cloud Run's GCS mount. With `0`, restart the API after `make sync-duckdb`. |
 | `DUCKDB_GCS_BLOB`, `DUCKDB_PARQUET_ROOT` | `marts/duckdb/warehouse.duckdb`, `data/marts` for synchronization |
-| `DUCKDB_MAX_AGE_DAYS` | 90 for partitioned history during refresh |
+| `DUCKDB_MAX_AGE_DAYS` | 90 for partitioned history during refresh (`mart_reliability_by_route_day` is kept whole) |
 | `SYNC_STATE_GCS_BUCKET`, `SYNC_STATE_GCS_BLOB` | Remote state enabled only when bucket is set; blob defaults to `state/sync_state.json` |
 | `LLM_PROVIDER` | `stub` when unset in provider dispatch; `.env.example` and deployment Makefile select `gemini` |
 | `GEMINI_API_KEY` / `LLM_API_KEY` | Gemini key / fallback key; Gemini selection without either errors |

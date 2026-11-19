@@ -210,6 +210,12 @@ def prebuilt_sql_for_engine(
         raise HTTPException(status_code=404, detail=f"Prebuilt index {index} not found")
 
     built = build_prebuilt_sql(index, filters.model_dump() if filters else None)
+    if engine_name == "duckdb" and is_live(built.sql):
+        return GenerateSqlResponse(
+            sql="",
+            explanation="",
+            error="Live questions run on BigQuery only: DuckDB holds the nightly tables.",
+        )
     models = get_models()
     guardrail_config = get_guardrail_config(engine_name)
 

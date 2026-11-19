@@ -859,6 +859,7 @@ The owner deployed revision `whylinedenver-api-00019-6sf` (15:30) with a new Gem
 Revision `whylinedenver-api-00020-qfp` serves 100% with Gemini key version 1. The dashboard flow (question → SQL → run → chart or map), the live question, the crash map, mart downloads and every prebuilt question on BigQuery worked, and Cloud Run logged no 5xx. Findings and fixes:
 
 - **DuckDB refused `JOIN … USING`** (the slowest-segments prebuilt, and any such visitor SQL) with a binder error: `get_table_names`, added in #138, binds the query and fails on `USING`. The check now reads DuckDB's parse tree, and `POST /api/sql/validate` runs it too, so validate and run agree.
+- **"Where snow hurts reliability most" was always empty on DuckDB:** it needs a year of route-days, and DuckDB kept 90 days (no snow since October 14). DuckDB now keeps `mart_reliability_by_route_day` whole (37,767 rows from October 23, 2025); the question gave 10 routes against those exported files. The live question on DuckDB now says it runs on BigQuery only instead of naming a table.
 
 ### Query usage report
 
