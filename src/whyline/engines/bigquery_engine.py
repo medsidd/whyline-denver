@@ -10,7 +10,7 @@ from google.cloud import bigquery
 from whyline.config import settings
 from whyline.llm import adapt_sql_for_engine
 from whyline.semantics.dbt_artifacts import DbtArtifacts
-from whyline.sql_guardrails import SqlValidationError
+from whyline.sql_guardrails import SqlValidationError, referenced_tables
 from whyline.sync.constants import LIVE_MARTS
 
 # Cloud Run cuts a request off at 300 s; stop the query first so it doesn't keep billing.
@@ -77,7 +77,9 @@ def _check_reads(job: bigquery.QueryJob, allowed_tables: Iterable[str]) -> None:
             if not (key[:2] == (project, dataset) and key[2] in allowed) and key not in live
         )
 
-    reads_live = any(name in allowed for name in LIVE_MARTS)
+    # Only a query that names a live view may read the tables behind it (the dry run reports
+    # those, not the view); before, every query could, so a comma join reached core tables.
+    reads_live = bool(set(LIVE_MARTS) & allowed & set(referenced_tables(job.query or "")))
     bad = outside(_live_view_tables() if reads_live else frozenset())
     if bad and reads_live:
         # A live view may have been redefined since this process cached its base tables

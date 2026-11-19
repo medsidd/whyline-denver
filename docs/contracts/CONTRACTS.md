@@ -410,7 +410,7 @@ Written by `whyline.ingest.weather_hourly` (nightly ingest, non-fatal) from Open
 
 ## `raw_job_access`
 
-Written by `whyline.ingest.job_access`, which the weekly GitHub workflow `.github/workflows/weekly-access.yml` runs on Mondays at 06:00 UTC, then loads.
+Written by `whyline.ingest.job_access`, which the weekly GitHub workflow `.github/workflows/weekly-access.yml` runs on Mondays at 06:23 UTC, then loads.
 
 - **Pattern:** `job_access/extract_date=*/job_access.csv.gz`, partitioned by `_extract_date`.
 - **Origins and destinations:** every 2020 census tract in the RTD counties (Adams, Arapahoe, Boulder, Broomfield, Denver, Douglas, Jefferson, Weld) whose internal point lies inside the RTD box. That was about 780 tracts on 2026-11-02, from TIGERweb.
