@@ -1,6 +1,6 @@
 # Development setup
 
-Run commands from the repository root. Use Python 3.11 and a Node.js version compatible with the locked Next.js 14.2.35 (at least 18.17). The frontend is `frontend/`; the old Streamlit application and its packages (`streamlit`, `pydeck`, `folium`, `watchdog`) were removed. Gemini is called through `google-genai` (the older `google-generativeai` is end-of-life).
+Run commands from the repository root. Use Python 3.11 and a Node.js version compatible with the locked Next.js 15.5.29 (at least 18.18; CI and Vercel use 24). The frontend is `frontend/`; the old Streamlit application and its packages (`streamlit`, `pydeck`, `folium`, `watchdog`) were removed. Gemini is called through `google-genai` (the older `google-generativeai` is end-of-life).
 
 ## Install and configure
 

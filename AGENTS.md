@@ -45,7 +45,7 @@ Set `ENGINE=duckdb` and `LLM_PROVIDER=stub` explicitly for local work. `.env.exa
 - `src/whyline/llm.py`: Gemini or stub generation and SQL dialect adaptation. Other named providers are not implemented.
 - `src/whyline/prebuilt.py`: the 9 ready-made questions as SQL templates (the ninth reads live data), `is_live`, and `clean_filters`, which validates filter-rail values before any SQL uses them. Keep labels in sync with `frontend/src/types/api.ts`.
 - `src/whyline/engines/`: BigQuery and DuckDB. Use `DUCKDB_COPY_LOCAL=1` on Cloud Run; with it, connections reopen within a few minutes of a warehouse replacement, but lookups are cached for the life of the process, so verify served results.
-- `frontend/`: Next.js 14, Zustand persistence, TanStack Query, Recharts, Deck.gl. Dynamically import `StopMap` with `ssr: false`.
+- `frontend/`: Next.js 15 (React 19), Zustand persistence, TanStack Query, Recharts, Deck.gl. Dynamically import `StopMap` with `ssr: false`.
 - `infra/cloud-run/`: one image dispatches `JOB_TYPE=load|stream` (`stream` runs on the poller VM; the old `ingest` mode was removed). Update the job and the VM's `image-uri` to the tested immutable image digest when shared source changes; `:latest` is not automatically refreshed in existing jobs.
 
 Use focused checks appropriate to the change. Do not treat API health, a timestamp, enabled scheduling, completed jobs, actual data coverage, and correct query results as interchangeable evidence. Do not promise complete arrival coverage or describe missing weather as dry. See [metrics](docs/public/METRICS_GLOSSARY.md) for current limitations.

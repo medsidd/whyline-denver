@@ -25,7 +25,7 @@ BigQuery → FastAPI → Next.js /app   (the API also answers on DuckDB; the das
 | Export | The 20 app marts: date-partitioned marts by rebuilt partition (selected using `build_run_at` as well as date checkpoints), the rest as daily snapshots. Live views and `allow_in_app: false` marts are not exported. |
 | Embedded warehouse | `sync/refresh_duckdb.py` materializes the 20 app marts. Partitioned history is limited by `DUCKDB_MAX_AGE_DAYS` (90 by default), except `mart_reliability_by_route_day`, kept whole (about 40,000 rows) for the year-long snow question; snapshots use latest run date. |
 | HTTP | Five routers in `api/routers/` (health, filters including `/routes/shapes`, sql, query, downloads), registered under `/api`; request/response models in `api/models.py`. |
-| Presentation | Next.js 14, React 18, Zustand, TanStack Query, Recharts, Deck.gl/MapLibre, CodeMirror. |
+| Presentation | Next.js 15, React 19, Zustand, TanStack Query, Recharts, Deck.gl/MapLibre, CodeMirror. |
 
 ## Why two engines?
 
