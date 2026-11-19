@@ -261,6 +261,7 @@ A segment runs from one stop of a trip to the next. Its running time is from lea
 Limits:
 - Segments only count when both stops were timed to within 30 seconds, so rail, which reports less often, has fewer segments.
 - Speeds over 130 km/h, faster than any RTD vehicle, are timing error on closely spaced stops and are dropped.
+- A run more than 5 minutes late and over 3 times its scheduled time is dropped too: the bus was parked between the stops, for a layover or to wait for its departure time, rather than driving. About 0.1% of runs.
 - The day's buffer time index mixes peak and off-peak trips.
 
 

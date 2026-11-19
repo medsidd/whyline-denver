@@ -747,7 +747,7 @@ models:
         description: "GTFS service date: the day the trip began (America/Denver), so a trip running past midnight counts on the earlier day."
 
   - name: fct_segment_traversal
-    description: "Running time between consecutive stops of a trip, both ends timed to within 30 s: from leaving stop n (middle of its departure window, or its arrival when it didn't stop) to reaching stop n+1, with distance along the shape, speed and scheduled time. Speeds over 130 km/h are dropped as timing error. Rebuildable from fct_stop_visit."
+    description: "Running time between consecutive stops of a trip, both ends timed to within 30 s: from leaving stop n (middle of its departure window, or its arrival when it didn't stop) to reaching stop n+1, with distance along the shape, speed and scheduled time. Speeds over 130 km/h are dropped as timing error, and runs over 5 minutes late and 3 times the schedule as a bus parked between the stops (a layover or hold away from the stop). Rebuildable from fct_stop_visit."
     data_tests:
       - unique_combination:
           column_names: ['service_date', 'trip_id', 'from_stop_sequence']
