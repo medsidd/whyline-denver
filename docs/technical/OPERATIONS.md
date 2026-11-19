@@ -867,6 +867,51 @@ Revision `whylinedenver-api-00020-qfp` serves 100% with Gemini key version 1. Th
 - **Phone layout (Playwright, 390 × 844):** no page scrolls sideways (landing, dashboard, privacy, terms, attribution, site map, 404). Bar-chart tooltips did: a long label ran 64 px past the screen and widened the page. Tooltips now wrap within the chart and, on narrow charts, sit at its left edge.
 - **The nightly started 6½–10 hours late every day** (scheduled 08:00 UTC; started 14:28–17:55 UTC since November 3; the weekly 06:00 job too). GitHub delays schedules at the top of the hour most and recommends another minute, so Nightly Ingest is now 08:17 and the weekly job 06:23. If starts stay late, a Cloud Scheduler job that calls the `workflow_dispatch` API is the next step (it needs a GitHub token in Secret Manager).
 - **A load killed mid-run left `raw_denver.__tmp_gbfs_veo_vehicles_20261118104815_77327bd2`** (Nov 18, 10:48 UTC): the loader drops temp tables in a `finally` a kill skips. Temp tables now expire after a day. Owner step: `bq rm -f -t whyline-denver:raw_denver.__tmp_gbfs_veo_vehicles_20261118104815_77327bd2`.
+- **Visitor SQL could read tables outside the app's list:** a comma join to `core_denver.fct_stop_visit`, `dim_stop`, `dim_route` or `raw_denver.raw_gtfsrt_vp_stream` passed, because the exception for the live views' base tables applied to every query, and the API account reads all four datasets. The exception now applies only when the query names a live view. Joining a live view with its base tables still passes until the owner steps below make the live views authorized views, so the API account needs only the mart dataset.
+
+  Owner steps (in order; each check must pass before the next step):
+
+  1. Authorize the live views and the views under them:
+
+     ```bash
+     .venv/bin/python - <<'PY'
+     from google.cloud import bigquery
+     c = bigquery.Client(project="whyline-denver")
+     grants = {
+         "core_denver": ["mart_denver.mart_vehicles_now", "mart_denver.mart_stop_visits_recent"],
+         "stg_denver": ["core_denver.fct_vehicle_report"],
+         "raw_denver": ["stg_denver.stg_rt_vehicle_positions"],
+     }
+     for ds_id, views in grants.items():
+         ds = c.get_dataset(ds_id)
+         entries = list(ds.access_entries)
+         for v in views:
+             d, t = v.split(".")
+             e = bigquery.AccessEntry(None, "view", {"projectId": "whyline-denver", "datasetId": d, "tableId": t})
+             if e not in entries:
+                 entries.append(e)
+         ds.access_entries = entries
+         c.update_dataset(ds, ["access_entries"])
+         print(ds_id, "authorized", views)
+     PY
+     ```
+
+  2. Remove the API account's reader access on the three source datasets:
+
+     ```bash
+     .venv/bin/python - <<'PY'
+     from google.cloud import bigquery
+     c = bigquery.Client(project="whyline-denver")
+     sa = "api-service@whyline-denver.iam.gserviceaccount.com"
+     for ds_id in ("core_denver", "stg_denver", "raw_denver"):
+         ds = c.get_dataset(ds_id)
+         ds.access_entries = [e for e in ds.access_entries if e.entity_id != sa]
+         c.update_dataset(ds, ["access_entries"])
+         print(ds_id, "reader removed")
+     PY
+     ```
+
+  3. Check: the live question runs and the join is refused. `B=https://whylinedenver-api-1058998667347.us-central1.run.app`, then `curl -s $B/api/query/run -H 'content-type: application/json' -d '{"engine":"bigquery","sql":"SELECT route_id, COUNT(*) n FROM mart_vehicles_now GROUP BY 1 LIMIT 3"}'` should return rows, and `curl -s $B/api/sql/validate -H 'content-type: application/json' -d '{"engine":"bigquery","sql":"SELECT COUNT(*) FROM mart_vehicles_now, `whyline-denver.core_denver.dim_stop`"}'` should return `"valid":false`. If the live query fails, restore reader access with `bq add-iam-policy-binding` or the console (BigQuery → dataset → Sharing) and report. Check the live question again after the next nightly, which replaces the views.
 
 ### Query usage report
 
