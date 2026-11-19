@@ -854,6 +854,12 @@ The owner deployed revision `whylinedenver-api-00019-6sf` (15:30) with a new Gem
 - **Every BigQuery query failed** with "Please install the 'db-dtypes' package". Dropping dbt from the API image also dropped `db-dtypes`, which `to_dataframe` needs; local checks ran in a venv that still had it. Fixed by listing it in `api/requirements.txt` and an import check in the image build ([#150](https://github.com/medsidd/whyline-denver/pull/150)), checked with real queries in a venv built from the API requirements alone.
 - **SQL generation failed** with 404: the new key cannot use `gemini-2.5-flash` ("no longer available to new users"). Newer Flash models answered 503 for both keys; the old key (version 1) with `gemini-2.5-flash` generated SQL normally. The deploy pins version 1 until a newer model is reliable.
 
+### End-to-end QA and fixes, November 19, 2026 (UTC)
+
+Revision `whylinedenver-api-00020-qfp` serves 100% with Gemini key version 1. The dashboard flow (question → SQL → run → chart or map), the live question, the crash map, mart downloads and every prebuilt question on BigQuery worked, and Cloud Run logged no 5xx. Findings and fixes:
+
+- **DuckDB refused `JOIN … USING`** (the slowest-segments prebuilt, and any such visitor SQL) with a binder error: `get_table_names`, added in #138, binds the query and fails on `USING`. The check now reads DuckDB's parse tree, and `POST /api/sql/validate` runs it too, so validate and run agree.
+
 ### Query usage report
 
 From release R1 of the [metrics plan](plans/metrics-implementation.md), the first API image with WP0's change, every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:

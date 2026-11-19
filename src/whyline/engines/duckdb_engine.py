@@ -1,6 +1,7 @@
 # ruff: noqa: I001
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -170,21 +171,57 @@ def _get_connection() -> duckdb.DuckDBPyConnection:
     return new_con
 
 
-def _check_reads(con: duckdb.DuckDBPyConnection, sql: str, allowed_tables: Iterable[str]) -> None:
+# Table functions that compute rows rather than read data
+_PURE_TABLE_FUNCTIONS = {"unnest", "range", "generate_series"}
+
+
+def _reads(node: object, tables: set[str], functions: set[str], ctes: set[str]) -> None:
+    """Collect the tables, table functions and CTE names in DuckDB's parse tree of a query."""
+    if isinstance(node, list):
+        for item in node:
+            _reads(item, tables, functions, ctes)
+        return
+    if not isinstance(node, dict):
+        return
+    if node.get("type") == "BASE_TABLE":
+        name = node["table_name"].lower()
+        # A bare name may be a CTE; a qualified one never is
+        tables.add(name if not (node["schema_name"] or node["catalog_name"]) else f".{name}")
+    elif node.get("type") == "TABLE_FUNCTION":
+        functions.add(node["function"]["function_name"].lower())
+    for entry in node.get("cte_map", {}).get("map", []):
+        ctes.add(entry["key"].lower())
+    for value in node.values():
+        _reads(value, tables, functions, ctes)
+
+
+def check_reads(sql: str, allowed_tables: Iterable[str]) -> None:
     """Refuse anything but one SELECT over the allowed tables, as DuckDB itself parses it.
 
     The text checks in sql_guardrails can be talked around (comma joins, comments, TABLE x);
-    DuckDB's own statement type and table list cannot.
+    DuckDB's own parse tree cannot. (`get_table_names` also binds the query and fails on
+    `JOIN ... USING`, so the tree is read directly.) Parsing needs no database: no query runs.
     """
     try:
         statements = duckdb.extract_statements(sql)
-        tables = con.get_table_names(sql)
+        with duckdb.connect() as parser:
+            tree = json.loads(parser.execute("SELECT json_serialize_sql(?)", [sql]).fetchone()[0])
     except duckdb.Error as exc:
         raise SqlValidationError(f"The SQL could not be parsed: {exc}") from exc
-    if len(statements) != 1 or statements[0].type != duckdb.StatementType.SELECT:
+    if (
+        len(statements) != 1
+        or statements[0].type != duckdb.StatementType.SELECT
+        or tree.get("error")
+    ):
         raise SqlValidationError("Only single SELECT statements are allowed.")
+    tables: set[str] = set()
+    functions: set[str] = set()
+    ctes: set[str] = set()
+    _reads(tree["statements"], tables, functions, ctes)
     allowed = {name.lower() for name in allowed_tables}
-    bad = sorted(name for name in tables if name.lower() not in allowed)
+    bad = sorted(t.lstrip(".") for t in tables if t not in allowed and t not in ctes) + sorted(
+        f"{f}()" for f in functions - _PURE_TABLE_FUNCTIONS
+    )
     if bad:
         raise SqlValidationError(
             f"Query references unauthorized tables: {', '.join(bad)}. "
@@ -203,7 +240,7 @@ def execute(
     try:
         con = _get_connection()
         if allowed_tables is not None:
-            _check_reads(con, sql, allowed_tables)
+            check_reads(sql, allowed_tables)
         _logger.debug("Executing query: %s", sql[:200])  # Log first 200 chars
         cursor = con.execute(sql)
         if max_rows is None:
