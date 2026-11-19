@@ -23,7 +23,7 @@ BigQuery → FastAPI → Next.js /app   (the API also answers on DuckDB; the das
 | Transformation | Medallion layers: 25 silver staging models, 33 gold-core models (eight dimensions, 21 facts, four bridges: Type 2 GTFS dimensions with surrogate keys and Unknown members; incremental schedule, stop-visit and trip-status facts; nightly crash, weather, demographics and other facts), and 35 serving marts built only from gold core. Three legacy models are disabled since the stop-visit cutover. See the [model reference](../../dbt/models/README.md). |
 | Published schema | `DbtArtifacts` reads manifest/catalog. Models must have `config.meta.allow_in_app` and be in `sync/constants.py`: the 20 `ALLOWLISTED_MARTS` or the 2 `LIVE_MARTS` (live views, BigQuery only). |
 | Export | The 20 app marts: date-partitioned marts by rebuilt partition (selected using `build_run_at` as well as date checkpoints), the rest as daily snapshots. Live views and `allow_in_app: false` marts are not exported. |
-| Embedded warehouse | `sync/refresh_duckdb.py` materializes the 20 app marts. Partitioned history is limited by `DUCKDB_MAX_AGE_DAYS` (90 by default); snapshots use latest run date. |
+| Embedded warehouse | `sync/refresh_duckdb.py` materializes the 20 app marts. Partitioned history is limited by `DUCKDB_MAX_AGE_DAYS` (90 by default), except `mart_reliability_by_route_day`, kept whole (about 40,000 rows) for the year-long snow question; snapshots use latest run date. |
 | HTTP | Five routers in `api/routers/` (health, filters including `/routes/shapes`, sql, query, downloads), registered under `/api`; request/response models in `api/models.py`. |
 | Presentation | Next.js 14, React 18, Zustand, TanStack Query, Recharts, Deck.gl/MapLibre, CodeMirror. |
 

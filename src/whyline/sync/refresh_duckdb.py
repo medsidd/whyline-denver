@@ -27,6 +27,8 @@ SYNC_STATE_PATH = Path("data/sync_state.json")
 DUCKDB_GCS_REQUIRED_ENV = "DUCKDB_GCS_REQUIRED"
 
 DUCKDB_MAX_AGE_DAYS = int(os.getenv("DUCKDB_MAX_AGE_DAYS", "90"))
+# Small marts kept whole: the snow-day question compares a year of days (about 40,000 rows)
+FULL_HISTORY_MARTS = {"mart_reliability_by_route_day"}
 
 # Materialize all allowlisted marts as tables.
 HOT_MARTS = {
@@ -367,7 +369,12 @@ def _resolve_mart_sources(
 
     run_dates = sorted(run_dates)
 
-    if run_dates and DUCKDB_MAX_AGE_DAYS > 0 and not use_latest_only:
+    if (
+        run_dates
+        and DUCKDB_MAX_AGE_DAYS > 0
+        and not use_latest_only
+        and mart_name not in FULL_HISTORY_MARTS
+    ):
         cutoff = (date.today() - timedelta(days=DUCKDB_MAX_AGE_DAYS)).isoformat()
         filtered = [rd for rd in run_dates if rd >= cutoff]
         if filtered:
