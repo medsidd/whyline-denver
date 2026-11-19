@@ -948,6 +948,8 @@ Owner steps, in order:
 4. Delete the exported Parquet and the DuckDB file once nothing needs them. This is permanent; it removes only derived copies (BigQuery keeps every mart): `gcloud storage rm -r gs://whylinedenver-raw/marts/`.
 5. Still open from the QA list: make the live views authorized views and drop the API account's reader access on core, stg and raw (the two scripts under the visitor-SQL finding above).
 
+**Deployed, November 19, 2026, ~17:30 UTC.** Revision `whylinedenver-api-00022-f44` serves 100%: no `ENGINE` or `DUCKDB_*` variables, no volume or mount, Gemini secret version 1. `/api/filters`, `/api/filters/stops` and `/api/sql/prebuilt/{index}` answer; `/api/downloads/warehouse` is 404 (on the previous revision it returned 500, because the 120 MB file was over Cloud Run's 32 MiB response limit). #166 then moved the dashboard to the new routes. Playwright on production at 1440 × 900 and 390 × 844: all 9 ready-made questions through chart, map and table, a Gemini question ("yesterday" became November 18), and a whole-table CSV, with no request sending `engine`, no failed request and no console error. The aliases leave the API at the next deploy. Steps 3 and 4 (export table, Parquet and DuckDB objects) are still to do.
+
 ### Query usage report
 
 From release R1 of the [metrics plan](plans/metrics-implementation.md), the first API image with WP0's change, every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:
