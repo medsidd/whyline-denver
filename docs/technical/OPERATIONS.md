@@ -317,7 +317,7 @@ The highest counts are at Larimer St & 26th St in RiNo (38 scooters and 26 bikes
 
 ### Weekly job access workflow, November 2, 2026 (UTC)
 
-`.github/workflows/weekly-access.yml` (WP12) runs on Mondays at 06:00 UTC and can be dispatched by hand. It:
+`.github/workflows/weekly-access.yml` (WP12) runs on Mondays at 06:23 UTC (06:00 before November 19) and can be dispatched by hand. It:
 1. installs Java 21, `osmium-tool` and `r5py==1.1.7`;
 2. downloads Geofabrik's Colorado extract (about 390 MB), clips it to the RTD box, and downloads RTD's GTFS;
 3. routes the RTD-county tracts in four windows;
@@ -330,7 +330,7 @@ It uses the same repository secrets as the nightly ingest. It doesn't change any
 - **Weekly job access ([#109](https://github.com/medsidd/whyline-denver/pull/109), [#111](https://github.com/medsidd/whyline-denver/pull/111)):** the first `weekly-access.yml` run was dispatched at 00:08 and succeeded in about 10 minutes.
   - Geofabrik's Colorado extract (387 MB) was clipped to 120 MB, and routing took about 1 minute per window.
   - It created `raw_job_access` with 9,360 rows.
-  - The scheduled run is Mondays at 06:00 UTC.
+  - The scheduled run is Mondays at 06:23 UTC.
 - **Bus lanes ([#108](https://github.com/medsidd/whyline-denver/pull/108)):** `bridge_segment_transit_lane` has 115 segment-lane pairs on 8 corridors. No before-and-after is possible yet: every lane predates the data.
 - **Spikes ([#110](https://github.com/medsidd/whyline-denver/pull/110)):** findings are in [metrics spikes](plans/metrics-spikes.md). Nothing is ingested.
 - **Nightly runs:** BigQuery at 00:27 (`e7eeb4a`): 88 models and 179 of 180 tests passed, with the known monotonic-arrivals warning (113 visits). DuckDB at 00:42 succeeded.
@@ -861,6 +861,8 @@ Revision `whylinedenver-api-00020-qfp` serves 100% with Gemini key version 1. Th
 - **DuckDB refused `JOIN … USING`** (the slowest-segments prebuilt, and any such visitor SQL) with a binder error: `get_table_names`, added in #138, binds the query and fails on `USING`. The check now reads DuckDB's parse tree, and `POST /api/sql/validate` runs it too, so validate and run agree.
 - **Two dbt tests read the whole stop-times history nightly:** `not_null` on `stg_gtfs_stop_times.trip_id` and `stop_id` scanned all 217M rows, 11.7 GB each, about half of the nightly dbt bytes since `dbt build` began running tests. Both now check the last 7 days of extracts (0.4 GB each by dry run).
 - **The slowest-segments answer led with a layover:** route 204 after Lee Hill Rd & Broadway, 1.1 km/h (880 s for 268 m, 71 s scheduled). Buses park between those stops, and a hold away from the stop has no STOPPED_AT report, so it counted as driving. `fct_segment_traversal` now drops runs over 5 minutes late and 3× the schedule (0.1% of runs). Owner step: rebuild the fact once so older dates lose their holds, `DBT_PROFILES_DIR=$PWD/dbt/profiles .venv/bin/python -m tools.dbt_with_env build --project-dir dbt --target prod --select fct_segment_traversal+ --full-refresh` from the repo root (rebuilds from `fct_stop_visit`, about 3 GB).
+- **The nightly started 6½–10 hours late every day** (scheduled 08:00 UTC; started 14:28–17:55 UTC since November 3; the weekly 06:00 job too). GitHub delays schedules at the top of the hour most and recommends another minute, so Nightly Ingest is now 08:17 and the weekly job 06:23. If starts stay late, a Cloud Scheduler job that calls the `workflow_dispatch` API is the next step (it needs a GitHub token in Secret Manager).
+- **A load killed mid-run left `raw_denver.__tmp_gbfs_veo_vehicles_20261118104815_77327bd2`** (Nov 18, 10:48 UTC): the loader drops temp tables in a `finally` a kill skips. Temp tables now expire after a day. Owner step: `bq rm -f -t whyline-denver:raw_denver.__tmp_gbfs_veo_vehicles_20261118104815_77327bd2`.
 
 ### Query usage report
 
