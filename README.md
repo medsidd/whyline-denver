@@ -16,9 +16,9 @@ RTD / Denver Open Data / NOAA / Census / others
   → FastAPI → Next.js dashboard (BigQuery)
 ```
 
-BigQuery builds the warehouse and answers the dashboard; the API can also query a DuckDB copy of the 20 app marts. The project has 16 ingestion CLIs, 93 dbt models in medallion layers (25 silver staging, 33 gold-core Kimball dimensions/facts/bridges, 35 serving marts, two of them live views), and a Next.js 14 / React 18 frontend. Python dependencies are in `requirements.txt` and `api/requirements.txt`; frontend versions are locked in `frontend/package-lock.json`.
+BigQuery builds the warehouse and answers the dashboard; the API can also query a DuckDB copy of the 20 app marts. The project has 16 ingestion CLIs, 93 dbt models in medallion layers (25 silver staging, 33 gold-core Kimball dimensions/facts/bridges, 35 serving marts, two of them live views), and a Next.js 15 / React 19 frontend. Python dependencies are in `requirements.txt` and `api/requirements.txt`; frontend versions are locked in `frontend/package-lock.json`.
 
-Realtime data comes from a continuous poller on a VM, loaded every 15 minutes by the `realtime-load` job; the old snapshot job is paused. The three nightly workflows request starts at 08:00, 09:00, and 09:30 UTC. These are independent schedules, not completion dependencies. See [operations](docs/technical/OPERATIONS.md) for dated evidence, billing, and verification commands.
+Realtime data comes from a continuous poller on a VM, loaded every 15 minutes by the `realtime-load` job; the old snapshot job is paused. Nightly Ingest requests 08:17 UTC; Nightly BigQuery starts when it finishes and Nightly DuckDB when that succeeds. See [operations](docs/technical/OPERATIONS.md) for dated evidence, billing, and verification commands.
 
 ## Run locally
 

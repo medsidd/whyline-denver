@@ -1,6 +1,6 @@
 # Frontend
 
-`frontend/` is a Next.js 14 App Router app with React 18. The landing page is `src/app/page.tsx`; the client dashboard is `src/app/app/page.tsx`. Dependency resolution is locked in `package-lock.json`.
+`frontend/` is a Next.js 15 App Router app with React 19 (Next 14 until November 19, 2026: every remaining Next 14 release had open advisories, three critical). The landing page is `src/app/page.tsx`; the client dashboard is `src/app/app/page.tsx`. Dependency resolution is locked in `package-lock.json`; `overrides` lift Next's bundled `postcss` and eslint's `brace-expansion` 1.x past their advisories (`npm audit` reports none).
 
 ## Component map
 
@@ -30,7 +30,7 @@
 
 The dashboard queries BigQuery only: `lib/api.ts` sends `engine: "bigquery"` on every request, and the UI has no engine switch or DuckDB download. The API still accepts `duckdb`. Generation sends question, engine, and filters to `/api/sql/generate`. While it waits (usually 10–20 seconds with Gemini), a live line under the form says so and counts seconds after 5. On success, SQL/explanation populate the editor and prior results clear. While a query runs, a skeleton replaces the previous result. The landing page's four question chips link to `/app?prebuilt=N`, which loads that ready-made question (no AI call, nothing runs) and drops the parameter; topic examples still use `?q=`, which only fills the question box. Prebuilt cards bypass the LLM and call `/api/sql/prebuilt/{index}/for/bigquery` with the rail's filters; Step 2 then says which filters the question used ("Uses your dates and routes. Your stop filter isn't used by this question."). New SQL is validated as soon as it loads, so the scan estimate shows before any edit, and the pill reads "Checking…" until the check for the current text returns; checks for older text are dropped. Editing validates after a 500 ms debounce and clears the stored sanitized SQL, so Run sends the visible text (the API re-checks it). Execution sends SQL to `/api/query/run`, which validates again server-side.
 
-The Zustand store starts with the last seven days and today by Denver's calendar (before November 8, 2026 it used the UTC date, a day ahead every evening). Filter updates merge into state. They reload an unedited ready-made question but do not rewrite generated or edited SQL. Inspect the query after changing filters.
+The dashboard's dates are the last seven days and today by Denver's calendar (before November 8, 2026 it used the UTC date, a day ahead every evening), set when the page mounts: `/app` is pre-rendered once per deploy, so the store starts with no dates and `hydrateDashboard()` (a layout effect in `app/app/page.tsx`, ahead of the steps' `?q=`/`?prebuilt=` effects) applies saved state and today's dates. Before November 19 the build day's dates were rendered, and every later day failed hydration (React #418/#423/#425) and re-rendered the page in the browser. Filter updates merge into state. They reload an unedited ready-made question but do not rewrite generated or edited SQL. Inspect the query after changing filters.
 
 The route box reads "Loading routes…" until `/api/filters/bigquery` returns. A route entered before then is added once the list arrives; a route that isn't in the list gets an inline "No route called …" message. The whole-table download checks the row limit (1,000–2,000,000) before calling the API and shows API failures as plain sentences.
 
@@ -38,7 +38,7 @@ The SQL editor autocompletes approved table and column names from `/api/models`,
 
 A 429 (the Vercel rate-limit rule, or Cloud Run at its instance limit) shows "Too many requests. Wait a minute and try again." when writing SQL, checking it, running it or downloading a table. The ready-made questions and the route list keep their own fixed failure messages. Errors show their message without the `Error:` prefix.
 
-LocalStorage key `whyline-dashboard` (persist version 1; older saved state is discarded because it can hold DuckDB SQL) persists filters, question, generated SQL, edited SQL, explanation, and generation cache-hit state. Results, run errors, validation results, and byte estimates are not persisted. Closing a tab does not erase the persisted question/SQL. Persistence is per browser origin; no live cross-tab synchronization is implemented.
+LocalStorage key `whyline-dashboard` (persist version 1; older saved state is discarded because it can hold DuckDB SQL) persists filters other than the dates (from November 19: a visitor back a week later got last week's window), question, generated SQL, edited SQL, explanation, and generation cache-hit state. Results, run errors, validation results, and byte estimates are not persisted. Closing a tab does not erase the persisted question/SQL. Persistence is per browser origin; no live cross-tab synchronization is implemented. The store uses `skipHydration`, so saved state applies after the first render, never in the pre-rendered HTML.
 
 ## Charts and maps
 

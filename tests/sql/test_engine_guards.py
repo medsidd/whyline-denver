@@ -91,12 +91,12 @@ def test_duckdb_fetches_no_more_than_max_rows(warehouse):
     assert (len(df), stats["truncated"]) == (7, False)
 
 
-def _job(*tables: str, statement_type: str = "SELECT"):
+def _job(*tables: str, statement_type: str = "SELECT", query: str = ""):
     refs = [
         SimpleNamespace(project=p, dataset_id=d, table_id=t)
         for p, d, t in (name.split(".", 2) for name in tables)
     ]
-    return SimpleNamespace(statement_type=statement_type, referenced_tables=refs)
+    return SimpleNamespace(statement_type=statement_type, referenced_tables=refs, query=query)
 
 
 @pytest.fixture
@@ -109,8 +109,23 @@ def live_tables(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_bigquery_allows_marts_and_live_view_tables(live_tables):
-    job = _job("whyline-denver.mart_denver.mart_x", "whyline-denver.core_denver.dim_route")
+    job = _job(
+        "whyline-denver.mart_denver.mart_x",
+        "whyline-denver.core_denver.dim_route",
+        query="SELECT * FROM mart_x JOIN mart_vehicles_now USING (route_id)",
+    )
     bigquery_engine._check_reads(job, {"mart_x", "mart_vehicles_now"})
+
+
+def test_bigquery_refuses_live_view_tables_without_the_view(live_tables):
+    """A comma join reached core_denver.dim_route because the live exception always applied."""
+    job = _job(
+        "whyline-denver.mart_denver.mart_x",
+        "whyline-denver.core_denver.dim_route",
+        query="SELECT * FROM mart_x, `whyline-denver.core_denver.dim_route`",
+    )
+    with pytest.raises(SqlValidationError):
+        bigquery_engine._check_reads(job, {"mart_x", "mart_vehicles_now"})
 
 
 @pytest.mark.parametrize(

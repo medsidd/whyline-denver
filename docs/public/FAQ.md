@@ -2,7 +2,7 @@
 
 ## How current is the dashboard?
 
-The two reliability tables (route-day and stop-hour) update every 15 minutes; the other tables are rebuilt once a night, usually between 14:00 and 20:00 UTC (the nightly run is scheduled for 08:00 UTC but starts hours late), so they run through the previous day. Questions about right now read live views over the 15-minute realtime load, so they trail real time by 15–30 minutes. The downloadable DuckDB warehouse is refreshed nightly. Weather may arrive late. ACS remains the configured 2023 five-year vintage even when re-extracted nightly. Freshness badges are processing timestamps, not guarantees that every source covers that date. See [operations](../technical/OPERATIONS.md) and [sources](DATA_SOURCES.md).
+The two reliability tables (route-day and stop-hour) update every 15 minutes; the other tables are rebuilt once a night, usually between 14:00 and 20:00 UTC (the nightly run is scheduled for 08:17 UTC but GitHub has started it hours late), so they run through the previous day. Questions about right now read live views over the 15-minute realtime load, so they trail real time by 15–30 minutes. The downloadable DuckDB warehouse is refreshed nightly. Weather may arrive late. ACS remains the configured 2023 five-year vintage even when re-extracted nightly. Freshness badges are processing timestamps, not guarantees that every source covers that date. See [operations](../technical/OPERATIONS.md) and [sources](DATA_SOURCES.md).
 
 ## Why does my route's on-time percentage differ from my experience?
 
@@ -22,7 +22,7 @@ No. You can generate SQL from a plain-English question or load a ready-made ques
 
 ## What is stored or sent when I use it?
 
-No account is required by the current app. Selected question, SQL, explanation, and filters persist in browser localStorage and survive closing the tab; results are not persisted by that store. Clearing site data removes that local state.
+No account is required by the current app. Selected question, SQL, explanation, and route, stop and weather filters persist in browser localStorage (dates start at the last week on each visit) and survive closing the tab; results are not persisted by that store. Clearing site data removes that local state.
 
 With Gemini selected, the question, filters, and schema brief are sent to the provider. Backend caches retain prompts/results temporarily in process memory. Application query logs contain hashes and execution metadata; engine logs may include SQL snippets and operational logs can capture errors. The frontend includes Vercel Analytics and Speed Insights. Retention and provider/hosting settings are not fully specified by this repository; do not treat the app as a place to enter sensitive personal data or assume all state disappears on tab close.
 
