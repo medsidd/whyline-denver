@@ -12,13 +12,11 @@ UNNEST_BLOCKS = (
 
 def _schedule(con):
     # Next Wednesday, Saturday and Sunday (DuckDB dayofweek: Sunday = 0).
-    con.execute(
-        """
+    con.execute("""
         create table sample_days as
         select current_date + cast((dow - dayofweek(current_date) + 7) % 7 as int) as d
         from (values (3), (6), (0)) as v(dow)
-        """
-    )
+        """)
 
     def departures(route, direction, stop, first, last, every, days="select d from sample_days"):
         """Departures from `first` to `last` (local HH:MM, inclusive), every `every` minutes."""

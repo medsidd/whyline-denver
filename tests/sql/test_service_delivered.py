@@ -23,14 +23,12 @@ def _ts(clock: str, days_ago: int = 1) -> str:
 def test_stream_health_counts_feed_updates_per_window():
     con = connect()
     # Updates every 30 s yesterday, except only 10 from 12:00 to 12:14 UTC.
-    con.execute(
-        f"""
+    con.execute(f"""
         create table stg_rt_vehicle_positions as
         select {_ts('00:00:00')} + to_seconds(s) as feed_ts_utc
         from range(0, 86400, 30) as r(s)
         where s not between 43200 and 44099 or s < 43500
-        """
-    )
+        """)
     rows = con.execute(
         render_model("core/fct_stream_health.sql", incremental=True, replacements=DUCKDB)
     ).df()
@@ -80,14 +78,12 @@ def test_each_scheduled_trip_gets_one_outcome():
         "('N', 'N1', 'vanished', false), ('N', 'N2', 'partial', false)) "
         "as t(route_id, trip_id, outcome, had_vehicle)"
     )
-    con.execute(
-        f"""
+    con.execute(f"""
         create table fct_stream_health as
         select cast(w as date) as window_date_utc, w as window_start_utc,
                not (w >= {_ts('19:00:00')} and w < {_ts('19:15:00')}) as is_healthy
         from (select unnest(generate_series({_ts('00:00:00')}, {_ts('23:45:00')}, interval 15 minute)) as w)
-        """
-    )
+        """)
     sql = render_model("marts/realtime/mart_service_delivered_by_route_day.sql", incremental=True)
     rows = con.execute(sql).df()
     route = rows[rows.route_id == "15"]

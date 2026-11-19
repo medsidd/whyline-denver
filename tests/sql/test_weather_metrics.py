@@ -65,8 +65,7 @@ def test_missing_weather_is_unknown_and_excluded_from_weather_comparison():
                 ("15", "2026-10-04", 600),
             ],
         )
-        con.execute(
-            """
+        con.execute("""
             CREATE TABLE fct_weather_daily AS
             SELECT * FROM (VALUES
                 (DATE '2026-10-01', 'USW00003017', 'none', false, 0.0, 0.0, -20.0, -4.0),
@@ -79,8 +78,7 @@ def test_missing_weather_is_unknown_and_excluded_from_weather_comparison():
                 ('15', '15', 'Old name', false),
                 ('15', '15', 'East Colfax', true)
             ) r(route_id, route_name, route_long_name, is_latest_version);
-        """
-        )
+        """)
         con.execute(
             "CREATE TABLE mart_reliability_by_route_day AS "
             + render_model("mart_reliability_by_route_day")

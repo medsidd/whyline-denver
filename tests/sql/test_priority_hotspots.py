@@ -9,14 +9,12 @@ def test_unreliability_is_visit_weighted_and_needs_enough_visits():
     con = connect()
     # BIG: 90 visits all on time and 10 all late -> 10% not on time (an hour average would say 50%).
     # SMALL: six early visits only. OLD: a legacy row, which never counts.
-    con.execute(
-        """create table mart_reliability_by_stop_hour as select * from (values
+    con.execute("""create table mart_reliability_by_stop_hour as select * from (values
             ('BIG', current_date - 1, 'stream_v1', 1.0, 90),
             ('BIG', current_date - 1, 'stream_v1', 0.0, 10),
             ('SMALL', current_date - 1, 'stream_v1', 0.0, 6),
             ('OLD', current_date - 1, null, 0.0, 500)
-        ) as t(stop_id, service_date_mst, data_version, pct_on_time, n_reported_events)"""
-    )
+        ) as t(stop_id, service_date_mst, data_version, pct_on_time, n_reported_events)""")
     con.execute(
         "create table mart_crash_proximity_by_stop as select * from (values "
         "('BIG', 0), ('SMALL', 10), ('OLD', 5)) as t(stop_id, crash_250m_cnt)"

@@ -25,8 +25,7 @@ def render_scd2() -> str:
 
 def test_versions_follow_attribute_changes_and_retirement():
     with duckdb.connect() as con:
-        con.execute(
-            """
+        con.execute("""
             CREATE TABLE extracts AS SELECT * FROM (VALUES
                 (DATE '2026-01-01', 'A', 'Alpha'),
                 (DATE '2026-01-02', 'A', 'Alpha'),
@@ -37,8 +36,7 @@ def test_versions_follow_attribute_changes_and_retirement():
                 (DATE '2026-01-03', 'C', 'Gamma'),
                 (DATE '2026-01-04', 'C', 'Gamma')
             ) e(_extract_date, stop_id, stop_name)
-            """
-        )
+            """)
         rows = con.execute(
             "SELECT stop_id, stop_name, valid_from, valid_to, is_current, is_latest_version "
             "FROM (" + render_scd2() + ") ORDER BY stop_id, valid_from"

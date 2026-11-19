@@ -31,25 +31,21 @@ def test_availability_counts_zero_snapshots():
     t2 = "cast(current_date - 1 as timestamptz) + interval '18:15:00'"
     near1 = "{'lon': -104.9900, 'lat': 39.7400}"  # at stop S1
     near2 = "{'lon': -104.9950, 'lat': 39.7500}"  # at stop S2, about 1.1 km north
-    con.execute(
-        f"""
+    con.execute(f"""
         create table stg_gbfs_veo_vehicles as select * from (values
             ({t1}, 'scooter', {near1}, true),
             ({t1}, 'bicycle', {near1}, true), ({t2}, 'bicycle', {near1}, true),
             ({t1}, 'bicycle', {near2}, true), ({t2}, 'bicycle', {near2}, true),
             ({t2}, 'scooter', {near2}, false)  -- reserved
         ) as t(snapshot_ts_utc, form_factor, geom, is_available)
-        """
-    )
-    con.execute(
-        f"""
+        """)
+    con.execute(f"""
         create table dim_stop as select * from (values
             ('S1', 'First', 39.74, -104.99, {near1}, true),
             ('S2', 'Second', 39.75, -104.995, {near2}, true),
             ('S3', 'Aurora', 39.74, -104.80, {{'lon': -104.80, 'lat': 39.74}}, true)
         ) as t(stop_id, stop_name, lat, lon, geom, is_current)
-        """
-    )
+        """)
     con.execute(f"create table dim_tract as select {near1} as geom")
     sql = render_model(
         "core/fct_micromobility_near_stop.sql", incremental=True, replacements=DUCKDB
