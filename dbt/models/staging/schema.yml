@@ -87,11 +87,17 @@ models:
       - name: trip_id
         description: "GTFS trip identifier."
         data_tests:
-          - not_null
+          - not_null:
+              config:
+                # The last week's extracts: unfiltered, each test read all 217M rows (11.7 GB)
+                where: "_extract_date >= date_sub(current_date(), interval 7 day)"
       - name: stop_id
         description: "GTFS stop identifier; joins to mart_gtfs_stops.stop_id."
         data_tests:
-          - not_null
+          - not_null:
+              config:
+                # The last week's extracts: unfiltered, each test read all 217M rows (11.7 GB)
+                where: "_extract_date >= date_sub(current_date(), interval 7 day)"
       - name: is_valid
         description: "The row passed the staging format check described on the model; invalid rows are excluded downstream."
       - name: shape_dist_traveled
