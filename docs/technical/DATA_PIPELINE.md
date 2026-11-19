@@ -101,7 +101,7 @@ make sync-duckdb     # both, not a file download
 
 | Trigger | Actual recipe |
 |---|---|
-| GitHub cron 08:00 UTC (Nightly Ingest) | `nightly-ingest-bq`: static-source collection + date-window raw loading, then `dbt-source-freshness` as the last step |
+| GitHub cron 08:17 UTC (Nightly Ingest) | `nightly-ingest-bq`: static-source collection + date-window raw loading, then `dbt-source-freshness` as the last step |
 | When Nightly Ingest finishes, pass or fail (Nightly BigQuery) | `nightly-bq`: `dbt build` of staging, core and marts (each model's tests run before the models that read it, so a failed test leaves the tables downstream as they were), then the export; the workflow updates the BigQuery timestamp |
 | When Nightly BigQuery succeeds (Nightly DuckDB) | `nightly-duckdb`: warehouse refresh |
 | Stream poller on the `rt-stream-poller` VM, continuous | Reads both realtime feeds every 15 s and publishes a batch every 15 minutes |

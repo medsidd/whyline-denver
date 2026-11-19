@@ -714,6 +714,8 @@ def load_file(
     temp_table_name = f"__tmp_{item.job.name}_{timestamp}_{uuid.uuid4().hex[:8]}"
     temp_table_id = f"{settings.GCP_PROJECT_ID}.{settings.BQ_DATASET_RAW}.{temp_table_name}"
     temp_table = bigquery.Table(temp_table_id, schema=item.job.source_schema())
+    # A killed load skips the finally below; BigQuery then drops the table itself
+    temp_table.expires = datetime.now(UTC) + timedelta(days=1)
     bq_client.create_table(temp_table)
     LOGGER.info("Created temp table %s", temp_table_id)
 

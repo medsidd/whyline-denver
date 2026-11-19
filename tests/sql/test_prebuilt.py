@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
+from whyline import prebuilt
 from whyline.prebuilt import PREBUILT, build_prebuilt_sql, clean_filters, is_live
 from whyline.sql_guardrails import GuardrailConfig, referenced_tables, sanitize_sql
 
@@ -53,9 +56,24 @@ def test_unset_filters_are_not_reported_as_skipped() -> None:
     assert "WHERE" not in built.sql
 
 
+def test_default_window_is_complete_denver_days(monkeypatch: pytest.MonkeyPatch) -> None:
+    """BigQuery's CURRENT_DATE is UTC; the default window ends yesterday in Denver."""
+    monkeypatch.setattr(prebuilt, "denver_today", lambda: date(2026, 11, 19))
+    assert "service_date_mst BETWEEN DATE '2026-11-12' AND DATE '2026-11-18'" in (
+        build_prebuilt_sql(6, None).sql
+    )
+    worst = build_prebuilt_sql(0, None).sql
+    assert "BETWEEN DATE '2026-10-20' AND DATE '2026-11-18'" in worst
+    assert "pct_observed >= 0.5" in worst
+    # The snow question keeps its year whatever dates the user picked
+    snow = build_prebuilt_sql(2, ALL).sql
+    assert "BETWEEN DATE '2025-11-19' AND DATE '2026-11-18'" in snow
+    assert all("CURRENT_DATE" not in q.sql for q in prebuilt.PREBUILT)
+
+
 def test_user_dates_replace_the_default_window() -> None:
     default = build_prebuilt_sql(6, None).sql
-    assert "INTERVAL 7 DAY" in default and "CURRENT_DATE" in default
+    assert "BETWEEN" in default
 
     sql = build_prebuilt_sql(6, ALL).sql
     assert "CURRENT_DATE" not in sql
