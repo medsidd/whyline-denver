@@ -10,7 +10,9 @@
 Running time between consecutive stops of a trip: from leaving stop n (the middle of its
 departure window, or its arrival when the vehicle didn't stop) to reaching stop n+1. Both ends
 must be timed to within 30 s, and speeds over 130 km/h (faster than any RTD vehicle) are timing
-error and dropped. Distance is along the trip's shape, so speed is the vehicle's average between
+error and dropped. So are runs over 5 minutes late and 3 times the schedule: the bus was parked
+between the stops (a layover or hold away from a stop), which a STOPPED_AT report at the stop
+doesn't catch. Distance is along the trip's shape, so speed is the vehicle's average between
 the stops, dwell excluded. Rebuildable from fct_stop_visit; nightly runs
 replace the last segment_days service dates.
 #}
@@ -91,3 +93,13 @@ where
     and timestamp_diff(arrive_ts_utc, depart_ts_utc, second) > 0
     -- Timing error on stops a few seconds apart yields impossible speeds (0.7% over 120 km/h).
     and safe_divide(3.6 * (to_stop_dist_m - stop_dist_m), timestamp_diff(arrive_ts_utc, depart_ts_utc, second)) <= 130
+    -- Over 5 minutes late and 3 times the schedule is a bus parked between the stops (a layover
+    -- or hold away from the stop, as after Lee Hill Rd & Broadway on route 204), not driving.
+    and not coalesce(
+        timestamp_diff(arrive_ts_utc, depart_ts_utc, second)
+            > greatest(
+                timestamp_diff(to_scheduled_arrive_ts, scheduled_depart_ts, second) + 300,
+                3 * timestamp_diff(to_scheduled_arrive_ts, scheduled_depart_ts, second)
+            ),
+        false
+    )

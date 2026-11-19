@@ -260,6 +260,7 @@ Whichever of a work package and #71 merges second rebases the README counts and 
 - Departure from stop n is the middle of its departure window, which is unbiased, rather than the window's latest bound.
 - Both ends must be timed to within 30 s. That includes the origin's departure; `shape_crossing_gap` visits are never within 30 s.
 - Real data showed 0.7% of traversals over 120 km/h, all timing error on stops a few seconds apart. Speeds over 130 km/h are dropped.
+- **November 19:** runs over 5 minutes late and 3× the schedule are dropped as a bus parked between the stops (0.1% of runs). Before, those holds topped the slowest-segment list: route 204 after Lee Hill Rd & Broadway took a median 880 s for 268 m (71 s scheduled) because buses lay over past the stop, where no STOPPED_AT report at the stop shows it. With the rule, the slowest rush-hour segments are turns at signals such as W Ohio Ave & S Vance St onto Wadsworth, at 4–5 km/h.
 - The segment mart names its midpoint columns `lat` and `lon`, so the app's map detection picks it up with no frontend change.
 - The run-time mart adds the trip pattern (first and last stop) to the grain, so short turns don't inflate the buffer time index. The median index across route-days was 0.10–0.14.
 - The bus-lane before-and-after comparison waits for WP7's lane layer, as planned.
