@@ -76,3 +76,13 @@ def test_bigquery_qualifier_leaves_extract_from_alone() -> None:
     )
     assert "EXTRACT(HOUR FROM arrival_ts_mst)" in out
     assert out.count("mart_denver") == 1
+
+
+def test_prompt_gives_todays_denver_date(monkeypatch) -> None:
+    """Asked about "yesterday", the model guessed the last day of the user's dates."""
+    from datetime import date
+
+    from whyline import llm
+
+    monkeypatch.setattr(llm, "denver_today", lambda: date(2026, 11, 19))
+    assert "Today in Denver is 2026-11-19" in llm.build_prompt("q", {}, "")
