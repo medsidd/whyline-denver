@@ -860,6 +860,7 @@ Revision `whylinedenver-api-00020-qfp` serves 100% with Gemini key version 1. Th
 
 - **DuckDB refused `JOIN … USING`** (the slowest-segments prebuilt, and any such visitor SQL) with a binder error: `get_table_names`, added in #138, binds the query and fails on `USING`. The check now reads DuckDB's parse tree, and `POST /api/sql/validate` runs it too, so validate and run agree.
 - **Two dbt tests read the whole stop-times history nightly:** `not_null` on `stg_gtfs_stop_times.trip_id` and `stop_id` scanned all 217M rows, 11.7 GB each, about half of the nightly dbt bytes since `dbt build` began running tests. Both now check the last 7 days of extracts (0.4 GB each by dry run).
+- **The slowest-segments answer led with a layover:** route 204 after Lee Hill Rd & Broadway, 1.1 km/h (880 s for 268 m, 71 s scheduled). Buses park between those stops, and a hold away from the stop has no STOPPED_AT report, so it counted as driving. `fct_segment_traversal` now drops runs over 5 minutes late and 3× the schedule (0.1% of runs). Owner step: rebuild the fact once so older dates lose their holds, `DBT_PROFILES_DIR=$PWD/dbt/profiles .venv/bin/python -m tools.dbt_with_env build --project-dir dbt --target prod --select fct_segment_traversal+ --full-refresh` from the repo root (rebuilds from `fct_stop_visit`, about 3 GB).
 
 ### Query usage report
 
