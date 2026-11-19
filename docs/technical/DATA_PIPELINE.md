@@ -89,7 +89,7 @@ PYTHONPATH=src python -m whyline.sync.export_bq_marts   --mart mart_reliability_
 
 The date is an example and must be chosen for the intended repair. `--force` replaces derived exports; do not treat it as a read-only check.
 
-`sync/refresh_duckdb.py` materializes all 20 tables, selects latest snapshot runs, and limits partitioned history by `DUCKDB_MAX_AGE_DAYS` (90). It writes `data/warehouse.duckdb` by default, uploads the configured warehouse blob, and updates `duckdb_synced_at_utc`. Local Parquet inputs do not by themselves disable configured upload behavior.
+`sync/refresh_duckdb.py` materializes all 20 tables, selects latest snapshot runs, and limits partitioned history by `DUCKDB_MAX_AGE_DAYS` (90) except `mart_reliability_by_route_day`, kept whole for the year-long snow question. It writes `data/warehouse.duckdb` by default, uploads the configured warehouse blob, and updates `duckdb_synced_at_utc`. Local Parquet inputs do not by themselves disable configured upload behavior.
 
 ```bash
 make sync-export     # BigQuery → GCS, including changed older partitions
