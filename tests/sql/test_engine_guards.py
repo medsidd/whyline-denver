@@ -52,6 +52,23 @@ def test_duckdb_refuses_tables_outside_the_allowlist(warehouse, sql: str):
         duckdb_engine.execute(sql, allowed_tables=ALLOWED, max_rows=10)
 
 
+def test_duckdb_runs_allowed_joins_and_ctes(warehouse):
+    """DuckDB's get_table_names failed on USING joins; the parse-tree check must not."""
+    for sql in (
+        "SELECT a FROM mart_x JOIN mart_x m USING (a) LIMIT 3",
+        "WITH t AS (SELECT a FROM mart_x) SELECT a FROM t, unnest([1]) u(x) LIMIT 3",
+    ):
+        _, df = duckdb_engine.execute(sql, allowed_tables=ALLOWED, max_rows=10)
+        assert len(df) == 3
+    for sql in (
+        "WITH t AS (SELECT 1) SELECT * FROM main.other",
+        "SELECT * FROM duckdb_settings()",
+        "SELECT a FROM mart_x JOIN other USING (a)",
+    ):
+        with pytest.raises(SqlValidationError):
+            duckdb_engine.check_reads(sql, ALLOWED)
+
+
 def test_duckdb_cannot_read_files(warehouse):
     secret = warehouse / "secret.txt"
     for sql in (f"SELECT * FROM read_text('{secret}')", f"SELECT * FROM '{secret}'"):
@@ -122,3 +139,20 @@ def test_query_cache_is_bounded():
     for i in range(10):
         cache.set("duckdb", f"SELECT {i}", i)
     assert len(cache._store) == 3 and cache.get("duckdb", "SELECT 9") == 9
+
+
+def test_validate_agrees_with_duckdb_run(monkeypatch: pytest.MonkeyPatch):
+    """Validate used to pass DuckDB SQL that the run then refused."""
+    pytest.importorskip("fastapi")
+    from api.models import ValidateSqlRequest
+    from api.routers import sql as sql_router
+
+    config = GuardrailConfig(allowed_models=ALLOWED, engine="duckdb")
+    monkeypatch.setattr(sql_router, "get_models", lambda: {})
+    monkeypatch.setattr(sql_router, "get_guardrail_config", lambda engine: config)
+    validate = sql_router.validate_sql
+    ok = validate(
+        ValidateSqlRequest(engine="duckdb", sql="SELECT a FROM mart_x JOIN mart_x m USING (a)")
+    )
+    bad = validate(ValidateSqlRequest(engine="duckdb", sql="SELECT * FROM mart_x a, other b"))
+    assert (ok.valid, bad.valid) == (True, False)

@@ -21,7 +21,7 @@ from api.models import (
     ValidateSqlRequest,
     ValidateSqlResponse,
 )
-from whyline.engines import bigquery_engine
+from whyline.engines import bigquery_engine, duckdb_engine
 from whyline.llm import adapt_sql_for_engine, build_prompt, call_provider
 from whyline.logs import prompt_cache
 from whyline.prebuilt import (
@@ -150,6 +150,12 @@ def validate_sql(req: ValidateSqlRequest) -> ValidateSqlResponse:
         return ValidateSqlResponse(valid=False, error=str(exc))
 
     bq_est_bytes: int | None = None
+    if req.engine == "duckdb":
+        try:
+            duckdb_engine.check_reads(sanitized, guardrail_config.allowed_models)
+        except SqlValidationError as exc:
+            # DuckDB's own parse found a table or statement the text checks missed
+            return ValidateSqlResponse(valid=False, error=str(exc))
     if req.engine == "bigquery":
         try:
             estimate_stats = bigquery_engine.estimate(
