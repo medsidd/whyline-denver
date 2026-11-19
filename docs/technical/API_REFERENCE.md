@@ -60,17 +60,17 @@ These text checks give early, readable errors; they are not the security boundar
 
 Indices follow the order of `PREBUILT` in `src/whyline/prebuilt.py`: 0 worst routes by on-time share, 1 crash exposure, 2 snow days against other days per route and method, 3 equity gaps, 4 scheduled frequency, 5 arrival-prediction accuracy, 6 missed trips, 7 slowest bus segments at rush hour, 8 routes running right now (live). `frontend/src/types/api.ts` mirrors the labels. Prefer the engine-specific endpoint used by the frontend.
 
-Both endpoints take an optional `FilterState` body (an empty or missing body uses each question's default window). `build_prebuilt_sql` puts the user's dates in place of the default window and adds the route, stop and weather predicates the question supports, with the right table alias. The response adds `applied_filters` and `skipped_filters`, lists of `dates`, `routes`, `stop` and `weather`: skipped are filters the user set that the question doesn't take, or with invalid values (a filter with some valid and some invalid values is in both lists). `explanation` is a plain sentence written for each question.
+Both endpoints take an optional `FilterState` body (an empty or missing body uses each question's default window: the last N complete days in Denver, ending yesterday, written as literal dates because BigQuery's `CURRENT_DATE` is UTC and runs a day ahead every Denver evening). `build_prebuilt_sql` puts the user's dates in place of the default window and adds the route, stop and weather predicates the question supports, with the right table alias. The response adds `applied_filters` and `skipped_filters`, lists of `dates`, `routes`, `stop` and `weather`: skipped are filters the user set that the question doesn't take, or with invalid values (a filter with some valid and some invalid values is in both lists). `explanation` is a plain sentence written for each question.
 
 | # | Question | Dates (default window) | Routes | Stop | Weather |
 |---|---|---|---|---|---|
-| 0 | Worst 10 routes by on-time share | ✓ (30 days) | ✓ | – | ✓ |
+| 0 | Worst 10 routes by on-time share (days with `pct_observed` ≥ 0.5) | ✓ (30 days) | ✓ | – | ✓ |
 | 1 | Crash exposure | – | – | ✓ | – |
 | 2 | Snow vs other days | – (keeps 365 days; needs 3 snow days) | ✓ | – | – |
 | 3 | Equity gaps | – | – | ✓ | – |
 | 4 | Frequency | – | ✓ | – | – |
 | 5 | Prediction accuracy | ✓ (30 days) | ✓ | – | – |
-| 6 | Missed trips | ✓ (7 complete days) | ✓ | – | – |
+| 6 | Missed trips | ✓ (7 days) | ✓ | – | – |
 | 7 | Slow segments | – (28-day mart) | ✓ (`s.route_id`) | – | – |
 | 8 | Routes running right now (live) | – (live view) | ✓ | – | – |
 

@@ -10,8 +10,9 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from whyline.sql_guardrails import referenced_tables
 from whyline.sync.constants import LIVE_MARTS
@@ -81,6 +82,10 @@ def clean_filters(filters: Mapping[str, Any] | None) -> CleanFilters:
     return CleanFilters(start, end, routes, stop_id, weather, tuple(rejected))
 
 
+def denver_today() -> date:
+    return datetime.now(ZoneInfo("America/Denver")).date()
+
+
 def _in_list(values: tuple[str, ...]) -> str:
     # Values matched ROUTE_PATTERN, so they hold no quotes.
     return ", ".join(f"'{v}'" for v in values)
@@ -106,7 +111,7 @@ def weather_predicate(f: CleanFilters, column: str = "precip_bin") -> str:
 class Prebuilt:
     """A ready-made question.
 
-    `sql` holds `{dates}` where the date predicate goes (when `default_window` is set) and
+    `sql` holds `{dates}` where the date predicate goes (when `window_days` is set) and
     `{filters}` where extra predicates go: rendered as `AND …` lines after an existing WHERE,
     or as a new WHERE clause when the template has none.
     """
@@ -115,7 +120,8 @@ class Prebuilt:
     explanation: str
     sql: str
     supports: frozenset[str]
-    default_window: str = ""
+    # Default dates: the last window_days complete Denver days, ending yesterday
+    window_days: int = 0
     alias: str = ""
 
 
@@ -126,19 +132,21 @@ PREBUILT: list[Prebuilt] = [
             "Averages each route's daily on-time share over the chosen dates and lists the 10 "
             "lowest. A visit is on time from less than 1 minute early to 5 minutes late, at every "
             "stop; only days measured that way (from October 29, 2026) count, and each day counts "
-            "the same however many buses ran."
+            "the same however many buses ran. Days with under half their stop visits measured "
+            "(an outage, or today before it ends) are left out."
         ),
         sql=(
             "SELECT route_id, AVG(pct_on_time) AS avg_pct_on_time\n"
             "FROM mart_reliability_by_route_day\n"
             "WHERE {dates}\n"
-            "  AND data_version IS NOT NULL{filters}\n"
+            "  AND data_version IS NOT NULL\n"
+            "  AND pct_observed >= 0.5{filters}\n"
             "GROUP BY route_id\n"
             "ORDER BY avg_pct_on_time ASC\n"
             "LIMIT 10"
         ),
         supports=frozenset({"dates", "routes", "weather"}),
-        default_window="service_date_mst >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)",
+        window_days=30,
     ),
     Prebuilt(
         label="Stops with highest crash exposure",
@@ -171,13 +179,14 @@ PREBUILT: list[Prebuilt] = [
             "  AVG(CASE WHEN NOT snow_day THEN pct_on_time END) AS pct_on_time_other_days,\n"
             "  SUM(CASE WHEN snow_day THEN 1 ELSE 0 END) AS n_snow_days\n"
             "FROM mart_reliability_by_route_day\n"
-            "WHERE service_date_mst >= DATE_SUB(CURRENT_DATE, INTERVAL 365 DAY){filters}\n"
+            "WHERE {dates}{filters}\n"
             "GROUP BY route_id, method\n"
             "HAVING SUM(CASE WHEN snow_day THEN 1 ELSE 0 END) >= 3\n"
             "ORDER BY delta_pct_on_time ASC\n"
             "LIMIT 10"
         ),
         supports=frozenset({"routes"}),
+        window_days=365,
     ),
     Prebuilt(
         label="Equity gaps (high vulnerability, low reliability)",
@@ -235,7 +244,7 @@ PREBUILT: list[Prebuilt] = [
             "LIMIT 10"
         ),
         supports=frozenset({"dates", "routes"}),
-        default_window="service_date_mst >= DATE_SUB(CURRENT_DATE, INTERVAL 30 DAY)",
+        window_days=30,
     ),
     Prebuilt(
         label="Which routes missed the most scheduled trips?",
@@ -258,10 +267,7 @@ PREBUILT: list[Prebuilt] = [
             "LIMIT 10"
         ),
         supports=frozenset({"dates", "routes"}),
-        default_window=(
-            "service_date_mst >= DATE_SUB(CURRENT_DATE, INTERVAL 7 DAY)\n"
-            "  AND service_date_mst < CURRENT_DATE"
-        ),
+        window_days=7,
     ),
     Prebuilt(
         label="Where are the slowest bus segments at rush hour?",
@@ -338,7 +344,12 @@ def build_prebuilt_sql(index: int, filters: Mapping[str, Any] | None = None) -> 
     # A filter with some invalid values is both applied (the valid ones) and skipped.
     skipped = [n for n in FILTER_NAMES if (f.is_set(n) and n not in applied) or n in f.rejected]
 
-    dates = q.default_window
+    yesterday = denver_today() - timedelta(days=1)
+    # Literal Denver dates: BigQuery's CURRENT_DATE is UTC, a day ahead every evening in Denver
+    dates = date_predicate(
+        CleanFilters(yesterday - timedelta(days=q.window_days - 1), yesterday),
+        f"{a}service_date_mst",
+    )
     if "dates" in applied:
         dates = builders["dates"]()
     extra = [builders[n]() for n in applied if n != "dates"]
