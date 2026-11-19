@@ -921,7 +921,7 @@ Fixes merged as #152–#163; the frontend (Next 15.5.29) is live on Vercel and w
 
 Owner steps, in order:
 
-1. Deploy the API so #152, #155, #156, #159, #161 and #163 go live: `git pull && GEMINI_API_KEY_SECRET=gemini-api-key:1 make api-deploy`. Check that the slowest-segments prebuilt runs on DuckDB (`curl -s -X POST $B/api/sql/prebuilt/7/for/duckdb`, then run its SQL with `"engine":"duckdb"`) and that a comma join to `whyline-denver.core_denver.fct_stop_visit` validates false.
+1. Deploy the API so #152, #155, #156, #159, #161 and #163 go live: `git pull && GEMINI_API_KEY_SECRET=gemini-api-key:1 make api-deploy`. With `B=https://whylinedenver-api-1058998667347.us-central1.run.app`, check that the slowest-segments prebuilt runs on DuckDB (`curl -s -X POST $B/api/sql/prebuilt/7/for/duckdb`, then run its SQL with `"engine":"duckdb"`) and that a comma join to `whyline-denver.core_denver.fct_stop_visit` validates false.
 2. Make the live views authorized and drop the API account's reader access on core, stg and raw (the three steps under the visitor-SQL finding above).
 3. Rebuild the realtime image (dbt 1.12, protobuf 6) and point `realtime-load` and the VM at it (step 2 of the November 14–15 owner list).
 4. After tonight's nightly (scheduled 08:17 UTC), rebuild the segment fact once (command under the layover finding) and check that Nightly BigQuery passed on dbt 1.12 and that DuckDB's `mart_reliability_by_route_day` starts 2025-10-23.
