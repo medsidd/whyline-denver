@@ -1,6 +1,6 @@
 # Frontend
 
-`frontend/` is a Next.js 14 App Router app with React 18. The landing page is `src/app/page.tsx`; the client dashboard is `src/app/app/page.tsx`. Dependency resolution is locked in `package-lock.json`.
+`frontend/` is a Next.js 15 App Router app with React 19 (Next 14 until November 19, 2026: every remaining Next 14 release had open advisories, three critical). The landing page is `src/app/page.tsx`; the client dashboard is `src/app/app/page.tsx`. Dependency resolution is locked in `package-lock.json`; `overrides` lift Next's bundled `postcss` and eslint's `brace-expansion` 1.x past their advisories (`npm audit` reports none).
 
 ## Component map
 
