@@ -912,6 +912,7 @@ Revision `whylinedenver-api-00020-qfp` serves 100% with Gemini key version 1. Th
      ```
 
   3. Check: the live question runs and the join is refused. `B=https://whylinedenver-api-1058998667347.us-central1.run.app`, then `curl -s $B/api/query/run -H 'content-type: application/json' -d '{"engine":"bigquery","sql":"SELECT route_id, COUNT(*) n FROM mart_vehicles_now GROUP BY 1 LIMIT 3"}'` should return rows, and `curl -s $B/api/sql/validate -H 'content-type: application/json' -d '{"engine":"bigquery","sql":"SELECT COUNT(*) FROM mart_vehicles_now, `whyline-denver.core_denver.dim_stop`"}'` should return `"valid":false`. If the live query fails, restore reader access with `bq add-iam-policy-binding` or the console (BigQuery → dataset → Sharing) and report. Check the live question again after the next nightly, which replaces the views.
+- **Workflow actions on Node 20:** GitHub warned that checkout, setup-python and cache ran Node 20 (deprecated, forced to Node 24). The workflows now use the first majors built for Node 24: checkout v5, setup-python v6, cache v5, setup-node v5, setup-java v5, upload-artifact v6, upload-pages-artifact v5 and deploy-pages v5. The CI frontend build retries once, because `next/font` fetches Google Fonts at build time and that fetch failed two of the last 40 runs.
 
 ### Query usage report
 
