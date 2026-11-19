@@ -4,20 +4,20 @@ uvicorn[standard]>=0.30.0
 
 # Core data / query dependencies (same pins as main requirements.txt)
 pandas==2.2.2
-pyarrow==17.0.0
+pyarrow==23.0.1
 duckdb==1.4.2
 google-cloud-storage==2.18.2
 google-cloud-bigquery==3.25.0
 google-cloud-bigquery-storage
 # BigQuery's to_dataframe needs it; dbt-bigquery used to bring it in
 db-dtypes
-protobuf==4.25.8
+protobuf==6.33.6
 
 # LLM provider
 google-genai>=1.0
 
 # Utility
-requests==2.32.4
+requests==2.33.0
 certifi
 python-dotenv==1.2.2
 
