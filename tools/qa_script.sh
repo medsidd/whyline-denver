@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Comprehensive QA Validation for WhyLine Denver Data Pipelines
-# Runs all checks: GitHub Actions, GCS, BigQuery, DuckDB
-# Usage: ./tools/qa_script.sh [--skip-duckdb] [--skip-gcs]
+# Runs all checks: GitHub Actions, GCS, BigQuery
+# Usage: ./tools/qa_script.sh [--skip-gcs]
 
 set -euo pipefail
 
@@ -11,14 +11,11 @@ RAW_DATASET="raw_denver"
 STG_DATASET="stg_denver"
 MART_DATASET="mart_denver"
 BUCKET="${GCS_BUCKET:-whylinedenver-raw}"
-DUCKDB_PATH="${DUCKDB_PATH:-data/warehouse.duckdb}"
 
 # Parse arguments
-SKIP_DUCKDB=false
 SKIP_GCS=false
 for arg in "$@"; do
     case $arg in
-        --skip-duckdb) SKIP_DUCKDB=true ;;
         --skip-gcs) SKIP_GCS=true ;;
     esac
 done
@@ -654,140 +651,6 @@ FROM weather_range w;
 EOF
 
 # ============================================================================
-# SECTION 6: DuckDB Local Validation
-# ============================================================================
-if [ "$SKIP_DUCKDB" = false ]; then
-    section_header "6. DuckDB Local Database"
-
-    if [ -f "$DUCKDB_PATH" ]; then
-        subsection_header "6.1 DuckDB Marts Overview"
-
-        echo "Note: DuckDB contains synced marts only (raw tables not included)"
-        echo ""
-
-        # Check what tables exist
-        echo "Available marts:"
-        duckdb "$DUCKDB_PATH" << 'EOF'
-SELECT table_name, table_type
-FROM information_schema.tables
-WHERE table_schema = 'main'
-  AND table_name LIKE 'mart_%'
-ORDER BY table_name;
-EOF
-
-        # Check mart freshness
-        MART_CHECK=$(duckdb "$DUCKDB_PATH" -csv << 'EOF'
-SELECT
-  MAX(service_date_mst) AS latest_date,
-  COUNT(DISTINCT service_date_mst) AS days,
-  COUNT(*) AS total_records
-FROM mart_reliability_by_route_day;
-EOF
-)
-
-        MART_DATE=$(echo "$MART_CHECK" | tail -1 | cut -d',' -f1)
-        MART_DAYS=$(echo "$MART_CHECK" | tail -1 | cut -d',' -f2)
-        MART_RECORDS=$(echo "$MART_CHECK" | tail -1 | cut -d',' -f3)
-
-        echo ""
-        echo "Mart reliability status:"
-        echo "  Latest date: ${MART_DATE}"
-        echo "  Days of data: ${MART_DAYS}"
-        echo "  Total records: ${MART_RECORDS}"
-
-        # Check if date is recent
-        DAYS_OLD=$(( ($(date +%s) - $(date -j -f "%Y-%m-%d" "$MART_DATE" +%s 2>/dev/null || date -d "$MART_DATE" +%s)) / 86400 ))
-
-        if [ "$DAYS_OLD" -le 1 ]; then
-            check_passed "DuckDB mart freshness: Latest data is ${MART_DATE} (today or yesterday)"
-        elif [ "$DAYS_OLD" -le 3 ]; then
-            check_warning "DuckDB mart freshness: Latest data is ${MART_DATE} (${DAYS_OLD} days old)"
-        else
-            check_warning "DuckDB mart freshness: Latest data is ${MART_DATE} (${DAYS_OLD} days old, run 'make sync-duckdb')"
-        fi
-
-        subsection_header "6.2 DuckDB Mart Coverage"
-
-        echo "Mart data by date:"
-        duckdb "$DUCKDB_PATH" << 'EOF'
-SELECT
-  service_date_mst,
-  COUNT(DISTINCT route_id) AS routes,
-  COUNT(*) AS records
-FROM mart_reliability_by_route_day
-GROUP BY service_date_mst
-ORDER BY service_date_mst DESC;
-EOF
-
-        subsection_header "6.3 Cross-Platform Consistency Check"
-
-        echo "Note: Comparing marts (which are synced), not raw tables (which are snapshots)"
-        echo ""
-
-        # Get mart data from DuckDB
-        DUCKDB_MART=$(duckdb "$DUCKDB_PATH" -csv << 'EOF'
-SELECT
-  MAX(service_date_mst) AS latest_date,
-  COUNT(DISTINCT service_date_mst) AS days,
-  COUNT(*) AS total_records
-FROM mart_reliability_by_route_day;
-EOF
-)
-
-        DUCKDB_DATE=$(echo "$DUCKDB_MART" | tail -1 | cut -d',' -f1)
-        DUCKDB_DAYS=$(echo "$DUCKDB_MART" | tail -1 | cut -d',' -f2)
-        DUCKDB_COUNT=$(echo "$DUCKDB_MART" | tail -1 | cut -d',' -f3)
-
-        # Get mart data from BigQuery
-        BQ_MART=$(bq query --nouse_legacy_sql --format=csv --max_rows=1 << EOF
-SELECT
-  MAX(service_date_mst) AS latest_date,
-  COUNT(DISTINCT service_date_mst) AS days,
-  COUNT(*) AS total_records
-FROM \`${PROJECT}.${MART_DATASET}.mart_reliability_by_route_day\`;
-EOF
-)
-
-        BQ_DATE=$(echo "$BQ_MART" | tail -1 | cut -d',' -f1)
-        BQ_DAYS=$(echo "$BQ_MART" | tail -1 | cut -d',' -f2)
-        BQ_COUNT=$(echo "$BQ_MART" | tail -1 | cut -d',' -f3)
-
-        echo "Mart reliability records:"
-        echo "  BigQuery: ${BQ_COUNT} records, ${BQ_DAYS} days (latest: ${BQ_DATE})"
-        echo "  DuckDB:   ${DUCKDB_COUNT} records, ${DUCKDB_DAYS} days (latest: ${DUCKDB_DATE})"
-
-        # Check if dates match
-        if [ "$BQ_DATE" = "$DUCKDB_DATE" ]; then
-            check_passed "Mart sync: Latest date matches (${BQ_DATE})"
-
-            # Calculate count difference
-            if [ "$BQ_COUNT" -gt 0 ]; then
-                DIFF=$((BQ_COUNT - DUCKDB_COUNT))
-                if [ "$DIFF" -lt 0 ]; then
-                    DIFF=$((-DIFF))
-                fi
-                PCT_DIFF=$((DIFF * 100 / BQ_COUNT))
-
-                if [ "$PCT_DIFF" -le 5 ]; then
-                    check_passed "Record count consistency: ${PCT_DIFF}% difference (excellent)"
-                elif [ "$PCT_DIFF" -le 20 ]; then
-                    check_warning "Record count consistency: ${PCT_DIFF}% difference (acceptable for incremental mart)"
-                else
-                    check_warning "Record count consistency: ${PCT_DIFF}% difference (run 'make sync-duckdb' to refresh)"
-                fi
-            fi
-        else
-            check_warning "Mart sync: Date mismatch (BQ: ${BQ_DATE}, DuckDB: ${DUCKDB_DATE}) - run 'make sync-duckdb'"
-        fi
-
-    else
-        check_warning "DuckDB database not found at ${DUCKDB_PATH}"
-    fi
-else
-    section_header "6. DuckDB Local Database [SKIPPED]"
-fi
-
-# ============================================================================
 # FINAL SUMMARY
 # ============================================================================
 section_header "7. QA Summary & Recommendations"
@@ -830,7 +693,6 @@ echo "    - Zero missing hours (24-hour coverage)"
 echo ""
 echo "  • Weather data lag: 3-7 days (normal due to NOAA finalization)"
 echo "  • Weather impact analysis: Needs 30+ days of transit data"
-echo "  • DuckDB sync: Run 'make sync-duckdb' to update local database from BigQuery"
 echo ""
 
 if [ "$TRANSIT_DAYS" -lt 30 ]; then

@@ -20,7 +20,6 @@ from whyline.llm import build_schema_brief
 from whyline.semantics.dbt_artifacts import DbtArtifacts
 from whyline.semantics.dbt_artifacts import ModelInfo as WhylineModelInfo
 from whyline.sql_guardrails import GuardrailConfig
-from whyline.sync.constants import LIVE_MARTS
 
 
 @lru_cache(maxsize=1)
@@ -40,70 +39,42 @@ _stop_lookup_df: pd.DataFrame | None = None
 _route_lookup_df: pd.DataFrame | None = None
 
 
-def get_stop_lookup() -> pd.DataFrame | None:
-    """Load stop geometry from mart_gtfs_stops in DuckDB, falling back to local GTFS zip.
+def _mart_table(name: str) -> pd.DataFrame | None:
+    """A small mart read whole from BigQuery, or None if it can't be read now."""
+    from whyline.engines import bigquery_engine
 
-    Caches the result on first successful load; retries on every call if the previous
-    attempt returned None (avoids permanently caching a transient failure).
-    """
-    global _stop_lookup_df
-    if _stop_lookup_df is not None:
-        return _stop_lookup_df
-
-    import zipfile
-
-    # Primary: query DuckDB warehouse (works in Cloud Run where GTFS zip is not bundled)
+    table = f"`{settings.GCP_PROJECT_ID}.{settings.BQ_DATASET_MART}.{name}`"
+    columns = {
+        "mart_gtfs_stops": "stop_id, stop_name, lat, lon",
+        "mart_gtfs_routes": "route_id, route_name, route_long_name, route_type",
+    }[name]
     try:
-        from whyline.engines import duckdb_engine
-
-        _, df = duckdb_engine.execute("SELECT stop_id, stop_name, lat, lon FROM mart_gtfs_stops")
-        if not df.empty:
-            df["stop_id"] = df["stop_id"].astype(str)
-            _stop_lookup_df = df
-            return _stop_lookup_df
-    except Exception:
-        pass
-
-    # Fallback: read from local GTFS zip (local dev without warehouse)
-    gtfs_zip = ROOT / "data" / "raw" / "rtd_gtfs" / "current" / "gtfs.zip"
-    try:
-        with zipfile.ZipFile(gtfs_zip) as zf:
-            with zf.open("stops.txt") as f:
-                df = pd.read_csv(
-                    f,
-                    dtype={"stop_id": str},
-                    usecols=["stop_id", "stop_name", "stop_lat", "stop_lon"],
-                )
-        result = df.rename(columns={"stop_lat": "lat", "stop_lon": "lon"})
-        _stop_lookup_df = result
-        return _stop_lookup_df
-    except Exception:
+        _, df = bigquery_engine.execute(f"SELECT {columns} FROM {table}")
+    except Exception:  # noqa: BLE001 - results are shown without the extra columns
         return None
+    return df if not df.empty else None
+
+
+def get_stop_lookup() -> pd.DataFrame | None:
+    """Stop names and positions (mart_gtfs_stops, about 8,300 rows), cached once read."""
+    global _stop_lookup_df
+    if _stop_lookup_df is None:
+        df = _mart_table("mart_gtfs_stops")
+        if df is not None:
+            df["stop_id"] = df["stop_id"].astype(str)
+        _stop_lookup_df = df
+    return _stop_lookup_df
 
 
 def get_route_lookup() -> pd.DataFrame | None:
-    """Load route metadata from mart_gtfs_routes in DuckDB.
-
-    Caches the result on first successful load; retries on every call if the previous
-    attempt returned None (avoids permanently caching a transient failure).
-    """
+    """Route names (mart_gtfs_routes), cached once read."""
     global _route_lookup_df
-    if _route_lookup_df is not None:
-        return _route_lookup_df
-
-    try:
-        from whyline.engines import duckdb_engine
-
-        _, df = duckdb_engine.execute(
-            "SELECT route_id, route_name, route_long_name, route_type FROM mart_gtfs_routes"
-        )
-        if not df.empty:
+    if _route_lookup_df is None:
+        df = _mart_table("mart_gtfs_routes")
+        if df is not None:
             df["route_id"] = df["route_id"].astype(str)
-            _route_lookup_df = df
-            return _route_lookup_df
-    except Exception:
-        pass
-    return None
+        _route_lookup_df = df
+    return _route_lookup_df
 
 
 def get_models() -> dict[str, WhylineModelInfo]:
@@ -118,32 +89,26 @@ def get_allowlist() -> set[str]:
     return set(_load_models().keys())
 
 
-def get_guardrail_config(engine: str) -> GuardrailConfig:
-    """Build guardrail config, adding BQ project/dataset constraints when needed."""
+def get_guardrail_config() -> GuardrailConfig:
+    """Allowed marts, plus the projects and datasets they live in."""
     models = _load_models()
-    allowlist = set(models.keys())
-    if engine == "duckdb":
-        # Live views exist only in BigQuery; they're never exported to the warehouse file
-        allowlist -= set(LIVE_MARTS)
-
-    extra: dict[str, set[str]] = {}
-    if engine == "bigquery":
-        allowed_projects: set[str] = set()
-        allowed_datasets: set[str] = set()
-        for info in models.values():
-            parts = [seg.strip("`") for seg in info.fq_name.split(".") if seg]
-            if len(parts) >= 3:
-                allowed_projects.add(parts[-3])
-            if len(parts) >= 2:
-                allowed_datasets.add(parts[-2])
-        if not allowed_projects and settings.GCP_PROJECT_ID:
-            allowed_projects.add(settings.GCP_PROJECT_ID)
-        if not allowed_datasets and settings.BQ_DATASET_MART:
-            allowed_datasets.add(settings.BQ_DATASET_MART)
-        extra["allowed_projects"] = allowed_projects
-        extra["allowed_datasets"] = allowed_datasets
-
-    return GuardrailConfig(allowed_models=allowlist, engine=engine, **extra)
+    allowed_projects: set[str] = set()
+    allowed_datasets: set[str] = set()
+    for info in models.values():
+        parts = [seg.strip("`") for seg in info.fq_name.split(".") if seg]
+        if len(parts) >= 3:
+            allowed_projects.add(parts[-3])
+        if len(parts) >= 2:
+            allowed_datasets.add(parts[-2])
+    if not allowed_projects and settings.GCP_PROJECT_ID:
+        allowed_projects.add(settings.GCP_PROJECT_ID)
+    if not allowed_datasets and settings.BQ_DATASET_MART:
+        allowed_datasets.add(settings.BQ_DATASET_MART)
+    return GuardrailConfig(
+        allowed_models=set(models),
+        allowed_projects=allowed_projects,
+        allowed_datasets=allowed_datasets,
+    )
 
 
 # FastAPI Depends wrappers

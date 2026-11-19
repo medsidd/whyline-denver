@@ -30,21 +30,20 @@ Run from the repository root with `.venv` activated. `make install` installs roo
 | `make ingest-all` | The eleven batch ingestors, writing locally by default; still calls external source APIs. The stream poller, backfill, alerts, Veo and job access run separately |
 | `make bq-load` | GCS raw loading via realtime date window; not restricted to realtime table types |
 | `make dbt-run-staging`, `make dbt-run-core`, `make dbt-run-marts` | Cloud transformations; `dbt-marts` has no recipe |
-| `make sync-duckdb` | BigQuery export then DuckDB refresh, including configured remote uploads; not a warehouse download |
 | `make dbt-artifacts`, `make dbt-docs`, `make pages-build` | Can connect to BigQuery; separate from offline `make test` |
 
-Set `ENGINE=duckdb` and `LLM_PROVIDER=stub` explicitly for local work. `.env.example` selects Gemini; Gemini without a key errors. Set server-side `API_BASE_URL=http://localhost:8000` in `frontend/.env.local`.
+Set `LLM_PROVIDER=stub` for local work; queries still run on BigQuery and need credentials that can read `mart_denver`. `.env.example` selects Gemini; Gemini without a key errors. Set server-side `API_BASE_URL=http://localhost:8000` in `frontend/.env.local`.
 
 ## Code map and invariants
 
 - `src/whyline/ingest/`, `load/`: one CLI per source plus the loader, shared I/O, explicit `JobSpec` registry, MD5 load deduplication, and a Cloud Storage lock so only one loader runs at a time.
 - `dbt/models/`: medallion layers: 25 silver staging models (`stg_denver`), 33 gold-core Kimball models (`core_denver`: 8 dims, 21 facts, 4 bridges), 35 serving marts (`mart_denver`). Three are legacy and disabled since the stop-visit cutover: `stg_rt_events`, `fct_trip_observation`, `fct_stop_arrival`. Marts read only gold core. Definitions and schemas are the source of truth; see [model reference](dbt/models/README.md).
-- `src/whyline/sync/constants.py`: 20 `ALLOWLISTED_MARTS` (exported to Parquet and DuckDB) and 2 `LIVE_MARTS` (live views, queryable in the app, never exported). API exposure additionally requires manifest `config.meta.allow_in_app`; CSV downloads have a separate 18-mart list.
+- `src/whyline/sync/constants.py`: 20 `ALLOWLISTED_MARTS` and 2 `LIVE_MARTS` (live views). API exposure additionally requires manifest `config.meta.allow_in_app`; CSV downloads have a separate 18-mart list.
 - `api/models.py`: request/response contract; `frontend/src/types/api.ts` mirrors it. Five routers under `/api`. Query execution always re-sanitizes SQL server-side.
-- `src/whyline/sql_guardrails.py`: text checks for early errors (read-only SQL, allowlisted namespaces/tables, default `LIMIT 5000` if absent). Not the security boundary: pass `allowed_tables` and `max_rows` to `engines/*.execute` for any visitor SQL, so the engine re-checks statement type and tables with its own parser and caps rows fetched.
-- `src/whyline/llm.py`: Gemini or stub generation and SQL dialect adaptation. Other named providers are not implemented.
+- `src/whyline/sql_guardrails.py`: text checks for early errors (read-only SQL, allowlisted namespaces/tables, default `LIMIT 5000` if absent). Not the security boundary: pass `allowed_tables` and `max_rows` to `bigquery_engine.execute` for any visitor SQL, so BigQuery's dry run re-checks statement type and tables and the fetch is capped.
+- `src/whyline/llm.py`: Gemini or stub generation, and `qualify_tables` (bare mart names to `project.mart_denver.table`). Other named providers are not implemented.
 - `src/whyline/prebuilt.py`: the 9 ready-made questions as SQL templates (the ninth reads live data), `is_live`, and `clean_filters`, which validates filter-rail values before any SQL uses them. Keep labels in sync with `frontend/src/types/api.ts`.
-- `src/whyline/engines/`: BigQuery and DuckDB. Use `DUCKDB_COPY_LOCAL=1` on Cloud Run; with it, connections reopen within a few minutes of a warehouse replacement, but lookups are cached for the life of the process, so verify served results.
+- `src/whyline/engines/`: BigQuery only (DuckDB was removed November 19, 2026). Route and stop lookups are cached for the life of the process, so verify served results after a rebuild. DuckDB remains a test dependency: `tests/sql/` runs dbt models on small inputs in it.
 - `frontend/`: Next.js 15 (React 19), Zustand persistence, TanStack Query, Recharts, Deck.gl. Dynamically import `StopMap` with `ssr: false`.
 - `infra/cloud-run/`: one image dispatches `JOB_TYPE=load|stream` (`stream` runs on the poller VM; the old `ingest` mode was removed). Update the job and the VM's `image-uri` to the tested immutable image digest when shared source changes; `:latest` is not automatically refreshed in existing jobs.
 

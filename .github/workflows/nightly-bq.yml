@@ -8,13 +8,13 @@ on:
     types: [completed]
   workflow_dispatch:
 
-# A manual run and a late scheduled run must not build or export at the same time; queue instead.
+# A manual run and a late scheduled run must not build at the same time; queue instead.
 concurrency:
   group: nightly-bq
   cancel-in-progress: false
 
 jobs:
-  build-export:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -45,7 +45,7 @@ jobs:
         run: |
           echo "$GCP_SERVICE_ACCOUNT" > ${{ github.workspace }}/gcp-key.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=${{ github.workspace }}/gcp-key.json" >> $GITHUB_ENV
-      - name: Nightly build + export
+      - name: Nightly build and tests
         env:
           DBT_PROFILES_DIR: ${{ github.workspace }}/dbt/profiles
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}

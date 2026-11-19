@@ -12,7 +12,7 @@ WhyLine Denver helps people investigate Denver-area transit reliability and wher
 | Equity and access | Where do reliability problems overlap with nearby populations that rely on transit, and where is sidewalk missing? |
 | Right now | Which routes are running, and how late are buses, in data that trails real time by 15–30 minutes? |
 
-Ask a question in plain English, review the generated SQL, and run it. Results can appear as a table, chart, or map (with the routes a result names drawn as lines); CSV and warehouse downloads support further analysis. Ready-made questions bypass AI generation.
+Ask a question in plain English, review the generated SQL, and run it. Results can appear as a table, chart, or map (with the routes a result names drawn as lines); CSV downloads support further analysis. Ready-made questions bypass AI generation.
 
 The intended audiences include planners, advocates, journalists, and people interested in their neighborhood's transit. The project is independently maintained and is not an official RTD or City of Denver service.
 
@@ -24,6 +24,6 @@ Census indicators describe areas, not individual riders. Priority scores combine
 
 ## Freshness and limits
 
-Most tables are rebuilt nightly; live questions read data loaded every 15 minutes, so they trail real time by 15–30 minutes. The dashboard queries BigQuery; the DuckDB warehouse download is refreshed nightly. Weather can arrive late; missing observations remain unknown. Census vintage is configured to 2023 and does not advance just because the collection job runs nightly.
+Most tables are rebuilt nightly; live questions read data loaded every 15 minutes, so they trail real time by 15–30 minutes. The dashboard queries BigQuery. Weather can arrive late; missing observations remain unknown. Census vintage is configured to 2023 and does not advance just because the collection job runs nightly.
 
 This is an analysis platform, not a trip planner or arrivals board. It has no passenger counts or fares; crowding comes from the occupancy level some vehicles report, and service alerts are what RTD announced. Start with [how it works](HOW_IT_WORKS.md), [use cases](USE_CASES.md), or the [FAQ](FAQ.md).

@@ -22,16 +22,16 @@ def ran(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
     monkeypatch.setattr(downloads.bigquery_engine, "execute", execute)
     monkeypatch.setattr(downloads, "get_models", lambda: {})
-    monkeypatch.setattr(downloads, "adapt_sql_for_engine", lambda sql, *_: sql)
+    monkeypatch.setattr(downloads, "qualify_tables", lambda sql, *_: sql)
     monkeypatch.setattr(downloads, "log_query", lambda **_: None)
 
-    config = GuardrailConfig(allowed_models=set(downloads.ALLOWED_MARTS), engine="bigquery")
-    monkeypatch.setattr(downloads, "get_guardrail_config", lambda engine: config)
+    config = GuardrailConfig(allowed_models=set(downloads.ALLOWED_MARTS))
+    monkeypatch.setattr(downloads, "get_guardrail_config", lambda: config)
     return seen
 
 
 def _req(**kw) -> MartDownloadRequest:
-    return MartDownloadRequest(engine="bigquery", limit_rows=1000, **kw)
+    return MartDownloadRequest(limit_rows=1000, **kw)
 
 
 def test_dated_mart_keeps_newest_rows_within_dates(ran: list[str]) -> None:

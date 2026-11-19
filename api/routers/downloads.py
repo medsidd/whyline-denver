@@ -1,8 +1,7 @@
-"""Download endpoints — mart CSV exports and DuckDB warehouse."""
+"""Download endpoint — a whole mart as CSV."""
 
 from __future__ import annotations
 
-import os
 import sys
 import threading
 import time
@@ -12,7 +11,7 @@ from typing import Iterator
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT / "src") not in sys.path:
@@ -20,14 +19,14 @@ if str(ROOT / "src") not in sys.path:
 
 from api.deps import get_guardrail_config, get_models
 from api.models import MartDownloadRequest
-from whyline.engines import bigquery_engine, duckdb_engine
-from whyline.llm import adapt_sql_for_engine
+from whyline.engines import bigquery_engine
+from whyline.llm import qualify_tables
 from whyline.logs import log_query
 from whyline.sql_guardrails import SqlValidationError, sanitize_sql
 
 router = APIRouter()
 
-# Keep in sync with app/components/results_viewer.py::MART_OPTIONS
+# The dashboard lists the same marts (frontend/src/components/ui/DownloadPanel.tsx)
 MART_OPTIONS: list[tuple[str, str]] = [
     ("mart_reliability_by_route_day", "Reliability by route & day"),
     ("mart_reliability_by_stop_hour", "Reliability by stop & hour"),
@@ -62,11 +61,6 @@ DATED_MARTS = frozenset(
     )
 )
 
-_warehouse_env = os.getenv("DUCKDB_PATH", "data/warehouse.duckdb")
-WAREHOUSE_PATH = Path(_warehouse_env).expanduser()
-if not WAREHOUSE_PATH.is_absolute():
-    WAREHOUSE_PATH = (ROOT / WAREHOUSE_PATH).resolve()
-
 # A download holds its whole result in memory (up to MartDownloadRequest's row limit), so
 # only this many may build at once per instance; the rest get a 429 and retry.
 _download_slots = threading.BoundedSemaphore(2)
@@ -82,13 +76,13 @@ def _csv_chunks(df: pd.DataFrame) -> Iterator[bytes]:
         yield chunk.to_csv(index=False, header=start == 0).encode("utf-8")
 
 
-def _build_filename(mart: str, engine: str, date_filter: tuple | None) -> str:
+def _build_filename(mart: str, date_filter: tuple | None) -> str:
     ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     suffix = ""
     if date_filter:
         col, start, end = date_filter
         suffix = f"_{col}_{start}_{end}"
-    return f"{mart}_{engine}{suffix}_{ts}.csv"
+    return f"{mart}{suffix}_{ts}.csv"
 
 
 def _build_download_sql(req: MartDownloadRequest) -> tuple[str, tuple | None]:
@@ -110,7 +104,7 @@ def _build_download_sql(req: MartDownloadRequest) -> tuple[str, tuple | None]:
         sql += f" WHERE {req.date_column} BETWEEN DATE '{start}' AND DATE '{end}'"
         date_filter = (req.date_column, start, end)
     if req.mart in DATED_MARTS:
-        # The BigQuery guardrail wants a WHERE wherever service_date_mst appears.
+        # The guardrail wants a WHERE wherever service_date_mst appears.
         if date_filter is None:
             sql += " WHERE service_date_mst IS NOT NULL"
         # Without an order the limit kept arbitrary rows; keep the newest.
@@ -125,14 +119,13 @@ def download_mart(req: MartDownloadRequest) -> StreamingResponse:
         raise HTTPException(status_code=400, detail=f"Mart '{req.mart}' is not in the allow list")
 
     models = get_models()
-    guardrail_config = get_guardrail_config(req.engine)
-    engine_module = duckdb_engine if req.engine == "duckdb" else bigquery_engine
+    guardrail_config = get_guardrail_config()
 
     sql, date_filter = _build_download_sql(req)
 
     try:
         sanitized = sanitize_sql(sql, guardrail_config)
-        adapted = adapt_sql_for_engine(sanitized, req.engine, models)
+        adapted = qualify_tables(sanitized, models)
     except SqlValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -142,7 +135,7 @@ def download_mart(req: MartDownloadRequest) -> StreamingResponse:
         start_time = time.monotonic()
         # No max_rows: the SQL is built here with its own LIMIT, and an uncapped BigQuery read
         # can use the faster Storage API
-        stats, df = engine_module.execute(adapted, allowed_tables=guardrail_config.allowed_models)
+        stats, df = bigquery_engine.execute(adapted, allowed_tables=guardrail_config.allowed_models)
         latency_ms = (time.monotonic() - start_time) * 1000
     except SqlValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -152,7 +145,6 @@ def download_mart(req: MartDownloadRequest) -> StreamingResponse:
         _download_slots.release()
 
     log_query(
-        engine=req.engine,
         rows=len(df),
         latency_ms=latency_ms,
         models=[req.mart],
@@ -162,23 +154,10 @@ def download_mart(req: MartDownloadRequest) -> StreamingResponse:
         bq_est_bytes=stats.get("bq_est_bytes") if isinstance(stats, dict) else None,
     )
 
-    filename = _build_filename(req.mart, req.engine, date_filter)
+    filename = _build_filename(req.mart, date_filter)
 
     return StreamingResponse(
         _csv_chunks(df),
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
-
-
-@router.get("/downloads/warehouse")
-def download_warehouse() -> FileResponse:
-    """Return the local DuckDB warehouse file as a binary download, read from disk in pieces."""
-    if not WAREHOUSE_PATH.exists():
-        raise HTTPException(
-            status_code=404,
-            detail=f"DuckDB warehouse not found at {WAREHOUSE_PATH}. Run 'make sync-duckdb'.",
-        )
-    return FileResponse(
-        WAREHOUSE_PATH, media_type="application/octet-stream", filename=WAREHOUSE_PATH.name
     )

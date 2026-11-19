@@ -74,7 +74,6 @@ class SqlValidationError(ValueError):
 @dataclass(slots=True)
 class GuardrailConfig:
     allowed_models: set[str]
-    engine: str  # 'duckdb' | 'bigquery'
     partition_columns: Sequence[str] = ("service_date_mst",)
     enforce_limit: int = SAFE_LIMIT
     allowed_datasets: Sequence[str] | None = None
@@ -83,7 +82,7 @@ class GuardrailConfig:
 
 def sanitize_sql(sql: str, config: GuardrailConfig) -> str:
     """Text checks that give a clear message early. They are not the security boundary:
-    the engines re-check the statement type and tables with their own parsers, and cap rows."""
+    BigQuery's dry run re-checks the statement type and tables, and the engine caps rows."""
     parsed = _normalize(sql)
     _ensure_single_statement(parsed)
     _ensure_read_only(parsed)
@@ -93,10 +92,8 @@ def sanitize_sql(sql: str, config: GuardrailConfig) -> str:
         allowed_projects=config.allowed_projects,
         allowed_datasets=config.allowed_datasets,
     )
-    sanitized = _ensure_limit(parsed, config.enforce_limit)
-    if config.engine == "bigquery":
-        sanitized = _quote_hyphenated_tables(sanitized)
-        _suggest_partition_filter(sanitized, config.partition_columns)
+    sanitized = _quote_hyphenated_tables(_ensure_limit(parsed, config.enforce_limit))
+    _suggest_partition_filter(sanitized, config.partition_columns)
     return sanitized
 
 

@@ -929,6 +929,25 @@ Owner steps, in order:
 6. Switch the Vercel firewall rule to Too Many Requests (429): on November 19, 22 quick `POST /api/query/run` calls through whylinedenver.com all returned 200.
 7. Disable the unused `whylinedbt-sa` key (no jobs in 8 days): `gcloud iam service-accounts keys disable 8afe66f5a9eca32736704b707dc82135df5fc0c1 --iam-account=whylinedbt-sa@whyline-denver.iam.gserviceaccount.com --project=whyline-denver`.
 
+### DuckDB removed, November 19, 2026 (UTC)
+
+The app now runs every query on BigQuery. The DuckDB copy existed so API callers could query without BigQuery charges and download the warehouse, but the dashboard had used BigQuery only since November 9, the copy lagged by up to a day, and it needed its own export, refresh, checks and fixes (#152, #155). Removed:
+
+- **API:** the DuckDB engine, the `engine` request field (ignored if an older client sends it), `GET /api/downloads/warehouse`, `duckdb_freshness` and `engine_default`. New routes `GET /api/filters`, `GET /api/filters/stops`; `POST /api/sql/prebuilt/{index}` now returns checked, qualified SQL. The old `/filters/bigquery`, `/filters/bigquery/stops` and `/sql/prebuilt/{index}/for/bigquery` stay as aliases until the frontend switches (a second PR), so the order of deploys doesn't matter. Stop and route lookups for result enrichment read `mart_gtfs_stops` and `mart_gtfs_routes` from BigQuery once per process.
+- **Pipeline:** the Parquet export (`sync/export_bq_marts.py`, its `__export_state` table), the DuckDB refresh (`sync/refresh_duckdb.py`), the Nightly DuckDB workflow, and the Makefile targets `sync-export`, `sync-refresh`, `sync-duckdb` and `nightly-duckdb`. Nightly BigQuery is now `dbt build` plus the freshness timestamp, and `state/sync_state.json` keeps only `bigquery_updated_at_utc`.
+- **Cloud Run settings (applied by the next `make api-deploy`):** `ENGINE`, `DUCKDB_PATH`, `DUCKDB_GCS_BLOB`, `DUCKDB_COPY_LOCAL` and the `duckdb-bucket` mount at `/mnt/gcs`. `--set-env-vars` replaces the whole environment and `--clear-volume-mounts --clear-volumes` drop the mount. The Makefile now pins `GEMINI_API_KEY_SECRET` to `gemini-api-key:1`, so the plain `make api-deploy` is right.
+- `duckdb` stays in `requirements.txt` for the tests only: `tests/sql/` runs dbt models on small inputs in DuckDB. It left `api/requirements.txt`.
+
+Readback before the deploy (revision `whylinedenver-api-00021-f2k`): the service still had the four DuckDB variables and the bucket mount; `gs://whylinedenver-raw/marts/` held the 20 Parquet prefixes and `marts/duckdb/warehouse.duckdb`; `mart_denver.__export_state` existed. The leftover temp table is gone and the `whylinedbt-sa` key is disabled. The authorized-view step from earlier today was not applied: `api-service` still reads `core_denver`, `stg_denver` and `raw_denver`, and no dataset authorizes a view.
+
+Owner steps, in order:
+
+1. Deploy the API: `git pull && make api-deploy`. With `B=https://whylinedenver-api-1058998667347.us-central1.run.app`, check that the service has no DuckDB variables or volume (`gcloud run services describe whylinedenver-api --region=us-central1 --project=whyline-denver --format="yaml(spec.template.spec)"`), that `curl -s $B/api/filters` returns routes, and that `curl -s $B/api/freshness` shows a time.
+2. Say so, and the frontend PR (new routes, no `engine`) gets merged; Vercel deploys it.
+3. Drop the export state table: `bq rm -f -t whyline-denver:mart_denver.__export_state`.
+4. Delete the exported Parquet and the DuckDB file once nothing needs them. This is permanent; it removes only derived copies (BigQuery keeps every mart): `gcloud storage rm -r gs://whylinedenver-raw/marts/`.
+5. Still open from the QA list: make the live views authorized views and drop the API account's reader access on core, stg and raw (the two scripts under the visitor-SQL finding above).
+
 ### Query usage report
 
 From release R1 of the [metrics plan](plans/metrics-implementation.md), the first API image with WP0's change, every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:
@@ -951,7 +970,7 @@ gcloud scheduler jobs list --project=whyline-denver --location=us-central1   --f
 gcloud run jobs executions list --project=whyline-denver --region=us-central1   --job=realtime-load --limit=5
 ```
 
-Inspect `realtime-ingest` separately. Read image digests in job/execution descriptions when validating a deployment; avoid dumping environment/secret values into reports. gcloud may need to write its local credential database even for a read-only API request; a sandbox write error is not evidence the cloud resource is down.
+`realtime-ingest` was deleted in November 2026; the VM `rt-stream-poller` runs the stream. Read image digests in job/execution descriptions when validating a deployment; avoid dumping environment/secret values into reports. gcloud may need to write its local credential database even for a read-only API request; a sandbox write error is not evidence the cloud resource is down.
 
 ## Refresh billing
 
@@ -986,4 +1005,4 @@ October 26 read-only requests confirmed both legacy RTD realtime URLs redirect t
 
 ## Changes to operations
 
-Pausing/resuming, redeploying, dispatching batch jobs, and changing identities require a scoped operational task. Review current state and retain image/revision rollback references first. For recovery, run ingest → transformations/tests/export → DuckDB sequentially and verify each completion before starting the next. Use [deployment](DEPLOYMENT.md) and [pipeline](DATA_PIPELINE.md); do not paste obsolete scheduler-creation examples into a running project.
+Pausing/resuming, redeploying, dispatching batch jobs, and changing identities require a scoped operational task. Review current state and retain image/revision rollback references first. For recovery, dispatch Nightly Ingest (Nightly BigQuery follows it) and verify both runs. Use [deployment](DEPLOYMENT.md) and [pipeline](DATA_PIPELINE.md); do not paste obsolete scheduler-creation examples into a running project.

@@ -8,7 +8,7 @@ from google.auth.exceptions import DefaultCredentialsError
 from google.cloud import bigquery
 
 from whyline.config import settings
-from whyline.llm import adapt_sql_for_engine
+from whyline.llm import qualify_tables
 from whyline.semantics.dbt_artifacts import DbtArtifacts
 from whyline.sql_guardrails import SqlValidationError, referenced_tables
 from whyline.sync.constants import LIVE_MARTS
@@ -35,7 +35,7 @@ def _allowed_models():
 
 
 def _adapt(sql: str) -> str:
-    return adapt_sql_for_engine(sql, "bigquery", _allowed_models())
+    return qualify_tables(sql, _allowed_models())
 
 
 def _dry_run(sql: str) -> bigquery.QueryJob:

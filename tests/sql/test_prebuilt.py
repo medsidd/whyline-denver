@@ -18,7 +18,7 @@ ALL = {
 
 
 def _config(sql: str) -> GuardrailConfig:
-    return GuardrailConfig(allowed_models=set(referenced_tables(sql)), engine="bigquery")
+    return GuardrailConfig(allowed_models=set(referenced_tables(sql)))
 
 
 @pytest.mark.parametrize("index", range(len(PREBUILT)))

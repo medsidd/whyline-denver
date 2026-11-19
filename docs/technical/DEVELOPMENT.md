@@ -16,26 +16,20 @@ cp .env.example .env
 Do not overwrite an existing `.env`. Edit the copy to select local behavior:
 
 ```dotenv
-ENGINE=duckdb
 LLM_PROVIDER=stub
-DUCKDB_PATH=data/warehouse.duckdb
-DUCKDB_COPY_LOCAL=0
 SYNC_STATE_GCS_BUCKET=
 ```
 
 The last setting makes freshness read local `data/sync_state.json`. `.env.example` otherwise points to the project bucket and selects Gemini. Environment values already exported in the shell take precedence because `load_dotenv(override=False)` is used. Do not import `config.py` merely to inspect values: inline credential handling can write a credential file.
 
-### Warehouse and artifacts
+### Data access and artifacts
 
-An existing DuckDB file is required for data queries. With authorized read access to the project bucket:
+Every query runs on BigQuery, so a local API needs Google credentials that can read `mart_denver` and create query jobs (`gcloud auth application-default login` with an account that has them). Each query is billed like any other, under the `MAX_BYTES_BILLED` cap. There is no offline data copy: the DuckDB warehouse file was removed on November 19, 2026. For the freshness time, copy the sync state if you can read the bucket:
 
 ```bash
 mkdir -p data
-gcloud storage cp gs://whylinedenver-raw/marts/duckdb/warehouse.duckdb data/warehouse.duckdb
 gcloud storage cp gs://whylinedenver-raw/state/sync_state.json data/sync_state.json
 ```
-
-Alternatively use a trusted supplied warehouse; there is no bundled full offline data bootstrap. Avoid `make sync-duckdb` for downloading: it exports BigQuery marts, refreshes a local warehouse, and attempts configured remote uploads.
 
 API model/schema operations also need `dbt/target/manifest.json` and `catalog.json`. Obtain matching artifacts from the successful CI/nightly artifact outputs or generate them against BigQuery when cloud access is intended. A checked-in/generated local snapshot may be stale; compare `/api/models` with the [model inventory](../../dbt/models/README.md). `make dbt-artifacts` can run compile/parse/docs generation if artifacts are missing and credentials are present. It is not offline setup.
 
@@ -62,16 +56,11 @@ Defaults below come from code; `.env.example`, Makefile variables, and deploymen
 
 | Setting | Code behavior / purpose |
 |---|---|
-| `ENGINE` | `bigquery` in `Settings`; API generation request and browser default to `duckdb` |
 | `GCP_PROJECT_ID`, `GCS_BUCKET` | `whyline-denver`, `whylinedenver-raw` |
 | `BQ_DATASET_RAW`, `BQ_DATASET_STG`, `BQ_DATASET_MART` | `raw_denver`, `stg_denver`, `mart_denver` |
-| `MAX_BYTES_BILLED` | 2,000,000,000 bytes for the API BigQuery query engine |
+| `MAX_BYTES_BILLED` | 2,000,000,000 bytes per API query |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Credential file path; code also accepts inline JSON. Prefer managed credentials/ADC; never commit values. |
 | `DBT_PROFILES_DIR`, `DBT_TARGET` | Wrapper/Makefile use `dbt/profiles`, `prod`; example env selects `demo`. Inspect `dbt/profiles/profiles.yml`. |
-| `DUCKDB_PATH` | Query engine defaults to `data/warehouse.duckdb`; set explicitly for other locations |
-| `DUCKDB_COPY_LOCAL`, `DUCKDB_LOCAL_PATH` | Copy enabled unless `0`. Each version is copied to `warehouse-<mtime_ns>-<size>.duckdb` beside the local path (the temp directory by default) and picked up by running connections. Use `1` with Cloud Run's GCS mount. With `0`, restart the API after `make sync-duckdb`. |
-| `DUCKDB_GCS_BLOB`, `DUCKDB_PARQUET_ROOT` | `marts/duckdb/warehouse.duckdb`, `data/marts` for synchronization |
-| `DUCKDB_MAX_AGE_DAYS` | 90 for partitioned history during refresh (`mart_reliability_by_route_day` is kept whole) |
 | `SYNC_STATE_GCS_BUCKET`, `SYNC_STATE_GCS_BLOB` | Remote state enabled only when bucket is set; blob defaults to `state/sync_state.json` |
 | `LLM_PROVIDER` | `stub` when unset in provider dispatch; `.env.example` and deployment Makefile select `gemini` |
 | `GEMINI_API_KEY` / `LLM_API_KEY` | Gemini key / fallback key; Gemini selection without either errors |
@@ -97,7 +86,6 @@ Defaults below come from code; `.env.example`, Makefile variables, and deploymen
 | `make dbt-parse` | Parses models; no warehouse query, but requires profile environment values |
 | `make dbt-compile`, `make dbt-docs`, `make dbt-artifacts` | Can contact BigQuery; docs target generates files rather than serving them |
 | `make dbt-run-staging`, `make dbt-run-core`, `make dbt-run-marts` | Run cloud transformations |
-| `make sync-export`, `make sync-refresh`, `make sync-duckdb` | Export, refresh, or both; can write GCS/state/warehouse |
 | `make api-deploy` | Builds and deploys Cloud Run |
 
 `make app` and `make run` have no recipes. The broad `dev-loop-*` recipes are cloud operations; `dev-loop-local` also uploads to GCS and ends in a nonexistent `run` target. Use explicit stages instead. See [testing](TESTING.md) for unavailable API/Playwright targets.

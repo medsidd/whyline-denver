@@ -34,4 +34,4 @@ Buffers, weights, precipitation thresholds, and population weighting are modelin
 
 Start with recorded fixtures and offline tests. Fetch small local source samples and inspect contracts. Use explicit registered schemas and new cloud resources for the fork; do not point adapted commands at Denver's retained datasets. Any cloud loading/build/export/deployment is a separate operational step.
 
-Build the required dbt ancestors, run data assertions, export/refresh DuckDB, generate matching artifacts, then verify API models, representative SQL, maps, labels, and downloads. Read [source](ADDING_A_DATA_SOURCE.md) and [mart](ADDING_A_MART.md) extension guides for registrations. No shared multi-city selector, per-city routing, or automatic time/geography abstraction is implemented.
+Build the required dbt ancestors, run data assertions, generate matching artifacts, then verify API models, representative SQL, maps, labels, and downloads. Read [source](ADDING_A_DATA_SOURCE.md) and [mart](ADDING_A_MART.md) extension guides for registrations. No shared multi-city selector, per-city routing, or automatic time/geography abstraction is implemented.

@@ -21,8 +21,8 @@ from api.models import (
     ValidateSqlRequest,
     ValidateSqlResponse,
 )
-from whyline.engines import bigquery_engine, duckdb_engine
-from whyline.llm import adapt_sql_for_engine, build_prompt, call_provider
+from whyline.engines import bigquery_engine
+from whyline.llm import build_prompt, call_provider, qualify_tables
 from whyline.logs import prompt_cache
 from whyline.prebuilt import (
     PREBUILT,
@@ -84,19 +84,19 @@ def generate_sql(req: GenerateSqlRequest) -> GenerateSqlResponse:
     """
     models = get_models()
     schema_brief = get_schema_brief()
-    guardrail_config = get_guardrail_config(req.engine)
+    guardrail_config = get_guardrail_config()
     provider = os.getenv("LLM_PROVIDER", "stub").lower()
 
     # Convert FilterState to dict for prompt_cache and add_filter_clauses
     filters_dict = req.filters.model_dump()
 
-    cache_entry = prompt_cache.get(provider, req.engine, req.question, filters_dict)
+    cache_entry = prompt_cache.get(provider, req.question, filters_dict)
     if cache_entry:
         cached_sql = cache_entry.get("sql", "")
         cached_explanation = cache_entry.get("explanation", "")
         try:
             sanitized = sanitize_sql(cached_sql, guardrail_config)
-            sanitized = adapt_sql_for_engine(sanitized, req.engine, models)
+            sanitized = qualify_tables(sanitized, models)
         except SqlValidationError as exc:
             return GenerateSqlResponse(sql="", explanation="", error=str(exc))
         return GenerateSqlResponse(
@@ -119,14 +119,13 @@ def generate_sql(req: GenerateSqlRequest) -> GenerateSqlResponse:
     candidate_sql = _add_filter_clauses(candidate_sql, req.filters)
     try:
         sanitized = sanitize_sql(candidate_sql, guardrail_config)
-        sanitized = adapt_sql_for_engine(sanitized, req.engine, models)
+        sanitized = qualify_tables(sanitized, models)
     except SqlValidationError as exc:
         return GenerateSqlResponse(sql="", explanation="", error=str(exc))
 
     explanation = llm_output.get("explanation", "")
     prompt_cache.set(
         provider,
-        req.engine,
         req.question,
         filters_dict,
         {"sql": sanitized, "explanation": explanation},
@@ -141,37 +140,30 @@ def validate_sql(req: ValidateSqlRequest) -> ValidateSqlResponse:
     Validate and sanitize SQL. Optionally runs a BigQuery dry-run estimate.
     """
     models = get_models()
-    guardrail_config = get_guardrail_config(req.engine)
+    guardrail_config = get_guardrail_config()
 
     try:
         sanitized = sanitize_sql(req.sql, guardrail_config)
-        sanitized = adapt_sql_for_engine(sanitized, req.engine, models)
+        sanitized = qualify_tables(sanitized, models)
     except SqlValidationError as exc:
         return ValidateSqlResponse(valid=False, error=str(exc))
 
     bq_est_bytes: int | None = None
-    if req.engine == "duckdb":
-        try:
-            duckdb_engine.check_reads(sanitized, guardrail_config.allowed_models)
-        except SqlValidationError as exc:
-            # DuckDB's own parse found a table or statement the text checks missed
-            return ValidateSqlResponse(valid=False, error=str(exc))
-    if req.engine == "bigquery":
-        try:
-            estimate_stats = bigquery_engine.estimate(
-                sanitized, allowed_tables=guardrail_config.allowed_models
-            )
-            bq_est_bytes = estimate_stats.get("bq_est_bytes")
-        except SqlValidationError as exc:
-            # BigQuery's own parse found a table or statement the text checks missed
-            return ValidateSqlResponse(valid=False, error=str(exc))
-        except GoogleAPICallError as exc:
-            # BigQuery refused the query (syntax, unknown column, missing table); running it
-            # would fail the same way
-            reason = (exc.errors or [{}])[0].get("message") or exc.message or str(exc)
-            return ValidateSqlResponse(valid=False, error=reason)
-        except Exception:
-            pass  # no credentials or network: the estimate is optional
+    try:
+        estimate_stats = bigquery_engine.estimate(
+            sanitized, allowed_tables=guardrail_config.allowed_models
+        )
+        bq_est_bytes = estimate_stats.get("bq_est_bytes")
+    except SqlValidationError as exc:
+        # BigQuery's own parse found a table or statement the text checks missed
+        return ValidateSqlResponse(valid=False, error=str(exc))
+    except GoogleAPICallError as exc:
+        # BigQuery refused the query (syntax, unknown column, missing table); running it
+        # would fail the same way
+        reason = (exc.errors or [{}])[0].get("message") or exc.message or str(exc)
+        return ValidateSqlResponse(valid=False, error=reason)
+    except Exception:
+        pass  # no credentials or network: the estimate is optional
 
     return ValidateSqlResponse(
         valid=True, sanitized_sql=sanitized, bq_est_bytes=bq_est_bytes, is_live=is_live(sanitized)
@@ -180,51 +172,17 @@ def validate_sql(req: ValidateSqlRequest) -> ValidateSqlResponse:
 
 @router.post("/sql/prebuilt/{index}", response_model=GenerateSqlResponse)
 def prebuilt_sql(index: int, filters: FilterState | None = None) -> GenerateSqlResponse:
-    """
-    Return a ready-made question's SQL with the filters it supports, unvalidated and unadapted.
-    """
+    """A ready-made question with the filters it supports, checked and ready to run."""
     if index < 0 or index >= len(PREBUILT):
         raise HTTPException(
             status_code=404, detail=f"Prebuilt index {index} not found (0–{len(PREBUILT) - 1})"
         )
     built = build_prebuilt_sql(index, filters.model_dump() if filters else None)
-    return GenerateSqlResponse(
-        sql=built.sql,
-        explanation=PREBUILT[index].explanation,
-        applied_filters=built.applied,
-        skipped_filters=built.skipped,
-        is_live=is_live(built.sql),
-    )
-
-
-@router.post("/sql/prebuilt/{index}/for/{engine_name}", response_model=GenerateSqlResponse)
-def prebuilt_sql_for_engine(
-    index: int, engine_name: str, filters: FilterState | None = None
-) -> GenerateSqlResponse:
-    """
-    Return a ready-made question with the filters it supports, validated and adapted for the engine.
-    """
-    if engine_name not in ("duckdb", "bigquery"):
-        raise HTTPException(status_code=400, detail="engine must be 'duckdb' or 'bigquery'")
-    if index < 0 or index >= len(PREBUILT):
-        raise HTTPException(status_code=404, detail=f"Prebuilt index {index} not found")
-
-    built = build_prebuilt_sql(index, filters.model_dump() if filters else None)
-    if engine_name == "duckdb" and is_live(built.sql):
-        return GenerateSqlResponse(
-            sql="",
-            explanation="",
-            error="Live questions run on BigQuery only: DuckDB holds the nightly tables.",
-        )
-    models = get_models()
-    guardrail_config = get_guardrail_config(engine_name)
-
     try:
-        sanitized = sanitize_sql(built.sql, guardrail_config)
-        sanitized = adapt_sql_for_engine(sanitized, engine_name, models)
+        sanitized = sanitize_sql(built.sql, get_guardrail_config())
+        sanitized = qualify_tables(sanitized, get_models())
     except SqlValidationError as exc:
         return GenerateSqlResponse(sql="", explanation="", error=str(exc))
-
     return GenerateSqlResponse(
         sql=sanitized,
         explanation=PREBUILT[index].explanation,
@@ -232,3 +190,18 @@ def prebuilt_sql_for_engine(
         skipped_filters=built.skipped,
         is_live=is_live(built.sql),
     )
+
+
+# shortcut: alias for the dashboard before it switched to the route above; delete once the
+# frontend no longer calls it.
+@router.post(
+    "/sql/prebuilt/{index}/for/{engine_name}",
+    response_model=GenerateSqlResponse,
+    include_in_schema=False,
+)
+def prebuilt_sql_alias(
+    index: int, engine_name: str, filters: FilterState | None = None
+) -> GenerateSqlResponse:
+    if engine_name != "bigquery":
+        raise HTTPException(status_code=404, detail="Not Found")
+    return prebuilt_sql(index, filters)

@@ -24,8 +24,7 @@ from api.models import (
     RouteShape,
 )
 from whyline.config import settings
-from whyline.engines import bigquery_engine, duckdb_engine
-from whyline.llm import adapt_sql_for_engine
+from whyline.engines import bigquery_engine
 from whyline.logs import QueryCache
 from whyline.prebuilt import ROUTE_PATTERN
 
@@ -56,35 +55,24 @@ def _line_parts(geometry: dict) -> list[list[list[float]]]:
 router = APIRouter()
 
 
-def _engine_module(engine_name: str):
-    return duckdb_engine if engine_name == "duckdb" else bigquery_engine
+def _qualify_table(table: str) -> str:
+    return f"`{settings.GCP_PROJECT_ID}.{settings.BQ_DATASET_MART}.{table}`"
 
 
-def _qualify_table(engine_name: str, table: str) -> str:
-    if engine_name == "bigquery":
-        return f"`{settings.GCP_PROJECT_ID}.{settings.BQ_DATASET_MART}.{table}`"
-    return table
-
-
-@router.get("/filters/{engine_name}", response_model=FilterOptionsResponse)
-def get_filters(engine_name: str) -> FilterOptionsResponse:
-    """Return routes, weather bins, and date range for the selected engine."""
-    if engine_name not in ("duckdb", "bigquery"):
-        raise HTTPException(status_code=400, detail="engine must be 'duckdb' or 'bigquery'")
-
-    cached = _filters_cache.get(engine_name, "filters")
+@router.get("/filters", response_model=FilterOptionsResponse)
+def get_filters() -> FilterOptionsResponse:
+    """Routes, weather bins and the date range for the filter rail."""
+    cached = _filters_cache.get("bigquery", "filters")
     if cached:
         return cached
-    response = _load_filters(engine_name)
+    response = _load_filters()
     if response.error is None:
-        _filters_cache.set(engine_name, "filters", response)
+        _filters_cache.set("bigquery", "filters", response)
     return response
 
 
-def _load_filters(engine_name: str) -> FilterOptionsResponse:
-    models = get_models()
-    engine = _engine_module(engine_name)
-    table = _qualify_table(engine_name, "mart_reliability_by_route_day")
+def _load_filters() -> FilterOptionsResponse:
+    table = _qualify_table("mart_reliability_by_route_day")
 
     # Routes
     routes: list[str] = []
@@ -94,9 +82,7 @@ def _load_filters(engine_name: str) -> FilterOptionsResponse:
             f"SELECT DISTINCT route_id FROM {table} "
             "WHERE route_id IS NOT NULL ORDER BY route_id LIMIT 200"
         )
-        if engine_name == "bigquery":
-            sql = adapt_sql_for_engine(sql, engine_name, models)
-        _, df = engine.execute(sql)
+        _, df = bigquery_engine.execute(sql)
         routes = df["route_id"].astype(str).tolist()
     except Exception:
         # The reason goes to the log; engine error text isn't for visitors
@@ -110,9 +96,7 @@ def _load_filters(engine_name: str) -> FilterOptionsResponse:
             f"SELECT DISTINCT precip_bin FROM {table} "
             "WHERE precip_bin IS NOT NULL ORDER BY precip_bin"
         )
-        if engine_name == "bigquery":
-            sql = adapt_sql_for_engine(sql, engine_name, models)
-        _, df = engine.execute(sql)
+        _, df = bigquery_engine.execute(sql)
         weather_bins = df["precip_bin"].astype(str).tolist()
     except Exception:
         pass  # use defaults
@@ -125,9 +109,7 @@ def _load_filters(engine_name: str) -> FilterOptionsResponse:
             f"SELECT MIN(service_date_mst) AS min_date, MAX(service_date_mst) AS max_date "
             f"FROM {table}"
         )
-        if engine_name == "bigquery":
-            sql = adapt_sql_for_engine(sql, engine_name, models)
-        _, df = engine.execute(sql)
+        _, df = bigquery_engine.execute(sql)
         if not df.empty:
             min_ts = pd.to_datetime(df.loc[0, "min_date"])
             max_ts = pd.to_datetime(df.loc[0, "max_date"])
@@ -146,24 +128,33 @@ def _load_filters(engine_name: str) -> FilterOptionsResponse:
     )
 
 
-@router.get("/filters/{engine_name}/stops")
-def get_stops(engine_name: str) -> list[dict]:
-    """Return stop lookup table (id, name, lat, lon). BigQuery only."""
-    if engine_name != "bigquery":
-        return []
-
-    models = get_models()
-    table = _qualify_table(engine_name, "mart_gtfs_stops")
+@router.get("/filters/stops")
+def get_stops() -> list[dict]:
+    """Stop lookup table (id, name, lat, lon)."""
+    table = _qualify_table("mart_gtfs_stops")
     sql = f"SELECT stop_id, stop_name, lat AS stop_lat, lon AS stop_lon FROM {table}"
-    sql = adapt_sql_for_engine(sql, engine_name, models)
     try:
         _, df = bigquery_engine.execute(sql)
-        for col in ("stop_id",):
-            if col in df.columns:
-                df[col] = df[col].astype(str)
+        df["stop_id"] = df["stop_id"].astype(str)
         return df.to_dict(orient="records")
     except Exception:
         return []
+
+
+# shortcut: aliases for the dashboard before it switched to the routes above; delete once
+# the frontend no longer calls them.
+@router.get("/filters/{engine_name}/stops", include_in_schema=False)
+def get_stops_alias(engine_name: str) -> list[dict]:
+    if engine_name != "bigquery":
+        raise HTTPException(status_code=404, detail="Not Found")
+    return get_stops()
+
+
+@router.get("/filters/{engine_name}", response_model=FilterOptionsResponse, include_in_schema=False)
+def get_filters_alias(engine_name: str) -> FilterOptionsResponse:
+    if engine_name != "bigquery":
+        raise HTTPException(status_code=404, detail="Not Found")
+    return get_filters()
 
 
 def _all_route_shapes() -> dict[str, list[dict]]:
@@ -174,7 +165,7 @@ def _all_route_shapes() -> dict[str, list[dict]]:
             return cached
         if _shapes_failures.get("bigquery", "route_shapes"):
             raise RuntimeError("route shapes unavailable (recent failure)")
-        table = _qualify_table("bigquery", "mart_route_shapes")
+        table = _qualify_table("mart_route_shapes")
         try:
             _, df = bigquery_engine.execute(f"SELECT route_id, direction_id, geojson FROM {table}")
         except Exception:

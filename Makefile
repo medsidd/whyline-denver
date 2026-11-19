@@ -1,7 +1,7 @@
 .SHELLFLAGS := -o pipefail -c
 SHELL := /bin/bash
-.PHONY: install lint format test test-ingest run app ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-gtfs-alerts ingest-gbfs-veo ingest-arcgis-reference ingest-ntd ingest-weather-hourly ingest-rtd-reports ingest-gtfs-rt-stream replay-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local bq-load-realtime bq-load-historical dbt-source-freshness dbt-compile dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dbt-run-realtime dev-loop ci-help sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams
-.PHONY: sync-export sync-refresh sync-duckdb nightly-ingest-bq nightly-bq nightly-duckdb pages-build export-diagrams dbt-run-realtime api-dev api-test api-build api-deploy artifact-repo-create-api frontend-dev frontend-build frontend-test
+.PHONY: install lint format test test-ingest run app ingest-all ingest-all-local ingest-all-gcs ingest-gtfs-static ingest-gtfs-rt ingest-gtfs-alerts ingest-gbfs-veo ingest-arcgis-reference ingest-ntd ingest-weather-hourly ingest-rtd-reports ingest-gtfs-rt-stream replay-gtfs-rt ingest-crashes ingest-sidewalks ingest-noaa ingest-acs ingest-tracts bq-load bq-load-local bq-load-realtime bq-load-historical dbt-source-freshness dbt-compile dbt-parse dbt-test-staging dbt-run-staging dbt-marts dbt-marts-test dbt-docs dbt-run-preflight dbt-run-realtime dev-loop ci-help nightly-ingest-bq nightly-bq pages-build export-diagrams
+.PHONY: nightly-ingest-bq nightly-bq pages-build export-diagrams dbt-run-realtime api-dev api-test api-build api-deploy artifact-repo-create-api frontend-dev frontend-build frontend-test
 
 # Shared command helpers ------------------------------------------------------
 PYTHON        := python
@@ -22,7 +22,6 @@ BQ_DATASET_STG    ?= stg_denver
 BQ_DATASET_CORE   ?= core_denver
 BQ_DATASET_MART   ?= mart_denver
 CLOUD_RUN_REGION  ?= us-central1
-CLOUD_RUN_DUCKDB_BLOB ?= marts/duckdb/warehouse.duckdb
 CLOUD_RUN_MIN_INSTANCES ?= 0  # Allow scale-to-zero for low idle cost
 CLOUD_RUN_MAX_INSTANCES ?= 1  # Cap to control spend; adjust if traffic demands
 CLOUD_RUN_CONCURRENCY ?= 80   # High per-instance concurrency keeps a single instance busy
@@ -32,7 +31,7 @@ GCS_BUCKET       ?= whylinedenver-raw
 LLM_PROVIDER     ?= gemini
 GEMINI_MODEL     ?= gemini-2.5-flash
 GEMINI_API_KEY   ?=
-GEMINI_API_KEY_SECRET ?= gemini-api-key:latest
+GEMINI_API_KEY_SECRET ?= gemini-api-key:1  # version 2 (new key) can't use gemini-2.5-flash
 
 MAX_BYTES_BILLED ?= 2000000000  # 2 GB default max bytes billed for queries
 
@@ -191,39 +190,6 @@ bq-load-historical:
 	DBT_TARGET=prod $(DBT_CMD) run --project-dir dbt --target prod --select 'staging core marts'; \
 	DBT_TARGET=prod $(DBT_CMD) test --project-dir dbt --target prod --select 'core marts'
 
-sync-export:
-	@set -euo pipefail; \
-	ARGS=""; \
-	if [ -n "$${SINCE:-}" ]; then \
-		ARGS="$$ARGS --since $${SINCE}"; \
-	fi; \
-	if [ -n "$${MARTS:-}" ]; then \
-		for MART in $$MARTS; do \
-			ARGS="$$ARGS --mart $$MART"; \
-		done; \
-	fi; \
-	$(PY) -m whyline.sync.export_bq_marts $$ARGS
-
-sync-refresh:
-	@set -euo pipefail; \
-	export DUCKDB_GCS_BLOB="$(CLOUD_RUN_DUCKDB_BLOB)"; \
-	ARGS=""; \
-	if [ -n "$${LOCAL_PARQUET_ROOT:-}" ]; then \
-		ARGS="$$ARGS --local-parquet-root $${LOCAL_PARQUET_ROOT}"; \
-	fi; \
-	if [ -n "$${DUCKDB_PATH:-}" ]; then \
-		ARGS="$$ARGS --duckdb-path $${DUCKDB_PATH}"; \
-	fi; \
-	if [ -n "$${LOG_LEVEL:-}" ]; then \
-		ARGS="$$ARGS --log-level $${LOG_LEVEL}"; \
-	fi; \
-	if [ -n "$${DRY_RUN:-}" ]; then \
-		ARGS="$$ARGS --dry-run"; \
-	fi; \
-	$(PY) -m whyline.sync.refresh_duckdb $$ARGS
-
-sync-duckdb: sync-export sync-refresh
-
 nightly-ingest-bq:
 	@$(MAKE) INGEST_DEST=gcs ingest-static
 	$(MAKE) bq-load
@@ -233,12 +199,7 @@ nightly-ingest-bq-full:
 	$(MAKE) bq-load
 
 nightly-bq:
-	@set -euo pipefail; \
-	DBT_TARGET=prod $(DBT_CMD) build --project-dir dbt --target prod --select 'staging core marts'; \
-	$(MAKE) sync-export
-
-nightly-duckdb:
-	$(MAKE) sync-refresh
+	DBT_TARGET=prod $(DBT_CMD) build --project-dir dbt --target prod --select 'staging core marts'
 
 # dbt -------------------------------------------------------------------------
 dbt-source-freshness:
@@ -286,8 +247,6 @@ dev-loop-local:
 	DBT_TARGET=prod $(MAKE) dbt-test-marts
 	DBT_TARGET=prod $(MAKE) dbt-source-freshness
 	DBT_TARGET=prod $(MAKE) dbt-docs
-	$(MAKE) sync-duckdb
-	$(MAKE) run
 
 dev-loop-gcs:
 	$(MAKE) ingest-all-gcs
@@ -300,7 +259,6 @@ dev-loop-gcs:
 	DBT_TARGET=prod $(MAKE) dbt-test-marts
 	DBT_TARGET=prod $(MAKE) dbt-source-freshness
 	DBT_TARGET=prod $(MAKE) dbt-docs
-	$(MAKE) sync-duckdb
 
 pages-build:
 	@echo "Building dbt documentation for GitHub Pages..."
@@ -366,16 +324,12 @@ api-deploy: api-build
 		--set-env-vars BQ_DATASET_MART=$(BQ_DATASET_MART) \
 		--set-env-vars SYNC_STATE_GCS_BUCKET=$(GCS_BUCKET) \
 		--set-env-vars SYNC_STATE_GCS_BLOB=state/sync_state.json \
-		--set-env-vars DUCKDB_GCS_BLOB=$(CLOUD_RUN_DUCKDB_BLOB) \
-		--set-env-vars DUCKDB_PATH=/mnt/gcs/$(CLOUD_RUN_DUCKDB_BLOB) \
-		--set-env-vars DUCKDB_COPY_LOCAL=1 \
-		--set-env-vars ENGINE=duckdb \
 		--set-env-vars LLM_PROVIDER=$(LLM_PROVIDER) \
 		--set-env-vars GEMINI_MODEL=$(GEMINI_MODEL) \
 		$(CLOUD_RUN_API_GEMINI_FLAG) \
 		--set-env-vars MAX_BYTES_BILLED=$(MAX_BYTES_BILLED) \
-		--add-volume=name=duckdb-bucket,type=cloud-storage,bucket=$(GCS_BUCKET) \
-		--add-volume-mount=volume=duckdb-bucket,mount-path=/mnt/gcs
+		--clear-volume-mounts \
+		--clear-volumes
 
 # ── Next.js Frontend ───────────────────────────────────────────────────────
 frontend-dev:

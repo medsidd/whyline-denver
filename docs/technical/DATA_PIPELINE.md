@@ -1,6 +1,6 @@
 # Data pipeline
 
-Sixteen ingestion CLIs produce versioned source extracts; one of them, the continuous GTFS-RT poller, runs on a VM and times stop visits itself. BigQuery/dbt build 35 marts. The 20 app marts are exported to Parquet and materialized in DuckDB; two live views read the newest realtime load directly. See [architecture](ARCHITECTURE.md), [raw contracts](../contracts/CONTRACTS.md), and [models](../../dbt/models/README.md) for responsibilities and schemas.
+Sixteen ingestion CLIs produce versioned source extracts; one of them, the continuous GTFS-RT poller, runs on a VM and times stop visits itself. BigQuery/dbt build 35 marts; the app queries 20 of them and two live views, which read the newest realtime load directly, all in BigQuery. See [architecture](ARCHITECTURE.md), [raw contracts](../contracts/CONTRACTS.md), and [models](../../dbt/models/README.md) for responsibilities and schemas.
 
 ## Ingestion
 
@@ -69,7 +69,7 @@ make dbt-test-staging
 make dbt-test-marts
 ```
 
-A full rebuild is `dbt run --full-refresh --select staging core marts`. `fct_stop_visit`, `fct_trip_status` and the two reliability marts ignore `--full-refresh` (`full_refresh: false`): raw stream partitions expire after 90 days, and the legacy models behind the pre-cutover mart partitions are disabled. The October 27, 2026 full rebuild, which still included the legacy models, scanned about 40 GiB. The nightly recipe selects `'staging core marts'`, tests `'core marts'`, then exports. The realtime target runs the stream path (`stg_rt_stop_visits stg_rt_trip_status fct_stop_visit fct_trip_status`) and the two reliability marts with `route_day_window_days: 1`; it depends on the dimensions and schedule built nightly and is not a complete DAG bootstrap.
+A full rebuild is `dbt run --full-refresh --select staging core marts`. `fct_stop_visit`, `fct_trip_status` and the two reliability marts ignore `--full-refresh` (`full_refresh: false`): raw stream partitions expire after 90 days, and the legacy models behind the pre-cutover mart partitions are disabled. The October 27, 2026 full rebuild, which still included the legacy models, scanned about 40 GiB. The nightly recipe runs `dbt build` on `'staging core marts'` (models and their tests). The realtime target runs the stream path (`stg_rt_stop_visits stg_rt_trip_status fct_stop_visit fct_trip_status`) and the two reliability marts with `route_day_window_days: 1`; it depends on the dimensions and schedule built nightly and is not a complete DAG bootstrap.
 
 ## Weather corrections
 
@@ -77,36 +77,19 @@ Station defaults agree on Denver International Airport (`USW00003017`). CDO resp
 
 `stg_weather` keeps the newest `_ingested_at` row per date/station. Missing observations remain null; route-day precipitation becomes `unknown` and snow can remain null. Weather comparisons exclude unknown days and use the configured lookback. A comparison can be empty or have a null dry baseline without a pipeline failure.
 
-## Export and DuckDB refresh
+## Serving
 
-`sync/export_bq_marts.py` exports the 20 marts in `sync/constants.py::ALLOWLISTED_MARTS` (never the live views in `LIVE_MARTS`). The seven date-grained marts in `PARTITIONED_MARTS` export by `service_date_mst` into `marts/{mart}/run_date={date}/`; the others export a full snapshot into a run-date directory. Export progress uses BigQuery/GCS state stores; serving freshness is tracked separately in `state/sync_state.json`.
-
-Partition selection includes newer dates and older partitions with a newer `build_run_at`. A bounded corrective export can use:
-
-```bash
-PYTHONPATH=src python -m whyline.sync.export_bq_marts   --mart mart_reliability_by_route_day --mart mart_weather_impacts   --since 2026-10-14 --force
-```
-
-The date is an example and must be chosen for the intended repair. `--force` replaces derived exports; do not treat it as a read-only check.
-
-`sync/refresh_duckdb.py` materializes all 20 tables, selects latest snapshot runs, and limits partitioned history by `DUCKDB_MAX_AGE_DAYS` (90) except `mart_reliability_by_route_day`, kept whole for the year-long snow question. It writes `data/warehouse.duckdb` by default, uploads the configured warehouse blob, and updates `duckdb_synced_at_utc`. Local Parquet inputs do not by themselves disable configured upload behavior.
-
-```bash
-make sync-export     # BigQuery → GCS, including changed older partitions
-make sync-refresh    # Parquet → DuckDB + configured uploads/state
-make sync-duckdb     # both, not a file download
-```
+The app queries `mart_denver` in BigQuery directly; nothing is exported after the build. Until November 19, 2026 the 20 app marts were also exported to Parquet in `gs://whylinedenver-raw/marts/` and copied into a DuckDB file; that path, its `__export_state` table and the nightly DuckDB workflow were removed. The dashboard's "Data updated" time is `bigquery_updated_at_utc` in `state/sync_state.json`, written by `make update-bq-timestamp` after each nightly build and each 15-minute realtime load.
 
 ## Automation and serving
 
 | Trigger | Actual recipe |
 |---|---|
 | GitHub cron 08:17 UTC (Nightly Ingest) | `nightly-ingest-bq`: static-source collection + date-window raw loading, then `dbt-source-freshness` as the last step |
-| When Nightly Ingest finishes, pass or fail (Nightly BigQuery) | `nightly-bq`: `dbt build` of staging, core and marts (each model's tests run before the models that read it, so a failed test leaves the tables downstream as they were), then the export; the workflow updates the BigQuery timestamp |
-| When Nightly BigQuery succeeds (Nightly DuckDB) | `nightly-duckdb`: warehouse refresh |
+| When Nightly Ingest finishes, pass or fail (Nightly BigQuery) | `nightly-bq`: `dbt build` of staging, core and marts (each model's tests run before the models that read it, so a failed test leaves the tables downstream as they were), then the workflow updates the BigQuery timestamp |
 | Stream poller on the `rt-stream-poller` VM, continuous | Reads both realtime feeds every 15 s and publishes a batch every 15 minutes |
-| Cloud Scheduler, every 15 minutes (`realtime-load`) | Snapshots alerts and Veo vehicles, loads new raw files including the poller's batches, runs the six-model `dbt-run-realtime` subset (the two stream views, `fct_stop_visit`, `fct_trip_status` and the two reliability marts), and updates the timestamp. `realtime-ingest`, the old snapshot capture, is paused |
+| Cloud Scheduler, every 15 minutes (`realtime-load`) | Snapshots alerts and Veo vehicles, loads new raw files including the poller's batches, runs the six-model `dbt-run-realtime` subset (the two stream views, `fct_stop_visit`, `fct_trip_status` and the two reliability marts), and updates the timestamp. The old snapshot capture `realtime-ingest` was deleted |
 
-The three nightly workflows are a chain (`workflow_run`), since November 15, 2026. Before that each had its own cron, GitHub started them 6–10 hours late, and on November 12 the DuckDB refresh overlapped the build. Only Nightly Ingest has a schedule now; if GitHub drops that one start, nothing runs that night, so check the Actions page when the freshness badge looks old. A manual run of any workflow starts the ones after it; all three keep a 60/90/30-minute timeout. A raw source that stopped arriving turns Nightly Ingest red (`warn_after`/`error_after` in `dbt/models/sources_raw.yml`) but does not stop the build. `Realtime BigQuery Load` is a manual fallback for the Cloud Run job, not the recurring scheduler; the manual workflow for the old snapshot capture was removed.
+The two nightly workflows are a chain (`workflow_run`), since November 15, 2026 (a third, Nightly DuckDB, followed until November 19). Before that each had its own cron, GitHub started them 6–10 hours late, and on November 12 the DuckDB refresh overlapped the build. Only Nightly Ingest has a schedule now; if GitHub drops that one start, nothing runs that night, so check the Actions page when the freshness badge looks old. A manual run of Nightly Ingest starts Nightly BigQuery after it; they time out at 60 and 90 minutes. A raw source that stopped arriving turns Nightly Ingest red (`warn_after`/`error_after` in `dbt/models/sources_raw.yml`) but does not stop the build. `Realtime BigQuery Load` is a manual fallback for the Cloud Run job, not the recurring scheduler; the manual workflow for the old snapshot capture was removed.
 
-The API queries BigQuery or a local copy of the GCS-mounted DuckDB warehouse. Cached connections/results/lookups can differ from the newest file/state. Verify real results as well as `/api/health` and `/api/freshness`; see [QA validation](../QA_Validation_Guide.md).
+The API queries BigQuery. Cached results and lookups can trail a rebuild by a few minutes. Verify real results as well as `/api/health` and `/api/freshness`; see [QA validation](../QA_Validation_Guide.md).

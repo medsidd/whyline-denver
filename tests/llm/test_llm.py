@@ -1,21 +1,10 @@
 from __future__ import annotations
 
-from whyline.llm import adapt_sql_for_engine
+from whyline.llm import qualify_tables
 from whyline.semantics.dbt_artifacts import ModelInfo
 
 
-def test_adapt_sql_for_duckdb_date_sub() -> None:
-    sql = "SELECT route_id FROM mart_reliability_by_route_day WHERE service_date_mst >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)"
-    expected = "SELECT route_id FROM mart_reliability_by_route_day WHERE service_date_mst >= CURRENT_DATE() - INTERVAL '30' DAY"
-    assert adapt_sql_for_engine(sql, "duckdb") == expected
-
-
-def test_adapt_sql_other_engines_passthrough() -> None:
-    sql = "SELECT 1"
-    assert adapt_sql_for_engine(sql, "bigquery") == sql
-
-
-def test_adapt_sql_bigquery_qualifies_models_with_hyphenated_project() -> None:
+def test_qualify_tables_qualifies_models_with_hyphenated_project() -> None:
     sql = "SELECT * FROM mart_reliability_by_route_day"
     models = {
         "mart_reliability_by_route_day": ModelInfo(
@@ -24,11 +13,11 @@ def test_adapt_sql_bigquery_qualifies_models_with_hyphenated_project() -> None:
             description=None,
         )
     }
-    result = adapt_sql_for_engine(sql, "bigquery", models)
+    result = qualify_tables(sql, models)
     assert "FROM `whyline-denver.mart_denver.mart_reliability_by_route_day`" in result
 
 
-def test_adapt_sql_bigquery_leaves_already_qualified_tables_alone() -> None:
+def test_qualify_tables_leaves_already_qualified_tables_alone() -> None:
     sql = "SELECT * FROM `whyline-denver.mart_denver.mart_reliability_by_route_day`"
     models = {
         "mart_reliability_by_route_day": ModelInfo(
@@ -37,7 +26,7 @@ def test_adapt_sql_bigquery_leaves_already_qualified_tables_alone() -> None:
             description=None,
         )
     }
-    result = adapt_sql_for_engine(sql, "bigquery", models)
+    result = qualify_tables(sql, models)
     assert result == sql
 
 
@@ -61,7 +50,7 @@ def test_prompt_points_live_questions_at_the_live_views() -> None:
 
 
 def test_bigquery_qualifier_leaves_extract_from_alone() -> None:
-    from whyline.llm import adapt_sql_for_engine
+    from whyline.llm import qualify_tables
     from whyline.semantics.dbt_artifacts import ModelInfo
 
     models = {
@@ -69,10 +58,8 @@ def test_bigquery_qualifier_leaves_extract_from_alone() -> None:
             name="mart_stop_visits_recent", fq_name="x", description=None
         )
     }
-    out = adapt_sql_for_engine(
-        "SELECT EXTRACT(HOUR FROM arrival_ts_mst) h FROM mart_stop_visits_recent",
-        "bigquery",
-        models,
+    out = qualify_tables(
+        "SELECT EXTRACT(HOUR FROM arrival_ts_mst) h FROM mart_stop_visits_recent", models
     )
     assert "EXTRACT(HOUR FROM arrival_ts_mst)" in out
     assert out.count("mart_denver") == 1

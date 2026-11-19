@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -12,6 +12,7 @@ MAX_QUESTION_CHARS = 1_000
 MAX_SQL_CHARS = 20_000
 
 # ─── Request Models ──────────────────────────────────────────────────────────
+# Every query runs on BigQuery. Older clients still send `engine`; unknown fields are ignored.
 
 
 class FilterState(BaseModel):
@@ -26,24 +27,20 @@ class FilterState(BaseModel):
 
 class GenerateSqlRequest(BaseModel):
     question: str = Field(max_length=MAX_QUESTION_CHARS)
-    engine: Literal["duckdb", "bigquery"] = "duckdb"
     filters: FilterState = Field(default_factory=FilterState)
 
 
 class ValidateSqlRequest(BaseModel):
     sql: str = Field(max_length=MAX_SQL_CHARS)
-    engine: Literal["duckdb", "bigquery"]
 
 
 class RunQueryRequest(BaseModel):
     sql: str = Field(max_length=MAX_SQL_CHARS)
-    engine: Literal["duckdb", "bigquery"]
     question: str = Field(default="", max_length=MAX_QUESTION_CHARS)
     prebuilt_index: int | None = None
 
 
 class MartDownloadRequest(BaseModel):
-    engine: Literal["duckdb", "bigquery"]
     mart: str
     limit_rows: int = Field(default=200_000, ge=1_000, le=500_000)
     date_column: str | None = None
@@ -120,9 +117,7 @@ class RouteShape(BaseModel):
 
 class FreshnessResponse(BaseModel):
     bigquery_freshness: str
-    duckdb_freshness: str
 
 
 class HealthResponse(BaseModel):
     status: str
-    engine_default: str

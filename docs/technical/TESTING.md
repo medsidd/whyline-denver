@@ -11,11 +11,11 @@ make test-ingest
 make lint
 ```
 
-`pyproject.toml` selects `tests/`. Current areas include ingestion contracts/manifests and NOAA behavior, SQL guardrails and route/weather regression tests, ready-made question templates and filter validation (`tests/sql/test_prebuilt.py`), whole-table download SQL (`tests/sql/test_downloads.py`, which needs FastAPI), the engines' own checks on visitor SQL (`tests/sql/test_engine_guards.py`: tables the text guard misses, file reads, the row cap, the bounded cache), LLM handling, dbt artifact parsing, export/refresh logic, the DuckDB engine's local copy (reopen on refresh, failed reopen, failed copy, unreadable source), a package smoke test, and documentation exporter success/failure checks. Read the actual test files before claiming coverage of an entire subsystem.
+`pyproject.toml` selects `tests/`. Current areas include ingestion contracts/manifests and NOAA behavior, SQL guardrails and route/weather regression tests, ready-made question templates and filter validation (`tests/sql/test_prebuilt.py`), whole-table download SQL (`tests/sql/test_downloads.py`, which needs FastAPI), BigQuery's own check on visitor SQL (`tests/sql/test_engine_guards.py`: tables the text guard misses, live-view base tables, scripts, the bounded cache), LLM handling, dbt artifact parsing, a package smoke test, and documentation exporter success/failure checks. Many `tests/sql/` tests render a dbt model (`tests/sql/_render.py`) and run it on small inputs in DuckDB, which is why `duckdb` stays in `requirements.txt`; the app itself runs only on BigQuery. Read the actual test files before claiming coverage of an entire subsystem.
 
 Artifact tests parse the current dbt project into temporary output using explicit dummy project/dataset settings and a small catalog fixture. They do not query BigQuery or depend on the checked-in manifest. `make test` is simply `pytest`; it no longer runs `dbt-artifacts`. Credentials are unnecessary for this suite.
 
-The suite must never reach Google Cloud, even when `.env` and application-default credentials are present. An autouse fixture in `tests/conftest.py` makes the Cloud Storage and BigQuery client constructors raise and clears the sync-state bucket variables; `tests/test_offline_guard.py` checks it. Before October 29, 2026 the DuckDB refresh tests overwrote the production warehouse and sync state on every credentialed local run (see [operations](OPERATIONS.md)). A new test that needs a client passes a fake.
+The suite must never reach Google Cloud, even when `.env` and application-default credentials are present. An autouse fixture in `tests/conftest.py` makes the Cloud Storage and BigQuery client constructors raise and clears the sync-state bucket variables; `tests/test_offline_guard.py` checks it. Before October 29, 2026 the (since removed) DuckDB refresh tests overwrote the production warehouse and sync state on every credentialed local run (see [operations](OPERATIONS.md)). A new test that needs a client passes a fake.
 
 `bq_load.py` creates cloud clients in `main()`. Importing it does not itself authenticate clients, but importing configuration loads `.env` and may materialize inline credentials. Prefer reading source for configuration audits.
 
@@ -32,7 +32,7 @@ npm run lint
 npm test
 ```
 
-A build type-checks and compiles; it does not prove the full browser workflow. For manual verification, exercise generation/prebuilt SQL, editing/validation, engine switching, results, map rendering, and both export controls. Use a local DuckDB warehouse and stub LLM to avoid cloud query/provider charges when appropriate.
+A build type-checks and compiles; it does not prove the full browser workflow. For manual verification, exercise generation/prebuilt SQL, editing/validation, results, map rendering, and both CSV downloads. Use the stub LLM to avoid provider charges; queries still run (and bill) on BigQuery.
 
 ## BigQuery data quality checks
 
@@ -46,7 +46,7 @@ make dbt-source-freshness
 
 The nightly build runs all three as part of the chain: `dbt build` runs every staging, core and mart test next to its model, and Nightly Ingest ends with `dbt-source-freshness`. Model tests live in schema YAML and `dbt/tests/`; inspect the selected models and compiled tests. Do not assume a source-freshness command establishes freshness for every source if no applicable freshness thresholds are declared.
 
-The nightly BigQuery recipe runs transformations, then mart tests, then exports. A failed test prevents that recipe from reaching export. It does not automatically cancel independently scheduled DuckDB or realtime jobs.
+The nightly BigQuery recipe is `dbt build`: each model's tests run before the models that read it, so a failed test leaves the tables downstream as they were. It does not stop the 15-minute realtime job.
 
 ## CI and hooks
 

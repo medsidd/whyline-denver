@@ -15,16 +15,14 @@ from whyline.sql_guardrails import (
 
 def test_valid_query_passes_without_modification():
     sql = "SELECT stop_id FROM mart_access_score_by_stop LIMIT 10"
-    config = GuardrailConfig(allowed_models={"mart_access_score_by_stop"}, engine="duckdb")
+    config = GuardrailConfig(allowed_models={"mart_access_score_by_stop"})
     sanitized = sanitize_sql(sql, config)
     assert sanitized == sql
 
 
 def test_limit_is_added_when_missing():
     sql = "SELECT stop_id FROM mart_access_score_by_stop"
-    config = GuardrailConfig(
-        allowed_models={"mart_access_score_by_stop"}, engine="duckdb", enforce_limit=123
-    )
+    config = GuardrailConfig(allowed_models={"mart_access_score_by_stop"}, enforce_limit=123)
     sanitized = sanitize_sql(sql, config)
     assert sanitized.endswith("LIMIT 123")
 
@@ -37,14 +35,14 @@ def test_limit_is_added_when_missing():
     ],
 )
 def test_disallowed_statements_raise(sql: str):
-    config = GuardrailConfig(allowed_models={"mart_access_score_by_stop"}, engine="duckdb")
+    config = GuardrailConfig(allowed_models={"mart_access_score_by_stop"})
     with pytest.raises(SqlValidationError):
         sanitize_sql(sql, config)
 
 
 def test_query_referencing_unauthorized_table_fails():
     sql = "SELECT * FROM mart_access_score_by_stop JOIN mart_unknown ON 1=1"
-    config = GuardrailConfig(allowed_models={"mart_access_score_by_stop"}, engine="duckdb")
+    config = GuardrailConfig(allowed_models={"mart_access_score_by_stop"})
     with pytest.raises(SqlValidationError) as exc:
         sanitize_sql(sql, config)
     assert "mart_unknown" in str(exc.value)
@@ -54,7 +52,6 @@ def test_bigquery_requires_where_when_partition_column_present():
     sql = "SELECT service_date_mst FROM mart_reliability_by_route_day"
     config = GuardrailConfig(
         allowed_models={"mart_reliability_by_route_day"},
-        engine="bigquery",
         partition_columns=("service_date_mst",),
     )
     with pytest.raises(SqlValidationError) as exc:
@@ -69,7 +66,7 @@ def test_cte_select_passes():
         ")\n"
         "SELECT * FROM base"
     )
-    config = GuardrailConfig(allowed_models={"mart_access_score_by_stop"}, engine="duckdb")
+    config = GuardrailConfig(allowed_models={"mart_access_score_by_stop"})
     sanitized = sanitize_sql(sql, config)
     assert sanitized.startswith("WITH base")
 
@@ -78,7 +75,6 @@ def test_bigquery_quotes_hyphenated_table_identifier():
     sql = "SELECT * FROM whyline-denver.mart_denver.mart_reliability_by_route_day"
     config = GuardrailConfig(
         allowed_models={"mart_reliability_by_route_day"},
-        engine="bigquery",
         allowed_projects={"whyline-denver"},
         allowed_datasets={"mart_denver"},
     )
@@ -90,7 +86,6 @@ def test_bigquery_rejects_cross_dataset_reference():
     sql = "SELECT * FROM some_other_project.some_dataset.mart_access_score_by_stop"
     config = GuardrailConfig(
         allowed_models={"mart_access_score_by_stop"},
-        engine="bigquery",
         allowed_projects={"whyline-denver"},
         allowed_datasets={"mart_denver"},
     )
@@ -103,7 +98,6 @@ def test_bigquery_allows_configured_namespace():
     sql = "SELECT * FROM whyline-denver.mart_denver.mart_access_score_by_stop"
     config = GuardrailConfig(
         allowed_models={"mart_access_score_by_stop"},
-        engine="bigquery",
         allowed_projects={"whyline-denver"},
         allowed_datasets={"mart_denver"},
     )
@@ -122,7 +116,6 @@ def test_referenced_tables_skip_ctes_and_qualifiers():
 def test_query_log_records_marts_status_and_ready_made_question(tmp_path):
     path = tmp_path / "queries.jsonl"
     log_query(
-        engine="bigquery",
         rows=3,
         latency_ms=1.234,
         models=["mart_weather_impacts", "mart_weather_impacts"],
@@ -139,7 +132,7 @@ def test_query_log_records_marts_status_and_ready_made_question(tmp_path):
 
 
 def test_typo_in_first_word_names_it():
-    config = GuardrailConfig(allowed_models={"mart_access_score_by_stop"}, engine="duckdb")
+    config = GuardrailConfig(allowed_models={"mart_access_score_by_stop"})
     with pytest.raises(SqlValidationError, match=r"must start with SELECT or WITH.*'SELEC'"):
         sanitize_sql("SELEC stop_id FROM mart_access_score_by_stop", config)
     with pytest.raises(SqlValidationError, match="Only SELECT statements are allowed"):
@@ -165,7 +158,7 @@ def test_generated_sql_filters_cannot_break_out_of_quotes():
 
 
 def test_lone_semicolon_is_a_validation_error():
-    config = GuardrailConfig(allowed_models={"mart_access_score_by_stop"}, engine="duckdb")
+    config = GuardrailConfig(allowed_models={"mart_access_score_by_stop"})
     with pytest.raises(SqlValidationError, match="No SQL provided"):
         sanitize_sql(" ; ", config)
 
@@ -176,7 +169,7 @@ def test_extract_from_is_not_a_table():
         "FROM mart_stop_visits_recent GROUP BY h"
     )
     assert referenced_tables(sql) == ["mart_stop_visits_recent"]
-    config = GuardrailConfig(allowed_models={"mart_stop_visits_recent"}, engine="bigquery")
+    config = GuardrailConfig(allowed_models={"mart_stop_visits_recent"})
     assert "EXTRACT(HOUR FROM arrival_ts_mst)" in sanitize_sql(sql, config)
 
 
@@ -190,10 +183,10 @@ def test_extract_from_is_not_a_table():
     ],
 )
 def test_valid_shapes_the_text_checks_used_to_reject(sql: str):
-    assert sanitize_sql(sql, GuardrailConfig(allowed_models={"mart_a"}, engine="duckdb")) == sql
+    assert sanitize_sql(sql, GuardrailConfig(allowed_models={"mart_a"})) == sql
 
 
 def test_only_unnest_may_be_called_in_from():
-    config = GuardrailConfig(allowed_models={"mart_a"}, engine="duckdb")
+    config = GuardrailConfig(allowed_models={"mart_a"})
     with pytest.raises(SqlValidationError):
         sanitize_sql("SELECT * FROM read_text('/etc/hosts')", config)

@@ -28,7 +28,7 @@ With Gemini selected, the question, filters, and schema brief are sent to the pr
 
 ## What can I download?
 
-Displayed query results as CSV (named after your question), any of 18 tables as CSV (using your dates, newest rows first, where a table has a service date), and the DuckDB warehouse binary. Parquet is used internally for synchronization and is not a dashboard/API export option. Limits and date-filter behavior are in [API reference](../technical/API_REFERENCE.md).
+Displayed query results as CSV (named after your question), and any of 18 tables as CSV (using your dates, newest rows first, where a table has a service date). The DuckDB warehouse download was retired on November 19, 2026. Limits and date-filter behavior are in [API reference](../technical/API_REFERENCE.md).
 
 ## Is this an official RTD or City tool?
 

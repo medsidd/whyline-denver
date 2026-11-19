@@ -8,7 +8,7 @@ The shared [Dockerfile](Dockerfile) packages Python dependencies, application so
 | Stream poller VM (not a Run job) | `stream` | `whyline.ingest.gtfs_rt_stream`: polls both feeds every 15 s, uploads one batch per table and an archive tar every 15 minutes; needs `GCS_BUCKET` and `ARCHIVE_BUCKET`, state in `STATE_DIR` (`/state`). Installed by [`infra/stream-vm/cloud-init.yaml`](../stream-vm/cloud-init.yaml); see the [plan runbook](../../docs/technical/plans/realtime-stop-visits.md#7-runbook-owner-commands-in-order). |
 
 
-Load uses BigQuery/GCS project/dataset settings and dbt credentials. Despite its name, the loader scans all registered source patterns in its date window. The realtime dbt selection is a subset (`stg_rt_stop_visits`, `stg_rt_trip_status`, `fct_stop_visit`, `fct_trip_status`, two reliability marts) and requires the dimensions and schedule fact built nightly. Neither branch performs the nightly Parquet export/DuckDB refresh.
+Load uses BigQuery/GCS project/dataset settings and dbt credentials. Despite its name, the loader scans all registered source patterns in its date window. The realtime dbt selection is a subset (`stg_rt_stop_visits`, `stg_rt_trip_status`, `fct_stop_visit`, `fct_trip_status`, two reliability marts) and requires the dimensions and schedule fact built nightly.
 
 ## Scheduling and deployment
 

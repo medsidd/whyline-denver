@@ -7,7 +7,7 @@ Use this checklist to distinguish configured, enabled, executing, completed, fre
 1. Inspect repository changes and the intended deployed source revision.
 2. Read recent nightly workflow conclusions and both realtime job executions.
 3. Read actual scheduler state/cadence. An enabled job can still fail every run.
-4. Compare source, staging, mart, export, warehouse, and served-result dates.
+4. Compare source, staging, mart, and served-result dates.
 5. Validate completeness/missingness and a representative result, not only timestamps.
 
 ```bash
@@ -95,31 +95,11 @@ Canceled trips and vehicles that never reported lower `share_observed`; rail win
 
 Authorized `make dbt-test-staging` / `make dbt-test-marts` run data assertions. Separate missing data from model execution failures; do not silently repair by deleting raw records or treating null weather as dry.
 
-## Export and warehouse checks
-
-- Confirm the BigQuery export completed and the expected `marts/{name}/run_date=…/` objects changed. A job timestamp can advance while an older partition remains stale.
-- For a late weather correction, check the older partition's `build_run_at` and export selection as well as the latest service date.
-- Confirm DuckDB refresh uploaded the intended file and updated sync state.
-- Query the actual DuckDB file to check the 12 expected tables, date ranges, and the same bounded aggregate used in BigQuery. Compare matching cutoffs; realtime BigQuery can be newer than the nightly warehouse.
-- Requery through the public DuckDB API. Existing connections, result caches, lookups, or stale schema artifacts can disagree with the newest GCS object.
-
-For a local downloaded warehouse, this inspection does not contact BigQuery:
-
-```bash
-.venv/bin/python - <<'PYTHON'
-import duckdb
-con = duckdb.connect('data/warehouse.duckdb', read_only=True)
-print(con.execute('SHOW TABLES').fetchall())
-print(con.execute('SELECT MIN(service_date_mst), MAX(service_date_mst), COUNT(*) FROM mart_reliability_by_route_day').fetchall())
-con.close()
-PYTHON
-```
-
 ## Browser and API checks
 
-Open `/app`, load a prebuilt query, review/validate/run it, and inspect table/chart/map. Check a known stop name/coordinate, route enrichment, result CSV, mart CSV, warehouse download, and freshness labels. Verify `/api/models` lists the expected 22 marts (20 app marts and 2 live views); `/api/health` does not test those artifacts.
+Open `/app`, load a prebuilt query, review/validate/run it, and inspect table/chart/map. Check a known stop name/coordinate, route enrichment, result CSV, mart CSV, and freshness labels. Verify `/api/models` lists the expected 22 marts (20 app marts and 2 live views); `/api/health` does not test those artifacts.
 
-For generated SQL, use stub locally or an authorized provider configuration. The snow ready-made question compares snow days with other days per route and method (`snow_day`, last 365 days, at least three snow days); check `n_snow_days` and `method` before reporting a route. The worst-routes question filters `data_version IS NOT NULL`, so it reads stop-visit dates only; the equity question reads `mart_priority_hotspots`, whose unreliability score uses stop-visit dates and needs 30 measured visits. To check the served DuckDB copy, compare row counts per mart with BigQuery (partitioned marts over the DuckDB date range); a surplus means stale export shards.
+For generated SQL, use stub locally or an authorized provider configuration. The snow ready-made question compares snow days with other days per route and method (`snow_day`, last 365 days, at least three snow days); check `n_snow_days` and `method` before reporting a route. The worst-routes question filters `data_version IS NOT NULL`, so it reads stop-visit dates only; the equity question reads `mart_priority_hotspots`, whose unreliability score uses stop-visit dates and needs 30 measured visits.
 
 ## Legacy QA helper
 

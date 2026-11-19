@@ -16,9 +16,9 @@ if SRC_PATH.is_dir():
 
 @pytest.fixture(autouse=True)
 def _no_cloud_clients(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Keep the suite offline. With a developer's .env and credentials, the DuckDB refresh tests
-    used to overwrite the production warehouse and sync state in GCS."""
-    for name in ("SYNC_STATE_GCS_BUCKET", "SYNC_STATE_GCS_REQUIRED", "DUCKDB_GCS_REQUIRED"):
+    """Keep the suite offline: with a developer's .env and credentials, tests once overwrote
+    production state in GCS."""
+    for name in ("SYNC_STATE_GCS_BUCKET", "SYNC_STATE_GCS_REQUIRED"):
         monkeypatch.delenv(name, raising=False)
 
     def refuse(*_args, **_kwargs):
