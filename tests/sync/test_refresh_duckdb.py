@@ -111,3 +111,32 @@ def test_latest_run_date_only_prevents_duplicates(
 
     state = json.loads(state_path.read_text())
     assert state["marts"]["mart_vulnerability_by_stop"] == "2025-10-22"
+
+
+def test_old_run_dates_trimmed_except_full_history_marts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The snow-day question needs a year of route-days; other marts keep DUCKDB_MAX_AGE_DAYS."""
+    from datetime import date, timedelta
+
+    root = tmp_path / "marts"
+    old, new = (date.today() - timedelta(days=d) for d in (200, 1))
+    for mart in ("mart_long", "mart_short"):
+        for run_date in (old, new):
+            _write_parquet(root / mart / f"run_date={run_date}" / "part-0.parquet", rows=2)
+
+    monkeypatch.setattr(refresh_duckdb, "ALLOWLISTED_MARTS", ("mart_long", "mart_short"))
+    monkeypatch.setattr(refresh_duckdb, "HOT_MARTS", set())
+    monkeypatch.setattr(refresh_duckdb, "FULL_HISTORY_MARTS", {"mart_long"})
+    monkeypatch.setattr(refresh_duckdb, "SYNC_STATE_PATH", tmp_path / "sync_state.json")
+    duckdb_path = tmp_path / "warehouse.duckdb"
+    refresh_duckdb.refresh(
+        settings=Settings(), duckdb_path=duckdb_path, local_parquet_root=root, dry_run=False
+    )
+
+    con = duckdb.connect(str(duckdb_path))
+    counts = [
+        con.execute(f"SELECT COUNT(*) FROM {m}").fetchone()[0] for m in ("mart_long", "mart_short")
+    ]
+    con.close()
+    assert counts == [4, 2]
