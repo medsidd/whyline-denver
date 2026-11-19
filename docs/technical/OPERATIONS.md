@@ -862,6 +862,51 @@ Revision `whylinedenver-api-00020-qfp` serves 100% with Gemini key version 1. Th
 - **Two dbt tests read the whole stop-times history nightly:** `not_null` on `stg_gtfs_stop_times.trip_id` and `stop_id` scanned all 217M rows, 11.7 GB each, about half of the nightly dbt bytes since `dbt build` began running tests. Both now check the last 7 days of extracts (0.4 GB each by dry run).
 - **The slowest-segments answer led with a layover:** route 204 after Lee Hill Rd & Broadway, 1.1 km/h (880 s for 268 m, 71 s scheduled). Buses park between those stops, and a hold away from the stop has no STOPPED_AT report, so it counted as driving. `fct_segment_traversal` now drops runs over 5 minutes late and 3× the schedule (0.1% of runs). Owner step: rebuild the fact once so older dates lose their holds, `DBT_PROFILES_DIR=$PWD/dbt/profiles .venv/bin/python -m tools.dbt_with_env build --project-dir dbt --target prod --select fct_segment_traversal+ --full-refresh` from the repo root (rebuilds from `fct_stop_visit`, about 3 GB).
 - **"Where snow hurts reliability most" was always empty on DuckDB:** it needs a year of route-days, and DuckDB kept 90 days (no snow since October 14). DuckDB now keeps `mart_reliability_by_route_day` whole (37,767 rows from October 23, 2025); the question gave 10 routes against those exported files. The live question on DuckDB now says it runs on BigQuery only instead of naming a table.
+- **Visitor SQL could read tables outside the app's list:** a comma join to `core_denver.fct_stop_visit`, `dim_stop`, `dim_route` or `raw_denver.raw_gtfsrt_vp_stream` passed, because the exception for the live views' base tables applied to every query, and the API account reads all four datasets. The exception now applies only when the query names a live view. Joining a live view with its base tables still passes until the owner steps below make the live views authorized views, so the API account needs only the mart dataset.
+
+  Owner steps (in order; each check must pass before the next step):
+
+  1. Authorize the live views and the views under them:
+
+     ```bash
+     .venv/bin/python - <<'PY'
+     from google.cloud import bigquery
+     c = bigquery.Client(project="whyline-denver")
+     grants = {
+         "core_denver": ["mart_denver.mart_vehicles_now", "mart_denver.mart_stop_visits_recent"],
+         "stg_denver": ["core_denver.fct_vehicle_report"],
+         "raw_denver": ["stg_denver.stg_rt_vehicle_positions"],
+     }
+     for ds_id, views in grants.items():
+         ds = c.get_dataset(ds_id)
+         entries = list(ds.access_entries)
+         for v in views:
+             d, t = v.split(".")
+             e = bigquery.AccessEntry(None, "view", {"projectId": "whyline-denver", "datasetId": d, "tableId": t})
+             if e not in entries:
+                 entries.append(e)
+         ds.access_entries = entries
+         c.update_dataset(ds, ["access_entries"])
+         print(ds_id, "authorized", views)
+     PY
+     ```
+
+  2. Remove the API account's reader access on the three source datasets:
+
+     ```bash
+     .venv/bin/python - <<'PY'
+     from google.cloud import bigquery
+     c = bigquery.Client(project="whyline-denver")
+     sa = "api-service@whyline-denver.iam.gserviceaccount.com"
+     for ds_id in ("core_denver", "stg_denver", "raw_denver"):
+         ds = c.get_dataset(ds_id)
+         ds.access_entries = [e for e in ds.access_entries if e.entity_id != sa]
+         c.update_dataset(ds, ["access_entries"])
+         print(ds_id, "reader removed")
+     PY
+     ```
+
+  3. Check: the live question runs and the join is refused. `B=https://whylinedenver-api-1058998667347.us-central1.run.app`, then `curl -s $B/api/query/run -H 'content-type: application/json' -d '{"engine":"bigquery","sql":"SELECT route_id, COUNT(*) n FROM mart_vehicles_now GROUP BY 1 LIMIT 3"}'` should return rows, and `curl -s $B/api/sql/validate -H 'content-type: application/json' -d '{"engine":"bigquery","sql":"SELECT COUNT(*) FROM mart_vehicles_now, `whyline-denver.core_denver.dim_stop`"}'` should return `"valid":false`. If the live query fails, restore reader access with `bq add-iam-policy-binding` or the console (BigQuery → dataset → Sharing) and report. Check the live question again after the next nightly, which replaces the views.
 
 ### Query usage report
 
