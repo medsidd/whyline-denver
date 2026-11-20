@@ -950,6 +950,17 @@ Owner steps, in order:
 
 **Deployed, November 19, 2026, ~17:30 UTC.** Revision `whylinedenver-api-00022-f44` serves 100%: no `ENGINE` or `DUCKDB_*` variables, no volume or mount, Gemini secret version 1. `/api/filters`, `/api/filters/stops` and `/api/sql/prebuilt/{index}` answer; `/api/downloads/warehouse` is 404 (on the previous revision it returned 500, because the 120 MB file was over Cloud Run's 32 MiB response limit). #166 then moved the dashboard to the new routes. Playwright on production at 1440 × 900 and 390 × 844: all 9 ready-made questions through chart, map and table, a Gemini question ("yesterday" became November 18), and a whole-table CSV, with no request sending `engine`, no failed request and no console error. The aliases leave the API at the next deploy. Steps 3 and 4 (export table, Parquet and DuckDB objects) are still to do.
 
+### Owner steps done, November 19–20, 2026 (UTC)
+
+Readback at 00:25 UTC on November 20:
+
+- **Nightly:** dispatched at 18:05; Nightly BigQuery passed on dbt 1.12.6 (329 pass, the usual arrival-order warning on 165 visits) and billed 23.8 GB, about half the previous nights now that the two stop-times tests read one week.
+- **Segment history:** `fct_segment_traversal` rebuilt from October 29 (3.5M runs, 0 parked-between-stops runs left); the slowest rush-hour segment is route 76 turning onto Wadsworth at 4.5 km/h.
+- **Realtime image:** `realtime-load` and the VM run `whylinedenver-realtime@sha256:b1b7c52c…` (commit 2298713, dbt 1.12, protobuf 6). The first load on it passed (6 models), and the poller restored its checkpoint after the restart and reports no trip errors; the restart cost about 2 minutes of feed.
+- **Live views:** `mart_vehicles_now` and `mart_stop_visits_recent` are authorized on `core_denver`, `fct_vehicle_report` on `stg_denver`, `stg_rt_vehicle_positions` on `raw_denver`, and `api-service` reads only `mart_denver`. Live queries run; a join of a live view with `dim_stop`, `fct_stop_visit` or `raw_gtfsrt_vp_stream` now fails with BigQuery's Access Denied. Check after the next nightly, which replaces the views, that the live question still runs.
+- **Rate limit:** the 21st `POST /api/query/run` in a minute through whylinedenver.com gets 429 (`x-vercel-mitigated: deny`).
+- **Not set:** the BigQuery daily query quota is still the default (200 TiB a day, no override), and the budget could not be read (Billing Budget API off). Optional steps still open: bucket expiry rules, narrowing `api-service`'s project-wide secret and storage grants, rotating the `whylinedev-sa` key, destroying Gemini secret version 2, deleting `whylinedbt-sa` after November 26.
+
 ### Query usage report
 
 From release R1 of the [metrics plan](plans/metrics-implementation.md), the first API image with WP0's change, every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:
