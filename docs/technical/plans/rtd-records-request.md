@@ -4,6 +4,8 @@ Owner action from the [metrics plan](metrics-implementation.md) (WP11 and WP16).
 
 **Status:** submitted on 2026-11-07 through RTD's records portal (rtd-denver.justfoia.com) as request **RTD-2026-1065**, type Ridership Data. The submitted text also asks for item 4 below, RTD's on-time methodology. Track it on the portal with the security key from the confirmation email, which isn't recorded here.
 
+**Released 2026-11-22:** items 1, 2 and 4; no amenity inventory (item 3). Files, checks and RTD's on-time rules are in [operations](../OPERATIONS.md#rtd-records-released-november-22-2026-utc).
+
 When data arrives, it's ingested as reference files (`raw_rtd_boardings_route_month`, `raw_rtd_boardings_stop`, `raw_rtd_stop_amenities`) and used to weight reliability, missed-trip and crowding metrics by riders.
 
 ---

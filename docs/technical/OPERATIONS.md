@@ -601,7 +601,8 @@ cd ~/dev/whyline-denver && git pull && PYTHONPATH=$PWD/src GCP_PROJECT_ID=whylin
 - **Other rules, each alone:** drop-off-only stops add 0.6 points, and leaving out the 16th Street FreeRide adds 0.6. Averaging routes equally instead of pooling visits adds 1.3–2.1 points at each step.
 - **Timepoints:** at timepoints, 15.3% of arrivals are more than 5 minutes late and 12.7% more than a minute early. A bus can't leave before it arrives, so departure timing can shrink only the early share.
 - **Conclusion:** the gap comes from counting rules, not missing or mismatched visits. With departures at timepoints, whole-minute lateness and no early penalty at the last stop, WhyLine reaches 81.2%, inside RTD's 20-month range. WhyLine keeps its stricter every-stop rule; the glossary, the landing FAQ and the dashboard note now say this.
-- **To settle it:** RTD was asked how it treats departures, whole minutes, the last timepoint and missing AVL data. The question went in records request RTD-2026-1065, submitted on November 7 with the WP11 boardings and stop-amenity request ([request text](plans/rtd-records-request.md)). Under CORA, RTD should respond within three working days, or ten if it claims an extension; research beyond the first hour costs $30 an hour, and the request asks for an estimate first.
+- **Answered November 22:** RTD's methodology note (released under RTD-2026-1065) confirms departures at timepoints, drops the first and last timepoint of each pattern, and counts exactly 1 minute early as on time; see November 22 below.
+- **The question as sent:** RTD was asked how it treats departures, whole minutes, the last timepoint and missing AVL data. The question went in records request RTD-2026-1065, submitted on November 7 with the WP11 boardings and stop-amenity request ([request text](plans/rtd-records-request.md)). Under CORA, RTD should respond within three working days, or ten if it claims an extension; research beyond the first hour costs $30 an hour, and the request asks for an estimate first.
 
 ### DuckDB reopens a refreshed warehouse, November 7, 2026 (UTC)
 
@@ -968,6 +969,30 @@ Readback at 00:25 UTC on November 20:
 Nightly BigQuery failed on November 20, 21 and 22 ([last failed run](https://github.com/medsidd/whyline-denver/actions/runs/45043455596)): `stg_rt_vehicle_positions` and `mart_stop_visits_recent` stopped with `Permission bigquery.datasets.update denied` on `raw_denver` and `core_denver`. Since the November 19 authorizations, replacing those views needs that permission on the datasets they are authorized on, and `whylinedev-sa` had only project-wide data editor. 34 models and tests downstream were skipped, so `fct_vehicle_report`, `fct_stream_health`, `fct_trip_occupancy`, both scorecards, both crowding marts, service delivered by route-day and service equity kept their November 19 build. The realtime job kept running and kept moving the "Data updated" time, so the dashboard did not show the staleness. Nightly Ingest, CI and the authorizations themselves were fine.
 
 Fix (owner, November 22): `whylinedev-sa` is dataset owner on `raw_denver`, `stg_denver` and `core_denver`. The [manual rerun](https://github.com/medsidd/whyline-denver/actions/runs/45057357965) at 18:50 UTC passed (329 pass, the usual arrival-order warning, 0 errors, 0 skipped; 25.1 GB billed), replaced all four authorized views, and rebuilt the six marts by 19:02. The authorizations survived the replacement, the live questions run (378 vehicles; 23,521 recent stop visits), and a join of `mart_vehicles_now` with `core_denver.dim_stop` is still refused with Access Denied. Grant the same owner rights before authorizing a view on any other dataset; see [deployment](DEPLOYMENT.md).
+
+### RTD records released, November 22, 2026 (UTC)
+
+RTD closed records request RTD-2026-1065 on November 22. The owner downloaded the files to `data/raw/rtd_cora_1065/` (gitignored, not loaded anywhere yet). What arrived, against the [request](plans/rtd-records-request.md):
+
+| Item asked for | Released | Checks |
+|---|---|---|
+| 1. Boardings by route and month | `RTD Data_Monthly Boardings_CORA 1065.xlsx`: monthly boardings by route and day type (weekday, Saturday, Sunday), January 2025 to October 2026, one sheet per mode and year; six PDFs split rail and Flatiron Flyer by branch, which the spreadsheet can't | 7,224 rows, none negative. Summed by mode, the months match the NTD's boardings: commuter rail exactly in 20 of 21 overlapping months, light rail within about 1% in most (February 2025 7% high, December 2025 9% low), bus at 92–99%. 897 rows repeat a route, day type and month with a different count, all under one schedule; the NTD totals match only when they are added, so they look like splits RTD didn't label. October 2026 is a month ahead of the NTD. |
+| 2. Boardings and alightings by stop | `RTD Data_Avg Ridership by Route Direction Stop_Jan26 Runboard_CORA 1065.xlsx`: average daily boardings and alightings by route, direction and stop for the January 2026 service period (January 4 to June 6, 2026), weekday, Friday, Saturday and Sunday | 26,244 rows; 99.93% of its 7,400 stop IDs are GTFS stop IDs, and they hold 99.94% of weekday boardings (197,526 a weekday). 89.5% of current GTFS stops have weekday boardings. A second sheet lists the 15 route-day types with partial counts, the lowest 83.6% of trips (A Line, Friday). |
+| 3. Bus stop amenities | Not released. `Stops used on regular runboards since January 2025.xlsx` lists 14,443 stop IDs with name and location, but no amenities; it covers 99.98% of current GTFS stops. | Ask RTD whether an amenity inventory exists. |
+| 4. On-time methodology | `Explanation_of_On-Time_Performance.pdf` (a question-and-answer note written around 2014, with a 2018 goal change) and three composite on-time reports: calendar 2025, January–September 2026 and September 2026, each by day type, garage and service type, and by route and rail line, with and without detours | — |
+
+Route codes differ between the two spreadsheets. The monthly file uses RTD's internal route numbers (101 light rail, 111 A Line, 350 Flatiron Flyer, 400 route 0); the public code is the start of `ROUTE_NAME` (`0: Broadway`), which matches the GTFS `route_id`. The stop file uses public codes, but rail and a few bus families are grouped (`E`, `W`, `AB`, `LD`) where GTFS splits them (`101E`, `103W`, `AB1`, `LD1`).
+
+RTD's on-time rules, from the methodology note:
+- **Window:** 1 minute early to 5 minutes late, both inclusive (WhyLine excludes exactly 60 s early). Commuter rail uses 0 to 5 minutes, by contract.
+- **Where:** departures at timepoints only, leaving out the first and last timepoint of each pattern (except two-timepoint patterns such as the B Line and 120X), non-passenger light-rail points, and stretches run in "free running time".
+- **Union Station and Civic Center:** staff-recorded arrivals are preferred there, and any early arrival counts as on time.
+- **Days and detours:** "atypical days" (over 30% of buses late at Union Station and Civic Center) are dropped; a second set of figures also drops each route while a detour or lane-closure notice is active.
+- **Reporting:** the board figure is year to date, not the month alone.
+
+The note is old, so current practice may differ. It confirms two of the rules tested in the bus on-time gap analysis above (departures at timepoints, and no early penalty at the last stop, since RTD leaves the last timepoint out) and that exactly 1 minute early counts; it doesn't say whether minutes are rounded. The composite reports' route figures cover only months before WhyLine's stop-visit cutover, so a route-by-route comparison needs later months from RTD.
+
+Next: load the two boardings files as reference tables (`raw_rtd_boardings_route_month`, `raw_rtd_boardings_stop`, per the [request plan](plans/rtd-records-request.md)) with a route-code map, and weight reliability, missed trips and crowding by riders.
 
 ### Query usage report
 
