@@ -38,7 +38,7 @@ Generation sends the user's question, filters, and schema brief to the configure
 
 Generation, validation, and execution apply `sanitize_sql()`. It checks SELECT/WITH shape, single-statement syntax, denylisted write keywords, allowed table references and BigQuery namespaces. It adds `LIMIT 5000` only when there is no numeric limit. Existing limits are preserved in the SQL; the API fetches at most 10,000 rows for a query, and the scan is bounded separately (`MAX_BYTES_BILLED`, a 120-second job timeout).
 
-`sanitize_sql()` is a text check for early, readable errors, not the security boundary: a comma join or a comment after `FROM` passes it. BigQuery's dry run therefore re-checks visitor SQL before it runs (statement type and the tables it reads). Least-privileged cloud identities are the third layer: the API account should read only `mart_denver`, with the live views authorized on the datasets they read (pending on November 19, 2026; see [operations](OPERATIONS.md)) and retain server-side validation regardless of browser validation. See [API reference](API_REFERENCE.md).
+`sanitize_sql()` is a text check for early, readable errors, not the security boundary: a comma join or a comment after `FROM` passes it. BigQuery's dry run therefore re-checks visitor SQL before it runs (statement type and the tables it reads). Least-privileged cloud identities are the third layer: the API account should read only `mart_denver`, with the live views authorized on the datasets they read (since November 19, 2026; replacing an authorized view needs owner rights on those datasets, see [deployment](DEPLOYMENT.md)) and retain server-side validation regardless of browser validation. See [API reference](API_REFERENCE.md).
 
 ## State and caching
 
