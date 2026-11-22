@@ -896,6 +896,8 @@ Revision `whylinedenver-api-00020-qfp` serves 100% with Gemini key version 1. Th
      PY
      ```
 
+     This step alone broke the nightly build: the account that runs `dbt build` also needs dataset owner on these three datasets to replace the views (see November 20–22 below).
+
   2. Remove the API account's reader access on the three source datasets:
 
      ```bash
@@ -957,9 +959,15 @@ Readback at 00:25 UTC on November 20:
 - **Nightly:** dispatched at 18:05; Nightly BigQuery passed on dbt 1.12.6 (329 pass, the usual arrival-order warning on 165 visits) and billed 23.8 GB, about half the previous nights now that the two stop-times tests read one week.
 - **Segment history:** `fct_segment_traversal` rebuilt from October 29 (3.5M runs, 0 parked-between-stops runs left); the slowest rush-hour segment is route 76 turning onto Wadsworth at 4.5 km/h.
 - **Realtime image:** `realtime-load` and the VM run `whylinedenver-realtime@sha256:b1b7c52c…` (commit 2298713, dbt 1.12, protobuf 6). The first load on it passed (6 models), and the poller restored its checkpoint after the restart and reports no trip errors; the restart cost about 2 minutes of feed.
-- **Live views:** `mart_vehicles_now` and `mart_stop_visits_recent` are authorized on `core_denver`, `fct_vehicle_report` on `stg_denver`, `stg_rt_vehicle_positions` on `raw_denver`, and `api-service` reads only `mart_denver`. Live queries run; a join of a live view with `dim_stop`, `fct_stop_visit` or `raw_gtfsrt_vp_stream` now fails with BigQuery's Access Denied. Check after the next nightly, which replaces the views, that the live question still runs.
+- **Live views:** `mart_vehicles_now` and `mart_stop_visits_recent` are authorized on `core_denver`, `fct_vehicle_report` on `stg_denver`, `stg_rt_vehicle_positions` on `raw_denver`, and `api-service` reads only `mart_denver`. Live queries run; a join of a live view with `dim_stop`, `fct_stop_visit` or `raw_gtfsrt_vp_stream` now fails with BigQuery's Access Denied. The next nightly failed to replace the views; see November 20–22 below.
 - **Rate limit:** the 21st `POST /api/query/run` in a minute through whylinedenver.com gets 429 (`x-vercel-mitigated: deny`).
 - **Not set:** the BigQuery daily query quota is still the default (200 TiB a day, no override), and the budget could not be read (Billing Budget API off). Optional steps still open: bucket expiry rules, narrowing `api-service`'s project-wide secret and storage grants, rotating the `whylinedev-sa` key, destroying Gemini secret version 2, deleting `whylinedbt-sa` after November 26.
+
+### Nightly BigQuery failures, November 20–22, 2026 (UTC)
+
+Nightly BigQuery failed on November 20, 21 and 22 ([last failed run](https://github.com/medsidd/whyline-denver/actions/runs/45043455596)): `stg_rt_vehicle_positions` and `mart_stop_visits_recent` stopped with `Permission bigquery.datasets.update denied` on `raw_denver` and `core_denver`. Since the November 19 authorizations, replacing those views needs that permission on the datasets they are authorized on, and `whylinedev-sa` had only project-wide data editor. 34 models and tests downstream were skipped, so `fct_vehicle_report`, `fct_stream_health`, `fct_trip_occupancy`, both scorecards, both crowding marts, service delivered by route-day and service equity kept their November 19 build. The realtime job kept running and kept moving the "Data updated" time, so the dashboard did not show the staleness. Nightly Ingest, CI and the authorizations themselves were fine.
+
+Fix (owner, November 22): `whylinedev-sa` is dataset owner on `raw_denver`, `stg_denver` and `core_denver`. The [manual rerun](https://github.com/medsidd/whyline-denver/actions/runs/45057357965) at 18:50 UTC passed (329 pass, the usual arrival-order warning, 0 errors, 0 skipped; 25.1 GB billed), replaced all four authorized views, and rebuilt the six marts by 19:02. The authorizations survived the replacement, the live questions run (378 vehicles; 23,521 recent stop visits), and a join of `mart_vehicles_now` with `core_denver.dim_stop` is still refused with Access Denied. Grant the same owner rights before authorizing a view on any other dataset; see [deployment](DEPLOYMENT.md).
 
 ### Query usage report
 

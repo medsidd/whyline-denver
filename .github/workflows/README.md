@@ -22,7 +22,7 @@ Cloud Scheduler runs the Cloud Run job `realtime-load` every 15 minutes (`2-59/1
 
 ## Credentials and configuration
 
-The YAML writes the service-account credentials to a temporary workspace file and passes project, dataset and bucket values to the steps that use them. Inspect secret names and bindings without printing their values. Secret names include `GOOGLE_APPLICATION_CREDENTIALS`, `GCP_PROJECT_ID`, `GCS_BUCKET`, `BQ_DATASET_RAW`, `BQ_DATASET_STG`, `BQ_DATASET_MART`, `NOAA_CDO_TOKEN` and `CENSUS_API_KEY`. API provider keys are configured in Cloud Run, not here.
+The YAML writes the service-account credentials to a temporary workspace file and passes project, dataset and bucket values to the steps that use them. Inspect secret names and bindings without printing their values. Secret names include `GOOGLE_APPLICATION_CREDENTIALS`, `GCP_PROJECT_ID`, `GCS_BUCKET`, `BQ_DATASET_RAW`, `BQ_DATASET_STG`, `BQ_DATASET_MART`, `NOAA_CDO_TOKEN` and `CENSUS_API_KEY`. API provider keys are configured in Cloud Run, not here. The key's account (`whylinedev-sa`) has project-wide BigQuery data editor and job user, plus dataset owner on `raw_denver`, `stg_denver` and `core_denver`, which BigQuery requires to replace the live views authorized there (see [deployment](../../docs/technical/DEPLOYMENT.md)).
 
 The CI build job needs no BigQuery credentials; the docs jobs use them for `pages-build`.
 
