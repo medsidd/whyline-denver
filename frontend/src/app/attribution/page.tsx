@@ -12,7 +12,7 @@ export const metadata: Metadata = pageMetadata({
 
 export default function AttributionPage() {
   return (
-    <LegalPage title="Data Attribution" updated="October 27, 2026">
+    <LegalPage title="Data Attribution" updated="November 22, 2026">
       <p>
         WhyLine Denver combines public data from the organizations below. Each source keeps its own terms, and public
         availability doesn’t mean every dataset can be reused without conditions. Review the linked terms before you
@@ -33,10 +33,18 @@ export default function AttributionPage() {
 
       <h2>City and County of Denver</h2>
       <p>
-        Traffic crash records and the sidewalk inventory come from the{" "}
+        Traffic crash records, the sidewalk inventory and the Department of Transportation and Infrastructure (DOTI)
+        equity index come from the{" "}
         <a href="https://opendata-geospatialdenver.hub.arcgis.com/">City and County of Denver Open Data Catalog</a> and are
         used under the terms published with each dataset. Location and reporting quality vary, and a missing sidewalk record
         doesn’t mean there is no sidewalk.
+      </p>
+
+      <h2>Colorado Department of Public Health and Environment (CDPHE)</h2>
+      <p>
+        Environmental burden percentiles and disproportionately impacted community status come from{" "}
+        <a href="https://cdphe.colorado.gov/enviroscreen">Colorado EnviroScreen</a> 2.0, published by CDPHE. Percentiles
+        rank areas within Colorado and describe places, not people. CDPHE does not endorse this site.
       </p>
 
       <h2>U.S. Census Bureau</h2>
