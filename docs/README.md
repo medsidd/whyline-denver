@@ -1,6 +1,6 @@
 # Documentation
 
-Start with the [project README](../README.md). Current implementation guides live under `technical/`; public explanations live under `public/`. Dated observations are explicitly separated from configuration and historical engineering lessons.
+Start with the [project README](../README.md). New to the project? Follow the [onboarding path](ONBOARDING.md), which walks through the product, the code, a local run and production in order. Current implementation guides live under `technical/`; public explanations live under `public/`. Dated observations are explicitly separated from configuration and historical engineering lessons.
 
 ## Public explanations
 
