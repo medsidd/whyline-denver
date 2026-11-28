@@ -64,7 +64,7 @@ Defaults below come from code; `.env.example`, Makefile variables, and deploymen
 | `SYNC_STATE_GCS_BUCKET`, `SYNC_STATE_GCS_BLOB` | Remote state enabled only when bucket is set; blob defaults to `state/sync_state.json` |
 | `LLM_PROVIDER` | `stub` when unset in provider dispatch; `.env.example` and deployment Makefile select `gemini` |
 | `GEMINI_API_KEY` / `LLM_API_KEY` | Gemini key / fallback key; Gemini selection without either errors |
-| `GEMINI_MODEL` | `gemini-2.5-flash` |
+| `GEMINI_MODEL` | `gemini-3.5-flash-lite` |
 | `NOAA_CDO_TOKEN` | NOAA API access; without it weather uses `data/external/noaa_raw.csv`, which must exist and use metric units |
 | `CENSUS_API_KEY` | Code allows omission, but production workflow maps the configured secret; inspect response errors rather than assuming keyless access succeeds |
 | `WLD_LOG_LEVEL` | `INFO` for shared ingestion logging |

@@ -23,7 +23,7 @@ After reviewing the intended source and environment, an authorized API deploymen
 make api-deploy
 ```
 
-The Makefile pins the Gemini secret to version 1, the original key (`GEMINI_API_KEY_SECRET ?= gemini-api-key:1`; before November 19, 2026 it had to be passed by hand). A key created on November 18, 2026 (version 2) gets 404 for `gemini-2.5-flash` ("no longer available to new users"), and every newer Flash model answered 503 (high demand) that day. Move to `:latest` together with a `GEMINI_MODEL` that answers reliably for the new key.
+The Makefile sets the model to `gemini-3.5-flash-lite` (`GEMINI_MODEL`, since November 28, 2026; it was `gemini-2.5-flash`, which Google shuts down on December 1, 2026 and then routes to `gemini-3.5-flash-lite`). It pins the Gemini secret to version 1, the original key (`GEMINI_API_KEY_SECRET ?= gemini-api-key:1`); version 2, a key created on November 18, 2026, is disabled. To change only the model on the running service, without a rebuild: `gcloud run services update whylinedenver-api --region=us-central1 --project=whyline-denver --update-env-vars GEMINI_MODEL=<model>`.
 
 This submits a Cloud Build, pushes `us-central1-docker.pkg.dev/whyline-denver/api-service/whylinedenver-api:latest`, and deploys the service. Makefile defaults: 0–3 instances, concurrency 80, 2 CPUs, 2 GiB memory, gen2 execution environment, unauthenticated access, service identity `api-service@whyline-denver.iam.gserviceaccount.com`.
 
