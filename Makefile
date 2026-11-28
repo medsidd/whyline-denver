@@ -29,9 +29,10 @@ CLOUD_RUN_IMAGE  ?= whylinedenver-realtime
 CLOUD_RUN_REPO   ?= realtime-jobs
 GCS_BUCKET       ?= whylinedenver-raw
 LLM_PROVIDER     ?= gemini
-GEMINI_MODEL     ?= gemini-2.5-flash
+# gemini-2.5-flash shuts down on December 1, 2026
+GEMINI_MODEL     ?= gemini-3.5-flash-lite
 GEMINI_API_KEY   ?=
-GEMINI_API_KEY_SECRET ?= gemini-api-key:1  # version 2 (new key) can't use gemini-2.5-flash
+GEMINI_API_KEY_SECRET ?= gemini-api-key:1  # version 2 (the November 18 key) is disabled
 
 MAX_BYTES_BILLED ?= 2000000000  # 2 GB default max bytes billed for queries
 

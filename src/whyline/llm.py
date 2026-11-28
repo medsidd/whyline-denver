@@ -98,7 +98,7 @@ def _gemini_client():
 
 def _gemini_response(prompt: str) -> Dict[str, str]:
     response = _gemini_client().models.generate_content(
-        model=os.getenv("GEMINI_MODEL", "gemini-2.5-flash"), contents=prompt
+        model=os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite"), contents=prompt
     )
 
     text = getattr(response, "text", None)

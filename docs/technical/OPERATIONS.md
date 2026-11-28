@@ -994,6 +994,24 @@ The note is old, so current practice may differ. It confirms two of the rules te
 
 Next: load the two boardings files as reference tables (`raw_rtd_boardings_route_month`, `raw_rtd_boardings_stop`, per the [request plan](plans/rtd-records-request.md)) with a route-code map, and weight reliability, missed trips and crowding by riders.
 
+### Gemini model switched to 3.5 Flash-Lite, November 28, 2026 (UTC)
+
+Google deprecated `gemini-2.5-flash` and shuts it down on December 1, 2026, when requests to it route to `gemini-3.5-flash-lite` ([deprecations](https://ai.google.dev/gemini-api/docs/deprecations)). The code default, `.env.example` and the Makefile now name `gemini-3.5-flash-lite`, a stable model with a free tier (paid tier $0.30 input and $2.50 output per million tokens). Checks with the deployed key (secret version 1; version 2 stays disabled):
+
+- A bare JSON prompt answered in 0.7 s with plain JSON (2.5 Flash wrapped the same answer in a code fence).
+- Six dashboard questions through `generate_sql` and `validate_sql` (delay yesterday, crashes near stops, snow and on-time, routes running now, weekday morning speeds, vulnerable stops): all six produced SQL in 0.8–0.9 s that passed the BigQuery dry run over the app's tables.
+
+Not checked: which tier the key's project is billed on, and free-tier rate limits for this model, which Google's pricing page doesn't state. On the free tier Google may use prompts to improve its products, which the privacy page already allows for.
+
+Owner step: the running service still says `gemini-2.5-flash` (checked November 28). A local `.env` with `GEMINI_MODEL=gemini-2.5-flash`, loaded into the shell, overrides the Makefile default, so change that line before `make api-deploy`. Or change only the setting:
+
+```bash
+gcloud run services update whylinedenver-api --region=us-central1 --project=whyline-denver \
+  --update-env-vars GEMINI_MODEL=gemini-3.5-flash-lite
+```
+
+Then type a question in the dashboard and press Write SQL.
+
 ### Query usage report
 
 From release R1 of the [metrics plan](plans/metrics-implementation.md), the first API image with WP0's change, every query run on Cloud Run also logs one JSON line, `jsonPayload.event="query"`. It records the marts used, the ready-made question number if one was run unedited, row count, status and latency. Question and SQL text are hashed. A weekly read-only summary:
