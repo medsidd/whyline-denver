@@ -18,7 +18,7 @@ Nightly runs rebuild the dimensions and refresh the schedule fact (today through
 
 ## Recurring realtime work
 
-Cloud Scheduler runs the Cloud Run job `realtime-load` every 15 minutes (`2-59/15`), and the VM `whyline-rt` runs the continuous GTFS-RT poller. The shared image, identities and deployment are in [infra/cloud-run](../../infra/cloud-run/README.md).
+Cloud Scheduler runs the Cloud Run job `realtime-load` every 15 minutes (`2-59/15`), and the VM `rt-stream-poller` (on the `whyline-rt` network) runs the continuous GTFS-RT poller. The shared image, identities and deployment are in [infra/cloud-run](../../infra/cloud-run/README.md).
 
 ## Credentials and configuration
 
